@@ -2,3 +2,15 @@
 
 __pycache__/
 *.pyc
+
+# 忽略生成的临时和导出文件
+*.html
+*.md
+remix_state.json
+
+# 忽略临时调试脚本
+check_debug.py
+dump_chatgpt.py
+fetch_raw.py
+dump.py
+analyze.py

@@ -1,3 +1,4 @@
 playwright
 rich
 beautifulsoup4
+markdownify
