@@ -1,16 +1,24 @@
-.venv
-
+# Python 虚拟环境及字节码
+.venv/
 __pycache__/
 *.pyc
 
-# 忽略生成的临时和导出文件
-*.html
+# 浏览器登录凭证（隐私敏感数据，严禁提交！）
+.browser_user_data/
+
+# 导出的产物与抓取的本地图片
+images/
 *.md
+!README.md
+
+# 网页抓取快照与 JSON 缓存
+*.html
 remix_state.json
 
-# 忽略临时调试脚本
+# 临时测试与调试脚本
 check_debug.py
 dump_chatgpt.py
 fetch_raw.py
 dump.py
 analyze.py
+test_*
