@@ -100,12 +100,12 @@ async def fetch_chat_content(url, need_login=False):
                                 if res.ok:
                                     with open(filepath, "wb") as f_img:
                                         f_img.write(await res.body())
-                                    image_map[src] = f"./images/{filename}"
+                                    image_map[src] = f"../images/{filename}"
                                     img_index += 1
                             except Exception:
                                 pass
                         else:
-                            image_map[src] = f"./images/{filename}"
+                            image_map[src] = f"../images/{filename}"
 
             return html, image_map
         except Exception as e:
@@ -304,7 +304,7 @@ def parse_and_display(html, image_map=None):
                     f.write(f"---\n\n### 🤖 AI 回答\n\n{item['content']}\n\n")
         console.print(f"\n[bold green]🎉 对话记录已成功导出为 Markdown 文件: {export_filename}[/bold green]")
         if image_map:
-            console.print(f"[dim]已成功下载并关联 {len(image_map)} 张图片到 ./images/ 目录。[/dim]")
+            console.print(f"[dim]已成功下载并关联 {len(image_map)} 张图片到 ../images/ 目录。[/dim]")
     except Exception as e:
         console.print(f"\n[bold red]保存 Markdown 文件时出错:[/bold red] {e}")
 
