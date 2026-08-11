@@ -11,6 +11,112 @@ import markdownify
 
 console = Console()
 
+async def collect_chatgpt_virtualized_html(page):
+    """逐屏收集 ChatGPT 虚拟列表中的消息，避免长对话首尾丢失。"""
+    role_selector = "[data-message-author-role]"
+    if await page.locator(role_selector).count() == 0:
+        return None
+
+    scroll_container = None
+    captured = {}
+    discovery_index = 0
+
+    try:
+        scroll_container = await page.locator(role_selector).first.evaluate_handle(
+            """element => {
+                let current = element;
+                while (current) {
+                    const style = window.getComputedStyle(current);
+                    const canScroll = current.scrollHeight > current.clientHeight + 1;
+                    if (canScroll && /(auto|scroll)/.test(style.overflowY)) {
+                        return current;
+                    }
+                    current = current.parentElement;
+                }
+                return document.scrollingElement || document.documentElement;
+            }"""
+        )
+
+        scroll_top = 0
+        for _ in range(100):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                scroll_top
+            )
+            await page.wait_for_timeout(700)
+
+            visible_messages = await page.locator(role_selector).evaluate_all(
+                """elements => elements.map(element => {
+                    const turn = element.closest('[data-testid^="conversation-turn-"]');
+                    const testId = turn ? turn.getAttribute('data-testid') || '' : '';
+                    const turnMatch = testId.match(/(\d+)$/);
+                    const messageId = element.getAttribute('data-message-id') || '';
+                    const role = element.getAttribute('data-message-author-role') || '';
+                    const text = element.innerText || element.textContent || '';
+                    return {
+                        key: messageId || testId || `${role}:${text}`,
+                        order: turnMatch ? Number(turnMatch[1]) : null,
+                        html: element.outerHTML
+                    };
+                })"""
+            )
+
+            for message in visible_messages:
+                key = message["key"]
+                if key not in captured:
+                    message["discovery_index"] = discovery_index
+                    captured[key] = message
+                    discovery_index += 1
+
+            metrics = await scroll_container.evaluate(
+                """element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight
+                })"""
+            )
+            max_scroll_top = max(
+                0,
+                metrics["scrollHeight"] - metrics["clientHeight"]
+            )
+            if scroll_top >= max_scroll_top:
+                break
+
+            step = max(int(metrics["clientHeight"] * 0.5), 800)
+            next_scroll_top = min(scroll_top + step, max_scroll_top)
+            if next_scroll_top <= scroll_top:
+                break
+            scroll_top = next_scroll_top
+
+        ordered_messages = sorted(
+            captured.values(),
+            key=lambda message: (
+                message["order"] is None,
+                message["order"]
+                if message["order"] is not None
+                else message["discovery_index"]
+            )
+        )
+
+        if ordered_messages:
+            console.print(
+                f"[dim]已从 ChatGPT 虚拟列表中完整收集 "
+                f"{len(ordered_messages)} 条消息。[/dim]"
+            )
+            message_html = "\n".join(
+                message["html"] for message in ordered_messages
+            )
+            return f"<!DOCTYPE html><html><body>{message_html}</body></html>"
+
+    except Exception as e:
+        console.print(
+            f"[dim]提示: ChatGPT 虚拟列表收集失败，将使用当前页面快照: {e}[/dim]"
+        )
+    finally:
+        if scroll_container is not None:
+            await scroll_container.dispose()
+
+    return None
+
 async def fetch_chat_content(url, need_login=False):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     user_data_dir = os.path.join(script_dir, ".browser_user_data")
@@ -63,8 +169,10 @@ async def fetch_chat_content(url, need_login=False):
                 console.print("[dim]提示: 等待动态节点超时，可能网页结构有所变化或需登录访问。[/dim]")
             await page.wait_for_timeout(4000)
             
-            # 获取完整 HTML
-            html = await page.content()
+            # ChatGPT 使用虚拟列表，长对话必须逐屏收集才能避免首尾消息丢失。
+            html = await collect_chatgpt_virtualized_html(page)
+            if html is None:
+                html = await page.content()
             soup_pre = BeautifulSoup(html, "html.parser")
             
             # 自动提取并本地化保存网页中的所有真实图片 (支持 src, data-src, srcset)
@@ -299,9 +407,17 @@ def parse_and_display(html, image_map=None):
             f.write("# AI 对话记忆导出\n\n")
             for item in parsed_messages:
                 if item['role'] == 'User':
-                    f.write(f"---\n\n### 👤 用户\n\n{item['content']}\n\n")
+                    f.write(
+                        '\n<hr style="border: 0; border-top: 5px solid #2563EB; '
+                        'margin: 48px 0 24px 0;">\n\n'
+                        f"## 🔵 👤 用户提问\n\n{item['content']}\n\n"
+                    )
                 else:
-                    f.write(f"---\n\n### 🤖 AI 回答\n\n{item['content']}\n\n")
+                    f.write(
+                        '\n<hr style="border: 0; border-top: 5px solid #9333EA; '
+                        'margin: 48px 0 24px 0;">\n\n'
+                        f"## 🟣 🤖 AI 回答\n\n{item['content']}\n\n"
+                    )
         console.print(f"\n[bold green]🎉 对话记录已成功导出为 Markdown 文件: {export_filename}[/bold green]")
         if image_map:
             console.print(f"[dim]已成功下载并关联 {len(image_map)} 张图片到 ../images/ 目录。[/dim]")

@@ -8,12 +8,14 @@ __pycache__/
 
 # 导出的产物与抓取的本地图片
 images/
+AI_memory_export.md
 *.md
 !README.md
 
 # 网页抓取快照与 JSON 缓存
 *.html
 remix_state.json
+AI_memory_result.json
 
 # 临时测试与调试脚本
 check_debug.py
