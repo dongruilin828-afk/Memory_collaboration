@@ -18,3 +18,15 @@
 抓取模式下使用超高虚拟窗口： 当我们处于后台静默抓取模式（headless=True）时，我们不需要考虑登录界面的美观，只需要让 ChatGPT 以为我们在往下滚动从而把历史记录都渲染出来。因此此时我们会强制设置 viewport={'width': 1920, 'height': 10800}，将页面视口拉得极高，一次性把通过虚拟列表（Virtual List）隐藏的聊天内容全部“挤”进渲染流里。
 5. 我们的所有工作都是在沙箱中进行的，你做出的所有改动必须都体现在强国之路文件夹中。
 6. 没有我的明确指令不得使用git commit。
+7. 平台适配器模块化约定（2026-08-11）
+为了避免所有平台逻辑继续堆积在 parser.py 中，ChatGPT、DeepSeek、豆包已经迁移到 providers 目录。parser.py 只负责浏览器启动、页面加载、通用图片下载、平台调度、降级解析和命令行入口；markdown_exporter.py 统一负责终端展示与 Markdown 导出。
+
+每个平台模块统一提供以下成员：
+- DISPLAY_NAME：终端显示的平台名称。
+- WAIT_SELECTOR：判断动态消息节点是否出现的稳定选择器。
+- parse_messages(soup, image_map)：识别并解析该平台；不属于该平台时返回 None。
+- collect_html(page)：仅虚拟列表平台需要实现，用于逐屏采集完整消息。
+
+新增 AI 时，应在 providers 中新建独立文件，再在 providers/__init__.py 中导入并加入 PROVIDERS。平台检测顺序由 PROVIDERS 决定；当前顺序必须保持为 ChatGPT、DeepSeek、豆包，除非有充分测试证明可以调整。不要把新平台的 CSS 选择器、附件规则或消息清洗逻辑重新写回 parser.py。
+
+模块拆分属于纯重构时，必须完整运行 run_tests.py，并与 results_right 中的黄金基线比较。图片链接可能包含动态签名，不能只比较原始文件哈希；应同时比较问答数量、忽略本地图片文件名后的正文、图片文件是否存在，以及超长对话的首尾和多个中段抽样点。
