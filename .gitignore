@@ -16,6 +16,7 @@ AI_memory_export.md
 *.html
 remix_state.json
 AI_memory_result.json
+项目工作文档.txt
 
 # 临时测试与调试脚本
 check_debug.py

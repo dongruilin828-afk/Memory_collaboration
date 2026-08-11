@@ -49,7 +49,7 @@ async def collect_chatgpt_virtualized_html(page):
                 """elements => elements.map(element => {
                     const turn = element.closest('[data-testid^="conversation-turn-"]');
                     const testId = turn ? turn.getAttribute('data-testid') || '' : '';
-                    const turnMatch = testId.match(/(\d+)$/);
+                    const turnMatch = testId.match(/(\\d+)$/);
                     const messageId = element.getAttribute('data-message-id') || '';
                     const role = element.getAttribute('data-message-author-role') || '';
                     const text = element.innerText || element.textContent || '';
@@ -117,6 +117,168 @@ async def collect_chatgpt_virtualized_html(page):
 
     return None
 
+async def collect_deepseek_virtualized_html(page):
+    """逐屏收集 DeepSeek 虚拟列表中的消息，避免超长分享对话丢失。"""
+    item_selector = "[data-virtual-list-item-key]"
+    if await page.locator(f"{item_selector} .ds-message").count() == 0:
+        return None
+
+    scroll_container = None
+    captured = {}
+    discovery_index = 0
+
+    async def capture_visible_items():
+        """收集当前已挂载的消息；DeepSeek 的虚拟列表挂载有短暂延迟。"""
+        nonlocal discovery_index
+        visible_items = await page.locator(item_selector).evaluate_all(
+            """elements => elements
+                .filter(element => element.querySelector('.ds-message'))
+                .map(element => {
+                    const rawKey = element.getAttribute(
+                        'data-virtual-list-item-key'
+                    ) || '';
+                    const numericKey = Number(rawKey);
+                    const imageScore = Array.from(
+                        element.querySelectorAll('img')
+                    ).filter(image => {
+                        const src = image.getAttribute('src')
+                            || image.getAttribute('data-src') || '';
+                        return src && !src.startsWith('data:image/svg');
+                    }).length;
+                    return {
+                        key: rawKey || element.innerText || element.outerHTML,
+                        order: Number.isFinite(numericKey) ? numericKey : null,
+                        image_score: imageScore,
+                        html: element.outerHTML
+                    };
+                })"""
+        )
+
+        for item in visible_items:
+            key = item["key"]
+            existing = captured.get(key)
+            if existing is None:
+                item["discovery_index"] = discovery_index
+                captured[key] = item
+                discovery_index += 1
+            elif (
+                item["image_score"],
+                len(item["html"])
+            ) > (
+                existing["image_score"],
+                len(existing["html"])
+            ):
+                item["discovery_index"] = existing["discovery_index"]
+                captured[key] = item
+
+    try:
+        scroll_container = await page.locator(
+            f"{item_selector} .ds-message"
+        ).first.evaluate_handle(
+            """element => {
+                let current = element;
+                while (current) {
+                    const style = window.getComputedStyle(current);
+                    const canScroll = current.scrollHeight > current.clientHeight + 1;
+                    if (canScroll && /(auto|scroll)/.test(style.overflowY)) {
+                        return current;
+                    }
+                    current = current.parentElement;
+                }
+                return document.scrollingElement || document.documentElement;
+            }"""
+        )
+
+        scroll_top = 0
+        max_scroll_top = 0
+        for _ in range(100):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                scroll_top
+            )
+            await page.wait_for_timeout(700)
+
+            await capture_visible_items()
+            await page.wait_for_timeout(500)
+            await capture_visible_items()
+
+            metrics = await scroll_container.evaluate(
+                """element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight
+                })"""
+            )
+            max_scroll_top = max(
+                0,
+                metrics["scrollHeight"] - metrics["clientHeight"]
+            )
+            if scroll_top >= max_scroll_top:
+                break
+
+            step = max(int(metrics["clientHeight"] * 0.5), 800)
+            next_scroll_top = min(scroll_top + step, max_scroll_top)
+            if next_scroll_top <= scroll_top:
+                break
+            scroll_top = next_scroll_top
+
+        # 人工登录使用系统窗口尺寸。此时首次滚到顶部后，DeepSeek
+        # 偶尔要过一小段时间才会挂载第一条消息。回访首尾边界并固定
+        # 复采数次，既补齐首条，也避免尾条遇到相同的竞态。
+        for boundary in (max_scroll_top, 0):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                boundary
+            )
+            for _ in range(4):
+                await page.wait_for_timeout(500)
+                await capture_visible_items()
+
+        ordered_items = sorted(
+            captured.values(),
+            key=lambda item: (
+                item["order"] is None,
+                item["order"]
+                if item["order"] is not None
+                else item["discovery_index"]
+            )
+        )
+
+        if ordered_items:
+            console.print(
+                f"[dim]已从 DeepSeek 虚拟列表中完整收集 "
+                f"{len(ordered_items)} 条消息。[/dim]"
+            )
+            item_html = "\n".join(item["html"] for item in ordered_items)
+            return f"<!DOCTYPE html><html><body>{item_html}</body></html>"
+
+    except Exception as e:
+        console.print(
+            f"[dim]提示: DeepSeek 虚拟列表收集失败，将使用当前页面快照: {e}[/dim]"
+        )
+    finally:
+        if scroll_container is not None:
+            await scroll_container.dispose()
+
+    return None
+
+async def goto_with_retry(page, url, attempts=3):
+    """加载分享页；网络偶发超时时自动重试，并明确显示进度。"""
+    for attempt in range(1, attempts + 1):
+        try:
+            await page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=45000
+            )
+            return
+        except Exception:
+            if attempt >= attempts:
+                raise
+            console.print(
+                f"[yellow]页面加载超时，正在进行第 {attempt + 1}/{attempts} 次尝试...[/yellow]"
+            )
+            await page.wait_for_timeout(2000 * attempt)
+
 async def fetch_chat_content(url, need_login=False):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     user_data_dir = os.path.join(script_dir, ".browser_user_data")
@@ -153,7 +315,7 @@ async def fetch_chat_content(url, need_login=False):
         
         try:
             # 使用 domcontentloaded 替代 networkidle，防止 ChatGPT 私有对话长连接导致 45 秒超时
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            await goto_with_retry(page, url)
             
             if need_login:
                 console.print("\n[bold green]>>> 提示：请在弹出的浏览器界面中完成登录，完成后按【回车键 (Enter)】继续抓取... <<<[/bold green]")
@@ -163,14 +325,21 @@ async def fetch_chat_content(url, need_login=False):
             
             console.print("[dim]正在等待动态内容渲染...[/dim]")
             try:
-                # 兼容豆包 (.message-item) 和 ChatGPT ([data-message-author-role])
-                await page.wait_for_selector(".message-item, [data-message-author-role]", state="attached", timeout=15000)
+                # 兼容豆包、ChatGPT 和 DeepSeek 的稳定消息节点
+                await page.wait_for_selector(
+                    ".message-item, [data-message-author-role], "
+                    "[data-virtual-list-item-key] .ds-message",
+                    state="attached",
+                    timeout=15000
+                )
             except Exception:
                 console.print("[dim]提示: 等待动态节点超时，可能网页结构有所变化或需登录访问。[/dim]")
             await page.wait_for_timeout(4000)
             
             # ChatGPT 使用虚拟列表，长对话必须逐屏收集才能避免首尾消息丢失。
             html = await collect_chatgpt_virtualized_html(page)
+            if html is None:
+                html = await collect_deepseek_virtualized_html(page)
             if html is None:
                 html = await page.content()
             soup_pre = BeautifulSoup(html, "html.parser")
@@ -222,9 +391,113 @@ async def fetch_chat_content(url, need_login=False):
         finally:
             await context.close()
 
+def parse_deepseek_messages(soup, image_map=None):
+    """解析 DeepSeek 分享页，只保留用户内容和 AI 最终回答。"""
+    if image_map is None:
+        image_map = {}
+
+    parsed_messages = []
+    ignored_ui_text = {
+        "复制", "重新生成", "编辑", "分享", "下载", "点赞", "踩"
+    }
+    attachment_name_pattern = re.compile(
+        r'^[^\\/:*?"<>|\n]+\.(?:png|jpe?g|webp|gif|bmp|svg|pdf|docx?|'
+        r'xlsx?|pptx?|txt|csv|zip|rar)$',
+        re.IGNORECASE
+    )
+    attachment_size_pattern = re.compile(
+        r'^(?:PNG|JPE?G|WEBP|GIF|BMP|SVG|PDF|DOCX?|XLSX?|PPTX?|TXT|CSV|ZIP|RAR)'
+        r'\s+\d+(?:\.\d+)?\s*(?:B|KB|MB|GB)$',
+        re.IGNORECASE
+    )
+
+    for item in soup.select('[data-virtual-list-item-key]'):
+        message_node = item.select_one('.ds-message')
+        if message_node is None:
+            continue
+
+        answer_node = item.select_one('.ds-assistant-message-main-content')
+        if answer_node is not None:
+            answer_soup = BeautifulSoup(str(answer_node), 'html.parser')
+            answer = answer_soup.select_one('.ds-assistant-message-main-content')
+
+            # 去掉代码块工具栏中的“复制/下载”等界面文字，保留代码本体。
+            for removable in answer.select(
+                'script, style, noscript, button, .md-code-block-banner-wrap'
+            ):
+                removable.decompose()
+
+            for img in answer.find_all('img'):
+                src = img.get('src') or img.get('data-src')
+                if src in image_map:
+                    img['src'] = image_map[src]
+
+            md_text = markdownify.markdownify(
+                str(answer),
+                heading_style='ATX'
+            ).strip()
+            if md_text:
+                parsed_messages.append({'role': 'AI', 'content': md_text})
+            continue
+
+        user_soup = BeautifulSoup(str(message_node), 'html.parser')
+        user_message = user_soup.select_one('.ds-message')
+        user_parts = []
+
+        for img in user_message.find_all('img'):
+            src = img.get('src') or img.get('data-src')
+            alt = img.get('alt', '用户上传图片')
+            if src and not src.startswith('data:image/svg'):
+                local_src = image_map.get(src, src)
+                user_parts.append(f'![{alt}]({local_src})')
+
+        for removable in user_message.select(
+            'script, style, noscript, button, svg'
+        ):
+            removable.decompose()
+
+        raw_lines = [
+            line.strip()
+            for line in user_message.get_text(separator='\n', strip=True).split('\n')
+            if line.strip()
+        ]
+        clean_lines = []
+        index = 0
+        while index < len(raw_lines):
+            line = raw_lines[index]
+            next_line = raw_lines[index + 1] if index + 1 < len(raw_lines) else ''
+            if (
+                attachment_name_pattern.match(line)
+                and attachment_size_pattern.match(next_line)
+            ):
+                user_parts.append(
+                    f'📎 **[上传文件]** `{line}`（{next_line}）'
+                )
+                index += 2
+                continue
+            if line not in ignored_ui_text:
+                clean_lines.append(line)
+            index += 1
+
+        if clean_lines:
+            user_parts.append('\n'.join(clean_lines))
+
+        seen = set()
+        ordered_parts = []
+        for part in user_parts:
+            if part not in seen:
+                seen.add(part)
+                ordered_parts.append(part)
+
+        final_text = '\n\n'.join(ordered_parts)
+        if final_text:
+            parsed_messages.append({'role': 'User', 'content': final_text})
+
+    return parsed_messages
+
 def parse_and_display(html, image_map=None):
     if not html:
-        return
+        return False
     
     if image_map is None:
         image_map = {}
@@ -243,6 +516,13 @@ def parse_and_display(html, image_map=None):
     
     # 1. 尝试使用 ChatGPT 解析逻辑
     chatgpt_messages = soup.find_all(attrs={"data-message-author-role": True})
+    deepseek_messages = []
+    if not chatgpt_messages:
+        deepseek_messages = parse_deepseek_messages(soup, image_map)
+        if deepseek_messages:
+            console.print("[dim]检测到 DeepSeek 对话格式，使用专用解析器...[/dim]")
+            parsed_messages.extend(deepseek_messages)
+
     if chatgpt_messages:
         console.print("[dim]检测到 ChatGPT 对话格式，使用专用解析器...[/dim]")
         for msg in chatgpt_messages:
@@ -312,8 +592,8 @@ def parse_and_display(html, image_map=None):
                 md_text = markdownify.markdownify(str(msg), heading_style="ATX").strip()
                 parsed_messages.append({'role': 'AI', 'content': md_text})
                 
-    else:
-        # 2. 尝试使用豆包解析逻辑
+    elif not deepseek_messages:
+        # 3. 尝试使用豆包解析逻辑
         for script_or_style in soup(['script', 'style', 'noscript', 'button']):
             script_or_style.decompose()
             
@@ -368,7 +648,7 @@ def parse_and_display(html, image_map=None):
                         parsed_messages.append({'role': 'AI', 'content': md_text})
         
         else:
-            # 3. 降级提取方案
+            # 4. 降级提取方案
             console.print("[dim]未能找到标志性的对话类，启用降级提取模式...[/dim]")
             text_content = soup.get_text(separator='\n', strip=True)
             lines = text_content.split('\n')
@@ -390,7 +670,7 @@ def parse_and_display(html, image_map=None):
 
     if not parsed_messages:
         console.print("[bold red]未能提取到有效对话内容。网页快照已保存到 debug_last_fetch.html，供排查。[/bold red]")
-        return
+        return False
 
     console.print(f"[dim]共提取到 {len(parsed_messages)} 条对话交互：[/dim]\n")
     
@@ -420,9 +700,11 @@ def parse_and_display(html, image_map=None):
                     )
         console.print(f"\n[bold green]🎉 对话记录已成功导出为 Markdown 文件: {export_filename}[/bold green]")
         if image_map:
-            console.print(f"[dim]已成功下载并关联 {len(image_map)} 张图片到 ../images/ 目录。[/dim]")
+            console.print(f"[dim]已成功下载并关联 {len(image_map)} 张图片到 ./images/ 目录。[/dim]")
+        return True
     except Exception as e:
         console.print(f"\n[bold red]保存 Markdown 文件时出错:[/bold red] {e}")
+        return False
 
 async def main():
     console.print(Panel.fit("[bold yellow]🚀 AI 记忆协同管理工具 - 对话提取与可视化工具 (V0.2)[/bold yellow]", border_style="green"))
@@ -441,7 +723,10 @@ async def main():
         sys.exit(1)
         
     html, image_map = await fetch_chat_content(url, need_login=need_login)
-    parse_and_display(html, image_map)
+    success = parse_and_display(html, image_map)
+    if not success:
+        console.print("\n[bold red]处理失败，未生成有效的导出文件。[/bold red]")
+        sys.exit(1)
     
     console.print("\n[bold green]处理完成！[/bold green]")
 

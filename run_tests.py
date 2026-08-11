@@ -31,6 +31,8 @@ def read_tests():
 
     current_platform = None
 
+    pending_title = None
+
     # 按行读取
     for line in content.splitlines():
 
@@ -48,12 +50,25 @@ def read_tests():
 
             current_platform = "ChatGPT"
 
+            pending_title = None
+
             continue
 
 
         if line.startswith("豆包"):
 
             current_platform = "豆包"
+
+            pending_title = None
+
+            continue
+
+
+        if line.lower().startswith("deepseek"):
+
+            current_platform = "DeepSeek"
+
+            pending_title = None
 
             continue
 
@@ -80,6 +95,12 @@ def read_tests():
             # 去掉标题末尾的冒号
             title = title.rstrip("：:")
 
+            if not title:
+
+                title = pending_title or ""
+
+            pending_title = None
+
 
             if current_platform and title:
 
@@ -90,6 +111,14 @@ def read_tests():
                 tests.append(
                     (full_title, link)
                 )
+
+        elif current_platform and line.endswith(("：", ":")):
+
+            candidate = line.rstrip("：:").strip()
+
+            if candidate not in {"分享链接", "网页对话链接"}:
+
+                pending_title = candidate
 
 
     return tests
@@ -118,7 +147,7 @@ def clean_filename(filename):
 # 等待 Markdown 文件生成
 # ============================================================
 
-def wait_for_export(timeout=1800):
+def wait_for_export(timeout=10):
 
     """
     等待 parser.py 生成 AI_memory_export.md
@@ -272,6 +301,15 @@ def process_one(index, total, title, link):
 
             target_file.unlink()
 
+
+        # parser.py 的人工导出位于项目根目录，图片路径使用 ./images/。
+        # 测试结果将被移入 results/，因此在移动前换算相对路径。
+        export_content = EXPORT_FILE.read_text(encoding="utf-8")
+        export_content = export_content.replace(
+            "](./images/",
+            "](../images/"
+        )
+        EXPORT_FILE.write_text(export_content, encoding="utf-8")
 
         # 移动并重命名
         EXPORT_FILE.rename(target_file)
