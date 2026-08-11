@@ -8,6 +8,7 @@ __pycache__/
 
 # 导出的产物与抓取的本地图片
 images/
+results_right/
 AI_memory_export.md
 *.md
 !README.md

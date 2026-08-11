@@ -191,7 +191,7 @@ async def collect_deepseek_virtualized_html(page):
 
         scroll_top = 0
         max_scroll_top = 0
-        for _ in range(100):
+        for _ in range(500):
             await scroll_container.evaluate(
                 "(element, top) => element.scrollTo(0, top)",
                 scroll_top
@@ -444,6 +444,20 @@ def parse_deepseek_messages(soup, image_map=None):
         user_message = user_soup.select_one('.ds-message')
         user_parts = []
 
+        # DeepSeek 的历史分享图片可能已经从文件服务失效。此时前端只
+        # 留下一个带宽高样式和 tabindex 的错误占位组件，没有 img/src。
+        media_placeholder = user_message.find(attrs={'tabindex': '0'})
+        placeholder_style = (
+            media_placeholder.get('style', '')
+            if media_placeholder is not None
+            else ''
+        )
+        has_failed_image_placeholder = (
+            user_message.find('img') is None
+            and 'width:' in placeholder_style
+            and 'height:' in placeholder_style
+        )
+
         for img in user_message.find_all('img'):
             src = img.get('src') or img.get('data-src')
             alt = img.get('alt', '用户上传图片')
@@ -481,6 +495,12 @@ def parse_deepseek_messages(soup, image_map=None):
 
         if clean_lines:
             user_parts.append('\n'.join(clean_lines))
+
+        if not user_parts and has_failed_image_placeholder:
+            user_parts.append(
+                '🖼️ **[用户上传图片]**'
+                '（DeepSeek 分享页原图已失效或加载失败）'
+            )
 
         seen = set()
         ordered_parts = []
