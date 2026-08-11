@@ -12,6 +12,45 @@ WAIT_SELECTOR = "[data-message-author-role]"
 console = Console()
 
 
+def _collapse_nested_markdown_fences(text):
+    """将 ChatGPT 偶发生成的双层 Markdown 代码围栏折叠为单层。"""
+    fence = chr(96) * 3
+    lines = text.splitlines(keepends=True)
+    cleaned = []
+    index = 0
+
+    def is_fence(line):
+        return line.strip().startswith(fence)
+
+    while index < len(lines):
+        # markdownify 偶尔产生“围栏 / 围栏 / 正文 / 围栏 / 围栏”。
+        # 只折叠这一完整、对称的双层结构，不碰普通代码块。
+        if (
+            index + 1 < len(lines)
+            and is_fence(lines[index])
+            and is_fence(lines[index + 1])
+        ):
+            closing_index = index + 2
+            while closing_index + 1 < len(lines):
+                if (
+                    is_fence(lines[closing_index])
+                    and is_fence(lines[closing_index + 1])
+                ):
+                    cleaned.extend(lines[index + 1:closing_index + 1])
+                    index = closing_index + 2
+                    break
+                closing_index += 1
+            else:
+                cleaned.append(lines[index])
+                index += 1
+            continue
+
+        cleaned.append(lines[index])
+        index += 1
+
+    return "".join(cleaned)
+
+
 async def collect_html(page):
     """逐屏收集 ChatGPT 虚拟列表中的消息，避免长对话首尾丢失。"""
     role_selector = WAIT_SELECTOR
@@ -213,21 +252,21 @@ def parse_messages(soup, image_map=None):
 
             # 修复 ChatGPT 嵌套 <pre> 导致 markdownify 生成多重/错误代码块的问题
             for pre in msg.find_all("pre"):
-                if "cm-content" not in pre.get('class', []):
-                    inner_pre = pre.find("pre", class_="cm-content")
-                    if inner_pre:
-                        code_text = inner_pre.get_text()
-                        # 构造标准 <pre><code> 避免嵌套冲突
-                        new_pre = soup.new_tag("pre")
-                        new_code = soup.new_tag("code")
-                        new_code.string = code_text
-                        new_pre.append(new_code)
-                        pre.replace_with(new_pre)
+                inner_pre = pre.find("pre")
+                if inner_pre:
+                    code_text = inner_pre.get_text()
+                    # 构造标准 <pre><code> 避免嵌套冲突；不依赖易变化的类名
+                    new_pre = soup.new_tag("pre")
+                    new_code = soup.new_tag("code")
+                    new_code.string = code_text
+                    new_pre.append(new_code)
+                    pre.replace_with(new_pre)
 
             md_text = markdownify.markdownify(
                 str(msg),
                 heading_style="ATX"
             ).strip()
+            md_text = _collapse_nested_markdown_fences(md_text)
             parsed_messages.append({'role': 'AI', 'content': md_text})
 
     return parsed_messages
