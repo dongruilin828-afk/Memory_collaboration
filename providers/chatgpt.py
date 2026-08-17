@@ -12,6 +12,21 @@ WAIT_SELECTOR = "[data-message-author-role]"
 console = Console()
 
 
+def _prefer_snapshot(candidate, existing):
+    """仅在文本或图片更完整且另一维不退步时替换消息快照。"""
+    candidate_text = int(candidate.get("text_length") or 0)
+    existing_text = int(existing.get("text_length") or 0)
+    candidate_images = int(candidate.get("image_score") or 0)
+    existing_images = int(existing.get("image_score") or 0)
+    return (
+        candidate_text > existing_text
+        and candidate_images >= existing_images
+    ) or (
+        candidate_images > existing_images
+        and candidate_text >= existing_text
+    )
+
+
 def _collapse_nested_markdown_fences(text):
     """将 ChatGPT 偶发生成的双层 Markdown 代码围栏折叠为单层。"""
     fence = chr(96) * 3
@@ -61,6 +76,52 @@ async def collect_html(page):
     captured = {}
     discovery_index = 0
 
+    async def capture_visible_messages():
+        """复采当前消息；保留文本和真实图片均不退步的较完整快照。"""
+        nonlocal discovery_index
+        visible_messages = await page.locator(role_selector).evaluate_all(
+            """elements => elements.map(element => {
+                const turn = element.closest(
+                    '[data-testid^="conversation-turn-"]'
+                );
+                const testId = turn
+                    ? turn.getAttribute('data-testid') || ''
+                    : '';
+                const turnMatch = testId.match(/(\d+)$/);
+                const messageId =
+                    element.getAttribute('data-message-id') || '';
+                const role =
+                    element.getAttribute('data-message-author-role') || '';
+                const text =
+                    element.innerText || element.textContent || '';
+                const imageScore = Array.from(
+                    element.querySelectorAll('img')
+                ).filter(image => {
+                    const src = image.getAttribute('src')
+                        || image.getAttribute('data-src') || '';
+                    return src && !src.startsWith('data:image/svg');
+                }).length;
+                return {
+                    key: messageId || testId || role + ':' + text,
+                    order: turnMatch ? Number(turnMatch[1]) : null,
+                    text_length: text.length,
+                    image_score: imageScore,
+                    html: element.outerHTML
+                };
+            })"""
+        )
+
+        for message in visible_messages:
+            key = message["key"]
+            existing = captured.get(key)
+            if existing is None:
+                message["discovery_index"] = discovery_index
+                captured[key] = message
+                discovery_index += 1
+            elif _prefer_snapshot(message, existing):
+                message["discovery_index"] = existing["discovery_index"]
+                captured[key] = message
+
     try:
         scroll_container = await page.locator(role_selector).first.evaluate_handle(
             """element => {
@@ -78,6 +139,7 @@ async def collect_html(page):
         )
 
         scroll_top = 0
+        max_scroll_top = 0
         for _ in range(100):
             await scroll_container.evaluate(
                 "(element, top) => element.scrollTo(0, top)",
@@ -85,28 +147,9 @@ async def collect_html(page):
             )
             await page.wait_for_timeout(700)
 
-            visible_messages = await page.locator(role_selector).evaluate_all(
-                """elements => elements.map(element => {
-                    const turn = element.closest('[data-testid^="conversation-turn-"]');
-                    const testId = turn ? turn.getAttribute('data-testid') || '' : '';
-                    const turnMatch = testId.match(/(\\d+)$/);
-                    const messageId = element.getAttribute('data-message-id') || '';
-                    const role = element.getAttribute('data-message-author-role') || '';
-                    const text = element.innerText || element.textContent || '';
-                    return {
-                        key: messageId || testId || `${role}:${text}`,
-                        order: turnMatch ? Number(turnMatch[1]) : null,
-                        html: element.outerHTML
-                    };
-                })"""
-            )
-
-            for message in visible_messages:
-                key = message["key"]
-                if key not in captured:
-                    message["discovery_index"] = discovery_index
-                    captured[key] = message
-                    discovery_index += 1
+            await capture_visible_messages()
+            await page.wait_for_timeout(500)
+            await capture_visible_messages()
 
             metrics = await scroll_container.evaluate(
                 """element => ({
@@ -126,6 +169,16 @@ async def collect_html(page):
             if next_scroll_top <= scroll_top:
                 break
             scroll_top = next_scroll_top
+
+        # 首尾媒体均可能延迟挂载；回访边界并只接受图片更完整的快照。
+        for boundary in (max_scroll_top, 0):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                boundary
+            )
+            for _ in range(4):
+                await page.wait_for_timeout(500)
+                await capture_visible_messages()
 
         ordered_messages = sorted(
             captured.values(),

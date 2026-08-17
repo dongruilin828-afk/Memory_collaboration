@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import hashlib
 import os
@@ -216,7 +217,14 @@ def parse_fallback_messages(soup):
     return parsed_messages
 
 
-def parse_and_display(html, image_map=None):
+def parse_and_display(
+    html,
+    image_map=None,
+    summarize=False,
+    gemini_model=None,
+    summary_provider=None,
+    include_details=False
+):
     if not html:
         return False
 
@@ -252,15 +260,61 @@ def parse_and_display(html, image_map=None):
         return False
 
     export_filename = os.path.join(script_dir, "AI_memory_export.md")
-    return display_and_export(
+    exported = display_and_export(
         parsed_messages,
         image_map,
         export_filename,
         console
     )
+    if not exported or not summarize:
+        return exported
+
+    try:
+        from gemini_summarizer import (
+            SummaryConfig,
+            summarize_conversation,
+        )
+
+        console.print(
+            "\n[bold cyan]开始生成多模态分层总结...[/bold cyan]"
+        )
+        summarize_conversation(
+            messages=parsed_messages,
+            project_dir=script_dir,
+            source_dir=script_dir,
+            source_name=os.path.basename(export_filename),
+            config=SummaryConfig.from_env(
+                model_override=gemini_model,
+                provider_override=summary_provider
+            ),
+            include_details=include_details,
+            progress=lambda message: console.print(
+                message,
+                style="dim"
+            )
+        )
+        return True
+    except Exception as error:
+        try:
+            from gemini_summarizer import safe_error_message
+            message = safe_error_message(error)
+        except Exception:
+            message = (
+                f"{type(error).__name__}，请检查总结模型配置。"
+            )
+        console.print(
+            f"[bold red]总结失败：[/bold red]{message}"
+        )
+        console.print(
+            "[dim]原始对话 Markdown 已保留，不受本次失败影响。[/dim]"
+        )
+        return False
 
 
-async def main():
+async def main(
+    summarize=False, gemini_model=None, summary_provider=None,
+    include_details=False
+):
     console.print(Panel.fit(
         "[bold yellow]🚀 AI 记忆协同管理工具 - 对话提取与可视化工具 "
         "(V0.2)[/bold yellow]",
@@ -287,7 +341,14 @@ async def main():
         url,
         need_login=need_login
     )
-    success = parse_and_display(html, image_map)
+    success = parse_and_display(
+        html,
+        image_map,
+        summarize=summarize,
+        gemini_model=gemini_model,
+        summary_provider=summary_provider,
+        include_details=include_details
+    )
     if not success:
         console.print(
             "\n[bold red]处理失败，未生成有效的导出文件。[/bold red]"
@@ -298,4 +359,32 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    argument_parser = argparse.ArgumentParser(
+        description="抓取 AI 对话并可选使用已配置模型生成分层总结。"
+    )
+    argument_parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="抓取完成后调用已配置总结后端；默认不调用 API"
+    )
+    argument_parser.add_argument(
+        "--provider",
+        choices=("gemini", "siliconflow"),
+        help="总结后端，仅在 --summarize 时使用"
+    )
+    argument_parser.add_argument(
+        "--model",
+        help="临时覆盖总结模型，仅在 --summarize 时使用"
+    )
+    argument_parser.add_argument(
+        "--include-details",
+        action="store_true",
+        help="总结中附加精简的细节记忆；仅在 --summarize 时使用"
+    )
+    arguments = argument_parser.parse_args()
+    asyncio.run(main(
+        summarize=arguments.summarize,
+        gemini_model=arguments.model,
+        summary_provider=arguments.provider,
+        include_details=arguments.include_details
+    ))

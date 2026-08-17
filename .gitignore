@@ -1,5 +1,6 @@
 # Python 虚拟环境及字节码
 .venv/
+.browsers/
 __pycache__/
 *.pyc
 
@@ -9,6 +10,9 @@ __pycache__/
 # 导出的产物与抓取的本地图片
 images/
 results_right/
+summary/
+summary_detailed/
+results/
 AI_memory_export.md
 *.md
 !README.md
@@ -18,6 +22,7 @@ AI_memory_export.md
 remix_state.json
 AI_memory_result.json
 项目工作文档.txt
+指令暂存区.txt
 
 # 临时测试与调试脚本
 check_debug.py
@@ -26,3 +31,11 @@ fetch_raw.py
 dump.py
 analyze.py
 test_*
+# Gemini 密钥与总结过程临时文件
+.env
+.env.*
+AI_memory_*.tmp
+
+# 保留正式单元测试（覆盖上面的 test_* 临时脚本规则）
+!tests/
+!tests/test_*.py

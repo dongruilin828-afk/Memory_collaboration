@@ -26,7 +26,8 @@ def parse_messages(soup, image_map=None):
         classes = msg.get('class', [])
         is_user = 'justify-end' in classes
 
-        # 替换本地图片路径
+        # 只把成功下载的真实图片替换为本地路径。豆包文档卡片还会
+        # 内嵌 Asset cover/base64/fallback 装饰图，不能当成用户上传图片。
         for img in msg.find_all("img"):
             src = img.get("src") or img.get("data-src")
             if src in image_map:
@@ -34,12 +35,20 @@ def parse_messages(soup, image_map=None):
 
         if is_user:
             user_parts = []
-            # 关键修复：支持提取豆包用户上传的图片！
+            local_image_paths = set(image_map.values())
             for img in msg.find_all("img"):
                 src = img.get("src") or img.get("data-src")
-                if src and not src.startswith("data:image/svg"):
-                    local_src = image_map.get(src, src)
-                    user_parts.append(f"![用户图片]({local_src})")
+                alt = (img.get("alt") or "").strip().lower()
+                is_document_cover = (
+                    alt == "asset cover"
+                    or "doc-canvas-card-fallback" in (src or "")
+                    or (src or "").startswith("data:image/")
+                )
+                if (
+                    src in local_image_paths
+                    and not is_document_cover
+                ):
+                    user_parts.append(f"![用户图片]({src})")
 
             # 识别真实的 HTML 文件卡片（非全文正则）
             file_cards = msg.find_all(

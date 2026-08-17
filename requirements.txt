@@ -2,3 +2,4 @@ playwright
 rich
 beautifulsoup4
 markdownify
+google-genai>=2.0.0

@@ -1,3 +1,4 @@
+import argparse
 import re
 import subprocess
 import time
@@ -342,7 +343,10 @@ def process_one(index, total, title, link):
 # 主程序
 # ============================================================
 
-def main():
+def main(
+    summarize=False, model=None, provider=None, include_details=False,
+    resume_summary=False
+):
 
     # 创建 results 文件夹
     RESULTS_DIR.mkdir(
@@ -407,6 +411,85 @@ def main():
     print("=" * 70)
 
 
+    if summarize:
+
+        print()
+        print("开始批量总结 results 中的测试结果...")
+
+        command = ["uv", "run", "summarize_tests.py"]
+
+        if provider:
+
+            command.extend(["--provider", provider])
+
+        if model:
+
+            command.extend(["--model", model])
+
+        if include_details:
+
+            command.append("--include-details")
+
+        if resume_summary:
+
+            command.append("--resume")
+
+        summary_process = subprocess.run(
+            command,
+            cwd=BASE_DIR
+        )
+
+        if summary_process.returncode != 0:
+
+            print("❌ 批量总结存在失败任务，请查看 summary/批量总结报告.md")
+
+            return 1
+
+
+    return 0
+
+
 if __name__ == "__main__":
 
-    main()
+    argument_parser = argparse.ArgumentParser(
+        description="批量抓取 tests.txt 中的链接，并可选调用已配置模型总结。"
+    )
+
+    argument_parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="抓取完成后批量总结 results 中的测试结果"
+    )
+
+    argument_parser.add_argument(
+        "--provider",
+        choices=("gemini", "siliconflow"),
+        help="总结后端，仅与 --summarize 配合使用"
+    )
+
+    argument_parser.add_argument(
+        "--model",
+        help="临时覆盖总结模型，仅与 --summarize 配合使用"
+    )
+
+    argument_parser.add_argument(
+        "--include-details",
+        action="store_true",
+        help="批量总结时附加精简的细节记忆"
+    )
+
+    argument_parser.add_argument(
+        "--resume-summary",
+        action="store_true",
+        help="批量总结时跳过已有同模型完整结果"
+    )
+
+    arguments = argument_parser.parse_args()
+
+    raise SystemExit(main(
+        summarize=arguments.summarize,
+        model=arguments.model,
+        provider=arguments.provider,
+        include_details=arguments.include_details,
+        resume_summary=arguments.resume_summary
+    ))
