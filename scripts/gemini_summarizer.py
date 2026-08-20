@@ -25,8 +25,8 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash"
 SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3.5-397B-A17B"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
-SUMMARY_DIRNAME = "summary"
-DETAILED_SUMMARY_DIRNAME = "summary_detailed"
+SUMMARY_DIRNAME = "results/summary"
+DETAILED_SUMMARY_DIRNAME = "results/summary_detailed"
 DEFAULT_CHUNK_CHARS = 24_000
 DEFAULT_SHORT_CONVERSATION_CHARS = 18_000
 DEFAULT_MAX_OUTPUT_TOKENS = 16_384
@@ -1952,10 +1952,14 @@ def renormalize_result(
     result["overall_summary"] = _sanitize_overall_role_attribution(
         result["overall_summary"]
     )
+    result["overall_summary"] = _clean_generated_punctuation(
+        result["overall_summary"]
+    )
     for topic in result["topics"]:
         topic["summary"] = _qualify_unconfirmed_programming_text(
             str(topic.get("summary") or ""), programming_records
         )
+        topic["summary"] = _clean_generated_punctuation(topic["summary"])
     return result
 
 
@@ -2282,10 +2286,12 @@ def _normalize_final_summary(
         overall_summary, assets
     )
     overall_summary = _sanitize_overall_role_attribution(overall_summary)
+    overall_summary = _clean_generated_punctuation(overall_summary)
     for topic in topics:
         topic["summary"] = _qualify_unconfirmed_programming_text(
             str(topic.get("summary") or ""), programming_records
         )
+        topic["summary"] = _clean_generated_punctuation(topic["summary"])
     _normalize_current_state_language(current_state, messages)
 
     return {
@@ -3797,6 +3803,14 @@ def _qualify_unconfirmed_programming_text(
         "上一 AI 已提供",
         value
     )
+    return value
+
+
+def _clean_generated_punctuation(text: str) -> str:
+    """只清理模型生成摘要中相邻且互相冲突的句末标点。"""
+    value = str(text or "")
+    value = re.sub(r"[、，；：]+。", "。", value)
+    value = re.sub(r"。{2,}", "。", value)
     return value
 
 

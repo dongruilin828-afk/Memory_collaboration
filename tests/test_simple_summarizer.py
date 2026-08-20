@@ -1,6 +1,6 @@
 import unittest
 
-import simple_summarizer as simple
+from scripts import simple_summarizer as simple
 
 
 class FakeGateway:

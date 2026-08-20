@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 from bs4 import BeautifulSoup
 
-import gemini_summarizer as summary
-from providers import chatgpt, doubao
+from scripts import gemini_summarizer as summary
+from scripts.providers import chatgpt, doubao
 
 
 class FakeGateway:
@@ -154,6 +154,8 @@ class GeminiSummarizerTests(unittest.TestCase):
 
         self.assertEqual(normal[0].parent.name, "summary")
         self.assertEqual(detailed[0].parent.name, "summary_detailed")
+        self.assertEqual(normal[0].parent.parent.name, "results")
+        self.assertEqual(detailed[0].parent.parent.name, "results")
         self.assertEqual(normal[0].name, detailed[0].name)
         self.assertEqual(normal[1].name, detailed[1].name)
 
@@ -498,8 +500,14 @@ class GeminiSummarizerTests(unittest.TestCase):
                 gateway=FakeGateway(),
                 progress=lambda _message: None
             )
-            json_path = project / "summary" / "ChatGPT_编程_result.json"
-            markdown_path = project / "summary" / "ChatGPT_编程_summary.md"
+            json_path = (
+                project / "results" / "summary"
+                / "ChatGPT_编程_result.json"
+            )
+            markdown_path = (
+                project / "results" / "summary"
+                / "ChatGPT_编程_summary.md"
+            )
             saved = json.loads(json_path.read_text(encoding="utf-8"))
             markdown = markdown_path.read_text(encoding="utf-8")
 
@@ -1725,6 +1733,12 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
         self.assertIn("用户获得了关于甘肃天祝行政区划的解答", cleaned)
         self.assertNotIn("用户解答了", cleaned)
+
+    def test_generated_summary_removes_conflicting_sentence_punctuation(self):
+        cleaned = summary._clean_generated_punctuation(
+            "AI 已完整解答，当前处于任务完成、。"
+        )
+        self.assertEqual(cleaned, "AI 已完整解答，当前处于任务完成。")
 
 
 if __name__ == "__main__":

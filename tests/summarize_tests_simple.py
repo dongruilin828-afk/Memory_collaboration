@@ -12,7 +12,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from gemini_summarizer import (
+from scripts.gemini_summarizer import (
     SCHEMA_VERSION,
     SummaryConfig,
     create_gateway,
@@ -20,8 +20,13 @@ from gemini_summarizer import (
     messages_fingerprint,
     safe_error_message,
 )
-from run_tests import clean_filename, read_tests
-from simple_summarizer import (
+from scripts.project_paths import (
+    EXPORT_DIR,
+    PROJECT_ROOT,
+    SUMMARY_DIR,
+    SUMMARY_SIMPLE_DIR,
+)
+from scripts.simple_summarizer import (
     SimpleSummaryValidationError,
     build_simple_metadata,
     build_simple_projection,
@@ -34,10 +39,12 @@ from simple_summarizer import (
 )
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
-RESULTS_DIR = PROJECT_DIR / "results"
-SUMMARY_DIR = PROJECT_DIR / "summary"
-SIMPLE_DIR = PROJECT_DIR / "summary_simple"
+from .run_tests import clean_filename, read_tests
+
+
+PROJECT_DIR = PROJECT_ROOT
+RESULTS_DIR = EXPORT_DIR
+SIMPLE_DIR = SUMMARY_SIMPLE_DIR
 console = Console()
 
 

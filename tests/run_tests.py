@@ -4,18 +4,25 @@ import subprocess
 import time
 from pathlib import Path
 
+from scripts.project_paths import (
+    DEFAULT_EXPORT_FILE,
+    EXPORT_DIR,
+    PROJECT_ROOT,
+    TESTS_FILE as PROJECT_TESTS_FILE,
+)
+
 
 # ============================================================
 # 路径配置
 # ============================================================
 
-BASE_DIR = Path(r"D:\大学\复旦大学\课程\大二上\强国之路")
+BASE_DIR = PROJECT_ROOT
 
-TESTS_FILE = BASE_DIR / "tests.txt"
+TESTS_FILE = PROJECT_TESTS_FILE
 
-RESULTS_DIR = BASE_DIR / "results"
+RESULTS_DIR = EXPORT_DIR
 
-EXPORT_FILE = BASE_DIR / "AI_memory_export.md"
+EXPORT_FILE = DEFAULT_EXPORT_FILE
 
 
 # ============================================================
@@ -225,7 +232,9 @@ def process_one(index, total, title, link):
         [
             "uv",
             "run",
-            "parser.py"
+            "python",
+            "-m",
+            "scripts.parser"
         ],
 
         cwd=BASE_DIR,
@@ -304,11 +313,11 @@ def process_one(index, total, title, link):
 
 
         # parser.py 的人工导出位于项目根目录，图片路径使用 ./images/。
-        # 测试结果将被移入 results/，因此在移动前换算相对路径。
+        # 测试结果将被移入 results/export/，因此在移动前换算相对路径。
         export_content = EXPORT_FILE.read_text(encoding="utf-8")
         export_content = export_content.replace(
             "](./images/",
-            "](../images/"
+            "](../../images/"
         )
         EXPORT_FILE.write_text(export_content, encoding="utf-8")
 
@@ -348,8 +357,9 @@ def main(
     resume_summary=False
 ):
 
-    # 创建 results 文件夹
+    # fresh clone 中 results/ 默认不存在，需要连父目录一起创建。
     RESULTS_DIR.mkdir(
+        parents=True,
         exist_ok=True
     )
 
@@ -414,9 +424,11 @@ def main(
     if summarize:
 
         print()
-        print("开始批量总结 results 中的测试结果...")
+        print("开始批量总结 results/export 中的测试结果...")
 
-        command = ["uv", "run", "summarize_tests.py"]
+        command = [
+            "uv", "run", "python", "-m", "tests.summarize_tests"
+        ]
 
         if provider:
 
@@ -441,7 +453,10 @@ def main(
 
         if summary_process.returncode != 0:
 
-            print("❌ 批量总结存在失败任务，请查看 summary/批量总结报告.md")
+            print(
+                "❌ 批量总结存在失败任务，请查看 "
+                "results/summary/批量总结报告.md"
+            )
 
             return 1
 
@@ -458,7 +473,7 @@ if __name__ == "__main__":
     argument_parser.add_argument(
         "--summarize",
         action="store_true",
-        help="抓取完成后批量总结 results 中的测试结果"
+        help="抓取完成后批量总结 results/export 中的测试结果"
     )
 
     argument_parser.add_argument(

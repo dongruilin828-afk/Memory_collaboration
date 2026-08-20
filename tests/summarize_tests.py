@@ -1,4 +1,4 @@
-"""批量总结 tests.txt 对应的现有 results，不重新抓取网页。"""
+"""批量总结 tests.txt 对应的现有 results/export，不重新抓取网页。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from gemini_summarizer import (
+from scripts.gemini_summarizer import (
     SCHEMA_VERSION,
     SummaryConfig,
     create_gateway,
@@ -23,20 +23,25 @@ from gemini_summarizer import (
     summarize_conversation,
     write_summary_outputs,
 )
-from run_tests import clean_filename, read_tests
+from scripts.project_paths import (
+    EXPORT_DIR,
+    PROJECT_ROOT,
+    SUMMARY_DETAILED_DIR,
+    SUMMARY_DIR,
+)
+from .run_tests import clean_filename, read_tests
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
-RESULTS_DIR = PROJECT_DIR / "results"
-SUMMARY_DIR = PROJECT_DIR / "summary"
-DETAILED_SUMMARY_DIR = PROJECT_DIR / "summary_detailed"
+PROJECT_DIR = PROJECT_ROOT
+RESULTS_DIR = EXPORT_DIR
+DETAILED_SUMMARY_DIR = SUMMARY_DETAILED_DIR
 console = Console()
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "调用已配置模型批量总结 tests.txt 对应的现有 results，"
+            "调用已配置模型批量总结 tests.txt 对应的现有 results/export，"
             "不重新打开浏览器。"
         )
     )
@@ -149,7 +154,7 @@ def main() -> int:
         )
         if not input_path.is_file():
             skipped_count += 1
-            rows.append((input_path.name, "跳过", "results 中没有该文件"))
+            rows.append((input_path.name, "跳过", "results/export 中没有该文件"))
             console.print("跳过：结果文件不存在。", style="yellow")
             continue
 

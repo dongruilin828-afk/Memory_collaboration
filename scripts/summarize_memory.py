@@ -6,13 +6,14 @@ from pathlib import Path
 
 from rich.console import Console
 
-from gemini_summarizer import (
+from .gemini_summarizer import (
     GeminiSummaryError,
     SummaryConfig,
     load_exported_markdown,
     safe_error_message,
     summarize_conversation,
 )
+from .project_paths import PROJECT_ROOT
 
 
 console = Console()
@@ -39,11 +40,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--json-output",
-        help="结构化 JSON 输出路径；默认保存到 summary/源文件名_result.json"
+        help="结构化 JSON 输出路径；默认保存到 results/summary/源文件名_result.json"
     )
     parser.add_argument(
         "--markdown-output",
-        help="可读 Markdown 输出路径；默认保存到 summary/源文件名_summary.md"
+        help="可读 Markdown 输出路径；默认保存到 results/summary/源文件名_summary.md"
     )
     parser.add_argument(
         "--include-details",
@@ -60,7 +61,7 @@ def _resolve_from_project(project_dir: Path, value: str) -> Path:
 
 def main() -> int:
     args = build_argument_parser().parse_args()
-    project_dir = Path(__file__).resolve().parent
+    project_dir = PROJECT_ROOT
     input_path = _resolve_from_project(project_dir, args.input).resolve()
 
     try:

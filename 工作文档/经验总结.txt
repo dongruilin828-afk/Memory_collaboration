@@ -19,7 +19,7 @@
 5. 我们的所有工作都是在沙箱中进行的，你做出的所有改动必须都体现在强国之路文件夹中。
 6. 没有我的明确指令不得使用git commit。
 7. 平台适配器模块化约定（2026-08-11）
-为了避免所有平台逻辑继续堆积在 parser.py 中，ChatGPT、DeepSeek、豆包已经迁移到 providers 目录。parser.py 只负责浏览器启动、页面加载、通用图片下载、平台调度、降级解析和命令行入口；markdown_exporter.py 统一负责终端展示与 Markdown 导出。
+为了避免所有平台逻辑继续堆积在单一文件中，ChatGPT、DeepSeek、豆包适配器位于 scripts/providers 目录。scripts/parser.py 只负责浏览器启动、页面加载、通用图片下载、平台调度、降级解析和命令行入口；scripts/markdown_exporter.py 统一负责终端展示与 Markdown 导出。
 
 每个平台模块统一提供以下成员：
 - DISPLAY_NAME：终端显示的平台名称。
@@ -27,11 +27,11 @@
 - parse_messages(soup, image_map)：识别并解析该平台；不属于该平台时返回 None。
 - collect_html(page)：仅虚拟列表平台需要实现，用于逐屏采集完整消息。
 
-新增 AI 时，应在 providers 中新建独立文件，再在 providers/__init__.py 中导入并加入 PROVIDERS。平台检测顺序由 PROVIDERS 决定；当前顺序必须保持为 ChatGPT、DeepSeek、豆包，除非有充分测试证明可以调整。不要把新平台的 CSS 选择器、附件规则或消息清洗逻辑重新写回 parser.py。
+新增 AI 时，应在 scripts/providers 中新建独立文件，再在 scripts/providers/__init__.py 中导入并加入 PROVIDERS。平台检测顺序由 PROVIDERS 决定；当前顺序必须保持为 ChatGPT、DeepSeek、豆包，除非有充分测试证明可以调整。不要把新平台的 CSS 选择器、附件规则或消息清洗逻辑重新写回 scripts/parser.py。
 
-模块拆分属于纯重构时，必须完整运行 run_tests.py，并与 results_right 中的黄金基线比较。图片链接可能包含动态签名，不能只比较原始文件哈希；应同时比较问答数量、忽略本地图片文件名后的正文、图片文件是否存在，以及超长对话的首尾和多个中段抽样点。
+模块拆分属于纯重构时，必须完整运行 `python -m tests.run_tests`，并与 results/export_right 中的黄金基线比较。图片链接可能包含动态签名，不能只比较原始文件哈希；应同时比较问答数量、忽略本地图片文件名后的正文、图片文件是否存在，以及超长对话的首尾和多个中段抽样点。
 8. Gemini 多模态分层总结约定（2026-08-11）
-API 总结层必须与网页平台解析层解耦。providers 只负责把不同平台统一成 role/content 消息；gemini_summarizer.py 只消费统一消息，不得包含 ChatGPT、DeepSeek 或豆包的 DOM 选择器。这样以后新增平台或更换总结模型时，两边都不用互相修改。
+API 总结层必须与网页平台解析层解耦。scripts/providers 只负责把不同平台统一成 role/content 消息；scripts/gemini_summarizer.py 只消费统一消息，不得包含 ChatGPT、DeepSeek 或豆包的 DOM 选择器。这样以后新增平台或更换总结模型时，两边都不用互相修改。
 
 密钥只允许从环境变量读取：Gemini 使用 GEMINI_API_KEY；SiliconFlow 使用 Silicon_API_KEY（兼容 SILICONFLOW_API_KEY）。禁止把密钥写入源码、README、日志、异常全文、命令参数、JSON 输出或 Git 配置。后端与模型名从 SUMMARY_PROVIDER、SUMMARY_MODEL（兼容 GEMINI_MODEL）或命令行参数读取，默认值只是当前选择，不得在业务调用点重复写死。
 
@@ -42,16 +42,16 @@ API 总结层必须与网页平台解析层解耦。providers 只负责把不同
 - 单条消息超过分块上限时才允许在消息内部按段落切分；普通情况优先保持用户提问与 AI 回答的边界。
 - 最终 JSON 的 topics 带稳定 topic_id，typed_records 保留任务专用结构，为以后用户选择重要部分预留接口，但当前版本不加入选择 UI。
 
-Gemini 属于显式可选步骤。普通 parser.py 和 run_tests.py 不得默认调用 API，以免网络、额度或模型变化破坏原有抓取回归；只有 --summarize 或 summarize_memory.py 才允许上传对话。API 失败时必须保留已经正确生成的原始 Markdown。
+Gemini 属于显式可选步骤。普通 scripts.parser 和 tests.run_tests 不得默认调用 API，以免网络、额度或模型变化破坏原有抓取回归；只有 --summarize 或 scripts.summarize_memory 才允许上传对话。API 失败时必须保留已经正确生成的原始 Markdown。
 
-任何 API 层改动除离线单元测试外，仍要完整运行原有 run_tests.py，并按 results_right 的规则核对消息数、正文、图片数和超长对话抽样，证明平台提取结果没有回归。
+任何 API 层改动除离线单元测试外，仍要完整运行 `python -m tests.run_tests`，并按 results/export_right 的规则核对消息数、正文、图片数和超长对话抽样，证明平台提取结果没有回归。
 补充教训：ChatGPT 的图片和超长正文都存在延迟挂载竞态。逐屏采集时不能只保存消息第一次出现的 outerHTML，否则首屏图片或后加载的长代码会永久丢失。当前做法是在每个位置复采并回访列表首尾；只有当候选快照的正文长度或真实图片数变多、且另一维不退步时才替换旧快照。不要简单按 HTML 长度替换，因为后加载的按钮和工具栏也会使 HTML 变长并污染正文。
 
 Gemini 默认模型选择历史（2026-08-11，已被 2026-08-12 记录取代）：当时当前 Key 调用 gemini-2.5-flash 返回 404 NOT_FOUND，而 gemini-3.6-flash 真实请求成功，因此曾临时使用 3.6 Flash；这不是永久结论，现行默认值见下文第 10 节。选择长期默认模型仍应优先使用 Google 标记为正式可用（GA）、支持所需多模态能力的固定模型名；不要默认使用 Preview、Experimental 或 latest 别名。必须保留 GEMINI_MODEL 和 --model 覆盖入口，不得在业务调用点重复写死模型名。
-总结产物目录约定补充（2026-08-12）：Gemini 的默认结构化结果和可读总结统一写入项目的 summary 目录，并按输入 Markdown 的文件名分别命名为“源文件名_result.json”和“源文件名_summary.md”。不同对话不得继续共用根目录中的 AI_memory_result.json 或 AI_memory_summary.md，以免覆盖后无法判断结果来源；summary 属于本地检查产物，应保持在 .gitignore 中。显式传入 --json-output 或 --markdown-output 时仍允许用户选择其他路径。
+总结产物目录约定补充（2026-08-12，目录于 2026-08-20 统一调整）：Gemini 的默认结构化结果和可读总结统一写入项目的 results/summary 目录，并按输入 Markdown 的文件名分别命名为“源文件名_result.json”和“源文件名_summary.md”。不同对话不得继续共用根目录中的 AI_memory_result.json 或 AI_memory_summary.md，以免覆盖后无法判断结果来源；results 属于本地检查产物，应保持在 .gitignore 中。显式传入 --json-output 或 --markdown-output 时仍允许用户选择其他路径。
 总结展示层级反馈补充（2026-08-12）：分层不是分类越多越好。关键点与重要细节应合并为统一的内容要点；决定、未决事项和后续建议应放回相关主题语境，不能机械生成独立板块。短对话默认只展示总览，程序必须在模型返回冗余 sections 时执行确定性折叠；长对话也只有存在多个真正独立主题时才分区。媒体与附件说明目前保留并标记为“开发检查”，便于验证多模态识别，未来面向普通用户时再提供隐藏或显示选项。
 
-批量总结入口约定：summarize_tests.py 直接读取 tests.txt 对应的现有 results 并调用 Gemini，不重新抓网页；run_tests.py --summarize 先重跑全部测试链接，再调用前者总结。缺少用户或 AI 任一角色的无效抓取结果必须记录为跳过，不能生成看似正常但内容错误的总结。
+批量总结入口约定：tests.summarize_tests 直接读取 tests/tests.txt 对应的现有 results/export 并调用 Gemini，不重新抓网页；tests.run_tests --summarize 先重跑全部测试链接，再调用前者总结。缺少用户或 AI 任一角色的无效抓取结果必须记录为跳过，不能生成看似正常但内容错误的总结。
 
 9. 可续接记忆结构约定（2026-08-12）
 总结结果使用 schema_version 8（旧版结果可通过 renormalize_result 做确定性兼容处理）。总览优先回答当前在做什么、做到哪一步、用户是否真的执行、下一步和断点状态；不能只回顾历史主题。每条 claim 和细粒度记忆必须显式携带 source、status、message_ids 与由程序确定性生成的 message_range。AI 的诊断、预测和方案在没有用户验证时只能标为 suggested、assumed 或 uncertain，不能因为语气肯定就变成事实；AI 已实际给出回答或代码但用户没有确认采用时使用 delivered。
@@ -101,8 +101,15 @@ Gemini 输出不能直接视为可靠状态。混合引用一组用户/AI 消息
 模型后端统一通过 SummaryGateway 接口接入。Gemini 使用官方 google-genai SDK 和可配置 thinking_level；SiliconFlow 使用 /v1/chat/completions、JSON Schema 输出与 Qwen3.5 可配置模型。缓存指纹必须包含 provider 与 model，错误信息必须同时脱敏 GEMINI_API_KEY、Silicon_API_KEY 和 SILICONFLOW_API_KEY。
 
 15. 极简版总结约定（2026-08-20）
-极简版是普通版、详细版之外的独立展示链路。simple_summarizer.py 只复用同 schema、同原文指纹的普通版结构化 JSON，不修改 gemini_summarizer.py 的普通版/详细版生成和渲染逻辑；summarize_tests_simple.py 只负责批量生成 summary_simple。summary_simple 是本地人工检查产物，必须保留在 .gitignore 中。
+极简版是普通版、详细版之外的独立展示链路。scripts/simple_summarizer.py 只复用同 schema、同原文指纹的普通版结构化 JSON，不修改 scripts/gemini_summarizer.py 的普通版/详细版生成和渲染逻辑；tests/summarize_tests_simple.py 只负责批量生成 results/summary_simple。results/summary_simple 是本地人工检查产物，必须保留在 .gitignore 中。
 
 极简 Markdown 只能包含一个“总览”标题和一个中文段落。总览合并真正有续接价值的用户目标、约束、上一 AI 已交付的关键结论及真实未决事项；媒体开发说明、质量报告、普通寒暄、平台式追问和“等待/接收新指令”等客套收尾均不输出。程序必须校验长度、单段结构、数字来源、角色归属、虚假采纳与虚假待办，并保留“约、可能、历史 AI 判断”等必要不确定性。
 
 超长语言学习对话在极简版只保留整体学习范围，不能随机枚举词汇、短语、谚语、术语或最后一个低价值短查询。纯学习主题通过 memory_id 与 learning_point 的结构化关联过滤，不使用容易误删计算、媒体或编程任务的关键词猜测；计算、决定、编程断点及不可复核媒体等独立主题仍应保留。模型额度不足时，极简批处理可按用户授权在 Gemini 3.6 Flash、3.5 Flash、3.5 Flash Lite 及配置密钥后的 SiliconFlow Qwen 之间回退；--repair-existing 必须保持零 API，只做确定性规范化和校验。
+
+16. 项目目录结构约定（2026-08-20）
+核心实现统一放在 scripts 包中，批量入口、测试链接和单元测试统一放在 tests 包中。命令行必须从项目根目录以模块方式运行，例如 `uv run python -m scripts.parser`、`uv run python -m tests.run_tests` 和 `uv run python -m tests.summarize_tests`，避免工作目录改变后导入失败。
+
+所有项目级目录由 scripts/project_paths.py 集中计算，不允许各模块再次依赖当前工作目录或写死绝对路径。抓取结果、人工黄金基线、普通总结、详细总结和极简总结依次位于 results/export、results/export_right、results/summary、results/summary_detailed 和 results/summary_simple。项目工作记录统一位于“工作文档”目录。
+
+根目录 AI_memory_export.md 的图片引用使用 `./images/`；移入 results/export 或 results/export_right 后必须改为 `../../images/`。目录迁移后必须同时验证导入、默认输出路径、批处理发现测试文件、图片可访问性以及 README 中的命令，不能只证明 Python 语法通过。

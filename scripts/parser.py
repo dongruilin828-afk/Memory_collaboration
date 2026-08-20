@@ -9,8 +9,15 @@ from playwright.async_api import async_playwright
 from rich.console import Console
 from rich.panel import Panel
 
-from markdown_exporter import display_and_export
-from providers import WAIT_SELECTOR, collect_virtualized_html, parse_messages
+from .markdown_exporter import display_and_export
+from .project_paths import (
+    BROWSER_USER_DATA_DIR,
+    DEBUG_HTML_FILE,
+    DEFAULT_EXPORT_FILE,
+    IMAGES_DIR,
+    PROJECT_ROOT,
+)
+from .providers import WAIT_SELECTOR, collect_virtualized_html, parse_messages
 
 
 console = Console()
@@ -37,9 +44,8 @@ async def goto_with_retry(page, url, attempts=3):
 
 
 async def fetch_chat_content(url, need_login=False):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_dir = os.path.join(script_dir, ".browser_user_data")
-    images_dir = os.path.join(script_dir, "images")
+    user_data_dir = str(BROWSER_USER_DATA_DIR)
+    images_dir = str(IMAGES_DIR)
     os.makedirs(images_dir, exist_ok=True)
 
     headless = not need_login
@@ -157,12 +163,12 @@ async def fetch_chat_content(url, need_login=False):
                             if response.ok:
                                 with open(filepath, "wb") as image_file:
                                     image_file.write(await response.body())
-                                image_map[src] = f"../images/{filename}"
+                                image_map[src] = f"./images/{filename}"
                                 img_index += 1
                         except Exception:
                             pass
                     else:
-                        image_map[src] = f"../images/{filename}"
+                        image_map[src] = f"./images/{filename}"
 
             return html, image_map
         except Exception as error:
@@ -231,11 +237,8 @@ def parse_and_display(
     if image_map is None:
         image_map = {}
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
     # 保留一份供调试的本地快照
-    debug_filename = os.path.join(script_dir, "debug_last_fetch.html")
-    with open(debug_filename, "w", encoding="utf-8") as debug_file:
+    with open(DEBUG_HTML_FILE, "w", encoding="utf-8") as debug_file:
         debug_file.write(html)
 
     soup = BeautifulSoup(html, 'html.parser')
@@ -259,7 +262,7 @@ def parse_and_display(
         )
         return False
 
-    export_filename = os.path.join(script_dir, "AI_memory_export.md")
+    export_filename = str(DEFAULT_EXPORT_FILE)
     exported = display_and_export(
         parsed_messages,
         image_map,
@@ -270,7 +273,7 @@ def parse_and_display(
         return exported
 
     try:
-        from gemini_summarizer import (
+        from .gemini_summarizer import (
             SummaryConfig,
             summarize_conversation,
         )
@@ -280,8 +283,8 @@ def parse_and_display(
         )
         summarize_conversation(
             messages=parsed_messages,
-            project_dir=script_dir,
-            source_dir=script_dir,
+            project_dir=PROJECT_ROOT,
+            source_dir=PROJECT_ROOT,
             source_name=os.path.basename(export_filename),
             config=SummaryConfig.from_env(
                 model_override=gemini_model,
@@ -296,7 +299,7 @@ def parse_and_display(
         return True
     except Exception as error:
         try:
-            from gemini_summarizer import safe_error_message
+            from .gemini_summarizer import safe_error_message
             message = safe_error_message(error)
         except Exception:
             message = (

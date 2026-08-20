@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from gemini_summarizer import DEFAULT_PROVIDER, TYPE_LABELS, SummaryGateway
+from .gemini_summarizer import DEFAULT_PROVIDER, TYPE_LABELS, SummaryGateway
 
 
 SIMPLE_SCHEMA = {
