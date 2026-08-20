@@ -99,3 +99,10 @@ Gemini 输出不能直接视为可靠状态。混合引用一组用户/AI 消息
 语言学习 JSON 可以保留全部结构化记录，但 Markdown 最多展示 8 条代表项，并优先保留明确纠错；详细版额外细节同样最多 8 条。原文问题板块只保留语义冲突、影响判断或可能造成执行错误的实质问题，姓名拼写、普通错别字等简单笔误不单独输出。用户事实默认显示为“用户信息”；只有要求、限制、条件或排除项才显示为“用户约束”。
 
 模型后端统一通过 SummaryGateway 接口接入。Gemini 使用官方 google-genai SDK 和可配置 thinking_level；SiliconFlow 使用 /v1/chat/completions、JSON Schema 输出与 Qwen3.5 可配置模型。缓存指纹必须包含 provider 与 model，错误信息必须同时脱敏 GEMINI_API_KEY、Silicon_API_KEY 和 SILICONFLOW_API_KEY。
+
+15. 极简版总结约定（2026-08-20）
+极简版是普通版、详细版之外的独立展示链路。simple_summarizer.py 只复用同 schema、同原文指纹的普通版结构化 JSON，不修改 gemini_summarizer.py 的普通版/详细版生成和渲染逻辑；summarize_tests_simple.py 只负责批量生成 summary_simple。summary_simple 是本地人工检查产物，必须保留在 .gitignore 中。
+
+极简 Markdown 只能包含一个“总览”标题和一个中文段落。总览合并真正有续接价值的用户目标、约束、上一 AI 已交付的关键结论及真实未决事项；媒体开发说明、质量报告、普通寒暄、平台式追问和“等待/接收新指令”等客套收尾均不输出。程序必须校验长度、单段结构、数字来源、角色归属、虚假采纳与虚假待办，并保留“约、可能、历史 AI 判断”等必要不确定性。
+
+超长语言学习对话在极简版只保留整体学习范围，不能随机枚举词汇、短语、谚语、术语或最后一个低价值短查询。纯学习主题通过 memory_id 与 learning_point 的结构化关联过滤，不使用容易误删计算、媒体或编程任务的关键词猜测；计算、决定、编程断点及不可复核媒体等独立主题仍应保留。模型额度不足时，极简批处理可按用户授权在 Gemini 3.6 Flash、3.5 Flash、3.5 Flash Lite 及配置密钥后的 SiliconFlow Qwen 之间回退；--repair-existing 必须保持零 API，只做确定性规范化和校验。

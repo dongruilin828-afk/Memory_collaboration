@@ -105,6 +105,18 @@ Markdown 默认只输出精简总结，适合直接交给下一个 AI。需要�
 
     uv run summarize_tests.py --include-details
 
+批量生成只含一个“总览”段落的极简版：
+
+    uv run summarize_tests_simple.py
+
+极简版复用 `summary` 中同 schema、同原文指纹的普通版 JSON，不重新抓取网页，
+结果统一保存到 `summary_simple/源文件名_simple.md`。可通过 `--model` 临时指定
+首选模型；批处理会先尝试该首选模型，再以 Gemini 3.6 Flash、3.5 Flash、
+3.5 Flash Lite 补足回退链，配置了 SiliconFlow 密钥时再使用 Qwen 备用模型。只检查并确定性规范化现有
+极简文件、不调用 API 时使用：
+
+    uv run summarize_tests_simple.py --repair-existing
+
 批量任务因限额或网络中断后续跑，并跳过已有同模型完整结果：
 
     uv run summarize_tests.py --include-details --model gemini-3.6-flash --resume
@@ -114,8 +126,9 @@ Markdown 默认只输出精简总结，适合直接交给下一个 AI。需要�
     uv run run_tests.py --summarize
 
 只有显式使用 parser.py --summarize、run_tests.py --summarize、
-summarize_memory.py 或 summarize_tests.py 才会把对话和可用媒体发送给所选
-模型服务。普通 run_tests.py 仍只做网页抓取，不调用模型 API。
+summarize_memory.py、summarize_tests.py 或 summarize_tests_simple.py 才会把
+对话和可用媒体发送给所选模型服务。普通 run_tests.py 仍只做网页抓取，
+不调用模型 API；summarize_tests_simple.py --repair-existing 也不调用 API。
 
 ## 当前媒体支持
 
