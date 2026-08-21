@@ -1103,29 +1103,17 @@ class AIMemoryGUI:
         )
         btn_done.pack(anchor="center")
 
-    def _show_summary_section_dialog(self, available_sections, on_done):
-        """在主题综合完成后，让用户选择普通/详细版的重点展开板块。"""
-        from scripts.gemini_summarizer import SUMMARY_SECTION_LABELS
-
-        descriptions = {
-            "programming": "代码学习、项目实现、调试与验证过程",
-            "learning": "词汇、翻译、表达与语言纠错",
-            "calculations": "用户条件、AI 假设与分阶段计算结果",
-            "decisions": "明确选项、用户选择及当前状态",
-            "context_references": "影响理解的短消息与上下文指代",
-            "progressions": "同一主题中条件和结论的递进变化",
-            "source_text_issues": "会实质影响理解的原文问题与推断修正",
-        }
-
+    def _show_summary_topic_dialog(self, available_topics, on_done):
+        """在主题综合完成后，让用户选择普通/详细版要展开的具体主题。"""
         dialog = tk.Toplevel(self.root)
-        dialog.title("选择重点板块")
+        dialog.title("选择重点主题")
         dialog.resizable(False, False)
         dialog.configure(bg="#F8FAFC")
         dialog.transient(self.root)
         dialog.grab_set()
 
-        height = min(620, 245 + 62 * len(available_sections))
-        width = 570
+        height = min(650, 270 + 78 * min(len(available_topics), 5))
+        width = 610
         x = self.root.winfo_x() + (self.root.winfo_width() - width) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - height) // 2
         dialog.geometry(f"{width}x{height}+{x}+{y}")
@@ -1135,7 +1123,7 @@ class AIMemoryGUI:
 
         tk.Label(
             content,
-            text="主题已经分好，请选择你认为重要的板块",
+            text="主题已经分好，请选择需要详细展示的主题",
             font=("Microsoft YaHei", 14, "bold"),
             foreground="#1E1B4B",
             bg="#F8FAFC",
@@ -1143,34 +1131,72 @@ class AIMemoryGUI:
         tk.Label(
             content,
             text=(
-                "勾选只会在完整的“分主题摘要”之后展开对应记录；"
-                "不会删减或改写任何主题。"
+                "所有主题摘要都会完整保留；勾选只表示该主题更重要，"
+                "并在摘要后展开它的关键记忆和相关结构化记录。"
             ),
             font=("Microsoft YaHei", 9),
             foreground="#475569",
             bg="#F8FAFC",
-            wraplength=510,
+            wraplength=550,
             justify=tk.LEFT,
         ).pack(anchor="w", pady=(5, 14))
 
-        choices = tk.Frame(content, bg="#F8FAFC")
-        choices.pack(fill=tk.BOTH, expand=True)
+        choices_shell = tk.Frame(content, bg="#F8FAFC")
+        choices_shell.pack(fill=tk.BOTH, expand=True)
+        choices_canvas = tk.Canvas(
+            choices_shell,
+            bg="#F8FAFC",
+            highlightthickness=0,
+            height=min(390, max(90, 76 * len(available_topics))),
+        )
+        choices_scrollbar = ttk.Scrollbar(
+            choices_shell,
+            orient=tk.VERTICAL,
+            command=choices_canvas.yview,
+        )
+        choices_canvas.configure(yscrollcommand=choices_scrollbar.set)
+        choices_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        choices_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        choices = tk.Frame(choices_canvas, bg="#F8FAFC")
+        choices_window = choices_canvas.create_window(
+            0, 0, window=choices, anchor="nw"
+        )
+        choices.bind(
+            "<Configure>",
+            lambda _event: choices_canvas.configure(
+                scrollregion=choices_canvas.bbox("all")
+            ),
+        )
+        choices_canvas.bind(
+            "<Configure>",
+            lambda event: choices_canvas.itemconfigure(
+                choices_window, width=event.width
+            ),
+        )
+        dialog.bind(
+            "<MouseWheel>",
+            lambda event: choices_canvas.yview_scroll(
+                -int(event.delta / 120), "units"
+            ),
+        )
+
         variables = {}
-        for key in available_sections:
+        for index, topic in enumerate(available_topics, start=1):
+            topic_id = topic["topic_id"]
             row = tk.Frame(
                 choices,
                 bg="#FFFFFF",
                 highlightthickness=1,
                 highlightbackground="#CBD5E1",
                 padx=12,
-                pady=7,
+                pady=8,
             )
             row.pack(fill=tk.X, pady=4)
             variable = tk.BooleanVar(master=dialog, value=False)
-            variables[key] = variable
+            variables[topic_id] = variable
             checkbox = tk.Checkbutton(
                 row,
-                text=SUMMARY_SECTION_LABELS[key],
+                text=f"{index}. {topic['title']}",
                 variable=variable,
                 font=("Microsoft YaHei", 10, "bold"),
                 foreground="#1E293B",
@@ -1183,16 +1209,23 @@ class AIMemoryGUI:
             checkbox.pack(fill=tk.X)
             tk.Label(
                 row,
-                text=descriptions.get(key, "展开该类结构化记录"),
+                text=(
+                    str(topic.get("summary") or "该主题暂无摘要。")[:180]
+                ),
                 font=("Microsoft YaHei", 8),
                 foreground="#64748B",
                 bg="#FFFFFF",
                 anchor="w",
+                justify=tk.LEFT,
+                wraplength=500,
             ).pack(fill=tk.X, padx=(24, 0), pady=(1, 0))
 
         tk.Label(
             content,
-            text="媒体与附件说明始终保留；详细版的细节记忆也始终保留。",
+            text=(
+                "未勾选主题不会消失；媒体与附件说明始终保留，"
+                "详细版的细节记忆也始终保留。"
+            ),
             font=("Microsoft YaHei", 8),
             foreground="#7C3AED",
             bg="#F8FAFC",
@@ -1206,8 +1239,8 @@ class AIMemoryGUI:
                 return
             completed = True
             selected = tuple(
-                key for key in available_sections
-                if use_checked and variables[key].get()
+                topic["topic_id"] for topic in available_topics
+                if use_checked and variables[topic["topic_id"]].get()
             )
             try:
                 dialog.grab_release()
@@ -1220,7 +1253,7 @@ class AIMemoryGUI:
         button_row.pack(fill=tk.X, pady=(2, 0))
         tk.Button(
             button_row,
-            text="全部不展开",
+            text="不额外展开",
             command=lambda: finish(False),
             font=("Microsoft YaHei", 9),
             bg="#E2E8F0",
@@ -1233,7 +1266,7 @@ class AIMemoryGUI:
         ).pack(side=tk.LEFT)
         tk.Button(
             button_row,
-            text="确认重点板块并继续",
+            text="确认重点主题并继续",
             command=lambda: finish(True),
             font=("Microsoft YaHei", 10, "bold"),
             bg="#4F46E5",
@@ -1296,31 +1329,31 @@ class AIMemoryGUI:
             messages = fetch_res.messages
             update_progress(0.42, f"成功提取 {len(messages)} 条对话交互，正在按要求生成文件...")
 
-            def select_summary_sections(result):
-                from scripts.gemini_summarizer import available_summary_sections
+            def select_summary_topics(result):
+                from scripts.gemini_summarizer import available_summary_topics
 
-                available = available_summary_sections(result)
+                available = available_summary_topics(result)
                 if not available:
                     update_progress(
                         0.80,
-                        "主题分类完成，本次没有额外可展开的分类板块。",
+                        "主题分类完成，本次没有需要单独选择的历史主题。",
                     )
                     return ()
 
                 update_progress(
                     0.80,
-                    "主题分类完成，请在弹出的窗口中勾选重要板块...",
+                    "主题分类完成，请在弹出的窗口中勾选重要主题...",
                 )
                 selection_ready = threading.Event()
-                selection_holder = {"sections": ()}
+                selection_holder = {"topics": ()}
 
-                def on_selected(sections):
-                    selection_holder["sections"] = tuple(sections)
+                def on_selected(topics):
+                    selection_holder["topics"] = tuple(topics)
                     selection_ready.set()
 
                 def show_dialog():
                     try:
-                        self._show_summary_section_dialog(
+                        self._show_summary_topic_dialog(
                             available, on_selected
                         )
                     except Exception:
@@ -1328,13 +1361,13 @@ class AIMemoryGUI:
 
                 self.root.after(0, show_dialog)
                 selection_ready.wait()
-                selected = selection_holder["sections"]
+                selected = selection_holder["topics"]
                 update_progress(
                     0.84,
                     (
-                        f"已选择 {len(selected)} 个重点板块，正在写入结果..."
+                        f"已选择 {len(selected)} 个重点主题，正在写入结果..."
                         if selected
-                        else "未选择额外板块，正在写入完整主题摘要..."
+                        else "未选择重点主题，正在写入完整主题摘要..."
                     ),
                 )
                 return selected
@@ -1345,8 +1378,8 @@ class AIMemoryGUI:
                 modes=modes,
                 save_dir=save_dir,
                 project_dir=PROJECT_ROOT,
-                section_selector=(
-                    select_summary_sections
+                topic_selector=(
+                    select_summary_topics
                     if modes.get("normal") or modes.get("detailed")
                     else None
                 ),

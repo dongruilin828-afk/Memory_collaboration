@@ -1618,7 +1618,9 @@ def summarize_conversation(
     progress: Callable[[str], None] = print,
     include_details: bool = False,
     selected_sections: Collection[str] | str | None = None,
-    section_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None
+    section_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None,
+    selected_topics: Collection[str] | str | None = None,
+    topic_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
     if not messages:
@@ -1831,10 +1833,13 @@ def summarize_conversation(
     _attach_message_ranges(result)
     if section_selector is not None:
         selected_sections = section_selector(result)
+    if topic_selector is not None:
+        selected_topics = topic_selector(result)
     write_summary_outputs(
         result, output_json, output_markdown,
         include_details=include_details,
-        selected_sections=selected_sections
+        selected_sections=selected_sections,
+        selected_topics=selected_topics
     )
     try:
         cache_path.unlink()
@@ -1850,7 +1855,8 @@ def write_summary_outputs(
     output_json: Path,
     output_markdown: Path,
     include_details: bool = False,
-    selected_sections: Collection[str] | str | None = None
+    selected_sections: Collection[str] | str | None = None,
+    selected_topics: Collection[str] | str | None = None
 ) -> None:
     """将同一结构化语义结果原子写成 JSON 与指定展示模式的 Markdown。"""
     _write_json_atomic(output_json, result)
@@ -1859,7 +1865,8 @@ def write_summary_outputs(
         render_summary_markdown(
             result,
             include_details=include_details,
-            selected_sections=selected_sections
+            selected_sections=selected_sections,
+            selected_topics=selected_topics
         )
     )
 
@@ -4630,10 +4637,176 @@ def prompt_summary_sections(
     return tuple(selected)
 
 
+def available_summary_topics(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """返回可供用户选择的具体主题，并为旧 JSON 补充稳定的展示 ID。"""
+    available: list[dict[str, Any]] = []
+    for index, raw_topic in enumerate(result.get("topics", []), start=1):
+        if not isinstance(raw_topic, dict):
+            continue
+        title = str(raw_topic.get("title") or "").strip()
+        if not title:
+            continue
+        topic = dict(raw_topic)
+        topic["topic_id"] = str(
+            topic.get("topic_id") or f"topic_{index}"
+        )
+        topic["title"] = title
+        available.append(topic)
+    return available
+
+
+def normalize_summary_topics(
+    result: dict[str, Any],
+    values: Collection[str] | str | None
+) -> tuple[str, ...]:
+    """把主题 ID/标题选择规范化为按原主题顺序排列的主题 ID。"""
+    topics = available_summary_topics(result)
+    if values is None:
+        return ()
+    if isinstance(values, str):
+        raw_values = [value.strip() for value in re.split(
+            r"[,，\n]+", values.strip()
+        ) if value.strip()]
+    else:
+        raw_values = [str(value).strip() for value in values if str(value).strip()]
+    if any(value.lower() == "all" for value in raw_values):
+        return tuple(topic["topic_id"] for topic in topics)
+    requested = set(raw_values)
+    return tuple(
+        topic["topic_id"] for topic in topics
+        if topic["topic_id"] in requested or topic["title"] in requested
+    )
+
+
+def _record_message_ids(record: dict[str, Any]) -> set[int]:
+    message_ids: set[int] = set()
+    for key in ("message_ids", "assistant_message_ids", "context_message_ids"):
+        values = record.get(key, [])
+        if isinstance(values, list):
+            message_ids.update(
+                value for value in values if isinstance(value, int)
+            )
+    for key in ("message_id", "user_message_id"):
+        value = record.get(key)
+        if isinstance(value, int):
+            message_ids.add(value)
+    return message_ids
+
+
+def _demote_topic_detail_headings(rendered: list[str]) -> list[str]:
+    demoted: list[str] = []
+    for line in rendered:
+        if line.startswith("### "):
+            demoted.append("##### " + line[4:])
+        elif line.startswith("## "):
+            demoted.append("#### " + line[3:])
+        else:
+            demoted.append(line)
+    return demoted
+
+
+def _render_selected_topic_details(
+    lines: list[str],
+    result: dict[str, Any],
+    selected_topics: Collection[str] | str | None,
+    programming_learning: bool
+) -> None:
+    selected_ids = normalize_summary_topics(result, selected_topics)
+    if not selected_ids:
+        return
+
+    topics = {
+        topic["topic_id"]: topic for topic in available_summary_topics(result)
+    }
+    memories = {
+        str(item.get("memory_id")): item
+        for item in result.get("memory_items", [])
+        if isinstance(item, dict) and item.get("memory_id")
+    }
+    typed = result.get("typed_records", {})
+    renderers = (
+        ("programming", lambda target, records: _render_programming_records(
+            target, records, learning_mode=programming_learning
+        )),
+        ("learning", _render_learning_records),
+        ("calculations", _render_calculation_records),
+        ("decisions", _render_decision_records),
+        ("context_references", _render_context_records),
+        ("progressions", _render_progressions),
+        ("source_text_issues", _render_source_text_issues),
+    )
+
+    lines.extend([
+        "## 重点主题详情",
+        "",
+        "以下仅展开用户勾选的主题；未勾选主题的摘要仍完整保留在上方。",
+        "",
+    ])
+    for topic_id in selected_ids:
+        topic = topics[topic_id]
+        topic_message_ids = {
+            value for value in topic.get("source_message_ids", [])
+            if isinstance(value, int)
+        }
+        topic_memories = [
+            memories[memory_id]
+            for memory_id in map(str, topic.get("memory_ids", []))
+            if memory_id in memories
+        ]
+        if not topic_memories and topic_message_ids:
+            topic_memories = [
+                item for item in memories.values()
+                if _record_message_ids(item) & topic_message_ids
+            ]
+
+        lines.extend([f"### {topic['title']}", ""])
+        message_label = ", ".join(
+            str(value) for value in sorted(topic_message_ids)
+        ) or "未标注"
+        lines.extend([f"- 主题来源消息：{message_label}", ""])
+
+        if topic_memories:
+            lines.extend(["#### 关键记忆", ""])
+            for item in topic_memories:
+                source = SOURCE_LABELS.get(
+                    item.get("source"), item.get("source", "未知")
+                )
+                status = STATUS_LABELS.get(
+                    item.get("status"), item.get("status", "未知")
+                )
+                item_messages = ", ".join(
+                    str(value) for value in item.get("message_ids", [])
+                ) or "未标注"
+                lines.append(
+                    f"- **{item.get('topic') or topic['title']}**："
+                    f"{item.get('content') or '（无）'} "
+                    f"`[来源：{source}｜状态：{status}｜消息：{item_messages}]`"
+                )
+                if item.get("evidence_quote"):
+                    lines.append(f"  - 原文证据：{item['evidence_quote']}")
+            lines.append("")
+
+        rendered_structured: list[str] = []
+        for key, renderer in renderers:
+            related = [
+                record for record in typed.get(key, [])
+                if isinstance(record, dict)
+                and topic_message_ids
+                and _record_message_ids(record) & topic_message_ids
+            ]
+            if related:
+                renderer(rendered_structured, related)
+        if rendered_structured:
+            lines.extend(_demote_topic_detail_headings(rendered_structured))
+        elif not topic_memories:
+            lines.extend(["（该主题没有可额外展开的结构化细节。）", ""])
+
+
 def render_summary_markdown(
     result: dict[str, Any],
     include_details: bool = False,
-    selected_sections: Collection[str] | str | None = None
+    selected_sections: Collection[str] | str | None = None,
+    selected_topics: Collection[str] | str | None = None
 ) -> str:
     conversation = result["conversation"]
     programming_learning = _programming_learning_result(result)
@@ -4699,6 +4872,13 @@ def render_summary_markdown(
                 f"- 来源消息：{message_ids}",
                 ""
             ])
+
+    _render_selected_topic_details(
+        lines,
+        result,
+        selected_topics=selected_topics,
+        programming_learning=programming_learning,
+    )
 
     typed = result.get("typed_records", {})
     expanded = normalize_summary_sections(selected_sections)

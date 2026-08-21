@@ -515,6 +515,127 @@ class GeminiSummarizerTests(unittest.TestCase):
             ()
         )
 
+    def test_topic_selector_uses_concrete_topics_and_stable_ids(self):
+        result = {
+            "topics": [
+                {"topic_id": "topic_code", "title": "代码实现"},
+                {"title": "部署流程"},
+            ]
+        }
+        available = summary.available_summary_topics(result)
+        self.assertEqual(
+            [(item["topic_id"], item["title"]) for item in available],
+            [("topic_code", "代码实现"), ("topic_2", "部署流程")],
+        )
+        self.assertEqual(
+            summary.normalize_summary_topics(result, ("部署流程",)),
+            ("topic_2",),
+        )
+        self.assertEqual(
+            summary.normalize_summary_topics(result, "all"),
+            ("topic_code", "topic_2"),
+        )
+
+    def test_selected_topic_expands_only_its_related_details(self):
+        result = {
+            "provider": "gemini",
+            "model": "test-model",
+            "source": "test.md",
+            "conversation": {
+                "message_count": 4,
+                "chunk_count": 1,
+                "conversation_types": ["programming"],
+                "programming_mode": "task",
+            },
+            "overall_summary": "总览",
+            "current_state": {},
+            "topics": [
+                {
+                    "topic_id": "topic_1",
+                    "title": "代码实现",
+                    "summary": "代码主题摘要。",
+                    "memory_ids": ["M1"],
+                    "source_message_ids": [1, 2],
+                },
+                {
+                    "topic_id": "topic_2",
+                    "title": "部署流程",
+                    "summary": "部署主题摘要。",
+                    "memory_ids": ["M2"],
+                    "source_message_ids": [3, 4],
+                },
+            ],
+            "memory_items": [
+                {
+                    "memory_id": "M1",
+                    "topic": "代码关键细节",
+                    "content": "只属于代码主题的重点细节。",
+                    "source": "assistant",
+                    "status": "delivered",
+                    "message_ids": [1, 2],
+                    "evidence_quote": "代码证据",
+                },
+                {
+                    "memory_id": "M2",
+                    "topic": "部署关键细节",
+                    "content": "不应随代码主题展开的部署细节。",
+                    "source": "assistant",
+                    "status": "delivered",
+                    "message_ids": [3, 4],
+                    "evidence_quote": "部署证据",
+                },
+            ],
+            "typed_records": {
+                "programming": [
+                    {
+                        "topic": "代码主题记录",
+                        "code_state": "已有脚本",
+                        "bug_or_issue": "存在报错",
+                        "assistant_diagnosis": "路径问题",
+                        "constraints": [],
+                        "implemented_changes": [],
+                        "proposed_changes": ["修复路径"],
+                        "pending_validation": ["重新运行"],
+                        "implementation_status": "unconfirmed",
+                        "message_ids": [1, 2],
+                    },
+                    {
+                        "topic": "部署主题记录",
+                        "code_state": "待部署",
+                        "bug_or_issue": "无",
+                        "assistant_diagnosis": "无",
+                        "constraints": [],
+                        "implemented_changes": [],
+                        "proposed_changes": ["发布"],
+                        "pending_validation": [],
+                        "implementation_status": "unconfirmed",
+                        "message_ids": [3, 4],
+                    },
+                ]
+            },
+            "query_index": [],
+            "media": [],
+            "processing": {"warnings": []},
+        }
+
+        rendered = summary.render_summary_markdown(
+            result, selected_topics=("topic_1",)
+        )
+        self.assertIn("## 分主题摘要", rendered)
+        self.assertIn("### 代码实现", rendered)
+        self.assertIn("### 部署流程", rendered)
+        self.assertIn("## 重点主题详情", rendered)
+        self.assertIn("只属于代码主题的重点细节", rendered)
+        self.assertNotIn("不应随代码主题展开的部署细节", rendered)
+        self.assertIn("#### 编程任务记录", rendered)
+        self.assertIn("##### 代码主题记录", rendered)
+        self.assertNotIn("##### 部署主题记录", rendered)
+        self.assertIn("## 媒体与附件说明（开发检查）", rendered)
+
+        without_selection = summary.render_summary_markdown(result)
+        self.assertNotIn("## 重点主题详情", without_selection)
+        self.assertNotIn("只属于代码主题的重点细节", without_selection)
+
     def test_default_outputs_and_v8_structure(self):
         messages = [
             {"role": "User", "content": "请解决报错"},

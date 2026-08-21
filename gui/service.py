@@ -47,6 +47,7 @@ class GenerationBundle:
 
     saved_files: list[Path]
     selected_sections: tuple[str, ...] = ()
+    selected_topics: tuple[str, ...] = ()
     summary_result: Optional[dict[str, Any]] = None
 
 
@@ -318,15 +319,19 @@ def generate_output_bundle(
     section_selector: Optional[
         Callable[[dict[str, Any]], Collection[str] | str]
     ] = None,
+    topic_selector: Optional[
+        Callable[[dict[str, Any]], Collection[str] | str]
+    ] = None,
     progress: Callable[[str], None] = lambda _message: None,
     config: Any = None,
     gateway: Any = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
-    ``section_selector`` 会在后端已经完成主题与分类综合、尚未写出 Markdown
-    时调用。这样 GUI 可以安全地弹出板块选择窗口，且普通版和详细版会使用
-    完全相同的选择结果；极简版和仅抓取模式不会触发选择。
+    选择器会在后端已经完成主题与分类综合、尚未写出 Markdown 时调用。
+    GUI 使用 ``topic_selector`` 选择具体主题；旧的 ``section_selector`` 继续
+    兼容命令行式分类选择。普通版和详细版复用同一选择结果；极简版和仅抓取
+    模式不会触发选择。
     """
     if not messages:
         raise ValueError("没有可生成的对话消息。")
@@ -355,6 +360,7 @@ def generate_output_bundle(
         SummaryConfig,
         create_gateway,
         normalize_summary_sections,
+        normalize_summary_topics,
         summarize_conversation,
         write_summary_outputs,
     )
@@ -363,6 +369,7 @@ def generate_output_bundle(
     gateway_was_provided = gateway is not None
     config = config or SummaryConfig.from_env()
     selected_sections: tuple[str, ...] = ()
+    selected_topics: tuple[str, ...] = ()
 
     def capture_selection(result: dict[str, Any]) -> tuple[str, ...]:
         nonlocal selected_sections
@@ -375,8 +382,25 @@ def generate_output_bundle(
         )
         return selected_sections
 
+    def capture_topic_selection(result: dict[str, Any]) -> tuple[str, ...]:
+        nonlocal selected_topics
+        raw_selection: Collection[str] | str = ()
+        if topic_selector is not None:
+            raw_selection = topic_selector(result)
+        selected_topics = normalize_summary_topics(result, raw_selection)
+        return selected_topics
+
     has_selectable_output = bool(modes.get("normal") or modes.get("detailed"))
-    selector = capture_selection if has_selectable_output else None
+    section_callback = (
+        capture_selection
+        if has_selectable_output and section_selector is not None
+        else None
+    )
+    topic_callback = (
+        capture_topic_selection
+        if has_selectable_output and topic_selector is not None
+        else None
+    )
 
     if modes.get("normal"):
         primary_json = save_dir / "AI_memory_result.json"
@@ -431,7 +455,9 @@ def generate_output_bundle(
                 progress=progress,
                 include_details=primary_includes_details,
                 selected_sections=(),
-                section_selector=selector,
+                section_selector=section_callback,
+                selected_topics=(),
+                topic_selector=topic_callback,
             )
             config = candidate_config
             gateway = candidate_gateway
@@ -467,6 +493,7 @@ def generate_output_bundle(
                 detailed_markdown,
                 include_details=True,
                 selected_sections=selected_sections,
+                selected_topics=selected_topics,
             )
         saved_files.extend([detailed_markdown, detailed_json])
 
@@ -500,5 +527,6 @@ def generate_output_bundle(
     return GenerationBundle(
         saved_files=saved_files,
         selected_sections=selected_sections,
+        selected_topics=selected_topics,
         summary_result=base_result,
     )
