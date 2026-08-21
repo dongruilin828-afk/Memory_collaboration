@@ -229,7 +229,9 @@ def parse_and_display(
     summarize=False,
     gemini_model=None,
     summary_provider=None,
-    include_details=False
+    include_details=False,
+    summary_sections=None,
+    prompt_section_selection=True
 ):
     if not html:
         return False
@@ -275,6 +277,8 @@ def parse_and_display(
     try:
         from .gemini_summarizer import (
             SummaryConfig,
+            normalize_summary_sections,
+            prompt_summary_sections,
             summarize_conversation,
         )
 
@@ -291,6 +295,12 @@ def parse_and_display(
                 provider_override=summary_provider
             ),
             include_details=include_details,
+            selected_sections=normalize_summary_sections(summary_sections),
+            section_selector=(
+                prompt_summary_sections
+                if prompt_section_selection and summary_sections is None
+                else None
+            ),
             progress=lambda message: console.print(
                 message,
                 style="dim"
@@ -316,7 +326,7 @@ def parse_and_display(
 
 async def main(
     summarize=False, gemini_model=None, summary_provider=None,
-    include_details=False
+    include_details=False, summary_sections=None
 ):
     console.print(Panel.fit(
         "[bold yellow]🚀 AI 记忆协同管理工具 - 对话提取与可视化工具 "
@@ -350,7 +360,8 @@ async def main(
         summarize=summarize,
         gemini_model=gemini_model,
         summary_provider=summary_provider,
-        include_details=include_details
+        include_details=include_details,
+        summary_sections=summary_sections
     )
     if not success:
         console.print(
@@ -384,10 +395,18 @@ if __name__ == "__main__":
         action="store_true",
         help="总结中附加精简的细节记忆；仅在 --summarize 时使用"
     )
+    argument_parser.add_argument(
+        "--expand",
+        help=(
+            "指定要展开的分类板块，多个键用逗号分隔；未提供时在模型完成"
+            "分类后由终端选择，传 none 表示全部不选"
+        )
+    )
     arguments = argument_parser.parse_args()
     asyncio.run(main(
         summarize=arguments.summarize,
         gemini_model=arguments.model,
         summary_provider=arguments.provider,
-        include_details=arguments.include_details
+        include_details=arguments.include_details,
+        summary_sections=arguments.expand
     ))

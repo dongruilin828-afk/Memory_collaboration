@@ -485,6 +485,36 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual([item["message_id"] for item in recent], list(range(5, 25)))
         self.assertEqual(recent[-1]["content"], "消息-24")
 
+    def test_terminal_section_selector_uses_only_available_numbered_items(self):
+        result = {
+            "typed_records": {
+                "programming": [{"topic": "x"}],
+                "learning": [{"topic": "y"}],
+                "calculations": [], "decisions": [],
+                "context_references": [], "progressions": [],
+                "source_text_issues": []
+            },
+            "media": [{"media_id": "MEDIA_001"}]
+        }
+        output = []
+        selected = summary.prompt_summary_sections(
+            result,
+            input_fn=lambda _prompt: "1, 2, 9",
+            output_fn=output.append
+        )
+        self.assertEqual(selected, ("programming", "learning"))
+        self.assertEqual(
+            summary.available_summary_sections(result),
+            ["programming", "learning"]
+        )
+        self.assertTrue(any("[1]" in line for line in output))
+        self.assertEqual(
+            summary.prompt_summary_sections(
+                result, input_fn=lambda _prompt: "", output_fn=lambda _line: None
+            ),
+            ()
+        )
+
     def test_default_outputs_and_v8_structure(self):
         messages = [
             {"role": "User", "content": "请解决报错"},
@@ -529,10 +559,34 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertNotIn("细粒度记忆索引", markdown)
         self.assertNotIn("用户原始查询索引", markdown)
         self.assertNotIn("最近上下文（按时间顺序，高保真）", markdown)
+        self.assertNotIn("## 编程任务记录", markdown)
         self.assertIn("媒体与附件说明（开发检查）", markdown)
         self.assertIn("（未检测到图片或附件。）", markdown)
-        self.assertIn("500MB 以下，有点大了", markdown)
-        self.assertIn("可能应为 500MB 以上", markdown)
+
+        expanded = summary.render_summary_markdown(
+            saved, selected_sections="all"
+        )
+        self.assertIn("## 编程任务记录", expanded)
+        self.assertIn("500MB 以下，有点大了", expanded)
+        self.assertIn("可能应为 500MB 以上", expanded)
+
+        saved["topics"] = [
+            {"title": "主题一", "summary": "主题一摘要。",
+             "source_message_ids": [1], "memory_ids": []},
+            {"title": "主题二", "summary": "主题二摘要。",
+             "source_message_ids": [2], "memory_ids": []}
+        ]
+        without_records = summary.render_summary_markdown(saved)
+        with_programming = summary.render_summary_markdown(
+            saved, selected_sections={"programming"}
+        )
+        for rendered in (without_records, with_programming):
+            self.assertIn("### 主题一", rendered)
+            self.assertIn("### 主题二", rendered)
+            self.assertLess(rendered.index("### 主题一"), rendered.index("### 主题二"))
+            self.assertIn("## 媒体与附件说明（开发检查）", rendered)
+        self.assertNotIn("## 编程任务记录", without_records)
+        self.assertIn("## 编程任务记录", with_programming)
 
         detailed = summary.render_summary_markdown(
             saved, include_details=True
@@ -1202,7 +1256,9 @@ class GeminiSummarizerTests(unittest.TestCase):
             'query_index': []
         }
         markdown = summary.render_summary_markdown(
-            result, include_details=True
+            result,
+            include_details=True,
+            selected_sections={"programming"}
         )
 
         self.assertEqual(normalized['programming_mode'], 'learning')
@@ -1692,8 +1748,67 @@ class GeminiSummarizerTests(unittest.TestCase):
             {"role": "User", "content": "1"},
             {"role": "AI", "content": "建议退出微信后删除。"}
         ])
-        self.assertEqual(reconciled[0]["user_choice"], "")
-        self.assertEqual(reconciled[0]["status"], "suggested")
+        self.assertEqual(reconciled, [])
+
+    def test_explicit_user_decision_is_recovered_from_source_message(self):
+        records = [{
+            "topic": "脚本路径", "options": ["跨平台路径", "保留硬编码路径"],
+            "user_choice": "", "status": "suggested", "message_ids": [1, 2]
+        }]
+        reconciled = summary._reconcile_decision_records(records, [
+            {"role": "User", "content": "我要保留硬编码路径"},
+            {"role": "AI", "content": "收到，将保留硬编码路径。"}
+        ])
+        self.assertEqual(len(reconciled), 1)
+        self.assertEqual(reconciled[0]["user_choice"], "我要保留硬编码路径")
+        self.assertEqual(reconciled[0]["status"], "confirmed")
+
+    def test_language_term_topics_merge_by_adjacent_user_query(self):
+        memories = [
+            {
+                "memory_id": "M1", "topic": "英语词汇：stain",
+                "content": "AI 解释了英语词汇 stain 的含义。",
+                "memory_type": "learning_point", "message_ids": [2]
+            },
+            {
+                "memory_id": "M2", "topic": "技术术语：bytecode",
+                "content": "AI 解释了 bytecode 在 Python 中的含义。",
+                "memory_type": "learning_point", "message_ids": [4]
+            },
+            {
+                "memory_id": "M3", "topic": "Python 魔法方法",
+                "content": "AI 讲解了 Python 的 __str__ 与运算符重载。",
+                "memory_type": "learning_point", "message_ids": [6]
+            }
+        ]
+        topics = [
+            {"topic_id": "topic_1", "title": "英语词汇学习",
+             "summary": "", "memory_ids": ["M1"], "source_message_ids": [1, 2]},
+            {"topic_id": "topic_2", "title": "计算机术语",
+             "summary": "", "memory_ids": ["M2"], "source_message_ids": [3, 4]},
+            {"topic_id": "topic_3", "title": "编程学习",
+             "summary": "", "memory_ids": ["M3"], "source_message_ids": [5, 6]}
+        ]
+        messages = [
+            {"role": "User", "content": "stain"},
+            {"role": "AI", "content": "stain 是污渍。"},
+            {"role": "User", "content": "bytecode"},
+            {"role": "AI", "content": "bytecode 是字节码。"},
+            {"role": "User", "content": "str 是特有方法吗？什么叫重载？"},
+            {"role": "AI", "content": "__str__ 是特殊方法。"},
+            {"role": "User", "content": "slow"},
+            {"role": "AI", "content": "slow 是缓慢的。"},
+            {"role": "User", "content": "possess"},
+            {"role": "AI", "content": "possess 是拥有。"},
+            {"role": "User", "content": "bubble"},
+            {"role": "AI", "content": "bubble 是气泡。"}
+        ]
+        merged = summary._merge_language_learning_topics(
+            topics, memories, messages=messages
+        )
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["memory_ids"], ["M1", "M2"])
+        self.assertEqual(merged[1]["memory_ids"], ["M3"])
 
     def test_language_exchange_is_counted_once(self):
         memories = [
@@ -1707,6 +1822,42 @@ class GeminiSummarizerTests(unittest.TestCase):
             }
         ]
         self.assertEqual(summary._semantic_memory_count(memories), 1)
+
+    def test_mixed_language_topic_is_split_before_dorm_calculations_merge(self):
+        memories = [
+            {"memory_id": "M1", "topic": "word", "content": "bytecode",
+             "memory_type": "learning_point", "message_ids": [2]},
+            {"memory_id": "M2", "topic": "expression", "content": "phrase fix",
+             "memory_type": "assistant_suggestion", "message_ids": [4]},
+            {"memory_id": "M3", "topic": "power", "content": "4\u4eba\u5bbf\u820d\u7528\u7535 100 kWh",
+             "memory_type": "calculation", "message_ids": [6]},
+            {"memory_id": "M4", "topic": "power", "content": "4\u4eba\u5bbf\u820d\u7535\u91cf 60 kWh",
+             "memory_type": "calculation", "message_ids": [8]}
+        ]
+        topics = [
+            {"topic_id": "topic_1", "title": "mixed", "summary": "",
+             "memory_ids": ["M1", "M3"], "source_message_ids": [1, 2, 5, 6]},
+            {"topic_id": "topic_2", "title": "expression", "summary": "",
+             "memory_ids": ["M2"], "source_message_ids": [3, 4]},
+            {"topic_id": "topic_3", "title": "\u5bbf\u820d\u7528\u7535", "summary": "",
+             "memory_ids": ["M4"], "source_message_ids": [7, 8]}
+        ]
+        messages = [
+            {"role": "User", "content": "bytecode"},
+            {"role": "AI", "content": "bytecode means ..."},
+            {"role": "User", "content": "blessed name of the god"},
+            {"role": "AI", "content": "a better phrase is ..."},
+            {"role": "User", "content": "slow"}, {"role": "AI", "content": "..."},
+            {"role": "User", "content": "possess"}, {"role": "AI", "content": "..."},
+            {"role": "User", "content": "bubble"}, {"role": "AI", "content": "..."}
+        ]
+        merged = summary._merge_language_learning_topics(
+            topics, memories, messages=messages
+        )
+        merged = summary._merge_dorm_electricity_topics(merged, memories)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["memory_ids"], ["M1", "M2"])
+        self.assertEqual(set(merged[1]["memory_ids"]), {"M3", "M4"})
 
     def test_unavailable_document_title_says_original_document(self):
         topics = [{

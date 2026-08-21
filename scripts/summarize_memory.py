@@ -10,6 +10,8 @@ from .gemini_summarizer import (
     GeminiSummaryError,
     SummaryConfig,
     load_exported_markdown,
+    normalize_summary_sections,
+    prompt_summary_sections,
     safe_error_message,
     summarize_conversation,
 )
@@ -50,6 +52,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--include-details",
         action="store_true",
         help="在 Markdown 末尾附加精简的细节记忆；默认不附加"
+    )
+    parser.add_argument(
+        "--expand",
+        help=(
+            "直接指定要展开的分类板块，多个键用逗号分隔；"
+            "可用 programming、learning、calculations、decisions、"
+            "context_references、progressions、source_text_issues 或 all。"
+            "未提供时在模型完成分类后通过终端选择；传 none 表示全部不选"
+        )
     )
     return parser
 
@@ -95,6 +106,10 @@ def main() -> int:
             ),
             config=config,
             include_details=args.include_details,
+            selected_sections=normalize_summary_sections(args.expand),
+            section_selector=(
+                prompt_summary_sections if args.expand is None else None
+            ),
             progress=lambda message: console.print(
                 message, style="dim"
             )

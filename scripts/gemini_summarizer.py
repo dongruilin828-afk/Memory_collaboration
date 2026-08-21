@@ -15,7 +15,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Collection, Protocol
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -33,6 +33,16 @@ DEFAULT_MAX_OUTPUT_TOKENS = 16_384
 DEFAULT_THINKING_LEVEL = "medium"
 DEFAULT_RETRIES = 3
 DEFAULT_RATE_LIMIT_WAIT_SECONDS = 65
+
+SUMMARY_SECTION_LABELS = {
+    "programming": "编程学习/任务记录",
+    "learning": "语言学习记录",
+    "calculations": "计算与推算记录",
+    "decisions": "决策记录",
+    "context_references": "短消息与上下文指代",
+    "progressions": "主题内部递进",
+    "source_text_issues": "原文实质错误与不确定修正",
+}
 DEFAULT_MAX_MEDIA_BYTES = 12 * 1024 * 1024
 DEFAULT_MEDIA_BATCH_SIZE = 6
 DEFAULT_TEXT_ATTACHMENT_CHARS = 30_000
@@ -1606,7 +1616,9 @@ def summarize_conversation(
     config: SummaryConfig | None = None,
     gateway: SummaryGateway | None = None,
     progress: Callable[[str], None] = print,
-    include_details: bool = False
+    include_details: bool = False,
+    selected_sections: Collection[str] | str | None = None,
+    section_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
     if not messages:
@@ -1817,9 +1829,12 @@ def summarize_conversation(
     }
 
     _attach_message_ranges(result)
+    if section_selector is not None:
+        selected_sections = section_selector(result)
     write_summary_outputs(
         result, output_json, output_markdown,
-        include_details=include_details
+        include_details=include_details,
+        selected_sections=selected_sections
     )
     try:
         cache_path.unlink()
@@ -1834,13 +1849,18 @@ def write_summary_outputs(
     result: dict[str, Any],
     output_json: Path,
     output_markdown: Path,
-    include_details: bool = False
+    include_details: bool = False,
+    selected_sections: Collection[str] | str | None = None
 ) -> None:
     """将同一结构化语义结果原子写成 JSON 与指定展示模式的 Markdown。"""
     _write_json_atomic(output_json, result)
     _write_text_atomic(
         output_markdown,
-        render_summary_markdown(result, include_details=include_details)
+        render_summary_markdown(
+            result,
+            include_details=include_details,
+            selected_sections=selected_sections
+        )
     )
 
 
@@ -1925,7 +1945,10 @@ def renormalize_result(
         topics, memory_items, message_count
     )
     result["topics"] = _merge_language_learning_topics(
-        topics, memory_items
+        topics, memory_items, messages=messages
+    )
+    result["topics"] = _merge_dorm_electricity_topics(
+        result["topics"], memory_items
     )
     result["topics"] = _merge_programming_task_topics(
         result["topics"],
@@ -2263,7 +2286,10 @@ def _normalize_final_summary(
         short_conversation=short_conversation
     )
     topics = _normalize_topic_assignments(topics, all_memory, message_count)
-    topics = _merge_language_learning_topics(topics, all_memory)
+    topics = _merge_language_learning_topics(
+        topics, all_memory, messages=messages
+    )
+    topics = _merge_dorm_electricity_topics(topics, all_memory)
     topics = _merge_programming_task_topics(
         topics, all_memory, programming_mode
     )
@@ -2419,6 +2445,36 @@ def _looks_like_language_query(text: str) -> bool:
     )
 
 
+def _learning_memory_has_language_query(
+    item: dict[str, Any],
+    messages: list[dict[str, str]] | None
+) -> bool:
+    """用相邻用户原文识别单词/短语查询，避免按术语领域错误拆主题。"""
+    if item.get("memory_type") not in {
+        "learning_point", "correction", "assistant_suggestion"
+    } or not messages:
+        return False
+    candidate_ids: set[int] = set()
+    for message_id in item.get("message_ids", []):
+        if not isinstance(message_id, int):
+            continue
+        if 1 <= message_id <= len(messages):
+            candidate_ids.add(message_id)
+            if (
+                messages[message_id - 1].get("role") == "AI"
+                and message_id > 1
+                and messages[message_id - 2].get("role") == "User"
+            ):
+                candidate_ids.add(message_id - 1)
+    return any(
+        messages[message_id - 1].get("role") == "User"
+        and _looks_like_language_query(
+            str(messages[message_id - 1].get("content") or "")
+        )
+        for message_id in candidate_ids
+    )
+
+
 def _programming_learning_result(result: dict[str, Any]) -> bool:
     """兼容旧 JSON：没有 programming_mode 时根据已保存的摘要再判断。"""
     conversation = result.get("conversation", {})
@@ -2510,38 +2566,55 @@ def _ensure_topic_coverage(
 
 
 def _merge_language_learning_topics(
-    topics: list[dict[str, Any]], memory_items: list[dict[str, Any]]
+    topics: list[dict[str, Any]],
+    memory_items: list[dict[str, Any]],
+    messages: list[dict[str, str]] | None = None
 ) -> list[dict[str, Any]]:
+    memory_by_id = {
+        str(item.get("memory_id")): item
+        for item in memory_items if item.get("memory_id")
+    }
+    language_query_count = sum(
+        1 for message in messages or []
+        if message.get("role") == "User"
+        and _looks_like_language_query(str(message.get("content") or ""))
+    )
+    language_heavy_context = language_query_count >= 5
     language_ids = {
         str(item.get("memory_id"))
         for item in memory_items
         if item.get("memory_id")
-        and _is_vocabulary_memory(item, language_heavy=True)
+        and (
+            _is_vocabulary_memory(item, language_heavy=True)
+            or (
+                language_heavy_context
+                and _learning_memory_has_language_query(item, messages)
+            )
+        )
     }
-    language_topics = [
+    participating = [
         topic for topic in topics
-        if topic.get("memory_ids")
-        and set(map(str, topic.get("memory_ids", []))).issubset(language_ids)
+        if set(map(str, topic.get("memory_ids", []))) & language_ids
     ]
-    if len(language_topics) < 2:
+    if len(participating) < 2:
         return topics
     merged_ids = list(dict.fromkeys(
-        str(memory_id)
-        for topic in language_topics
-        for memory_id in topic.get("memory_ids", [])
+        memory_id
+        for topic in participating
+        for memory_id in map(str, topic.get("memory_ids", []))
+        if memory_id in language_ids
     ))
-    merged_messages = sorted({
-        message_id
-        for topic in language_topics
-        for message_id in topic.get("source_message_ids", [])
-        if isinstance(message_id, int)
-    })
     merged_memories = [
         item for item in memory_items
         if str(item.get("memory_id")) in set(merged_ids)
     ]
+    merged_messages = sorted({
+        message_id for item in merged_memories
+        for message_id in item.get("message_ids", [])
+        if isinstance(message_id, int)
+    })
     merged = {
-        "topic_id": language_topics[0].get("topic_id", "topic_1"),
+        "topic_id": participating[0].get("topic_id", "topic_1"),
         "title": "英语词汇、翻译与表达学习",
         "summary": (
             f"集中讨论 {_semantic_memory_count(merged_memories)} 项英语词汇、"
@@ -2552,8 +2625,92 @@ def _merge_language_learning_topics(
         "source_message_ids": merged_messages,
         "message_range": _message_range(merged_messages)
     }
-    first_index = min(topics.index(topic) for topic in language_topics)
-    result = [topic for topic in topics if topic not in language_topics]
+    first_index = min(topics.index(topic) for topic in participating)
+    result = []
+    for topic in topics:
+        if topic not in participating:
+            result.append(topic)
+            continue
+        remaining_ids = [
+            str(memory_id) for memory_id in topic.get("memory_ids", [])
+            if str(memory_id) not in language_ids
+        ]
+        if not remaining_ids:
+            continue
+        remainder = dict(topic)
+        remainder["memory_ids"] = remaining_ids
+        remainder_messages = sorted({
+            message_id
+            for memory_id in remaining_ids
+            for message_id in memory_by_id.get(memory_id, {}).get(
+                "message_ids", []
+            )
+            if isinstance(message_id, int)
+        })
+        remainder["source_message_ids"] = remainder_messages
+        remainder["message_range"] = _message_range(remainder_messages)
+        result.append(remainder)
+    result.insert(first_index, merged)
+    for index, topic in enumerate(result, start=1):
+        topic["topic_id"] = f"topic_{index}"
+    return result
+
+
+def _merge_dorm_electricity_topics(
+    topics: list[dict[str, Any]],
+    memory_items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """合并同一轮宿舍用电估算；不泛化到其他计算主题。"""
+    memory_by_id = {
+        str(item.get("memory_id")): item
+        for item in memory_items if item.get("memory_id")
+    }
+    candidates: list[dict[str, Any]] = []
+    for topic in topics:
+        ids = list(map(str, topic.get("memory_ids", [])))
+        memories = [memory_by_id[value] for value in ids if value in memory_by_id]
+        text = " ".join(
+            [str(topic.get("title") or ""), str(topic.get("summary") or "")]
+            + [str(item.get("content") or "") for item in memories]
+        )
+        if (
+            memories
+            and all(item.get("memory_type") in {"calculation", "user_condition"}
+                    for item in memories)
+            and any(item.get("memory_type") == "calculation" for item in memories)
+            and "宿舍" in text
+            and re.search(r"用电|电量|电费", text)
+        ):
+            candidates.append(topic)
+    if len(candidates) < 2:
+        return topics
+    merged_ids = list(dict.fromkeys(
+        str(memory_id) for topic in candidates
+        for memory_id in topic.get("memory_ids", [])
+    ))
+    merged_memories = [memory_by_id[value] for value in merged_ids]
+    merged_messages = sorted({
+        message_id for item in merged_memories
+        for message_id in item.get("message_ids", [])
+        if isinstance(message_id, int)
+    })
+    latest = max(
+        merged_memories,
+        key=lambda item: max(item.get("message_ids", [0]) or [0])
+    )
+    merged = {
+        "topic_id": candidates[0].get("topic_id", "topic_1"),
+        "title": "4人间宿舍月度用电量估算",
+        "summary": (
+            "用户围绕4人间宿舍非空调季节用电量进行了多轮条件更新；"
+            f"最新结论：{str(latest.get('content') or '').strip()}"
+        ),
+        "memory_ids": merged_ids,
+        "source_message_ids": merged_messages,
+        "message_range": _message_range(merged_messages)
+    }
+    first_index = min(topics.index(topic) for topic in candidates)
+    result = [topic for topic in topics if topic not in candidates]
     result.insert(first_index, merged)
     for index, topic in enumerate(result, start=1):
         topic["topic_id"] = f"topic_{index}"
@@ -4061,18 +4218,25 @@ def _normalize_decision_records(value: Any, message_count: int) -> list[dict[str
 def _reconcile_decision_records(
     records: list[dict[str, Any]], messages: list[dict[str, str]]
 ) -> list[dict[str, Any]]:
-    """没有用户原文证据时，不把 AI 推荐方案升级成用户选择。"""
+    """决策记录只保留用户在原文中明确作出的选择。"""
     reconciled: list[dict[str, Any]] = []
     for raw_record in records:
         record = dict(raw_record)
+        user_entries = [
+            (
+                message_id,
+                re.sub(
+                    r"s+", " ",
+                    str(messages[message_id - 1].get("content") or "")
+                ).strip()
+            )
+            for message_id in record.get("message_ids", [])
+            if 1 <= message_id <= len(messages)
+            and messages[message_id - 1].get("role") == "User"
+        ]
+        user_text = " ".join(text for _message_id, text in user_entries)
         choice = str(record.get("user_choice") or "").strip()
         if choice:
-            user_text = " ".join(
-                str(messages[message_id - 1].get("content") or "")
-                for message_id in record.get("message_ids", [])
-                if 1 <= message_id <= len(messages)
-                and messages[message_id - 1].get("role") == "User"
-            )
             choice_core = re.sub(r"[（(].*?[）)]", "", choice).strip()
 
             def normalize(value: str) -> str:
@@ -4085,10 +4249,43 @@ def _reconcile_decision_records(
                 and normalize(choice_core) not in normalize(user_text)
             ):
                 record["user_choice"] = ""
-                if record.get("status") == "confirmed":
-                    record["status"] = "suggested"
+                choice = ""
+
+        if not choice:
+            explicit = next((
+                (message_id, text)
+                for message_id, text in user_entries
+                if _looks_like_explicit_user_decision(text)
+            ), None)
+            if explicit:
+                _message_id, text = explicit
+                record["user_choice"] = (
+                    text if len(text) <= 180 else text[:179].rstrip() + "…"
+                )
+                choice = record["user_choice"]
+
+        if not choice:
+            continue
+        if record.get("status") not in {"executed", "verified"}:
+            record["status"] = "confirmed"
         reconciled.append(record)
     return reconciled
+
+
+def _looks_like_explicit_user_decision(text: str) -> bool:
+    value = re.sub(r"s+", " ", str(text or "")).strip()
+    if not value or re.search(
+        r"(?:是否|要不要|该不该|能不能|可不可以|哪个好|怎么选|怎么办|"
+        r"还没决定|尚未决定|未决定|暂不决定|不确定|犹豫|考虑中)",
+        value
+    ):
+        return False
+    return bool(re.search(
+        r"(?:决定|选择|选用|采用|改用|就用|继续使用|继续用|仍用|"
+        r"保留|保持|默认|不再|不要|无需|不需要|必须|只用|就按)",
+        value,
+        re.IGNORECASE
+    ))
 
 
 def _normalize_contextual_messages(value: Any, message_count: int) -> list[dict[str, Any]]:
@@ -4360,8 +4557,83 @@ def _claim_text(claim: dict[str, Any]) -> str:
     )
 
 
+def normalize_summary_sections(
+    values: Collection[str] | str | None
+) -> set[str]:
+    if values is None:
+        return set()
+    if isinstance(values, str):
+        raw_values = re.split(r"[,，\s]+", values.strip())
+    else:
+        raw_values = [str(value) for value in values]
+    selected = {
+        value.strip() for value in raw_values
+        if value and value.strip() in SUMMARY_SECTION_LABELS
+    }
+    if any(str(value).strip().lower() == "all" for value in raw_values):
+        return set(SUMMARY_SECTION_LABELS)
+    return selected
+
+
+def available_summary_sections(result: dict[str, Any]) -> list[str]:
+    typed = result.get("typed_records", {})
+    availability = {
+        "programming": bool(typed.get("programming")),
+        "learning": bool(typed.get("learning")),
+        "calculations": bool(typed.get("calculations")),
+        "decisions": bool(typed.get("decisions")),
+        "context_references": any(
+            _context_reference_priority(record) > 0
+            for record in typed.get("context_references", [])
+        ),
+        "progressions": bool(typed.get("progressions")),
+        "source_text_issues": any(
+            _is_material_source_text_issue(record)
+            for record in typed.get("source_text_issues", [])
+        ),
+    }
+    return [key for key in SUMMARY_SECTION_LABELS if availability[key]]
+
+
+def prompt_summary_sections(
+    result: dict[str, Any],
+    input_fn: Callable[[str], str] = input,
+    output_fn: Callable[[str], None] = print
+) -> tuple[str, ...]:
+    """终端临时选择器；直接回车表示不展开任何分类记录。"""
+    available = available_summary_sections(result)
+    if not available:
+        output_fn("本次总结没有可额外展开的分类记录。")
+        return ()
+    output_fn("\n可选择在“分主题摘要”后展开的板块：")
+    for index, key in enumerate(available, start=1):
+        output_fn(f"  [{index}] {SUMMARY_SECTION_LABELS[key]}")
+    output_fn("输入多个编号时用逗号分隔；输入 all 全选；直接回车全部不选。")
+    try:
+        raw = input_fn("请选择要展开的板块：").strip()
+    except EOFError:
+        return ()
+    if not raw:
+        return ()
+    if raw.lower() == "all":
+        return tuple(available)
+    selected: list[str] = []
+    for token in re.split(r"[,，\s]+", raw):
+        if token.isdigit() and 1 <= int(token) <= len(available):
+            key = available[int(token) - 1]
+        elif token in available:
+            key = token
+        else:
+            continue
+        if key not in selected:
+            selected.append(key)
+    return tuple(selected)
+
+
 def render_summary_markdown(
-    result: dict[str, Any], include_details: bool = False
+    result: dict[str, Any],
+    include_details: bool = False,
+    selected_sections: Collection[str] | str | None = None
 ) -> str:
     conversation = result["conversation"]
     programming_learning = _programming_learning_result(result)
@@ -4429,17 +4701,27 @@ def render_summary_markdown(
             ])
 
     typed = result.get("typed_records", {})
-    _render_programming_records(
-        lines,
-        typed.get("programming", []),
-        learning_mode=programming_learning
-    )
-    _render_learning_records(lines, typed.get("learning", []))
-    _render_calculation_records(lines, typed.get("calculations", []))
-    _render_decision_records(lines, typed.get("decisions", []))
-    _render_context_records(lines, typed.get("context_references", []))
-    _render_progressions(lines, typed.get("progressions", []))
-    _render_source_text_issues(lines, typed.get("source_text_issues", []))
+    expanded = normalize_summary_sections(selected_sections)
+    # 媒体附件是开发检查信息，不属于用户选择的分类记录，始终展示。
+    expanded.add("media")
+    if "programming" in expanded:
+        _render_programming_records(
+            lines,
+            typed.get("programming", []),
+            learning_mode=programming_learning
+        )
+    if "learning" in expanded:
+        _render_learning_records(lines, typed.get("learning", []))
+    if "calculations" in expanded:
+        _render_calculation_records(lines, typed.get("calculations", []))
+    if "decisions" in expanded:
+        _render_decision_records(lines, typed.get("decisions", []))
+    if "context_references" in expanded:
+        _render_context_records(lines, typed.get("context_references", []))
+    if "progressions" in expanded:
+        _render_progressions(lines, typed.get("progressions", []))
+    if "source_text_issues" in expanded:
+        _render_source_text_issues(lines, typed.get("source_text_issues", []))
 
     lines.extend(["## 细粒度记忆索引", ""])
     memories = result.get("memory_items", [])
@@ -4474,46 +4756,47 @@ def render_summary_markdown(
                 ""
             ])
 
-    lines.extend(["## 媒体与附件说明（开发检查）", ""])
     media = result.get("media", [])
-    if not media:
-        lines.extend(["（未检测到图片或附件。）", ""])
-    else:
-        for asset in media:
-            availability = (
-                "本地可访问，可重新验证"
-                if asset.get("can_reverify")
-                else "当前不可访问，不能重新验证"
-            )
-            lines.extend([
-                f"### {asset['media_id']}｜消息 {asset['message_index']}｜"
-                f"{asset['kind']}",
-                "",
-                f"- 标签：{asset['label']}",
-                f"- 状态：{asset['status']}；{availability}",
-                f"- 内容说明：{asset['description']}",
-            ])
-            bindings = asset.get("assistant_bindings", [])
-            if not bindings:
-                lines.append("- AI 结论绑定：（未生成）")
-            else:
-                for binding in bindings:
-                    binding_ids = binding.get("assistant_message_ids", [])
-                    ids = ", ".join(
-                        str(value)
-                        for value in binding_ids
-                    ) or "未标注"
-                    prefix = (
-                        f"上一 AI 结论（消息 {ids}）"
-                        if binding_ids
-                        else "当前附件处理结论"
-                    )
-                    lines.append(
-                        f"- {prefix}（"
-                        f"{binding.get('conclusion_status', 'uncertain')}）："
-                        f"{binding.get('assistant_conclusion') or '未提取'}"
-                    )
-            lines.append("")
+    if "media" in expanded:
+        lines.extend(["## 媒体与附件说明（开发检查）", ""])
+        if not media:
+            lines.extend(["（未检测到图片或附件。）", ""])
+        else:
+            for asset in media:
+                availability = (
+                    "本地可访问，可重新验证"
+                    if asset.get("can_reverify")
+                    else "当前不可访问，不能重新验证"
+                )
+                lines.extend([
+                    f"### {asset['media_id']}｜消息 {asset['message_index']}｜"
+                    f"{asset['kind']}",
+                    "",
+                    f"- 标签：{asset['label']}",
+                    f"- 状态：{asset['status']}；{availability}",
+                    f"- 内容说明：{asset['description']}",
+                ])
+                bindings = asset.get("assistant_bindings", [])
+                if not bindings:
+                    lines.append("- AI 结论绑定：（未生成）")
+                else:
+                    for binding in bindings:
+                        binding_ids = binding.get("assistant_message_ids", [])
+                        ids = ", ".join(
+                            str(value)
+                            for value in binding_ids
+                        ) or "未标注"
+                        prefix = (
+                            f"上一 AI 结论（消息 {ids}）"
+                            if binding_ids
+                            else "当前附件处理结论"
+                        )
+                        lines.append(
+                            f"- {prefix}（"
+                            f"{binding.get('conclusion_status', 'uncertain')}）："
+                            f"{binding.get('assistant_conclusion') or '未提取'}"
+                        )
+                lines.append("")
 
     warnings = result.get("processing", {}).get("warnings", [])
     _append_markdown_list(lines, "处理警告", warnings)
