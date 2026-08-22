@@ -443,6 +443,59 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertTrue(public["can_reverify"])
         self.assertEqual(public["source_role"], "user")
 
+    def test_media_api_failure_keeps_local_file_reverifiable_and_retryable(self):
+        class FailingGateway:
+            def generate_json(self, prompt, schema, media_assets=None):
+                raise summary.GeminiSummaryError("temporary media outage")
+
+        with tempfile.TemporaryDirectory() as temp:
+            local_path = Path(temp) / "sample.png"
+            local_path.write_bytes(b"image")
+            asset = summary.MediaAsset(
+                media_id="M001",
+                message_index=1,
+                kind="image",
+                label="截图",
+                reference="./sample.png",
+                local_path=local_path,
+                mime_type="image/png",
+                status="ready",
+            )
+            warnings = summary.describe_media(
+                [asset],
+                FailingGateway(),
+                summary.SummaryConfig(),
+                lambda _message: None,
+            )
+            public = asset.public_dict()
+
+            retry_asset = summary.MediaAsset(
+                media_id="M001",
+                message_index=1,
+                kind="image",
+                label="截图",
+                reference="./sample.png",
+                local_path=local_path,
+                mime_type="image/png",
+                status="ready",
+            )
+            summary._apply_cached_media(
+                [retry_asset],
+                [{
+                    "media_id": "M001",
+                    "reference": "./sample.png",
+                    "status": "analysis_failed",
+                    "description": asset.description,
+                }],
+            )
+
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(asset.status, "analysis_failed")
+        self.assertEqual(public["access_status"], "available_local")
+        self.assertTrue(public["can_reverify"])
+        self.assertIn("本地文件仍可访问", asset.description)
+        self.assertEqual(retry_asset.status, "ready")
+
     def test_assistant_citation_icons_are_ignored(self):
         messages = [
             {

@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import hashlib
 import unittest
 from pathlib import Path
 import tempfile
@@ -12,6 +13,7 @@ from unittest.mock import patch
 from bs4 import BeautifulSoup
 
 from gui.service import (
+    _close_browser_context_safely,
     _download_image_candidates,
     build_image_asset_directory,
     build_markdown_asset_prefix,
@@ -87,6 +89,86 @@ class GUIServiceTests(unittest.TestCase):
         self.assertTrue(image_map[candidates[0]].startswith("./assets/img_1_"))
         self.assertTrue(image_map[candidates[2]].startswith("./assets/img_2_"))
         self.assertTrue(image_map[candidates[3]].startswith("./assets/img_3_"))
+
+    def test_existing_image_directory_stays_concurrent_and_deduplicated(self):
+        class FakeResponse:
+            def __init__(self, ok, payload):
+                self.ok = ok
+                self.payload = payload
+
+            async def body(self):
+                return self.payload
+
+        class FakeRequest:
+            def __init__(self):
+                self.active = 0
+                self.max_active = 0
+                self.calls = {}
+
+            async def get(self, src, timeout):
+                self.calls[src] = self.calls.get(src, 0) + 1
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+                try:
+                    await asyncio.sleep(0.01)
+                    return FakeResponse("fail" not in src, src.encode("utf-8"))
+                finally:
+                    self.active -= 1
+
+        existing = "https://example.com/already.png"
+        failing = "https://example.com/fail.png"
+        fresh = "https://example.com/new.jpg"
+        favicon = (
+            "https://www.google.com/s2/favicons?"
+            "domain=https://www.reddit.com&sz=128"
+        )
+        request = FakeRequest()
+        page = SimpleNamespace(request=request)
+        warnings = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            images_dir = Path(temp_dir)
+            digest = hashlib.md5(existing.encode("utf-8")).hexdigest()[:8]
+            existing_file = images_dir / f"img_7_{digest}.png"
+            existing_file.write_bytes(b"existing")
+            image_map = asyncio.run(_download_image_candidates(
+                page,
+                [existing, failing, failing, failing, favicon, fresh],
+                images_dir,
+                "./assets",
+                concurrency=2,
+                warning_collector=warnings,
+            ))
+
+            self.assertEqual(existing_file.read_bytes(), b"existing")
+            self.assertEqual(len(list(images_dir.iterdir())), 2)
+
+        self.assertEqual(request.calls.get(existing, 0), 0)
+        self.assertEqual(request.calls.get(failing), 2)
+        self.assertEqual(request.calls.get(fresh), 1)
+        self.assertEqual(request.calls.get(favicon, 0), 0)
+        self.assertEqual(request.max_active, 2)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("1 个真实图片资源下载失败", warnings[0])
+        self.assertEqual(list(image_map), [existing, fresh])
+        self.assertEqual(image_map[existing], f"./assets/{existing_file.name}")
+        self.assertTrue(image_map[fresh].startswith("./assets/img_8_"))
+
+    def test_browser_cleanup_failure_becomes_warning(self):
+        class BrokenContext:
+            async def close(self):
+                raise RuntimeError(
+                    "Connection closed while reading from the driver"
+                )
+
+        warnings = []
+        messages = []
+        asyncio.run(_close_browser_context_safely(
+            BrokenContext(), warnings, messages.append
+        ))
+
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("浏览器清理异常", warnings[0])
+        self.assertEqual(messages, warnings)
 
     def test_image_asset_directory_sits_beside_markdown_outputs(self):
         base = Path("用户结果")
@@ -397,8 +479,16 @@ class GUIServiceTests(unittest.TestCase):
             model="Qwen/Qwen3.5-397B-A17B",
         )
         silicon_candidates = gui_summary_config_candidates(silicon)
-        self.assertEqual(len(silicon_candidates), 1)
-        self.assertEqual(silicon_candidates[0].provider, "siliconflow")
+        self.assertEqual(
+            [(item.provider, item.model) for item in silicon_candidates],
+            [
+                ("siliconflow", "Qwen/Qwen3.5-397B-A17B"),
+                ("siliconflow", "Qwen/Qwen3-8B"),
+            ],
+        )
+        self.assertTrue(
+            all(item.retries == 1 for item in silicon_candidates)
+        )
 
     def test_gui_falls_back_to_next_gemini_model_without_reprompting(self):
         messages = [

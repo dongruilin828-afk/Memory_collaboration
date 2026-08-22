@@ -12,10 +12,11 @@ import os
 import re
 import shutil
 import sys
-from dataclasses import dataclass, replace
+import time
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -41,6 +42,7 @@ class FetchResult:
     image_map: dict[str, str]
     messages: list[dict[str, str]]
     error: Optional[str] = None
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -68,7 +70,12 @@ MODE_FILENAME_SUFFIXES = {
 }
 
 GUI_IMAGE_DOWNLOAD_CONCURRENCY = 4
+GUI_IMAGE_DOWNLOAD_ATTEMPTS = 2
+GUI_IMAGE_DOWNLOAD_TIMEOUT_MS = 10000
 GUI_REQUEST_TIMEOUT_SECONDS = 120
+SILICONFLOW_FREE_SUMMARY_MODELS = (
+    "Qwen/Qwen3-8B",
+)
 
 
 def default_output_filename(modes: Mapping[str, bool]) -> str:
@@ -199,6 +206,9 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
     if base_config.provider == "gemini":
         append(replace(base_config, model="gemini-3.6-flash"))
         append(replace(base_config, model="gemini-3.5-flash-lite"))
+    elif base_config.provider == "siliconflow":
+        for model in SILICONFLOW_FREE_SUMMARY_MODELS:
+            append(replace(base_config, model=model))
     return candidates
 
 
@@ -263,36 +273,43 @@ def _image_extension(src: str) -> str:
     return "png"
 
 
-async def _download_image_candidates_serial(
-    page: Any,
-    candidates: list[str],
-    images_dir: Path,
-    image_reference_prefix: str,
-) -> dict[str, str]:
-    """沿用旧下载逻辑，确保已有图片目录的文件名和复用行为不变。"""
-    image_map: dict[str, str] = {}
-    img_index = 1
-    for src in candidates:
-        if src in image_map:
-            continue
-        url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
-        filename = f"img_{img_index}_{url_hash}.{_image_extension(src)}"
-        filepath = images_dir / filename
-        if filepath.exists():
-            image_map[src] = f"{image_reference_prefix}/{filename}"
-            continue
+def _is_decorative_image_candidate(src: str) -> bool:
+    """识别 ChatGPT 引用卡片使用的 Google favicon，避免下载无关图标。"""
+    parsed = urlparse(src)
+    return (
+        parsed.netloc.lower() in {"google.com", "www.google.com"}
+        and parsed.path.rstrip("/").lower() == "/s2/favicons"
+    )
+
+
+def _ordered_image_sources(candidates: list[str]) -> list[str]:
+    """按 DOM 首次出现顺序去重，并排除确定无语义的装饰图片。"""
+    return list(dict.fromkeys(
+        src for src in candidates
+        if src and not _is_decorative_image_candidate(src)
+    ))
+
+
+def _image_file_index(path: Path) -> int:
+    match = re.match(r"img_(\d+)_", path.name)
+    return int(match.group(1)) if match else 0
+
+
+def _existing_image_for_source(images_dir: Path, src: str) -> Optional[Path]:
+    """按 URL 哈希寻找此前已成功下载的同一资源，不依赖旧顺序编号。"""
+    url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
+    extension = _image_extension(src)
+    matches = sorted(
+        images_dir.glob(f"img_*_{url_hash}.{extension}"),
+        key=lambda path: (_image_file_index(path), path.name),
+    ) if images_dir.is_dir() else []
+    for path in matches:
         try:
-            response = await page.request.get(src, timeout=10000)
-            if not response.ok:
-                continue
-            body = await response.body()
-        except Exception:
+            if path.is_file() and path.stat().st_size > 0:
+                return path
+        except OSError:
             continue
-        images_dir.mkdir(parents=True, exist_ok=True)
-        filepath.write_bytes(body)
-        image_map[src] = f"{image_reference_prefix}/{filename}"
-        img_index += 1
-    return image_map
+    return None
 
 
 async def _download_image_candidates(
@@ -301,52 +318,113 @@ async def _download_image_candidates(
     images_dir: Path,
     image_reference_prefix: str,
     concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
+    warning_collector: Optional[list[str]] = None,
 ) -> dict[str, str]:
-    """受限并发下载新图片，并按 DOM 成功顺序稳定落盘。"""
+    """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
-    if images_dir.is_dir() and any(images_dir.glob("img_*")):
-        return await _download_image_candidates_serial(
-            page,
-            candidates,
-            images_dir,
-            image_reference_prefix,
-        )
-
-    ordered_sources: list[str] = []
-    attempt_counts: dict[str, int] = {}
-    for src in candidates:
-        if src not in attempt_counts:
-            ordered_sources.append(src)
-            attempt_counts[src] = 0
-        attempt_counts[src] += 1
+    ordered_sources = _ordered_image_sources(candidates)
+    resolved_references: dict[str, str] = {}
+    pending_sources: list[str] = []
+    for src in ordered_sources:
+        existing = _existing_image_for_source(images_dir, src)
+        if existing is None:
+            pending_sources.append(src)
+        else:
+            resolved_references[src] = (
+                f"{image_reference_prefix}/{existing.name}"
+            )
 
     limit = max(1, min(int(concurrency), 8))
     semaphore = asyncio.Semaphore(limit)
 
-    async def download(src: str) -> tuple[str, Optional[bytes]]:
-        for _attempt in range(attempt_counts[src]):
+    async def download(
+        src: str,
+    ) -> tuple[str, Optional[bytes], Optional[str]]:
+        failure_reason: Optional[str] = None
+        for _attempt in range(GUI_IMAGE_DOWNLOAD_ATTEMPTS):
             try:
                 async with semaphore:
-                    response = await page.request.get(src, timeout=10000)
+                    response = await page.request.get(
+                        src, timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                    )
                     if response.ok:
-                        return src, await response.body()
-            except Exception:
+                        body = await response.body()
+                        if body:
+                            return src, body, None
+                        failure_reason = "empty_body"
+                    else:
+                        status = getattr(response, "status", None)
+                        failure_reason = (
+                            f"http_{status}" if status else "http_error"
+                        )
+            except Exception as error:
+                failure_reason = type(error).__name__
                 continue
-        return src, None
+        return src, None, failure_reason or "unknown_error"
 
-    downloaded = await asyncio.gather(*(download(src) for src in ordered_sources))
-    image_map: dict[str, str] = {}
-    img_index = 1
-    for src, body in downloaded:
+    download_results = await asyncio.gather(*(
+        download(src) for src in pending_sources
+    ))
+    downloaded = {
+        src: body for src, body, _reason in download_results
+    }
+    failed_reasons = [
+        reason for _src, body, reason in download_results
+        if body is None and reason
+    ]
+    if failed_reasons and warning_collector is not None:
+        reason_counts: dict[str, int] = {}
+        for reason in failed_reasons:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        reason_summary = "、".join(
+            f"{reason}×{count}"
+            for reason, count in sorted(reason_counts.items())
+        )
+        warning_collector.append(
+            f"{len(failed_reasons)} 个真实图片资源下载失败"
+            f"（{reason_summary}）；对话文字抓取继续保留。"
+        )
+    existing_indices = [
+        _image_file_index(path)
+        for path in images_dir.glob("img_*")
+    ] if images_dir.is_dir() else []
+    img_index = max(existing_indices, default=0) + 1
+    for src in ordered_sources:
+        if src in resolved_references:
+            continue
+        body = downloaded.get(src)
         if body is None:
             continue
         url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
         filename = f"img_{img_index}_{url_hash}.{_image_extension(src)}"
         images_dir.mkdir(parents=True, exist_ok=True)
         (images_dir / filename).write_bytes(body)
-        image_map[src] = f"{image_reference_prefix}/{filename}"
+        resolved_references[src] = f"{image_reference_prefix}/{filename}"
         img_index += 1
-    return image_map
+    return {
+        src: resolved_references[src]
+        for src in ordered_sources
+        if src in resolved_references
+    }
+
+
+async def _close_browser_context_safely(
+    context: Any,
+    warnings: list[str],
+    logger: Optional[Callable[[str], None]] = None,
+) -> None:
+    """关闭浏览器；驱动已断开时保留此前结果并记录清理警告。"""
+    try:
+        await context.close()
+    except Exception as error:
+        warning = f"浏览器清理异常（已保留此前抓取结果）：{error}"
+        if warning not in warnings:
+            warnings.append(warning)
+        if logger:
+            try:
+                logger(warning)
+            except Exception:
+                pass
 
 
 async def fetch_chat_pipeline(
@@ -359,6 +437,8 @@ async def fetch_chat_pipeline(
     image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
 ) -> FetchResult:
     """异步抓取并提取网页中的对话和图片。"""
+    fetch_warnings: list[str] = []
+    completed_result: Optional[FetchResult] = None
     user_data_dir = str(BROWSER_USER_DATA_DIR)
     if image_output_dir is None:
         resolved_images_dir = Path(IMAGES_DIR).resolve()
@@ -455,13 +535,23 @@ async def fetch_chat_pipeline(
                             continue
                         image_candidates.append(src)
 
+                download_started = time.perf_counter()
                 image_map = await _download_image_candidates(
                     page,
                     image_candidates,
                     resolved_images_dir,
                     image_reference_prefix,
                     image_download_concurrency,
+                    fetch_warnings,
                 )
+                if logger:
+                    usable_sources = _ordered_image_sources(image_candidates)
+                    logger(
+                        f"图片资产处理完成：发现 {len(image_candidates)} 个引用，"
+                        f"去重并过滤装饰图后 {len(usable_sources)} 个，"
+                        f"成功下载或复用 {len(image_map)} 个，耗时 "
+                        f"{time.perf_counter() - download_started:.1f} 秒。"
+                    )
 
                 # 写入本地调试快照
                 try:
@@ -481,28 +571,48 @@ async def fetch_chat_pipeline(
                     parsed_messages = parse_fallback_messages_gui(soup)
 
                 if not parsed_messages:
-                    return FetchResult(
+                    completed_result = FetchResult(
                         html=html,
                         image_map=image_map,
                         messages=[],
-                        error="未能提取到有效对话内容。网页快照已保存到 debug_last_fetch.html。"
+                        error="未能提取到有效对话内容。网页快照已保存到 debug_last_fetch.html。",
+                        warnings=fetch_warnings,
                     )
+                    return completed_result
 
-                return FetchResult(
+                completed_result = FetchResult(
                     html=html,
                     image_map=image_map,
-                    messages=parsed_messages
+                    messages=parsed_messages,
+                    warnings=fetch_warnings,
                 )
+                return completed_result
 
             finally:
-                await context.close()
+                await _close_browser_context_safely(
+                    context, fetch_warnings, logger
+                )
 
     except Exception as e:
+        if completed_result is not None:
+            warning = (
+                "Playwright 驱动退出异常（已保留此前抓取结果）："
+                f"{e}"
+            )
+            if warning not in fetch_warnings:
+                fetch_warnings.append(warning)
+            if logger:
+                try:
+                    logger(warning)
+                except Exception:
+                    pass
+            return completed_result
         return FetchResult(
             html=None,
             image_map={},
             messages=[],
-            error=str(e)
+            error=str(e),
+            warnings=fetch_warnings,
         )
 
 

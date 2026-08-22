@@ -1458,6 +1458,8 @@ class AIMemoryGUI:
                 message_count=len(fetch_res.messages),
                 downloaded_images=len(fetch_res.image_map),
             )
+            for warning in fetch_res.warnings:
+                run_log.event("fetch_warning", warning)
 
             if fetch_res.error or not fetch_res.messages:
                 err = fetch_res.error or "未能提取到有效对话内容。"
@@ -1552,6 +1554,8 @@ class AIMemoryGUI:
                 if isinstance(bundle.summary_result, dict)
                 else {}
             )
+            for warning in processing.get("warnings", []):
+                run_log.event("generation_warning", warning)
             run_log.event(
                 "generation_completed",
                 fetch_seconds=round(fetch_seconds, 3),

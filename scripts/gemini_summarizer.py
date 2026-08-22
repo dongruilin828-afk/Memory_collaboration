@@ -618,9 +618,12 @@ class MediaAsset:
     def public_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data.pop("local_path", None)
+        local_available = bool(
+            self.local_path is not None and self.local_path.is_file()
+        )
         data["access_status"] = (
             "available_local"
-            if self.local_path is not None and self.status in {"ready", "described"}
+            if local_available
             else "unavailable"
         )
         data["can_reverify"] = data["access_status"] == "available_local"
@@ -1389,6 +1392,23 @@ def _missing_media_description(asset: MediaAsset, reason: str) -> str:
     )
 
 
+def _media_analysis_failure_description(asset: MediaAsset) -> str:
+    subject = (
+        "AI 回答中的图片"
+        if asset.source_role == "assistant" and asset.kind == "image"
+        else "用户上传的图片"
+        if asset.kind == "image"
+        else "AI 回答中的文档"
+        if asset.source_role == "assistant"
+        else "用户上传的文档"
+    )
+    return (
+        f"{subject}“{asset.label}”的本地文件仍可访问；"
+        "但本次模型媒体识别请求失败，尚未生成新的内容说明，"
+        "可在网络恢复后重试。"
+    )
+
+
 def describe_media(
     assets: list[MediaAsset],
     gateway: SummaryGateway,
@@ -1502,11 +1522,8 @@ def describe_media(
             )
             warnings.append(warning)
             for asset in batch:
-                    asset.status = "unavailable"
-                    asset.description = _missing_media_description(
-                        asset,
-                        "模型媒体识别失败"
-                    )
+                asset.status = "analysis_failed"
+                asset.description = _media_analysis_failure_description(asset)
 
     return warnings
 
@@ -1938,7 +1955,14 @@ def summarize_conversation(
 
     gateway = gateway or create_gateway(config)
     stage_started = time.perf_counter()
+    cached_media_analysis_failed = any(
+        isinstance(item, dict) and item.get("status") == "analysis_failed"
+        for item in cache["media"]
+    )
     _apply_cached_media(assets, cache["media"])
+    if cached_media_analysis_failed:
+        cache["chunks"] = {}
+        progress("上次媒体识别因网络失败，本次将重新识别并刷新分块缓存。")
     if any(asset.status == "ready" for asset in assets):
         warnings = describe_media(
             assets,
@@ -2140,7 +2164,10 @@ def summarize_conversation(
 
     _attach_message_ranges(result)
     _correct_media_role_attribution(result, assets)
-    cacheable_media = all(asset.status != "unclear" for asset in assets)
+    cacheable_media = all(
+        asset.status not in {"unclear", "analysis_failed"}
+        for asset in assets
+    )
     if not warnings and cacheable_media:
         _save_completed_result_cache(
             result_cache_dir,
@@ -4965,7 +4992,7 @@ def _bind_media_results(
         if (
             not bindings
             and messages
-            and asset.status == "unavailable"
+            and not item.get("can_reverify")
             and asset.source_role == "user"
         ):
             nearby_answer = next((
