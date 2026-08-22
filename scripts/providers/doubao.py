@@ -1,12 +1,49 @@
 """豆包页面消息解析。"""
 
 import re
+from collections import Counter
+from urllib.parse import unquote
 
 import markdownify
 
 
 DISPLAY_NAME = "豆包"
 WAIT_SELECTOR = ".message-item"
+
+
+def _is_empty_svg_placeholder(img) -> bool:
+    """只识别豆包懒加载产生的空 SVG，不误删含实际图形的 SVG。"""
+    src = str(img.get("src") or "")
+    if not src.lower().startswith("data:image/svg+xml,"):
+        return False
+    try:
+        svg = unquote(src.split(",", 1)[1]).strip()
+    except (IndexError, ValueError):
+        return False
+    return bool(re.fullmatch(
+        r"<svg\b[^>]*(?:/\s*>|>\s*</svg\s*>)",
+        svg,
+        flags=re.IGNORECASE | re.DOTALL,
+    ))
+
+
+def _remove_assistant_image_artifacts(msg) -> None:
+    """移除豆包 AI 消息中的空占位图和重复界面图标。"""
+    for img in list(msg.find_all("img")):
+        if _is_empty_svg_placeholder(img):
+            img.decompose()
+
+    images = list(msg.find_all("img"))
+    reference_counts = Counter(
+        str(img.get("src") or img.get("data-src") or "")
+        for img in images
+        if img.get("src") or img.get("data-src")
+    )
+    for img in images:
+        classes = set(img.get("class") or ())
+        reference = str(img.get("src") or img.get("data-src") or "")
+        if "img-z0eKj1" in classes and reference_counts[reference] > 1:
+            img.decompose()
 
 
 def parse_messages(soup, image_map=None):
@@ -98,6 +135,7 @@ def parse_messages(soup, image_map=None):
                     'content': final_text
                 })
         else:
+            _remove_assistant_image_artifacts(msg)
             md_text = markdownify.markdownify(
                 str(msg),
                 heading_style="ATX"

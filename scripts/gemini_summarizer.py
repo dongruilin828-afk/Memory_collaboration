@@ -33,6 +33,7 @@ DEFAULT_MAX_OUTPUT_TOKENS = 16_384
 DEFAULT_THINKING_LEVEL = "medium"
 DEFAULT_RETRIES = 3
 DEFAULT_RATE_LIMIT_WAIT_SECONDS = 65
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 180
 
 SUMMARY_SECTION_LABELS = {
     "programming": "编程学习/任务记录",
@@ -47,6 +48,7 @@ DEFAULT_MAX_MEDIA_BYTES = 12 * 1024 * 1024
 DEFAULT_MEDIA_BATCH_SIZE = 6
 DEFAULT_TEXT_ATTACHMENT_CHARS = 30_000
 SCHEMA_VERSION = 8
+SUMMARY_RESULT_CACHE_VERSION = 1
 
 IMAGE_PATTERN = re.compile(
     r"!\[(?P<label>[^\]]*)\]\((?P<reference>[^)\s]+)(?:\s+[^)]*)?\)"
@@ -507,6 +509,10 @@ class GeminiSummaryError(RuntimeError):
     """可安全展示给用户的总结错误。"""
 
 
+class SummaryRequestTimeoutError(GeminiSummaryError):
+    """单次模型请求超过明确时间上限。"""
+
+
 @dataclass(frozen=True)
 class SummaryConfig:
     provider: str = DEFAULT_PROVIDER
@@ -517,6 +523,7 @@ class SummaryConfig:
     thinking_level: str = DEFAULT_THINKING_LEVEL
     retries: int = DEFAULT_RETRIES
     rate_limit_wait_seconds: int = DEFAULT_RATE_LIMIT_WAIT_SECONDS
+    request_timeout_seconds: int = DEFAULT_REQUEST_TIMEOUT_SECONDS
     max_media_bytes: int = DEFAULT_MAX_MEDIA_BYTES
     media_batch_size: int = DEFAULT_MEDIA_BATCH_SIZE
     text_attachment_chars: int = DEFAULT_TEXT_ATTACHMENT_CHARS
@@ -577,6 +584,10 @@ class SummaryConfig:
             rate_limit_wait_seconds=_positive_env_int(
                 "GEMINI_RATE_LIMIT_WAIT_SECONDS",
                 DEFAULT_RATE_LIMIT_WAIT_SECONDS
+            ),
+            request_timeout_seconds=_positive_env_int(
+                "SUMMARY_REQUEST_TIMEOUT_SECONDS",
+                DEFAULT_REQUEST_TIMEOUT_SECONDS,
             ),
             max_media_bytes=_positive_env_int(
                 "GEMINI_MAX_MEDIA_BYTES", DEFAULT_MAX_MEDIA_BYTES
@@ -662,6 +673,30 @@ def safe_error_message(error: BaseException) -> str:
     return message[:500]
 
 
+def _is_timeout_error(error: BaseException | None) -> bool:
+    """兼容 SDK、httpx、urllib 和系统 socket 的超时异常包装。"""
+    visited: set[int] = set()
+    current: Any = error
+    while isinstance(current, BaseException) and id(current) not in visited:
+        visited.add(id(current))
+        name = type(current).__name__.lower()
+        message = str(current).lower()
+        if (
+            isinstance(current, TimeoutError)
+            or "timeout" in name
+            or "timed out" in message
+            or "time out" in message
+        ):
+            return True
+        nested = (
+            getattr(current, "reason", None)
+            or getattr(current, "__cause__", None)
+            or getattr(current, "__context__", None)
+        )
+        current = nested
+    return False
+
+
 class GeminiGateway:
     """Google Gen AI SDK 的窄接口，集中处理鉴权、重试和 JSON 输出。"""
 
@@ -685,7 +720,11 @@ class GeminiGateway:
 
         self.config = config
         self._types = types
-        self._client = genai.Client()
+        self._client = genai.Client(
+            http_options=types.HttpOptions(
+                timeout=config.request_timeout_seconds * 1000
+            )
+        )
         self._sleep = sleep
 
     def generate_json(
@@ -749,6 +788,12 @@ class GeminiGateway:
                     else:
                         wait_seconds = min(2 ** (attempt - 1), 8)
                     self._sleep(wait_seconds)
+
+        if _is_timeout_error(last_error):
+            raise SummaryRequestTimeoutError(
+                f"Gemini API 单次请求超过 {self.config.request_timeout_seconds} 秒，"
+                "已停止等待；已完成的媒体和分块进度会保留，可稍后重试。"
+            )
 
         error_type = (
             type(last_error).__name__
@@ -906,7 +951,10 @@ class SiliconFlowGateway:
                     },
                     method="POST"
                 )
-                with urlopen(request, timeout=180) as response:
+                with urlopen(
+                    request,
+                    timeout=self.config.request_timeout_seconds,
+                ) as response:
                     response_data = json.loads(
                         response.read().decode("utf-8")
                     )
@@ -927,6 +975,12 @@ class SiliconFlowGateway:
                 )
                 self._sleep(wait_seconds)
 
+        if _is_timeout_error(last_error):
+            raise SummaryRequestTimeoutError(
+                "SiliconFlow API 单次请求超过 "
+                f"{self.config.request_timeout_seconds} 秒，已停止等待；"
+                "已完成的媒体和分块进度会保留，可稍后重试。"
+            )
         error_type = type(last_error).__name__ if last_error else "UnknownError"
         code = getattr(last_error, "status_code", None)
         hint = f", code={code}" if code else ""
@@ -1637,6 +1691,114 @@ def _summary_fingerprint(
     return hashlib.sha256(payload).hexdigest()
 
 
+def _summary_implementation_fingerprint() -> str:
+    """让提示词、规范化和渲染代码的任意更新自动使完成缓存失效。"""
+    try:
+        payload = Path(__file__).read_bytes()
+    except OSError:
+        payload = (
+            f"schema={SCHEMA_VERSION};cache={SUMMARY_RESULT_CACHE_VERSION};"
+            f"system={SYSTEM_INSTRUCTION}"
+        ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _hash_media_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as media_file:
+        for block in iter(lambda: media_file.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _completed_result_fingerprint(
+    messages: list[dict[str, str]],
+    config: SummaryConfig,
+    assets: list[MediaAsset],
+) -> str:
+    media_inputs: list[dict[str, Any]] = []
+    for asset in assets:
+        item: dict[str, Any] = {
+            "media_id": asset.media_id,
+            "message_index": asset.message_index,
+            "kind": asset.kind,
+            "label": asset.label,
+            "reference": asset.reference,
+            "source_role": asset.source_role,
+            "mime_type": asset.mime_type,
+            "status": asset.status,
+        }
+        if asset.status == "ready" and asset.local_path is not None:
+            try:
+                item["content_sha256"] = _hash_media_file(asset.local_path)
+            except OSError:
+                item["content_sha256"] = "unreadable"
+        else:
+            # 文本文档的 description 已是实际送入模型的截断内容；不可用媒体的
+            # description 则包含确定性失败原因。两者都比哈希未使用字节更准确。
+            item["description"] = asset.description
+        media_inputs.append(item)
+
+    payload = json.dumps(
+        {
+            "completed_cache_version": SUMMARY_RESULT_CACHE_VERSION,
+            "implementation_sha256": _summary_implementation_fingerprint(),
+            "schema_version": SCHEMA_VERSION,
+            "config": asdict(config),
+            "messages": messages,
+            "media_inputs": media_inputs,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _completed_result_cache_path(cache_dir: Path, fingerprint: str) -> Path:
+    return Path(cache_dir) / f"{fingerprint}.json"
+
+
+def _load_completed_result_cache(
+    cache_dir: Path | None,
+    fingerprint: str,
+) -> dict[str, Any] | None:
+    if cache_dir is None:
+        return None
+    path = _completed_result_cache_path(cache_dir, fingerprint)
+    try:
+        wrapper = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(wrapper, dict) or wrapper.get("fingerprint") != fingerprint:
+        return None
+    result = wrapper.get("result")
+    if not isinstance(result, dict) or result.get("schema_version") != SCHEMA_VERSION:
+        return None
+    return result
+
+
+def _save_completed_result_cache(
+    cache_dir: Path | None,
+    fingerprint: str,
+    result: dict[str, Any],
+) -> None:
+    if cache_dir is None:
+        return
+    path = _completed_result_cache_path(cache_dir, fingerprint)
+    try:
+        _write_text_atomic(
+            path,
+            json.dumps(
+                {"fingerprint": fingerprint, "result": result},
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+        )
+    except OSError:
+        # 完成缓存只是加速层，任何缓存写入问题都不能影响正常总结结果。
+        return
+
+
 def messages_fingerprint(messages: list[dict[str, str]]) -> str:
     """生成不含密钥的原文指纹，供两种展示模式安全复用同一语义结果。"""
     payload = json.dumps(
@@ -1697,16 +1859,18 @@ def summarize_conversation(
     selected_sections: Collection[str] | str | None = None,
     section_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None,
     selected_topics: Collection[str] | str | None = None,
-    topic_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None
+    topic_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None,
+    result_cache_dir: Path | None = None,
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
+    pipeline_started = time.perf_counter()
+    timings: dict[str, float] = {}
     if not messages:
         raise GeminiSummaryError("没有可总结的对话消息。")
 
     project_dir = Path(project_dir).resolve()
     source_dir = Path(source_dir or project_dir).resolve()
     config = config or SummaryConfig.from_env()
-    gateway = gateway or create_gateway(config)
     message_count = len(messages)
 
     default_json, default_markdown = default_summary_paths(
@@ -1719,12 +1883,61 @@ def summarize_conversation(
     cache = _load_summary_cache(cache_path, fingerprint)
 
     progress(f"总结后端：{config.provider}；模型：{config.model}")
+    stage_started = time.perf_counter()
     assets = discover_media(
         messages,
         project_dir=project_dir,
         source_dir=source_dir,
         config=config
     )
+    timings["media_discovery"] = time.perf_counter() - stage_started
+    stage_started = time.perf_counter()
+    completed_fingerprint = _completed_result_fingerprint(
+        messages,
+        config,
+        assets,
+    )
+    completed_result = _load_completed_result_cache(
+        result_cache_dir,
+        completed_fingerprint,
+    )
+    timings["completed_cache_lookup"] = time.perf_counter() - stage_started
+    if completed_result is not None:
+        result = completed_result
+        result["generated_at"] = datetime.now(timezone.utc).isoformat()
+        result["source"] = source_name
+        processing = result.setdefault("processing", {})
+        processing["cache_hit"] = True
+        original_timings = processing.get("timings_seconds")
+        if isinstance(original_timings, dict):
+            processing["original_timings_seconds"] = original_timings
+        timings["total_before_output"] = time.perf_counter() - pipeline_started
+        processing["timings_seconds"] = {
+            key: round(value, 3) for key, value in timings.items()
+        }
+        progress("输入、模型和媒体内容均未变化，已复用完成结果。")
+        if section_selector is not None:
+            selected_sections = section_selector(result)
+        if topic_selector is not None:
+            selected_topics = topic_selector(result)
+        write_summary_outputs(
+            result,
+            output_json,
+            output_markdown,
+            include_details=include_details,
+            selected_sections=selected_sections,
+            selected_topics=selected_topics,
+        )
+        try:
+            cache_path.unlink()
+        except FileNotFoundError:
+            pass
+        progress(f"结构化总结已保存：{output_json}")
+        progress(f"可读总结已保存：{output_markdown}")
+        return result
+
+    gateway = gateway or create_gateway(config)
+    stage_started = time.perf_counter()
     _apply_cached_media(assets, cache["media"])
     if any(asset.status == "ready" for asset in assets):
         warnings = describe_media(
@@ -1739,12 +1952,17 @@ def summarize_conversation(
         warnings = []
         if assets and cache["media"]:
             progress("已从进度缓存恢复媒体说明。")
+    timings["media_analysis"] = time.perf_counter() - stage_started
+    progress(f"媒体准备完成（{timings['media_analysis']:.2f} 秒）。")
+    stage_started = time.perf_counter()
     enriched_messages = enrich_messages(messages, assets)
     chunks = chunk_messages(
         enriched_messages,
         max_chars=config.chunk_chars
     )
+    timings["chunking"] = time.perf_counter() - stage_started
 
+    stage_started = time.perf_counter()
     chunk_summaries: list[dict[str, Any]] = []
     for chunk in chunks:
         cache_key = str(chunk.chunk_index)
@@ -1822,7 +2040,13 @@ def summarize_conversation(
         chunk_summaries.append(normalized_chunk)
         cache["chunks"][cache_key] = normalized_chunk
         _save_summary_cache(cache_path, cache)
+    timings["chunk_extraction"] = time.perf_counter() - stage_started
+    progress(
+        f"细粒度记忆提取完成：{len(chunks)} 批"
+        f"（{timings['chunk_extraction']:.2f} 秒）。"
+    )
 
+    stage_started = time.perf_counter()
     recent_for_model = _build_recent_context(messages, max_messages=20)
     progress("正在综合全局状态、对话断点和主题索引...")
     synthesis_prompt = (
@@ -1870,6 +2094,9 @@ def summarize_conversation(
             <= config.short_conversation_chars
         )
     )
+    timings["global_synthesis"] = time.perf_counter() - stage_started
+    progress(f"全局综合完成（{timings['global_synthesis']:.2f} 秒）。")
+    timings["total_before_output"] = time.perf_counter() - pipeline_started
 
     result = {
         "schema_version": SCHEMA_VERSION,
@@ -1903,11 +2130,23 @@ def summarize_conversation(
         "processing": {
             "chunk_char_limit": config.chunk_chars,
             "recent_context_messages": len(recent_for_model),
-            "warnings": warnings
+            "warnings": warnings,
+            "cache_hit": False,
+            "timings_seconds": {
+                key: round(value, 3) for key, value in timings.items()
+            },
         }
     }
 
     _attach_message_ranges(result)
+    _correct_media_role_attribution(result, assets)
+    cacheable_media = all(asset.status != "unclear" for asset in assets)
+    if not warnings and cacheable_media:
+        _save_completed_result_cache(
+            result_cache_dir,
+            completed_fingerprint,
+            result,
+        )
     if section_selector is not None:
         selected_sections = section_selector(result)
     if topic_selector is not None:
@@ -2067,6 +2306,7 @@ def renormalize_result(
             str(topic.get("summary") or ""), programming_records
         )
         topic["summary"] = _clean_generated_punctuation(topic["summary"])
+    _correct_media_role_attribution(result, result.get("media", []))
     return result
 
 
@@ -3174,6 +3414,161 @@ def _qualify_unavailable_media_summary(text: str, assets: list[Any]) -> str:
         "对失效的", "历史 AI 曾对失效的", 1
     ) if "历史 AI" not in value else value
     return value.replace("；；", "；")
+
+
+_GENERATED_MEDIA_ATTRIBUTION_PATTERN = re.compile(
+    r"用户(?P<verb>上传|提供|发送过来|发送|发来|展示|贴出|附上|给出|所发)"
+    r"(?P<particle>了|的)?"
+    r"(?P<object>[^，。；；\n]{0,30}?"
+    r"(?:免冠证件照|证件照|艺术肖像照|肖像照|图片|图像|截图|照片|头像|"
+    r"配图|插图|附件|文档|文件|PDF|图))"
+    r"(?!功能|接口|按钮|路径|模块|能力|流程)",
+    flags=re.IGNORECASE,
+)
+
+_MEDIA_ATTRIBUTION_RAW_KEYS = {
+    "evidence_quote",
+    "raw_user_message",
+    "raw_message",
+    "user_original",
+    "original_text",
+    "reference",
+}
+
+
+def _rewrite_assistant_media_attribution(text: str) -> str:
+    """把与 AI 媒体消息冲突的“用户上传”措辞改为 AI 回答提供。"""
+    value = str(text or "")
+
+    def replace(match: re.Match[str]) -> str:
+        particle = match.group("particle") or ""
+        media_object = match.group("object")
+        if particle == "了":
+            return f"AI 回答中提供了{media_object}"
+        if particle == "的" or match.group("verb") in {"发来", "所发"}:
+            return f"AI 回答中提供的{media_object}"
+        return f"AI 回答中提供{media_object}"
+
+    value = _GENERATED_MEDIA_ATTRIBUTION_PATTERN.sub(replace, value)
+    value = re.sub(
+        r"(?P<subject>(?:上一\s*)?AI)\s*结合\s*AI 回答中提供的",
+        r"\g<subject> 结合回答中提供的",
+        value,
+    )
+    return re.sub(
+        r"(?<=[\u4e00-\u9fff])AI 回答中提供",
+        " AI 回答中提供",
+        value,
+    )
+
+
+def _media_role_message_ids(assets: list[Any]) -> tuple[set[int], set[int]]:
+    assistant_ids: set[int] = set()
+    user_ids: set[int] = set()
+    for asset in assets:
+        if isinstance(asset, MediaAsset):
+            message_index = asset.message_index
+            source_role = asset.source_role
+        elif isinstance(asset, dict):
+            message_index = int(asset.get("message_index") or 0)
+            source_role = str(asset.get("source_role") or "user")
+        else:
+            continue
+        if message_index <= 0:
+            continue
+        if source_role == "assistant":
+            assistant_ids.add(message_index)
+        else:
+            user_ids.add(message_index)
+    return assistant_ids, user_ids
+
+
+def _record_message_ids(record: dict[str, Any]) -> set[int]:
+    ids: set[int] = set()
+    for key in (
+        "message_ids",
+        "source_message_ids",
+        "assistant_message_ids",
+        "context_message_ids",
+    ):
+        value = record.get(key)
+        if isinstance(value, list):
+            ids.update(item for item in value if isinstance(item, int))
+    message_index = record.get("message_index")
+    if isinstance(message_index, int):
+        ids.add(message_index)
+    return ids
+
+
+def _rewrite_media_role_tree(
+    value: Any,
+    assistant_media_ids: set[int],
+    user_media_ids: set[int],
+    inherited_ids: set[int] | None = None,
+) -> Any:
+    if isinstance(value, dict):
+        own_ids = _record_message_ids(value)
+        context_ids = own_ids or set(inherited_ids or ())
+        should_rewrite = (
+            bool(context_ids.intersection(assistant_media_ids))
+            and not bool(context_ids.intersection(user_media_ids))
+        )
+        for key, child in list(value.items()):
+            if isinstance(child, str):
+                if should_rewrite and key not in _MEDIA_ATTRIBUTION_RAW_KEYS:
+                    value[key] = _rewrite_assistant_media_attribution(child)
+            elif isinstance(child, (dict, list)):
+                value[key] = _rewrite_media_role_tree(
+                    child,
+                    assistant_media_ids,
+                    user_media_ids,
+                    context_ids,
+                )
+        return value
+    if isinstance(value, list):
+        return [
+            _rewrite_media_role_tree(
+                item,
+                assistant_media_ids,
+                user_media_ids,
+                inherited_ids,
+            )
+            if isinstance(item, (dict, list))
+            else (
+                _rewrite_assistant_media_attribution(item)
+                if isinstance(item, str)
+                and inherited_ids
+                and set(inherited_ids).intersection(assistant_media_ids)
+                and not set(inherited_ids).intersection(user_media_ids)
+                else item
+            )
+            for item in value
+        ]
+    return value
+
+
+def _correct_media_role_attribution(
+    result: dict[str, Any], assets: list[Any]
+) -> None:
+    """只修正生成字段；原始消息、查询和证据引文保持原样。"""
+    assistant_ids, user_ids = _media_role_message_ids(assets)
+    if not assistant_ids:
+        return
+    for key in (
+        "current_state",
+        "topics",
+        "memory_items",
+        "typed_records",
+        "media",
+    ):
+        if key in result:
+            result[key] = _rewrite_media_role_tree(
+                result[key], assistant_ids, user_ids
+            )
+    if not user_ids and isinstance(result.get("overall_summary"), str):
+        result["overall_summary"] = _rewrite_assistant_media_attribution(
+            result["overall_summary"]
+        )
 
 
 def _mostly_english(text: str) -> bool:

@@ -33,6 +33,11 @@ test_*
 .env.*
 AI_memory_*.tmp
 
+# GUI 每次运行的结构化日志（目录保留，具体日志不提交）
+log/*
+!log/.gitkeep
+
 # 保留正式单元测试（覆盖上面的 test_* 临时脚本规则）
 !tests/
 !tests/test_*.py
+!gui/test_gui_service.py

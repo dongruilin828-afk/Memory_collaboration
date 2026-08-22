@@ -10,12 +10,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import shutil
 import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 # 确保无论从项目根目录还是 gui 目录运行，均能正确解析项目模块
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -26,7 +28,8 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
-from scripts.project_paths import DEFAULT_EXPORT_FILE, PROJECT_ROOT
+from scripts.project_paths import DEFAULT_EXPORT_FILE, LOG_DIR, PROJECT_ROOT
+from gui.run_logging import GenerationRunLog
 from gui.service import (
     build_image_asset_directory,
     default_output_filename,
@@ -810,7 +813,7 @@ class AIMemoryGUI:
 
         mode_header = tk.Label(
             mode_section,
-            text="🏷️ 导出模式（支持勾选一个或多个）",
+            text="🏷️ 导出模式（可多选）",
             font=("Microsoft YaHei", 10, "bold"),
             foreground="#1E293B",
             bg="#EEF2FF"
@@ -1395,10 +1398,29 @@ class AIMemoryGUI:
         """后台异步流水线调用与平滑进度控制"""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        task_started = time.perf_counter()
+        run_succeeded = False
+        run_log = GenerationRunLog(
+            LOG_DIR,
+            metadata={
+                "link_host": urlparse(url).netloc.lower(),
+                "link_fingerprint": hashlib.sha256(
+                    url.encode("utf-8")
+                ).hexdigest()[:12],
+                "need_login": need_login,
+                "modes": [key for key, enabled in modes.items() if enabled],
+                "output_filename": output_filename,
+            },
+        )
 
         login_event = asyncio.Event()
 
         def update_progress(val: float, msg: str):
+            run_log.event(
+                "progress",
+                msg,
+                ui_progress=round(float(val), 3),
+            )
             percent_str = f"{int(val * 100)}%"
             self.root.after(0, lambda: [
                 self.progress_bar.set_progress(val),
@@ -1413,6 +1435,7 @@ class AIMemoryGUI:
             update_progress(0.15, "正在加载分享页并解析动态列表...")
 
             # 1. 抓取网页内容
+            fetch_started = time.perf_counter()
             image_output_dir = build_image_asset_directory(
                 save_dir,
                 output_filename,
@@ -1427,6 +1450,14 @@ class AIMemoryGUI:
                     image_reference_base=save_dir,
                 )
             )
+            fetch_seconds = time.perf_counter() - fetch_started
+            run_log.event(
+                "fetch_completed" if not fetch_res.error else "fetch_failed",
+                fetch_res.error or "抓取完成",
+                elapsed_seconds=round(fetch_seconds, 3),
+                message_count=len(fetch_res.messages),
+                downloaded_images=len(fetch_res.image_map),
+            )
 
             if fetch_res.error or not fetch_res.messages:
                 err = fetch_res.error or "未能提取到有效对话内容。"
@@ -1434,9 +1465,16 @@ class AIMemoryGUI:
                 return
 
             messages = fetch_res.messages
-            update_progress(0.42, f"成功提取 {len(messages)} 条对话交互，正在按要求生成文件...")
+            update_progress(
+                0.42,
+                f"成功提取 {len(messages)} 条对话交互"
+                f"（抓取 {fetch_seconds:.1f} 秒），正在按要求生成文件...",
+            )
+
+            selection_wait_seconds = 0.0
 
             def select_summary_topics(result):
+                nonlocal selection_wait_seconds
                 from scripts.gemini_summarizer import available_summary_topics
 
                 available = available_summary_topics(result)
@@ -1450,6 +1488,10 @@ class AIMemoryGUI:
                 update_progress(
                     0.80,
                     "主题分类完成，请在弹出的窗口中勾选重要主题...",
+                )
+                run_log.event(
+                    "topic_selection_started",
+                    topic_count=len(available),
                 )
                 selection_ready = threading.Event()
                 selection_holder = {"topics": ()}
@@ -1467,8 +1509,15 @@ class AIMemoryGUI:
                         on_selected(())
 
                 self.root.after(0, show_dialog)
+                selection_started = time.perf_counter()
                 selection_ready.wait()
+                selection_wait_seconds += time.perf_counter() - selection_started
                 selected = selection_holder["topics"]
+                run_log.event(
+                    "topic_selection_completed",
+                    selected_count=len(selected),
+                    wait_seconds=round(selection_wait_seconds, 3),
+                )
                 update_progress(
                     0.84,
                     (
@@ -1480,6 +1529,7 @@ class AIMemoryGUI:
                 return selected
 
             update_progress(0.56, "正在连接总结后端并准备生成文件...")
+            generation_started = time.perf_counter()
             bundle = generate_output_bundle(
                 messages=messages,
                 modes=modes,
@@ -1493,16 +1543,38 @@ class AIMemoryGUI:
                 ),
                 progress=lambda message: update_progress(0.72, message),
             )
+            generation_seconds = (
+                time.perf_counter() - generation_started - selection_wait_seconds
+            )
             saved_files = [path.name for path in bundle.saved_files]
+            processing = (
+                (bundle.summary_result or {}).get("processing", {})
+                if isinstance(bundle.summary_result, dict)
+                else {}
+            )
+            run_log.event(
+                "generation_completed",
+                fetch_seconds=round(fetch_seconds, 3),
+                generation_seconds=round(generation_seconds, 3),
+                selection_wait_seconds=round(selection_wait_seconds, 3),
+                cache_hit=processing.get("cache_hit"),
+                stage_timings=processing.get("timings_seconds", {}),
+                saved_files=saved_files,
+            )
 
             # 4. 完成进度 100%
             file_list_str = "、".join(saved_files)
             update_progress(
                 1.0,
-                f"所有任务生成完成：{file_list_str}" if file_list_str
-                else "所有任务生成完成！",
+                (
+                    f"所有任务生成完成（抓取 {fetch_seconds:.1f} 秒，"
+                    f"总结与写入 {generation_seconds:.1f} 秒，"
+                    f"总计 {time.perf_counter() - task_started:.1f} 秒）："
+                    f"{file_list_str}"
+                ) if file_list_str else "所有任务生成完成！",
             )
             self.root.after(0, lambda: self._show_completed_badge(5))
+            run_succeeded = True
 
         except Exception as e:
             err_msg = str(e)
@@ -1511,10 +1583,21 @@ class AIMemoryGUI:
                 err_msg = safe_error_message(e)
             except Exception:
                 pass
+            run_log.event(
+                "run_error",
+                err_msg,
+                error_type=type(e).__name__,
+            )
             update_progress(0.0, f"❌ 处理发生错误: {err_msg}")
             self.root.after(0, lambda: messagebox.showerror("处理失败", f"生成失败：{err_msg}"))
 
         finally:
+            run_log.event(
+                "run_finished",
+                succeeded=run_succeeded,
+                total_seconds=round(time.perf_counter() - task_started, 3),
+            )
+            run_log.close()
             loop.close()
             self.root.after(0, self._on_task_finished)
 

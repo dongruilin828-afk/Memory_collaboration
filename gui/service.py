@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import re
 import shutil
@@ -66,6 +67,9 @@ MODE_FILENAME_SUFFIXES = {
     "detailed": "_detailed_summary",
 }
 
+GUI_IMAGE_DOWNLOAD_CONCURRENCY = 4
+GUI_REQUEST_TIMEOUT_SECONDS = 120
+
 
 def default_output_filename(modes: Mapping[str, bool]) -> str:
     """返回保存对话框应展示的默认 Markdown 文件名。"""
@@ -76,6 +80,14 @@ def default_output_filename(modes: Mapping[str, bool]) -> str:
     if len(enabled_modes) == 1:
         return DEFAULT_MODE_MARKDOWN_FILENAMES[enabled_modes[0]]
     return "AI_memory.md"
+
+
+def default_summary_result_cache_dir() -> Path:
+    """返回 GUI 私有的本机完成结果缓存目录。"""
+    base = os.getenv("LOCALAPPDATA") or os.getenv("XDG_CACHE_HOME")
+    if base:
+        return Path(base) / "AI Memory Summary" / "summary_results"
+    return Path.home() / ".cache" / "ai-memory-summary" / "summary_results"
 
 
 def normalize_markdown_filename(filename: str) -> str:
@@ -177,6 +189,10 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
                 rate_limit_wait_seconds=min(
                     int(candidate.rate_limit_wait_seconds), 5
                 ),
+                request_timeout_seconds=min(
+                    int(candidate.request_timeout_seconds),
+                    GUI_REQUEST_TIMEOUT_SECONDS,
+                ),
             ))
 
     append(base_config)
@@ -238,6 +254,101 @@ def parse_fallback_messages_gui(soup: BeautifulSoup) -> list[dict[str, str]]:
     return parsed_messages
 
 
+def _image_extension(src: str) -> str:
+    lowered = src.lower()
+    if ".jpg" in lowered or ".jpeg" in lowered:
+        return "jpg"
+    if ".webp" in lowered:
+        return "webp"
+    return "png"
+
+
+async def _download_image_candidates_serial(
+    page: Any,
+    candidates: list[str],
+    images_dir: Path,
+    image_reference_prefix: str,
+) -> dict[str, str]:
+    """沿用旧下载逻辑，确保已有图片目录的文件名和复用行为不变。"""
+    image_map: dict[str, str] = {}
+    img_index = 1
+    for src in candidates:
+        if src in image_map:
+            continue
+        url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
+        filename = f"img_{img_index}_{url_hash}.{_image_extension(src)}"
+        filepath = images_dir / filename
+        if filepath.exists():
+            image_map[src] = f"{image_reference_prefix}/{filename}"
+            continue
+        try:
+            response = await page.request.get(src, timeout=10000)
+            if not response.ok:
+                continue
+            body = await response.body()
+        except Exception:
+            continue
+        images_dir.mkdir(parents=True, exist_ok=True)
+        filepath.write_bytes(body)
+        image_map[src] = f"{image_reference_prefix}/{filename}"
+        img_index += 1
+    return image_map
+
+
+async def _download_image_candidates(
+    page: Any,
+    candidates: list[str],
+    images_dir: Path,
+    image_reference_prefix: str,
+    concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
+) -> dict[str, str]:
+    """受限并发下载新图片，并按 DOM 成功顺序稳定落盘。"""
+    images_dir = Path(images_dir)
+    if images_dir.is_dir() and any(images_dir.glob("img_*")):
+        return await _download_image_candidates_serial(
+            page,
+            candidates,
+            images_dir,
+            image_reference_prefix,
+        )
+
+    ordered_sources: list[str] = []
+    attempt_counts: dict[str, int] = {}
+    for src in candidates:
+        if src not in attempt_counts:
+            ordered_sources.append(src)
+            attempt_counts[src] = 0
+        attempt_counts[src] += 1
+
+    limit = max(1, min(int(concurrency), 8))
+    semaphore = asyncio.Semaphore(limit)
+
+    async def download(src: str) -> tuple[str, Optional[bytes]]:
+        for _attempt in range(attempt_counts[src]):
+            try:
+                async with semaphore:
+                    response = await page.request.get(src, timeout=10000)
+                    if response.ok:
+                        return src, await response.body()
+            except Exception:
+                continue
+        return src, None
+
+    downloaded = await asyncio.gather(*(download(src) for src in ordered_sources))
+    image_map: dict[str, str] = {}
+    img_index = 1
+    for src, body in downloaded:
+        if body is None:
+            continue
+        url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
+        filename = f"img_{img_index}_{url_hash}.{_image_extension(src)}"
+        images_dir.mkdir(parents=True, exist_ok=True)
+        (images_dir / filename).write_bytes(body)
+        image_map[src] = f"{image_reference_prefix}/{filename}"
+        img_index += 1
+    return image_map
+
+
 async def fetch_chat_pipeline(
     url: str,
     need_login: bool = False,
@@ -245,6 +356,7 @@ async def fetch_chat_pipeline(
     logger: Optional[Callable[[str], None]] = None,
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
+    image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
 ) -> FetchResult:
     """异步抓取并提取网页中的对话和图片。"""
     user_data_dir = str(BROWSER_USER_DATA_DIR)
@@ -260,8 +372,6 @@ async def fetch_chat_pipeline(
             resolved_images_dir,
             reference_base,
         )
-    images_dir = str(resolved_images_dir)
-
     headless = not need_login
     viewport_config = None if need_login else {
         "width": 1920,
@@ -323,12 +433,10 @@ async def fetch_chat_pipeline(
                     html = await page.content()
 
                 soup_pre = BeautifulSoup(html, "html.parser")
-                image_map: dict[str, str] = {}
-                img_index = 1
+                image_candidates: list[str] = []
                 if logger:
                     logger("正在检查并下载页面中的图片资产...")
 
-                import hashlib
                 for img in soup_pre.find_all(["img", "source"]):
                     src_candidates = [img.get("src"), img.get("data-src")]
                     srcset = img.get("srcset")
@@ -343,37 +451,17 @@ async def fetch_chat_pipeline(
                             src
                             and src.startswith("http")
                             and not src.startswith("data:image/svg")
-                            and src not in image_map
                         ):
                             continue
+                        image_candidates.append(src)
 
-                        url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
-                        ext = "png"
-                        if ".jpg" in src.lower() or ".jpeg" in src.lower():
-                            ext = "jpg"
-                        elif ".webp" in src.lower():
-                            ext = "webp"
-
-                        filename = f"img_{img_index}_{url_hash}.{ext}"
-                        filepath = os.path.join(images_dir, filename)
-
-                        if not os.path.exists(filepath):
-                            try:
-                                response = await page.request.get(src, timeout=10000)
-                                if response.ok:
-                                    os.makedirs(images_dir, exist_ok=True)
-                                    with open(filepath, "wb") as image_file:
-                                        image_file.write(await response.body())
-                                    image_map[src] = (
-                                        f"{image_reference_prefix}/{filename}"
-                                    )
-                                    img_index += 1
-                            except Exception:
-                                pass
-                        else:
-                            image_map[src] = (
-                                f"{image_reference_prefix}/{filename}"
-                            )
+                image_map = await _download_image_candidates(
+                    page,
+                    image_candidates,
+                    resolved_images_dir,
+                    image_reference_prefix,
+                    image_download_concurrency,
+                )
 
                 # 写入本地调试快照
                 try:
@@ -559,7 +647,11 @@ def generate_output_bundle(
         )
         attempts = [(candidate, None) for candidate in candidate_configs]
 
-    from scripts.gemini_summarizer import GeminiSummaryError, safe_error_message
+    from scripts.gemini_summarizer import (
+        GeminiSummaryError,
+        SummaryRequestTimeoutError,
+        safe_error_message,
+    )
 
     base_result = None
     last_error: Optional[BaseException] = None
@@ -589,10 +681,15 @@ def generate_output_bundle(
                 section_selector=section_callback,
                 selected_topics=(),
                 topic_selector=topic_callback,
+                result_cache_dir=default_summary_result_cache_dir(),
             )
             config = candidate_config
             gateway = candidate_gateway
             break
+        except SummaryRequestTimeoutError:
+            # 网络层超时通常会同时影响同一提供商的其他模型；继续回退只会让
+            # GUI 再无反馈地等待数分钟。进度缓存会保留，直接提示重试更可靠。
+            raise
         except GeminiSummaryError as error:
             last_error = error
             if attempt_index >= len(attempts):

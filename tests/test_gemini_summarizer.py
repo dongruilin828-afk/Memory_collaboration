@@ -130,6 +130,73 @@ class FakeGateway:
 
 
 class GeminiSummarizerTests(unittest.TestCase):
+    def test_completed_result_cache_is_exact_and_invalidates_on_input_change(self):
+        messages = [
+            {"role": "User", "content": "请解决报错"},
+            {"role": "AI", "content": "建议增加 try-except"},
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            cache_dir = project / "completed-cache"
+            first_gateway = FakeGateway()
+            first = summary.summarize_conversation(
+                messages=messages,
+                project_dir=project,
+                output_json=project / "first.json",
+                output_markdown=project / "first.md",
+                config=summary.SummaryConfig(),
+                gateway=first_gateway,
+                result_cache_dir=cache_dir,
+                progress=lambda _message: None,
+            )
+            self.assertEqual(len(first_gateway.calls), 2)
+            self.assertFalse(first["processing"]["cache_hit"])
+            self.assertEqual(len(list(cache_dir.glob("*.json"))), 1)
+
+            second_gateway = FakeGateway()
+            second = summary.summarize_conversation(
+                messages=messages,
+                project_dir=project,
+                source_name="另一个输出名.md",
+                output_json=project / "second.json",
+                output_markdown=project / "second.md",
+                config=summary.SummaryConfig(),
+                gateway=second_gateway,
+                result_cache_dir=cache_dir,
+                progress=lambda _message: None,
+            )
+            self.assertEqual(second_gateway.calls, [])
+            self.assertTrue(second["processing"]["cache_hit"])
+            for key in (
+                "overall_summary",
+                "current_state",
+                "topics",
+                "memory_items",
+                "typed_records",
+                "query_index",
+                "recent_context",
+                "media",
+            ):
+                self.assertEqual(second[key], first[key])
+            self.assertEqual(second["source"], "另一个输出名.md")
+            self.assertTrue((project / "second.json").is_file())
+            self.assertTrue((project / "second.md").is_file())
+
+            changed_gateway = FakeGateway()
+            summary.summarize_conversation(
+                messages=messages + [
+                    {"role": "User", "content": "我已经验证，问题解决。"}
+                ],
+                project_dir=project,
+                output_json=project / "changed.json",
+                output_markdown=project / "changed.md",
+                config=summary.SummaryConfig(),
+                gateway=changed_gateway,
+                result_cache_dir=cache_dir,
+                progress=lambda _message: None,
+            )
+            self.assertGreater(len(changed_gateway.calls), 0)
+
     def test_chatgpt_snapshot_upgrade_preserves_text_and_images(self):
         existing = {"text_length": 100, "image_score": 1}
         self.assertTrue(chatgpt._prefer_snapshot(
@@ -257,7 +324,8 @@ class GeminiSummarizerTests(unittest.TestCase):
         config = summary.SummaryConfig(
             provider="siliconflow",
             model="Qwen/Qwen3.5-397B-A17B",
-            retries=1
+            retries=1,
+            request_timeout_seconds=37,
         )
         with patch.dict(os.environ, {"Silicon_API_KEY": "test-key"}, clear=True):
             with patch.object(summary, "urlopen", side_effect=fake_urlopen):
@@ -266,6 +334,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(result, {"ok": True})
         self.assertTrue(captured["url"].endswith("/chat/completions"))
         self.assertEqual(captured["payload"]["model"], config.model)
+        self.assertEqual(captured["timeout"], 37)
         response_format = captured["payload"]["response_format"]
         self.assertEqual(response_format["type"], "json_schema")
         self.assertEqual(
@@ -273,6 +342,40 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
         self.assertTrue(captured["payload"]["enable_thinking"])
         self.assertGreaterEqual(captured["payload"]["thinking_budget"], 128)
+
+    def test_gemini_client_receives_millisecond_request_timeout(self):
+        captured = {}
+        from google import genai
+
+        def fake_client(**kwargs):
+            captured.update(kwargs)
+            return object()
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
+            with patch.object(genai, "Client", side_effect=fake_client):
+                summary.GeminiGateway(summary.SummaryConfig(
+                    request_timeout_seconds=37
+                ))
+
+        self.assertEqual(captured["http_options"].timeout, 37_000)
+
+    def test_gateway_timeout_has_specific_recoverable_error(self):
+        class ReadTimeout(Exception):
+            pass
+
+        class FakeModels:
+            def generate_content(self, **_kwargs):
+                raise ReadTimeout("request timed out")
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=False):
+            gateway = summary.GeminiGateway(summary.SummaryConfig(
+                retries=1,
+                request_timeout_seconds=12,
+            ))
+        gateway._client = type("Client", (), {"models": FakeModels()})()
+        with self.assertRaises(summary.SummaryRequestTimeoutError) as raised:
+            gateway.generate_json("test", {"type": "object"})
+        self.assertIn("12 秒", str(raised.exception))
 
     def test_rate_limit_retry_uses_long_wait(self):
         class RateLimitError(Exception):
@@ -397,6 +500,117 @@ class GeminiSummarizerTests(unittest.TestCase):
             assets[0].description.startswith("AI 回答中包含一张图片")
         )
 
+    def test_assistant_media_attribution_is_corrected_across_generated_fields(self):
+        asset = summary.MediaAsset(
+            media_id="M001",
+            message_index=6,
+            kind="image",
+            label="image",
+            reference="./images/portrait.jpg",
+            source_role="assistant",
+            status="described",
+        )
+        result = {
+            "overall_summary": "AI结合用户上传的图片回答了问题。",
+            "current_state": {
+                "reached_stage": {
+                    "content": "AI结合用户上传的图片给出介绍。",
+                    "message_ids": [6],
+                },
+                "completed": [{
+                    "content": "分析并识别了用户上传的免冠证件照。",
+                    "message_ids": [6],
+                }],
+            },
+            "topics": [{
+                "title": "人物识别",
+                "summary": "根据用户提供的两张照片介绍人物。",
+                "source_message_ids": [5, 6],
+            }],
+            "memory_items": [{
+                "content": "用户发来的肖像照展示一名男性。",
+                "evidence_quote": "用户上传的图片",
+                "message_ids": [6],
+            }],
+            "typed_records": {
+                "context_references": [{
+                    "resolved_reference": "用户展示的截图",
+                    "message_ids": [6],
+                }],
+            },
+            "media": [asset.public_dict()],
+            "recent_context": [{
+                "message_id": 6,
+                "content": "用户上传的图片",
+            }],
+        }
+        summary._correct_media_role_attribution(result, [asset])
+
+        generated_text = json.dumps({
+            key: result[key] for key in (
+                "overall_summary", "current_state", "topics",
+                "memory_items", "typed_records",
+            )
+        }, ensure_ascii=False)
+        self.assertNotIn("用户上传", generated_text.replace(
+            '"evidence_quote": "用户上传的图片"', ""
+        ))
+        self.assertIn("AI 回答中提供的免冠证件照", generated_text)
+        self.assertIn("AI 结合回答中提供的图片", generated_text)
+        self.assertEqual(
+            result["memory_items"][0]["evidence_quote"],
+            "用户上传的图片",
+        )
+        self.assertEqual(
+            result["recent_context"][0]["content"],
+            "用户上传的图片",
+        )
+
+    def test_user_or_mixed_media_attribution_is_not_rewritten(self):
+        user_asset = summary.MediaAsset(
+            media_id="M001",
+            message_index=1,
+            kind="image",
+            label="用户图片",
+            reference="./images/user.jpg",
+            source_role="user",
+        )
+        assistant_asset = summary.MediaAsset(
+            media_id="M002",
+            message_index=2,
+            kind="image",
+            label="AI 图片",
+            reference="./images/ai.jpg",
+            source_role="assistant",
+        )
+        result = {
+            "overall_summary": "用户上传的图片与 AI 图片被共同讨论。",
+            "current_state": {
+                "completed": [{
+                    "content": "分析了用户上传的图片。",
+                    "message_ids": [1],
+                }, {
+                    "content": "综合了用户上传的图片与 AI 图片。",
+                    "message_ids": [1, 2],
+                }],
+            },
+        }
+        summary._correct_media_role_attribution(
+            result, [user_asset, assistant_asset]
+        )
+        self.assertEqual(
+            result["current_state"]["completed"][0]["content"],
+            "分析了用户上传的图片。",
+        )
+        self.assertEqual(
+            result["current_state"]["completed"][1]["content"],
+            "综合了用户上传的图片与 AI 图片。",
+        )
+        self.assertEqual(
+            result["overall_summary"],
+            "用户上传的图片与 AI 图片被共同讨论。",
+        )
+
     def test_missing_document_gets_explicit_description(self):
         marker = chr(96)
         with tempfile.TemporaryDirectory() as temp:
@@ -504,6 +718,58 @@ class GeminiSummarizerTests(unittest.TestCase):
                 legacy, project, project, summary.SummaryConfig()
             )
         self.assertEqual(assets, [])
+
+    def test_doubao_ai_images_drop_empty_placeholders_and_repeated_ui_icons(self):
+        placeholder = (
+            "data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27"
+            "%20version=%271.1%27%20width=%27256%27%20height=%27192%27/%3e"
+        )
+        html = f"""
+        <div class="message-item">
+          <span><img src="{placeholder}" /></span>
+          <picture><img alt="image" src="https://cdn.example/first.jpg" /></picture>
+          <span><img src="{placeholder}" /></span>
+          <picture><img alt="image" src="https://cdn.example/second.jpg" /></picture>
+          <div><img class="img-z0eKj1" src="https://cdn.example/icon.png" /></div>
+          <div><img class="img-z0eKj1" src="https://cdn.example/icon.png" /></div>
+          <div><img class="img-z0eKj1" src="https://cdn.example/icon.png" /></div>
+          正文说明
+        </div>
+        """
+        image_map = {
+            "https://cdn.example/first.jpg": "./images/first.jpg",
+            "https://cdn.example/second.jpg": "./images/second.jpg",
+            "https://cdn.example/icon.png": "./images/icon.png",
+        }
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"), image_map
+        )
+        self.assertEqual(len(messages), 1)
+        content = messages[0]["content"]
+        self.assertEqual(content.count("![image]"), 2)
+        self.assertIn("./images/first.jpg", content)
+        self.assertIn("./images/second.jpg", content)
+        self.assertNotIn("data:image/svg+xml", content)
+        self.assertNotIn("./images/icon.png", content)
+
+    def test_doubao_filter_keeps_meaningful_svg_and_nonrepeated_image(self):
+        meaningful_svg = (
+            "data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%3E"
+            "%3Cpath%20d=%27M0%200h10v10z%27/%3E%3C/svg%3E"
+        )
+        html = f"""
+        <div class="message-item">
+          <img alt="diagram" src="{meaningful_svg}" />
+          <img class="img-z0eKj1" src="https://cdn.example/unique.png" />
+        </div>
+        """
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"https://cdn.example/unique.png": "./images/unique.png"},
+        )
+        content = messages[0]["content"]
+        self.assertIn("data:image/svg+xml", content)
+        self.assertIn("./images/unique.png", content)
 
     def test_unavailable_image_marker_becomes_non_reverifiable_media(self):
         messages = [{
