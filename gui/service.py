@@ -14,6 +14,7 @@ import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
+from urllib.parse import quote
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -49,6 +50,116 @@ class GenerationBundle:
     selected_sections: tuple[str, ...] = ()
     selected_topics: tuple[str, ...] = ()
     summary_result: Optional[dict[str, Any]] = None
+
+
+DEFAULT_MODE_MARKDOWN_FILENAMES = {
+    "raw": "AI_memory_export.md",
+    "normal": "AI_memory_summary.md",
+    "simple": "AI_memory_simple.md",
+    "detailed": "AI_memory_detailed_summary.md",
+}
+
+MODE_FILENAME_SUFFIXES = {
+    "raw": "_export",
+    "normal": "_summary",
+    "simple": "_simple",
+    "detailed": "_detailed_summary",
+}
+
+
+def default_output_filename(modes: Mapping[str, bool]) -> str:
+    """返回保存对话框应展示的默认 Markdown 文件名。"""
+    enabled_modes = [
+        mode for mode in DEFAULT_MODE_MARKDOWN_FILENAMES
+        if modes.get(mode)
+    ]
+    if len(enabled_modes) == 1:
+        return DEFAULT_MODE_MARKDOWN_FILENAMES[enabled_modes[0]]
+    return "AI_memory.md"
+
+
+def normalize_markdown_filename(filename: str) -> str:
+    """只保留文件名，并将任意扩展名强制规范为小写 ``.md``。"""
+    safe_name = Path(str(filename).strip()).name
+    if not safe_name:
+        raise ValueError("文件名不能为空。")
+    path = Path(safe_name)
+    if path.suffix:
+        path = path.with_suffix(".md")
+    else:
+        path = Path(f"{safe_name}.md")
+    return path.name
+
+
+def build_image_asset_directory(
+    save_dir: Path,
+    output_filename: str,
+) -> Path:
+    """返回与本次 Markdown 主文件配套的便携图片目录。"""
+    normalized = normalize_markdown_filename(output_filename)
+    return Path(save_dir) / f"{Path(normalized).stem}_images"
+
+
+def build_markdown_asset_prefix(
+    asset_dir: Path,
+    markdown_dir: Path,
+) -> str:
+    """构造相对于 Markdown 所在目录、可安全包含中文和空格的 URL 路径。"""
+    relative_dir = Path(
+        os.path.relpath(Path(asset_dir).resolve(), Path(markdown_dir).resolve())
+    ).as_posix()
+    encoded_dir = quote(relative_dir, safe="/-_.~")
+    return encoded_dir if encoded_dir.startswith(".") else f"./{encoded_dir}"
+
+
+def build_output_paths(
+    save_dir: Path,
+    modes: Mapping[str, bool],
+    output_filename: Optional[str] = None,
+) -> dict[str, Path]:
+    """计算各模式的输出路径；未指定名称时完全沿用旧命名规则。"""
+    save_dir = Path(save_dir)
+    enabled_modes = [
+        mode for mode in DEFAULT_MODE_MARKDOWN_FILENAMES
+        if modes.get(mode)
+    ]
+    markdown_names = dict(DEFAULT_MODE_MARKDOWN_FILENAMES)
+
+    if output_filename is not None:
+        normalized = normalize_markdown_filename(output_filename)
+        stem = Path(normalized).stem
+        if len(enabled_modes) == 1:
+            markdown_names[enabled_modes[0]] = normalized
+        else:
+            for mode in enabled_modes:
+                markdown_names[mode] = (
+                    f"{stem}{MODE_FILENAME_SUFFIXES[mode]}.md"
+                )
+
+    def json_name(mode: str, legacy_name: str) -> str:
+        if output_filename is None:
+            return legacy_name
+        markdown_path = Path(markdown_names[mode])
+        if len(enabled_modes) == 1:
+            return markdown_path.with_suffix(".json").name
+        stem = Path(normalize_markdown_filename(output_filename)).stem
+        suffix = "_result" if mode == "normal" else "_detailed_result"
+        return f"{stem}{suffix}.json"
+
+    return {
+        "raw_markdown": save_dir / markdown_names["raw"],
+        "normal_json": save_dir / json_name(
+            "normal", "AI_memory_result.json"
+        ),
+        "normal_markdown": save_dir / markdown_names["normal"],
+        "detailed_json": save_dir / json_name(
+            "detailed", "AI_memory_detailed_result.json"
+        ),
+        "detailed_markdown": save_dir / markdown_names["detailed"],
+        "simple_markdown": save_dir / markdown_names["simple"],
+        "intermediate_json": save_dir / ".gui_intermediate_result.json",
+        "intermediate_markdown": save_dir / ".gui_intermediate_summary.md",
+    }
 
 
 def gui_summary_config_candidates(base_config: Any) -> list[Any]:
@@ -131,12 +242,25 @@ async def fetch_chat_pipeline(
     url: str,
     need_login: bool = False,
     login_ready_event: Optional[asyncio.Event] = None,
-    logger: Optional[Callable[[str], None]] = None
+    logger: Optional[Callable[[str], None]] = None,
+    image_output_dir: Optional[Path] = None,
+    image_reference_base: Optional[Path] = None,
 ) -> FetchResult:
     """异步抓取并提取网页中的对话和图片。"""
     user_data_dir = str(BROWSER_USER_DATA_DIR)
-    images_dir = str(IMAGES_DIR)
-    os.makedirs(images_dir, exist_ok=True)
+    if image_output_dir is None:
+        resolved_images_dir = Path(IMAGES_DIR).resolve()
+        image_reference_prefix = "./images"
+    else:
+        resolved_images_dir = Path(image_output_dir).resolve()
+        reference_base = Path(
+            image_reference_base or resolved_images_dir.parent
+        ).resolve()
+        image_reference_prefix = build_markdown_asset_prefix(
+            resolved_images_dir,
+            reference_base,
+        )
+    images_dir = str(resolved_images_dir)
 
     headless = not need_login
     viewport_config = None if need_login else {
@@ -237,14 +361,19 @@ async def fetch_chat_pipeline(
                             try:
                                 response = await page.request.get(src, timeout=10000)
                                 if response.ok:
+                                    os.makedirs(images_dir, exist_ok=True)
                                     with open(filepath, "wb") as image_file:
                                         image_file.write(await response.body())
-                                    image_map[src] = f"./images/{filename}"
+                                    image_map[src] = (
+                                        f"{image_reference_prefix}/{filename}"
+                                    )
                                     img_index += 1
                             except Exception:
                                 pass
                         else:
-                            image_map[src] = f"./images/{filename}"
+                            image_map[src] = (
+                                f"{image_reference_prefix}/{filename}"
+                            )
 
                 # 写入本地调试快照
                 try:
@@ -315,6 +444,7 @@ def generate_output_bundle(
     modes: Mapping[str, bool],
     save_dir: Path,
     *,
+    output_filename: Optional[str] = None,
     project_dir: Path = PROJECT_ROOT,
     section_selector: Optional[
         Callable[[dict[str, Any]], Collection[str] | str]
@@ -340,11 +470,12 @@ def generate_output_bundle(
 
     save_dir = Path(save_dir).resolve()
     save_dir.mkdir(parents=True, exist_ok=True)
+    output_paths = build_output_paths(save_dir, modes, output_filename)
     saved_files: list[Path] = []
 
     if modes.get("raw"):
         raw_path = generate_raw_markdown(
-            messages, save_dir / "AI_memory_export.md"
+            messages, output_paths["raw_markdown"]
         )
         saved_files.append(raw_path)
         progress(f"已生成 raw 对话文件：{raw_path.name}")
@@ -403,19 +534,19 @@ def generate_output_bundle(
     )
 
     if modes.get("normal"):
-        primary_json = save_dir / "AI_memory_result.json"
-        primary_markdown = save_dir / "AI_memory_summary.md"
+        primary_json = output_paths["normal_json"]
+        primary_markdown = output_paths["normal_markdown"]
         primary_includes_details = False
         intermediate_only = False
     elif modes.get("detailed"):
-        primary_json = save_dir / "AI_memory_detailed_result.json"
-        primary_markdown = save_dir / "AI_memory_detailed_summary.md"
+        primary_json = output_paths["detailed_json"]
+        primary_markdown = output_paths["detailed_markdown"]
         primary_includes_details = True
         intermediate_only = False
     else:
         # 极简版仍需先生成完整语义结果，但不应额外留下普通版 Markdown。
-        primary_json = save_dir / ".gui_intermediate_result.json"
-        primary_markdown = save_dir / ".gui_intermediate_summary.md"
+        primary_json = output_paths["intermediate_json"]
+        primary_markdown = output_paths["intermediate_markdown"]
         primary_includes_details = False
         intermediate_only = True
 
@@ -446,8 +577,8 @@ def generate_output_bundle(
             base_result = summarize_conversation(
                 messages=messages,
                 project_dir=Path(project_dir).resolve(),
-                source_dir=Path(project_dir).resolve(),
-                source_name="AI_memory_export.md",
+                source_dir=save_dir,
+                source_name=output_paths["raw_markdown"].name,
                 output_json=primary_json,
                 output_markdown=primary_markdown,
                 config=candidate_config,
@@ -485,8 +616,8 @@ def generate_output_bundle(
             detailed_json = primary_json
             detailed_markdown = primary_markdown
         else:
-            detailed_json = save_dir / "AI_memory_detailed_result.json"
-            detailed_markdown = save_dir / "AI_memory_detailed_summary.md"
+            detailed_json = output_paths["detailed_json"]
+            detailed_markdown = output_paths["detailed_markdown"]
             write_summary_outputs(
                 base_result,
                 detailed_json,
@@ -513,7 +644,7 @@ def generate_output_bundle(
             provider=config.provider,
             model=config.model,
         )
-        simple_markdown = save_dir / "AI_memory_simple.md"
+        simple_markdown = output_paths["simple_markdown"]
         write_simple_markdown(simple_markdown, simple_overview, simple_meta)
         saved_files.append(simple_markdown)
 

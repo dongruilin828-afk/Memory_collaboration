@@ -23,10 +23,17 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
 from scripts.project_paths import DEFAULT_EXPORT_FILE, PROJECT_ROOT
-from gui.service import fetch_chat_pipeline, generate_output_bundle
+from gui.service import (
+    build_image_asset_directory,
+    default_output_filename,
+    fetch_chat_pipeline,
+    generate_output_bundle,
+    normalize_markdown_filename,
+)
 
 
 # ==================== 颜色计算与渐变工具 ====================
@@ -349,6 +356,8 @@ class CapsuleSelectCard(tk.Canvas):
 
     def set_disabled(self, disabled: bool):
         self.disabled = disabled
+        if disabled:
+            self.is_hovered = False
         self.config(cursor="arrow" if disabled else "hand2")
         self.redraw()
 
@@ -381,13 +390,43 @@ class CapsuleSelectCard(tk.Canvas):
         self.checked = val
         self.redraw()
 
+    @staticmethod
+    def _fit_text_size(
+        text: str,
+        maximum: int,
+        minimum: int,
+        max_width: float,
+        weight: str = "normal",
+    ) -> int:
+        """在给定宽度内选择尽可能大的字号，防止卡片缩小时文字重叠。"""
+        max_width = max(1, int(max_width))
+        for size in range(maximum, minimum - 1, -1):
+            font = tkfont.Font(
+                family="Microsoft YaHei",
+                size=size,
+                weight=weight,
+            )
+            if font.measure(text) <= max_width:
+                return size
+        return minimum
+
     def redraw(self):
         self.delete("all")
         w = self.winfo_width() or self.card_w
         h = self.winfo_height() or self.card_h
         r = min(self.radius, h / 2.0, w / 4.0)
 
-        if self.disabled:
+        if self.disabled and self.checked:
+            # 锁定期间仍保留选中主题色，让用户能看清生成时采用了哪些选项。
+            bg_fill = self.theme_bg_light
+            border_col = self.theme_color
+            border_w = 2.0
+            icon_col = self.theme_color
+            title_col = "#334155"
+            sub_col = "#64748B"
+            badge_bg = self.theme_color
+            badge_fg = "#FFFFFF"
+        elif self.disabled:
             bg_fill = "#F1F5F9"
             border_col = "#E2E8F0"
             border_w = 1
@@ -415,6 +454,23 @@ class CapsuleSelectCard(tk.Canvas):
             badge_bg = "#F1F5F9"
             badge_fg = "#64748B"
 
+        size_scale = max(
+            0.68,
+            min(
+                1.0,
+                w / max(self.card_w, 1),
+                h / max(self.card_h, 1),
+            ),
+        )
+        horizontal_pad = max(10, round(18 * size_scale))
+        header_y = max(14, round(20 * size_scale))
+        indicator_radius = max(5, round(7 * size_scale))
+        title_x = horizontal_pad + indicator_radius + max(
+            5, round(7 * size_scale)
+        )
+        badge_size = max(7, round(9 * size_scale))
+        subtitle_size = max(7, round(9 * size_scale))
+
         pad = 2
         draw_pill(
             self,
@@ -425,64 +481,99 @@ class CapsuleSelectCard(tk.Canvas):
             width=border_w
         )
 
-        ind_x, ind_y = 18, 20
+        ind_x, ind_y = horizontal_pad, header_y
         if self.is_radio:
-            rad = 7
+            rad = indicator_radius
             self.create_oval(
                 ind_x - rad, ind_y - rad, ind_x + rad, ind_y + rad,
                 outline=icon_col, width=2,
-                fill=self.theme_color if self.checked and not self.disabled else bg_fill
+                fill=self.theme_color if self.checked else bg_fill
             )
-            if self.checked and not self.disabled:
+            if self.checked:
+                dot_radius = max(2, round(3 * size_scale))
                 self.create_oval(
-                    ind_x - 3, ind_y - 3, ind_x + 3, ind_y + 3,
+                    ind_x - dot_radius,
+                    ind_y - dot_radius,
+                    ind_x + dot_radius,
+                    ind_y + dot_radius,
                     fill="#FFFFFF", outline=""
                 )
         else:
-            rad = 7
+            rad = indicator_radius
             draw_pill(
                 self,
                 ind_x - rad, ind_y - rad, ind_x + rad, ind_y + rad,
                 radius=4,
-                fill=self.theme_color if self.checked and not self.disabled else bg_fill,
+                fill=self.theme_color if self.checked else bg_fill,
                 outline=icon_col,
                 width=2
             )
-            if self.checked and not self.disabled:
+            if self.checked:
+                check_scale = max(0.72, size_scale)
                 self.create_line(
-                    ind_x - 3.5, ind_y, ind_x - 1, ind_y + 3, ind_x + 4, ind_y - 3,
-                    fill="#FFFFFF", width=2.0, capstyle=tk.ROUND
+                    ind_x - 3.5 * check_scale,
+                    ind_y,
+                    ind_x - 1 * check_scale,
+                    ind_y + 3 * check_scale,
+                    ind_x + 4 * check_scale,
+                    ind_y - 3 * check_scale,
+                    fill="#FFFFFF",
+                    width=max(1.5, 2.0 * size_scale),
+                    capstyle=tk.ROUND,
                 )
 
-        self.create_text(
-            32, 20,
-            text=self.title,
-            font=("Microsoft YaHei", 10, "bold"),
-            fill=title_col,
-            anchor="w"
-        )
-
-        if self.badge_text:
-            bw = len(self.badge_text) * 11 + 12
-            bx2 = w - 14
+        show_badge = bool(self.badge_text) and w >= 138 and h >= 48
+        title_right = w - horizontal_pad
+        if show_badge:
+            badge_font = tkfont.Font(
+                family="Microsoft YaHei",
+                size=badge_size,
+                weight="bold",
+            )
+            bw = badge_font.measure(self.badge_text) + max(
+                10, round(12 * size_scale)
+            )
+            bx2 = w - horizontal_pad
             bx1 = bx2 - bw
-            by1, by2 = 11, 26
+            badge_height = max(14, round(16 * size_scale))
+            by1 = header_y - badge_height / 2
+            by2 = header_y + badge_height / 2
             draw_pill(self, bx1, by1, bx2, by2, radius=7, fill=badge_bg, outline="")
             self.create_text(
                 (bx1 + bx2) / 2, (by1 + by2) / 2,
                 text=self.badge_text,
-                font=("Microsoft YaHei", 8, "bold"),
+                font=("Microsoft YaHei", badge_size, "bold"),
                 fill=badge_fg
             )
+            title_right = bx1 - max(5, round(7 * size_scale))
 
-        self.create_text(
-            18, 42,
-            text=self.subtitle,
-            font=("Microsoft YaHei", 8),
-            fill=sub_col,
-            anchor="nw",
-            width=w - 32
+        title_size = self._fit_text_size(
+            self.title,
+            maximum=max(9, round(11 * size_scale)),
+            minimum=8,
+            max_width=title_right - title_x,
+            weight="bold",
         )
+        self.create_text(
+            title_x,
+            header_y,
+            text=self.title,
+            font=("Microsoft YaHei", title_size, "bold"),
+            fill=title_col,
+            anchor="w",
+        )
+
+        subtitle_y = header_y + max(17, round(22 * size_scale))
+        if h - subtitle_y >= max(13, subtitle_size + 4):
+            self.create_text(
+                horizontal_pad,
+                subtitle_y,
+                text=self.subtitle,
+                font=("Microsoft YaHei", subtitle_size),
+                fill=sub_col,
+                anchor="nw",
+                width=max(20, w - 2 * horizontal_pad),
+            )
 
 
 # ==================== 渐变平滑胶囊进度条 ====================
@@ -1020,15 +1111,24 @@ class AIMemoryGUI:
             messagebox.showwarning("提示", "请至少勾选一个生成模式。")
             return
 
-        # 选择保存目录
-        save_directory = filedialog.askdirectory(
-            title="请选择生成结果的保存目录",
-            initialdir=str(PROJECT_ROOT / "results" / "summary")
+        # 同时选择保存位置和文件名；多模式会基于该名称追加模式后缀。
+        save_file = filedialog.asksaveasfilename(
+            title=(
+                "请选择保存位置并设置文件名"
+                if sum(bool(value) for value in modes.values()) == 1
+                else "请选择保存位置并设置共同文件名（将自动添加模式后缀）"
+            ),
+            initialdir=str(PROJECT_ROOT / "results" / "summary"),
+            initialfile=default_output_filename(modes),
+            defaultextension=".md",
+            filetypes=[("Markdown 文件", "*.md")],
         )
-        if not save_directory:
+        if not save_file:
             return  # 用户取消选择
 
-        save_dir_path = Path(save_directory).resolve()
+        selected_path = Path(save_file).resolve()
+        output_filename = normalize_markdown_filename(selected_path.name)
+        save_dir_path = selected_path.parent
 
         # 锁定界面输入并启动任务
         self.is_running = True
@@ -1042,7 +1142,7 @@ class AIMemoryGUI:
 
         thread = threading.Thread(
             target=self._run_generation_task,
-            args=(url, need_login, modes, save_dir_path),
+            args=(url, need_login, modes, save_dir_path, output_filename),
             daemon=True
         )
         thread.start()
@@ -1289,7 +1389,8 @@ class AIMemoryGUI:
         url: str,
         need_login: bool,
         modes: dict[str, bool],
-        save_dir: Path
+        save_dir: Path,
+        output_filename: str,
     ):
         """后台异步流水线调用与平滑进度控制"""
         loop = asyncio.new_event_loop()
@@ -1312,12 +1413,18 @@ class AIMemoryGUI:
             update_progress(0.15, "正在加载分享页并解析动态列表...")
 
             # 1. 抓取网页内容
+            image_output_dir = build_image_asset_directory(
+                save_dir,
+                output_filename,
+            )
             fetch_res = loop.run_until_complete(
                 fetch_chat_pipeline(
                     url=url,
                     need_login=need_login,
                     login_ready_event=login_event if need_login else None,
-                    logger=lambda m: update_progress(0.28, m)
+                    logger=lambda m: update_progress(0.28, m),
+                    image_output_dir=image_output_dir,
+                    image_reference_base=save_dir,
                 )
             )
 
@@ -1377,6 +1484,7 @@ class AIMemoryGUI:
                 messages=messages,
                 modes=modes,
                 save_dir=save_dir,
+                output_filename=output_filename,
                 project_dir=PROJECT_ROOT,
                 topic_selector=(
                     select_summary_topics
