@@ -338,6 +338,64 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("截图显示一段测试文字", enriched[0]["content"])
         self.assertEqual(public["access_status"], "available_local")
         self.assertTrue(public["can_reverify"])
+        self.assertEqual(public["source_role"], "user")
+
+    def test_assistant_citation_icons_are_ignored(self):
+        messages = [
+            {
+                "role": "User",
+                "content": "请看 ![截图](./images/sample.png)",
+            },
+            {
+                "role": "AI",
+                "content": (
+                    "参考资料：[![](https://www.google.com/s2/favicons?"
+                    "domain=https://www.reddit.com&sz=128)Reddit]"
+                    "(https://www.reddit.com/example)\n"
+                    "以及 [![](./images/site-logo.png)Hugging Face]"
+                    "(https://huggingface.co/example)"
+                ),
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            images = project / "images"
+            images.mkdir()
+            (images / "sample.png").write_bytes(b"sample")
+            (images / "site-logo.png").write_bytes(b"logo")
+            assets = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+
+        self.assertEqual(len(assets), 1)
+        self.assertEqual(assets[0].message_index, 1)
+        self.assertEqual(assets[0].source_role, "user")
+
+    def test_meaningful_assistant_image_keeps_its_source_role(self):
+        messages = [{
+            "role": "AI",
+            "content": "这是结果图：![部署架构图](./images/diagram.png)",
+        }]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            images = project / "images"
+            images.mkdir()
+            (images / "diagram.png").write_bytes(b"diagram")
+            assets = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+            summary.describe_media(
+                assets,
+                FakeGateway(),
+                summary.SummaryConfig(),
+                lambda _message: None,
+            )
+
+        self.assertEqual(len(assets), 1)
+        self.assertEqual(assets[0].source_role, "assistant")
+        self.assertTrue(
+            assets[0].description.startswith("AI 回答中包含一张图片")
+        )
 
     def test_missing_document_gets_explicit_description(self):
         marker = chr(96)

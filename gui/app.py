@@ -468,8 +468,8 @@ class CapsuleSelectCard(tk.Canvas):
         title_x = horizontal_pad + indicator_radius + max(
             5, round(7 * size_scale)
         )
-        badge_size = max(7, round(9 * size_scale))
-        subtitle_size = max(7, round(9 * size_scale))
+        badge_size = max(7, round(10 * size_scale))
+        subtitle_size = max(7, round(10 * size_scale))
 
         pad = 2
         draw_pill(
@@ -549,7 +549,7 @@ class CapsuleSelectCard(tk.Canvas):
 
         title_size = self._fit_text_size(
             self.title,
-            maximum=max(9, round(11 * size_scale)),
+            maximum=max(9, round(12 * size_scale)),
             minimum=8,
             max_width=title_right - title_x,
             weight="bold",
