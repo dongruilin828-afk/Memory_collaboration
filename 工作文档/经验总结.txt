@@ -33,7 +33,7 @@
 8. Gemini 多模态分层总结约定（2026-08-11）
 API 总结层必须与网页平台解析层解耦。scripts/providers 只负责把不同平台统一成 role/content 消息；scripts/gemini_summarizer.py 只消费统一消息，不得包含 ChatGPT、DeepSeek 或豆包的 DOM 选择器。这样以后新增平台或更换总结模型时，两边都不用互相修改。
 
-密钥只允许从环境变量读取：Gemini 使用 GEMINI_API_KEY；SiliconFlow 使用 Silicon_API_KEY（兼容 SILICONFLOW_API_KEY）。禁止把密钥写入源码、README、日志、异常全文、命令参数、JSON 输出或 Git 配置。后端与模型名从 SUMMARY_PROVIDER、SUMMARY_MODEL（兼容 GEMINI_MODEL）或命令行参数读取，默认值只是当前选择，不得在业务调用点重复写死。
+命令行密钥只允许从环境变量读取：Gemini 使用 GEMINI_API_KEY；SiliconFlow 使用 Silicon_API_KEY（兼容 SILICONFLOW_API_KEY）。Windows GUI 用户密钥只允许保存到当前用户的 Windows Credential Manager，并作为内存参数显式传给网关，优先于环境变量；不得把用户密钥复制进环境变量、源码、README、日志、异常全文、命令参数、JSON 输出或 Git 配置。后端与模型名仍从 SUMMARY_PROVIDER、SUMMARY_MODEL（兼容 GEMINI_MODEL）或命令行参数读取，默认值只是当前选择，不得在业务调用点重复写死。
 
 多模态总结采用分层管线：
 - 程序负责识别媒体引用、解析安全本地路径、判断文件存在性和类型、提取纯文本附件、按完整消息边界分块、校验 JSON 结构并原子写文件。

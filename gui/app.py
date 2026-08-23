@@ -27,6 +27,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
+from gui.credential_store import CredentialStoreError, WindowsCredentialStore
 
 from scripts.project_paths import DEFAULT_EXPORT_FILE, LOG_DIR, PROJECT_ROOT
 from gui.run_logging import GenerationRunLog
@@ -713,6 +714,54 @@ class CapsuleEntryBox(tk.Canvas):
         self.inner_frame.pack_propagate(False)
 
 
+class HoverTooltip:
+    """为小型图标按钮提供无持久状态的悬停提示。"""
+
+    def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 350):
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self._after_id = None
+        self._tip = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event=None):
+        self._hide()
+        self._after_id = self.widget.after(self.delay_ms, self._show)
+
+    def _show(self):
+        self._after_id = None
+        if self._tip is not None or not self.widget.winfo_exists():
+            return
+        tip = tk.Toplevel(self.widget)
+        tip.wm_overrideredirect(True)
+        tip.attributes("-topmost", True)
+        x = self.widget.winfo_rootx() + self.widget.winfo_width() - 4
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            tip,
+            text=self.text,
+            font=("Microsoft YaHei", 8),
+            foreground="#FFFFFF",
+            bg="#1E293B",
+            padx=8,
+            pady=4,
+            relief=tk.FLAT,
+        ).pack()
+        self._tip = tip
+
+    def _hide(self, _event=None):
+        if self._after_id is not None:
+            self.widget.after_cancel(self._after_id)
+            self._after_id = None
+        if self._tip is not None:
+            self._tip.destroy()
+            self._tip = None
+
+
 # ==================== 主窗口与交互逻辑 ====================
 
 class AIMemoryGUI:
@@ -725,6 +774,8 @@ class AIMemoryGUI:
         self.root.configure(bg="#E0E7FF")
 
         self.is_running = False
+        self.credential_store = WindowsCredentialStore()
+        self._api_key_dialog = None
         self._build_ui()
         self._bind_mousewheel()
         self._update_generate_button_state()
@@ -763,6 +814,26 @@ class AIMemoryGUI:
         # 头部主标题区
         header_frame = tk.Frame(self.sheet_frame, bg="#EEF2FF")
         header_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.api_key_button = tk.Button(
+            header_frame,
+            text="⚙",
+            font=("Segoe UI Symbol", 15),
+            foreground="#475569",
+            bg="#EEF2FF",
+            activeforeground="#2563EB",
+            activebackground="#DBEAFE",
+            relief=tk.FLAT,
+            bd=0,
+            padx=7,
+            pady=2,
+            cursor="hand2",
+            command=self._show_api_key_settings,
+        )
+        self.api_key_button.place(relx=1.0, x=-2, y=0, anchor="ne")
+        self._api_key_tooltip = HoverTooltip(
+            self.api_key_button, "API KEY 配置"
+        )
 
         title_lbl = tk.Label(
             header_frame,
@@ -1053,6 +1124,214 @@ class AIMemoryGUI:
 
         self.root.bind_all("<MouseWheel>", _on_mousewheel)
 
+    def _show_api_key_settings(self, require_key: bool = False):
+        """打开只使用 Windows 凭据管理器持久化密钥的设置窗口。"""
+        existing_dialog = self._api_key_dialog
+        if existing_dialog is not None and existing_dialog.winfo_exists():
+            existing_dialog.deiconify()
+            existing_dialog.lift()
+            existing_dialog.focus_force()
+            if require_key and hasattr(existing_dialog, "show_notice"):
+                existing_dialog.show_notice("请先配置 API KEY")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        self._api_key_dialog = dialog
+        dialog.title("API KEY 设置")
+        dialog.geometry("540x350")
+        dialog.resizable(False, False)
+        dialog.configure(bg="#F8FAFC")
+        dialog.transient(self.root)
+
+        panel = tk.Frame(
+            dialog,
+            bg="#FFFFFF",
+            padx=28,
+            pady=22,
+            highlightthickness=1,
+            highlightbackground="#DBEAFE",
+        )
+        panel.pack(fill=tk.BOTH, expand=True, padx=18, pady=18)
+
+        tk.Label(
+            panel,
+            text="API KEY 设置",
+            font=("Microsoft YaHei", 18, "bold"),
+            foreground="#1E1B4B",
+            bg="#FFFFFF",
+        ).pack(anchor="center")
+
+        notice_var = tk.StringVar(value="")
+        notice_slot = tk.Frame(panel, bg="#FFFFFF", height=42)
+        notice_slot.pack(fill=tk.X, pady=(8, 4))
+        notice_slot.pack_propagate(False)
+        notice_label = tk.Label(
+            notice_slot,
+            textvariable=notice_var,
+            font=("Microsoft YaHei", 13, "bold"),
+            foreground="#B91C1C",
+            bg="#FEE2E2",
+            padx=10,
+            pady=4,
+        )
+        notice_after_id = {"value": None}
+
+        def clear_notice():
+            notice_var.set("")
+            notice_label.pack_forget()
+            notice_after_id["value"] = None
+
+        def show_notice(message: str, duration_ms: int = 3000):
+            if notice_after_id["value"] is not None:
+                dialog.after_cancel(notice_after_id["value"])
+            notice_var.set(message)
+            notice_label.pack(anchor="center", fill=tk.X)
+            notice_after_id["value"] = dialog.after(
+                duration_ms, clear_notice
+            )
+
+        dialog.show_notice = show_notice
+
+        try:
+            existing_keys = self.credential_store.load_api_keys()
+            load_error = None
+        except CredentialStoreError as error:
+            existing_keys = {}
+            load_error = str(error)
+
+        fields = tk.Frame(panel, bg="#FFFFFF")
+        fields.pack(fill=tk.X)
+        fields.columnconfigure(1, weight=1)
+
+        gemini_var = tk.StringVar(value=existing_keys.get("gemini", ""))
+        silicon_var = tk.StringVar(
+            value=existing_keys.get("siliconflow", "")
+        )
+
+        tk.Label(
+            fields,
+            text="Google AI Studio：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 12), pady=7)
+        gemini_entry = tk.Entry(
+            fields,
+            textvariable=gemini_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        gemini_entry.grid(row=0, column=1, sticky="ew", pady=7, ipady=5)
+
+        tk.Label(
+            fields,
+            text="Silicon Flow：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=1, column=0, sticky="w", padx=(0, 12), pady=7)
+        silicon_entry = tk.Entry(
+            fields,
+            textvariable=silicon_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        silicon_entry.grid(row=1, column=1, sticky="ew", pady=7, ipady=5)
+
+        tk.Label(
+            panel,
+            text=(
+                "密钥仅保存到当前 Windows 用户的凭据管理器，不写入项目文件、"
+                "运行日志或输出文件。"
+            ),
+            font=("Microsoft YaHei", 8),
+            foreground="#64748B",
+            bg="#FFFFFF",
+            wraplength=450,
+            justify=tk.LEFT,
+        ).pack(fill=tk.X, pady=(8, 10))
+
+        def close_dialog():
+            gemini_var.set("")
+            silicon_var.set("")
+            self._api_key_dialog = None
+            try:
+                dialog.grab_release()
+            except tk.TclError:
+                pass
+            dialog.destroy()
+
+        def save_keys():
+            keys = {
+                "gemini": gemini_var.get().strip(),
+                "siliconflow": silicon_var.get().strip(),
+            }
+            if require_key and not any(keys.values()):
+                show_notice("请先配置 API KEY")
+                return
+            try:
+                self.credential_store.save_api_keys(keys)
+            except CredentialStoreError as error:
+                show_notice(str(error), duration_ms=5000)
+                return
+            close_dialog()
+
+        actions = tk.Frame(panel, bg="#FFFFFF")
+        actions.pack(fill=tk.X)
+        tk.Button(
+            actions,
+            text="取消",
+            command=close_dialog,
+            font=("Microsoft YaHei", 9),
+            bg="#E2E8F0",
+            fg="#334155",
+            relief=tk.FLAT,
+            padx=18,
+            pady=6,
+            cursor="hand2",
+        ).pack(side=tk.RIGHT, padx=(8, 0))
+        tk.Button(
+            actions,
+            text="安全保存",
+            command=save_keys,
+            font=("Microsoft YaHei", 9, "bold"),
+            bg="#2563EB",
+            fg="#FFFFFF",
+            activebackground="#1D4ED8",
+            activeforeground="#FFFFFF",
+            relief=tk.FLAT,
+            padx=18,
+            pady=6,
+            cursor="hand2",
+        ).pack(side=tk.RIGHT)
+
+        dialog.protocol("WM_DELETE_WINDOW", close_dialog)
+        dialog.bind("<Escape>", lambda _event: close_dialog())
+        dialog.bind("<Return>", lambda _event: save_keys())
+        dialog.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - 540) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - 350) // 2
+        dialog.geometry(
+            f"540x350+{max(0, x)}+{max(0, y)}"
+        )
+
+        dialog.grab_set()
+        gemini_entry.focus_set()
+        if load_error:
+            show_notice(load_error, duration_ms=5000)
+        elif require_key:
+            show_notice("请先配置 API KEY")
+
     def _on_mode_toggled(self):
         self._update_generate_button_state()
 
@@ -1072,6 +1351,10 @@ class AIMemoryGUI:
         self.card_detailed.set_disabled(locked)
         self.card_no_login.set_disabled(locked)
         self.card_need_login.set_disabled(locked)
+        self.api_key_button.config(
+            state=tk.DISABLED if locked else tk.NORMAL,
+            cursor="arrow" if locked else "hand2",
+        )
 
     def _update_generate_button_state(self):
         if self.is_running:
@@ -1114,6 +1397,20 @@ class AIMemoryGUI:
             messagebox.showwarning("提示", "请至少勾选一个生成模式。")
             return
 
+        api_keys: dict[str, str] = {}
+        needs_summary = any(
+            modes.get(name) for name in ("normal", "simple", "detailed")
+        )
+        if needs_summary:
+            try:
+                api_keys = self.credential_store.load_api_keys()
+            except CredentialStoreError:
+                self._show_api_key_settings(require_key=True)
+                return
+            if not api_keys:
+                self._show_api_key_settings(require_key=True)
+                return
+
         # 同时选择保存位置和文件名；多模式会基于该名称追加模式后缀。
         save_file = filedialog.asksaveasfilename(
             title=(
@@ -1145,7 +1442,14 @@ class AIMemoryGUI:
 
         thread = threading.Thread(
             target=self._run_generation_task,
-            args=(url, need_login, modes, save_dir_path, output_filename),
+            args=(
+                url,
+                need_login,
+                modes,
+                save_dir_path,
+                output_filename,
+                api_keys,
+            ),
             daemon=True
         )
         thread.start()
@@ -1394,6 +1698,7 @@ class AIMemoryGUI:
         modes: dict[str, bool],
         save_dir: Path,
         output_filename: str,
+        api_keys: dict[str, str],
     ):
         """后台异步流水线调用与平滑进度控制"""
         loop = asyncio.new_event_loop()
@@ -1538,6 +1843,7 @@ class AIMemoryGUI:
                 save_dir=save_dir,
                 output_filename=output_filename,
                 project_dir=PROJECT_ROOT,
+                api_keys=api_keys,
                 topic_selector=(
                     select_summary_topics
                     if modes.get("normal") or modes.get("detailed")
@@ -1581,10 +1887,10 @@ class AIMemoryGUI:
             run_succeeded = True
 
         except Exception as e:
-            err_msg = str(e)
+            err_msg = "处理失败，请检查网络、额度和模型配置。"
             try:
                 from scripts.gemini_summarizer import safe_error_message
-                err_msg = safe_error_message(e)
+                err_msg = safe_error_message(e, tuple(api_keys.values()))
             except Exception:
                 pass
             run_log.event(

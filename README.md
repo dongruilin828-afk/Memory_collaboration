@@ -9,9 +9,14 @@ Gemini API 或 SiliconFlow 兼容接口，对文字、图片和可用文档进�
     uv pip install -r requirements.txt
     playwright install chromium
 
-Gemini 密钥只从当前进程的 GEMINI_API_KEY 读取；SiliconFlow 密钥只从
-Silicon_API_KEY（兼容 SILICONFLOW_API_KEY）读取。不要把密钥写进源码、
-配置文件、命令参数、日志或提交记录。
+GUI 通过右上角齿轮配置 Gemini 或 SiliconFlow API KEY，密钥仅保存到当前
+Windows 用户的凭据管理器，不写入源码、配置文件、命令参数、日志、输出文件
+或提交记录。GUI 显式传入的用户密钥优先于环境变量；只配置 SiliconFlow 时
+会直接使用 SiliconFlow，并继续沿用该提供商现有的模型回退链。
+
+“仅抓取对话”不要求配置密钥；选择任一总结模式但尚未配置时，GUI 会拒绝启动
+并打开密钥设置页。命令行入口仍从 GEMINI_API_KEY、Silicon_API_KEY（兼容
+SILICONFLOW_API_KEY）读取密钥。
 
 ## 使用
 

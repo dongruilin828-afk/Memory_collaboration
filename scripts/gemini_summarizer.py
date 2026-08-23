@@ -654,17 +654,24 @@ def _positive_env_int(name: str, default: int) -> int:
     return value
 
 
-def safe_error_message(error: BaseException) -> str:
+def safe_error_message(
+    error: BaseException,
+    secrets: Collection[str] = (),
+) -> str:
     """生成不含 API 密钥的错误信息。"""
     if isinstance(error, GeminiSummaryError):
         message = str(error)
     else:
         message = f"{type(error).__name__}，请检查网络、额度和模型配置。"
 
-    for variable in (
-        "GEMINI_API_KEY", "Silicon_API_KEY", "SILICONFLOW_API_KEY"
-    ):
-        secret = os.getenv(variable)
+    known_secrets = [
+        os.getenv(variable) or ""
+        for variable in (
+            "GEMINI_API_KEY", "Silicon_API_KEY", "SILICONFLOW_API_KEY"
+        )
+    ]
+    known_secrets.extend(str(secret or "").strip() for secret in secrets)
+    for secret in known_secrets:
         if secret:
             message = message.replace(secret, "<redacted>")
     message = TOKEN_PATTERN.sub("<redacted>", message)
@@ -706,9 +713,11 @@ class GeminiGateway:
     def __init__(
         self,
         config: SummaryConfig,
-        sleep: Callable[[float], None] = time.sleep
+        sleep: Callable[[float], None] = time.sleep,
+        api_key: str | None = None,
     ):
-        if not os.getenv("GEMINI_API_KEY"):
+        api_key = str(api_key or os.getenv("GEMINI_API_KEY") or "").strip()
+        if not api_key:
             raise GeminiSummaryError(
                 "未检测到 GEMINI_API_KEY 环境变量。"
             )
@@ -724,6 +733,7 @@ class GeminiGateway:
         self.config = config
         self._types = types
         self._client = genai.Client(
+            api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=config.request_timeout_seconds * 1000
             )
@@ -862,12 +872,15 @@ class SiliconFlowGateway:
     def __init__(
         self,
         config: SummaryConfig,
-        sleep: Callable[[float], None] = time.sleep
+        sleep: Callable[[float], None] = time.sleep,
+        api_key: str | None = None,
     ):
-        api_key = (
-            os.getenv("Silicon_API_KEY")
+        api_key = str(
+            api_key
+            or os.getenv("Silicon_API_KEY")
             or os.getenv("SILICONFLOW_API_KEY")
-        )
+            or ""
+        ).strip()
         if not api_key:
             raise GeminiSummaryError(
                 "未检测到 Silicon_API_KEY 环境变量。"
@@ -993,10 +1006,13 @@ class SiliconFlowGateway:
         )
 
 
-def create_gateway(config: SummaryConfig) -> SummaryGateway:
+def create_gateway(
+    config: SummaryConfig,
+    api_key: str | None = None,
+) -> SummaryGateway:
     if config.provider == "siliconflow":
-        return SiliconFlowGateway(config)
-    return GeminiGateway(config)
+        return SiliconFlowGateway(config, api_key=api_key)
+    return GeminiGateway(config, api_key=api_key)
 
 
 def _is_rate_limit_error(error: BaseException) -> bool:

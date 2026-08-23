@@ -212,6 +212,42 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
     return candidates
 
 
+def resolve_gui_summary_config(
+    base_config: Any,
+    api_keys: Mapping[str, str],
+) -> Any:
+    """按已配置的用户密钥选择提供商，不改变该提供商的模型回退链。"""
+    normalized = {
+        provider: str(api_keys.get(provider) or "").strip()
+        for provider in ("gemini", "siliconflow")
+        if str(api_keys.get(provider) or "").strip()
+    }
+    if not normalized:
+        from scripts.gemini_summarizer import GeminiSummaryError
+        raise GeminiSummaryError("请先配置API KEY。")
+
+    preferred_provider = (
+        base_config.provider
+        if base_config.provider in normalized
+        else (
+            "gemini" if "gemini" in normalized else "siliconflow"
+        )
+    )
+    if preferred_provider == base_config.provider:
+        return base_config
+
+    from scripts.gemini_summarizer import (
+        DEFAULT_MODEL,
+        SILICONFLOW_DEFAULT_MODEL,
+    )
+    model = (
+        SILICONFLOW_DEFAULT_MODEL
+        if preferred_provider == "siliconflow"
+        else DEFAULT_MODEL
+    )
+    return replace(base_config, provider=preferred_provider, model=model)
+
+
 async def goto_with_retry_gui(page, url: str, attempts: int = 3, logger: Optional[Callable[[str], None]] = None):
     for attempt in range(1, attempts + 1):
         try:
@@ -653,6 +689,7 @@ def generate_output_bundle(
     progress: Callable[[str], None] = lambda _message: None,
     config: Any = None,
     gateway: Any = None,
+    api_keys: Optional[Mapping[str, str]] = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -697,6 +734,17 @@ def generate_output_bundle(
     config_was_provided = config is not None
     gateway_was_provided = gateway is not None
     config = config or SummaryConfig.from_env()
+    user_api_keys = (
+        None
+        if api_keys is None
+        else {
+            provider: str(api_keys.get(provider) or "").strip()
+            for provider in ("gemini", "siliconflow")
+            if str(api_keys.get(provider) or "").strip()
+        }
+    )
+    if user_api_keys is not None:
+        config = resolve_gui_summary_config(config, user_api_keys)
     selected_sections: tuple[str, ...] = ()
     selected_topics: tuple[str, ...] = ()
 
@@ -768,9 +816,14 @@ def generate_output_bundle(
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
-        candidate_gateway = candidate_gateway or create_gateway(
-            candidate_config
-        )
+        if candidate_gateway is None:
+            if user_api_keys is None:
+                candidate_gateway = create_gateway(candidate_config)
+            else:
+                candidate_gateway = create_gateway(
+                    candidate_config,
+                    api_key=user_api_keys[candidate_config.provider],
+                )
         progress(
             f"正在调用 {candidate_config.provider}/{candidate_config.model} "
             "生成结构化分层总结..."
@@ -805,8 +858,12 @@ def generate_output_bundle(
             if attempt_index >= len(attempts):
                 raise
             next_config = attempts[attempt_index][0]
+            safe_message = safe_error_message(
+                error,
+                tuple(user_api_keys.values()) if user_api_keys else (),
+            )
             progress(
-                f"当前模型不可用（{safe_error_message(error)}），"
+                f"当前模型不可用（{safe_message}），"
                 f"正在切换到 {next_config.provider}/{next_config.model}..."
             )
 
