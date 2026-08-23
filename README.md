@@ -24,6 +24,29 @@ SILICONFLOW_API_KEY）读取密钥。
 
     uv run python -m gui.app
 
+## Windows 打包
+
+发布版采用 PyInstaller 目录模式，并内置与当前 Playwright 版本匹配的 Chromium。
+用户无需安装 Python、项目依赖或浏览器。构建机先准备依赖与浏览器：
+
+    uv pip install --python .venv\Scripts\python.exe -r requirements-build.txt
+    .venv\Scripts\python.exe -m playwright install --no-shell chromium
+
+随后从项目根目录执行：
+
+    .venv\Scripts\pyinstaller.exe --noconfirm --clean `
+      --distpath release\dist --workpath release\build AI_Memory_Summary.spec
+
+应将整个 `release\dist\AI记忆总结工具` 文件夹压缩后分发；不能只发送其中的
+EXE。用户完整解压后双击 `AI记忆总结工具.exe` 即可。目录模式避免每次启动
+重复解压数百 MiB 的内置浏览器，也更便于安全软件逐个扫描。当前发布包未使用
+商业代码签名证书，因此 Windows SmartScreen 可能在首次运行时提示未知发布者。
+
+打包版把浏览器登录会话和脱敏运行日志保存在当前用户的
+`%LOCALAPPDATA%\AI Memory Summary`；API KEY 仍只保存在 Windows 凭据管理器。
+完整网页调试快照默认关闭，只有开发者显式设置
+`AI_MEMORY_SAVE_DEBUG_HTML=1` 时才会保存。
+
 在 GUI 中粘贴分享链接、勾选一个或多个模式，并选择保存位置和 Markdown 文件名。
 抓取到的图片会放入 Markdown 同目录下的专属 `_images` 文件夹，并通过相对路径
 引用；分享或移动结果时，将 Markdown 与该图片文件夹一起保留即可离线显示。普通版或详细版

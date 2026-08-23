@@ -1,0 +1,15 @@
+第三方组件说明
+==============
+
+本程序随包包含 Chromium、Playwright、PyInstaller 运行时及 Python 第三方库。
+对应许可证文件保存在“第三方许可证”目录。主要组件包括：
+
+- Chromium / Chrome for Testing
+- Playwright for Python
+- Google Gen AI SDK
+- keyring / pywin32-ctypes
+- Beautiful Soup、markdownify、Rich
+- PyInstaller bootloader
+
+各组件的商标、版权和许可证归各自权利人所有。内置 Chromium 仅供本程序在
+本机抓取用户指定的 AI 分享页，不会被注册为系统默认浏览器。

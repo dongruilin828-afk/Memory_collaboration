@@ -1287,6 +1287,68 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn('- 已实施修改：无用户确认', markdown)
         self.assertIn('- AI 已提供/建议的修改：修改解析器', markdown)
 
+    def test_confirmed_code_change_keeps_proposal_and_avoids_conflicting_text(self):
+        lines = []
+        summary._render_programming_records(lines, [{
+            'topic': '已确认修改', 'code_state': '', 'bug_or_issue': '',
+            'assistant_diagnosis': '', 'constraints': [],
+            'implemented_changes': [], 'proposed_changes': ['修改解析器'],
+            'pending_validation': [], 'message_ids': [1, 2, 3],
+            'implementation_status': 'confirmed_by_user'
+        }])
+        markdown = chr(10).join(lines)
+        self.assertIn(
+            '- 已实施修改：用户已确认实施，具体修改项未单独提取',
+            markdown
+        )
+        self.assertIn('- AI 已提供/建议的修改：修改解析器', markdown)
+        self.assertIn('- 用户执行状态：用户明确确认已实施', markdown)
+        self.assertNotIn('已实施修改：无用户确认', markdown)
+
+    def test_normalization_preserves_ai_proposal_after_user_confirmation(self):
+        messages = [
+            {'role': 'User', 'content': '请修改解析器'},
+            {'role': 'AI', 'content': '建议修改解析器的边界判断'},
+            {'role': 'User', 'content': '已经按这个方案修改好了'},
+        ]
+        normalized = summary._normalize_final_summary(
+            {
+                'overall_summary': '用户已完成解析器修改。',
+                'conversation_types': ['programming'],
+                'current_state': {
+                    'current_activity': {}, 'reached_stage': {},
+                    'completed': [{
+                        'content': '已按方案修改解析器',
+                        'source': 'user', 'status': 'executed',
+                        'message_ids': [3]
+                    }],
+                    'pending': [], 'next_step': {},
+                    'last_user_intent': '完成修改',
+                    'breakpoint_status': 'completed'
+                },
+                'topics': []
+            },
+            chunk_summaries=[{
+                'conversation_types': ['programming'],
+                'programming_records': [{
+                    'topic': '解析器修改', 'code_state': '已有解析器',
+                    'constraints': [], 'bug_or_issue': '边界判断错误',
+                    'assistant_diagnosis': '需要修正边界判断',
+                    'assistant_proposed_changes': ['修改解析器的边界判断'],
+                    'implemented_changes': [], 'pending_validation': [],
+                    'message_ids': [1, 2, 3]
+                }]
+            }],
+            messages=messages,
+            assets=[],
+            short_conversation=True
+        )
+        record = normalized['typed_records']['programming'][0]
+        self.assertEqual(record['implementation_status'], 'confirmed_by_user')
+        self.assertEqual(
+            record['proposed_changes'], ['修改解析器的边界判断']
+        )
+
     def test_old_calculation_is_not_claimed_as_program_verified(self):
         lines = []
         summary._render_calculation_records(lines, [{

@@ -1,11 +1,31 @@
-"""集中定义项目目录，避免入口移动后产生路径漂移。"""
+"""集中定义源码、运行数据与打包资源目录。"""
 
+import os
+import sys
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-TESTS_DIR = PROJECT_ROOT / "tests"
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+BUNDLE_ROOT = Path(
+    getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+).resolve()
+SOURCE_ROOT = BUNDLE_ROOT if IS_FROZEN else Path(__file__).resolve().parent.parent
+
+if IS_FROZEN:
+    local_app_data = Path(
+        os.environ.get("LOCALAPPDATA")
+        or (Path.home() / "AppData" / "Local")
+    )
+    PROJECT_ROOT = local_app_data / "AI Memory Summary"
+else:
+    PROJECT_ROOT = SOURCE_ROOT
+
+BUNDLED_BROWSERS_DIR = BUNDLE_ROOT / "playwright-browsers"
+if IS_FROZEN and BUNDLED_BROWSERS_DIR.exists():
+    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(BUNDLED_BROWSERS_DIR))
+
+SCRIPTS_DIR = SOURCE_ROOT / "scripts"
+TESTS_DIR = SOURCE_ROOT / "tests"
 TESTS_FILE = TESTS_DIR / "tests.txt"
 
 RESULTS_ROOT = PROJECT_ROOT / "results"

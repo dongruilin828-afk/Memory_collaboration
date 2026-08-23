@@ -1918,6 +1918,16 @@ class AIMemoryGUI:
 
 
 def main():
+    if "--package-smoke-report" in sys.argv:
+        option_index = sys.argv.index("--package-smoke-report")
+        try:
+            report_path = Path(sys.argv[option_index + 1]).resolve()
+        except IndexError:
+            raise SystemExit("--package-smoke-report 后必须提供报告路径")
+        from gui.package_smoke import run_package_smoke_test
+
+        raise SystemExit(run_package_smoke_test(report_path))
+
     root = tk.Tk()
     app = AIMemoryGUI(root)
     root.mainloop()

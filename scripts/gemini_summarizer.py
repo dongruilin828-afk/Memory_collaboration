@@ -2632,7 +2632,6 @@ def _normalize_final_summary(
             record['implementation_status'] = 'not_applicable'
         elif executed_by_user_ids.intersection(record.get('message_ids', [])):
             record['implementation_status'] = 'confirmed_by_user'
-            record['proposed_changes'] = []
         elif _user_attempted_programming_change(record, messages):
             record['implementation_status'] = 'attempted_by_user'
             record['implemented_changes'] = []
@@ -5942,6 +5941,12 @@ def _render_programming_records(
         if implementation_status != 'confirmed_by_user':
             proposed = proposed or implemented
             implemented = []
+        if implemented:
+            implemented_text = '；'.join(implemented)
+        elif implementation_status == 'confirmed_by_user':
+            implemented_text = '用户已确认实施，具体修改项未单独提取'
+        else:
+            implemented_text = '无用户确认'
         status_labels = {
             'not_applicable': '未发现具体修改交付',
             'unconfirmed': 'AI 已提供，用户是否采用未确认',
@@ -5954,7 +5959,7 @@ def _render_programming_records(
             f"- Bug/问题：{record['bug_or_issue'] or '未明确'}",
             f"- 上一 AI 的诊断/推测：{record['assistant_diagnosis'] or '无'}",
             f"- 约束：{'；'.join(record['constraints']) or '无'}",
-            f"- 已实施修改：{'；'.join(implemented) or '无用户确认'}",
+            f"- 已实施修改：{implemented_text}",
             f"- AI 已提供/建议的修改：{'；'.join(proposed) or '无'}",
             f"- 用户执行状态：{status_labels.get(implementation_status, implementation_status)}",
             f"- 待验证修改：{'；'.join(record['pending_validation']) or '无'}",

@@ -36,6 +36,9 @@ from scripts.project_paths import (
 from scripts.providers import WAIT_SELECTOR, collect_virtualized_html, parse_messages
 
 
+SAVE_DEBUG_SNAPSHOT = os.getenv("AI_MEMORY_SAVE_DEBUG_HTML", "").strip() == "1"
+
+
 @dataclass
 class FetchResult:
     html: Optional[str]
@@ -505,7 +508,7 @@ async def fetch_chat_pipeline(
             context = await playwright.chromium.launch_persistent_context(
                 user_data_dir=user_data_dir,
                 headless=headless,
-                channel="msedge",
+                channel="chromium",
                 viewport=viewport_config,
                 no_viewport=need_login,
                 ignore_default_args=["--enable-automation"],
@@ -519,7 +522,8 @@ async def fetch_chat_pipeline(
 
             try:
                 if logger:
-                    logger(f"正在加载页面: {url}")
+                    host = urlparse(url).netloc.lower() or "AI"
+                    logger(f"正在加载 {host} 分享页...")
                 await goto_with_retry_gui(page, url, logger=logger)
 
                 if need_login:
@@ -589,12 +593,14 @@ async def fetch_chat_pipeline(
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
 
-                # 写入本地调试快照
-                try:
-                    with open(DEBUG_HTML_FILE, "w", encoding="utf-8") as debug_file:
-                        debug_file.write(html)
-                except Exception:
-                    pass
+                snapshot_saved = False
+                if SAVE_DEBUG_SNAPSHOT:
+                    try:
+                        with open(DEBUG_HTML_FILE, "w", encoding="utf-8") as debug_file:
+                            debug_file.write(html)
+                        snapshot_saved = True
+                    except Exception:
+                        pass
 
                 soup = BeautifulSoup(html, "html.parser")
                 provider, parsed_messages = parse_messages(soup, image_map)
@@ -611,7 +617,13 @@ async def fetch_chat_pipeline(
                         html=html,
                         image_map=image_map,
                         messages=[],
-                        error="未能提取到有效对话内容。网页快照已保存到 debug_last_fetch.html。",
+                        error=(
+                            "未能提取到有效对话内容。"
+                            + (
+                                "调试快照已保存到本地。"
+                                if snapshot_saved else ""
+                            )
+                        ),
                         warnings=fetch_warnings,
                     )
                     return completed_result
@@ -647,7 +659,7 @@ async def fetch_chat_pipeline(
             html=None,
             image_map={},
             messages=[],
-            error=str(e),
+            error=re.sub(r"https?://[^\s)\]]+", "<分享链接>", str(e)),
             warnings=fetch_warnings,
         )
 

@@ -1,6 +1,6 @@
-playwright
-rich
-beautifulsoup4
-markdownify
-google-genai>=2.0.0
-keyring
+playwright==1.61.0
+rich==15.0.0
+beautifulsoup4==4.15.0
+markdownify==1.2.3
+google-genai==2.17.0
+keyring==25.7.0
