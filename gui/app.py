@@ -1756,10 +1756,14 @@ class AIMemoryGUI:
                 )
             )
             fetch_seconds = time.perf_counter() - fetch_started
+            login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
+            fetch_active_seconds = max(0.0, fetch_seconds - login_wait_seconds)
             run_log.event(
                 "fetch_completed" if not fetch_res.error else "fetch_failed",
                 fetch_res.error or "抓取完成",
                 elapsed_seconds=round(fetch_seconds, 3),
+                active_seconds=round(fetch_active_seconds, 3),
+                login_wait_seconds=round(login_wait_seconds, 3),
                 message_count=len(fetch_res.messages),
                 downloaded_images=len(fetch_res.image_map),
             )
@@ -1772,10 +1776,16 @@ class AIMemoryGUI:
                 return
 
             messages = fetch_res.messages
+            login_wait_detail = (
+                f"，等待登录 {login_wait_seconds:.1f} 秒"
+                if login_wait_seconds >= 0.1
+                else ""
+            )
             update_progress(
                 0.42,
                 f"成功提取 {len(messages)} 条对话交互"
-                f"（抓取 {fetch_seconds:.1f} 秒），正在按要求生成文件...",
+                f"（实际抓取 {fetch_active_seconds:.1f} 秒"
+                f"{login_wait_detail}），正在按要求生成文件...",
             )
 
             selection_wait_seconds = 0.0
@@ -1865,6 +1875,8 @@ class AIMemoryGUI:
             run_log.event(
                 "generation_completed",
                 fetch_seconds=round(fetch_seconds, 3),
+                fetch_active_seconds=round(fetch_active_seconds, 3),
+                login_wait_seconds=round(login_wait_seconds, 3),
                 generation_seconds=round(generation_seconds, 3),
                 selection_wait_seconds=round(selection_wait_seconds, 3),
                 cache_hit=processing.get("cache_hit"),
@@ -1874,12 +1886,27 @@ class AIMemoryGUI:
 
             # 4. 完成进度 100%
             file_list_str = "、".join(saved_files)
+            total_seconds = time.perf_counter() - task_started
+            program_seconds = fetch_active_seconds + generation_seconds
+            wait_seconds = login_wait_seconds + selection_wait_seconds
+            wait_parts = []
+            if login_wait_seconds >= 0.1:
+                wait_parts.append(f"登录 {login_wait_seconds:.1f}")
+            if selection_wait_seconds >= 0.1:
+                wait_parts.append(f"选题 {selection_wait_seconds:.1f}")
+            wait_text = (
+                f"；人工等待 {wait_seconds:.1f} 秒"
+                f"（{'/'.join(wait_parts)}）"
+                if wait_parts
+                else ""
+            )
             update_progress(
                 1.0,
                 (
-                    f"所有任务生成完成（抓取 {fetch_seconds:.1f} 秒，"
-                    f"总结与写入 {generation_seconds:.1f} 秒，"
-                    f"总计 {time.perf_counter() - task_started:.1f} 秒）："
+                    f"所有任务生成完成（程序处理 {program_seconds:.1f} 秒："
+                    f"抓取 {fetch_active_seconds:.1f}/"
+                    f"总结 {generation_seconds:.1f}"
+                    f"{wait_text}；总计 {total_seconds:.1f} 秒）："
                     f"{file_list_str}"
                 ) if file_list_str else "所有任务生成完成！",
             )

@@ -120,6 +120,7 @@ class FetchResult:
     messages: list[dict[str, str]]
     error: Optional[str] = None
     warnings: list[str] = field(default_factory=list)
+    user_wait_seconds: float = 0.0
 
 
 @dataclass
@@ -552,6 +553,7 @@ async def fetch_chat_pipeline(
     """异步抓取并提取网页中的对话和图片。"""
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
+    user_wait_seconds = 0.0
     if image_output_dir is None:
         resolved_images_dir = Path(IMAGES_DIR).resolve()
         image_reference_prefix = "./images"
@@ -597,7 +599,11 @@ async def fetch_chat_pipeline(
                     if logger:
                         logger("请在弹出的浏览器中完成登录，并在提示框中点击【登录完毕】...")
                     if login_ready_event:
+                        login_wait_started = time.perf_counter()
                         await login_ready_event.wait()
+                        user_wait_seconds += (
+                            time.perf_counter() - login_wait_started
+                        )
                     if logger:
                         logger("登录确认完毕，正在继续抓取对话数据...")
                     await page.wait_for_timeout(2000)
@@ -613,7 +619,7 @@ async def fetch_chat_pipeline(
                 except Exception:
                     if logger:
                         logger("等待动态节点超时，可能网页结构有所变化或需登录访问。")
-                await page.wait_for_timeout(4000)
+                await page.wait_for_timeout(2000)
 
                 html = await collect_virtualized_html(page)
                 if html is None:
@@ -692,6 +698,7 @@ async def fetch_chat_pipeline(
                             )
                         ),
                         warnings=fetch_warnings,
+                        user_wait_seconds=user_wait_seconds,
                     )
                     return completed_result
 
@@ -700,6 +707,7 @@ async def fetch_chat_pipeline(
                     image_map=image_map,
                     messages=parsed_messages,
                     warnings=fetch_warnings,
+                    user_wait_seconds=user_wait_seconds,
                 )
                 return completed_result
 
@@ -728,6 +736,7 @@ async def fetch_chat_pipeline(
             messages=[],
             error=re.sub(r"https?://[^\s)\]]+", "<分享链接>", str(e)),
             warnings=fetch_warnings,
+            user_wait_seconds=user_wait_seconds,
         )
 
 

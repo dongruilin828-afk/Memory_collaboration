@@ -11,6 +11,11 @@ WAIT_SELECTOR = "[data-message-author-role]"
 
 console = Console()
 
+SCROLL_PRIMARY_SETTLE_MS = 400
+SCROLL_SECONDARY_SETTLE_MS = 150
+BOUNDARY_SETTLE_MS = 350
+BOUNDARY_CAPTURE_ROUNDS = 3
+
 
 def _prefer_snapshot(candidate, existing):
     """仅在文本或图片更完整且另一维不退步时替换消息快照。"""
@@ -145,10 +150,10 @@ async def collect_html(page):
                 "(element, top) => element.scrollTo(0, top)",
                 scroll_top
             )
-            await page.wait_for_timeout(700)
+            await page.wait_for_timeout(SCROLL_PRIMARY_SETTLE_MS)
 
             await capture_visible_messages()
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(SCROLL_SECONDARY_SETTLE_MS)
             await capture_visible_messages()
 
             metrics = await scroll_container.evaluate(
@@ -176,8 +181,8 @@ async def collect_html(page):
                 "(element, top) => element.scrollTo(0, top)",
                 boundary
             )
-            for _ in range(4):
-                await page.wait_for_timeout(500)
+            for _ in range(BOUNDARY_CAPTURE_ROUNDS):
+                await page.wait_for_timeout(BOUNDARY_SETTLE_MS)
                 await capture_visible_messages()
 
         ordered_messages = sorted(
