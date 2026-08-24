@@ -19,6 +19,7 @@ from gui.service import (
     build_markdown_asset_prefix,
     build_output_paths,
     default_output_filename,
+    default_summary_result_cache_dir,
     generate_output_bundle,
     generate_raw_markdown,
     gui_summary_config_candidates,
@@ -178,6 +179,14 @@ class GUIServiceTests(unittest.TestCase):
             build_markdown_asset_prefix(asset_dir, base),
             "./%E8%AF%BE%E7%A8%8B%20%E6%80%BB%E7%BB%93_images",
         )
+
+    def test_custom_runtime_directory_owns_summary_cache(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_dir = Path(temp_dir) / "runtime-data"
+            self.assertEqual(
+                default_summary_result_cache_dir(runtime_dir),
+                runtime_dir.resolve() / "summary_results",
+            )
 
     def test_output_filename_defaults_and_md_normalization(self):
         self.assertEqual(

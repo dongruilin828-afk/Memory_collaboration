@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
-import shutil
 import sys
 import threading
 import time
@@ -26,10 +25,15 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
+from gui.settings_store import (
+    AppSettings,
+    SettingsStoreError,
+    WindowsAppSettingsStore,
+    default_app_settings,
+)
 
-from scripts.project_paths import DEFAULT_EXPORT_FILE, LOG_DIR, PROJECT_ROOT
 from gui.run_logging import GenerationRunLog
 from gui.service import (
     build_image_asset_directory,
@@ -38,6 +42,45 @@ from gui.service import (
     generate_output_bundle,
     normalize_markdown_filename,
 )
+
+
+def _prompt_output_target(
+    parent: tk.Misc,
+    modes: dict[str, bool],
+    settings: AppSettings,
+) -> tuple[Path, str] | None:
+    """按设置询问输出目标；配置默认目录时只询问文件名。"""
+    suggested_name = default_output_filename(modes)
+    if settings.default_results_dir is not None:
+        chosen_name = simpledialog.askstring(
+            "设置保存名称",
+            "请输入本次结果的保存名称：",
+            initialvalue=suggested_name,
+            parent=parent,
+        )
+        if not chosen_name or not chosen_name.strip():
+            return None
+        return (
+            Path(settings.default_results_dir).resolve(),
+            normalize_markdown_filename(chosen_name),
+        )
+
+    save_file = filedialog.asksaveasfilename(
+        parent=parent,
+        title=(
+            "请选择保存位置并设置文件名"
+            if sum(bool(value) for value in modes.values()) == 1
+            else "请选择保存位置并设置共同文件名（将自动添加模式后缀）"
+        ),
+        initialdir=str(Path(settings.runtime_data_dir) / "results" / "summary"),
+        initialfile=suggested_name,
+        defaultextension=".md",
+        filetypes=[("Markdown 文件", "*.md")],
+    )
+    if not save_file:
+        return None
+    selected_path = Path(save_file).resolve()
+    return selected_path.parent, normalize_markdown_filename(selected_path.name)
 
 
 # ==================== 颜色计算与渐变工具 ====================
@@ -775,6 +818,15 @@ class AIMemoryGUI:
 
         self.is_running = False
         self.credential_store = WindowsCredentialStore()
+        self.settings_store = WindowsAppSettingsStore()
+        try:
+            self.app_settings = self.settings_store.load()
+            self._settings_load_error = None
+        except SettingsStoreError as error:
+            self.app_settings = default_app_settings()
+            self._settings_load_error = str(error)
+        self._settings_dialog = None
+        # 兼容缺少 API KEY 时复用已有窗口的旧属性名。
         self._api_key_dialog = None
         self._build_ui()
         self._bind_mousewheel()
@@ -828,11 +880,11 @@ class AIMemoryGUI:
             padx=7,
             pady=2,
             cursor="hand2",
-            command=self._show_api_key_settings,
+            command=self._show_settings,
         )
         self.api_key_button.place(relx=1.0, x=-2, y=0, anchor="ne")
         self._api_key_tooltip = HoverTooltip(
-            self.api_key_button, "API KEY 配置"
+            self.api_key_button, "设置"
         )
 
         title_lbl = tk.Label(
@@ -1124,7 +1176,7 @@ class AIMemoryGUI:
 
         self.root.bind_all("<MouseWheel>", _on_mousewheel)
 
-    def _show_api_key_settings(self, require_key: bool = False):
+    def _show_legacy_api_key_settings(self, require_key: bool = False):
         """打开只使用 Windows 凭据管理器持久化密钥的设置窗口。"""
         existing_dialog = self._api_key_dialog
         if existing_dialog is not None and existing_dialog.winfo_exists():
@@ -1332,6 +1384,397 @@ class AIMemoryGUI:
         elif require_key:
             show_notice("请先配置 API KEY")
 
+    def _show_api_key_settings(self, require_key: bool = False):
+        """兼容缺少密钥时的旧调用入口，并定位到设置窗口的 API 页。"""
+        self._show_settings(initial_page="api", require_key=require_key)
+
+    def _show_settings(
+        self,
+        initial_page: str = "api",
+        require_key: bool = False,
+    ):
+        """打开包含 API KEY 与本地数据位置的统一设置窗口。"""
+        existing_dialog = self._settings_dialog
+        if existing_dialog is not None and existing_dialog.winfo_exists():
+            existing_dialog.deiconify()
+            existing_dialog.lift()
+            existing_dialog.focus_force()
+            if hasattr(existing_dialog, "show_page"):
+                existing_dialog.show_page(
+                    "api" if require_key else initial_page
+                )
+            if require_key and hasattr(existing_dialog, "show_notice"):
+                existing_dialog.show_notice("请先配置 API KEY")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        self._settings_dialog = dialog
+        self._api_key_dialog = dialog
+        dialog.title("设置")
+        dialog.geometry("650x470")
+        dialog.resizable(False, False)
+        dialog.configure(bg="#F8FAFC")
+        dialog.transient(self.root)
+
+        panel = tk.Frame(
+            dialog,
+            bg="#FFFFFF",
+            padx=24,
+            pady=18,
+            highlightthickness=1,
+            highlightbackground="#DBEAFE",
+        )
+        panel.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+
+        notebook = ttk.Notebook(panel)
+        notebook.pack(fill=tk.BOTH, expand=True)
+        api_page = tk.Frame(notebook, bg="#FFFFFF", padx=18, pady=14)
+        data_page = tk.Frame(notebook, bg="#FFFFFF", padx=18, pady=14)
+        notebook.add(api_page, text="API KEY 设置")
+        notebook.add(data_page, text="数据保存位置")
+
+        try:
+            existing_keys = self.credential_store.load_api_keys()
+            key_load_error = None
+        except CredentialStoreError as error:
+            existing_keys = {}
+            key_load_error = str(error)
+
+        gemini_var = tk.StringVar(value=existing_keys.get("gemini", ""))
+        silicon_var = tk.StringVar(
+            value=existing_keys.get("siliconflow", "")
+        )
+        settings = self.app_settings
+        runtime_var = tk.StringVar(value=str(settings.runtime_data_dir))
+        results_var = tk.StringVar(
+            value=str(settings.default_results_dir or "")
+        )
+
+        tk.Label(
+            api_page,
+            text="API KEY 设置",
+            font=("Microsoft YaHei", 17, "bold"),
+            foreground="#1E1B4B",
+            bg="#FFFFFF",
+        ).pack(anchor="center")
+
+        notice_var = tk.StringVar(value="")
+        notice_slot = tk.Frame(api_page, bg="#FFFFFF", height=40)
+        notice_slot.pack(fill=tk.X, pady=(7, 3))
+        notice_slot.pack_propagate(False)
+        notice_label = tk.Label(
+            notice_slot,
+            textvariable=notice_var,
+            font=("Microsoft YaHei", 13, "bold"),
+            foreground="#B91C1C",
+            bg="#FEE2E2",
+            padx=10,
+            pady=4,
+        )
+        notice_after_id = {"value": None}
+
+        def clear_notice():
+            notice_var.set("")
+            notice_label.pack_forget()
+            notice_after_id["value"] = None
+
+        def show_notice(message: str, duration_ms: int = 3000):
+            if notice_after_id["value"] is not None:
+                dialog.after_cancel(notice_after_id["value"])
+            notice_var.set(message)
+            notice_label.pack(anchor="center", fill=tk.X)
+            notice_after_id["value"] = dialog.after(
+                duration_ms, clear_notice
+            )
+
+        key_fields = tk.Frame(api_page, bg="#FFFFFF")
+        key_fields.pack(fill=tk.X)
+        key_fields.columnconfigure(1, weight=1)
+        tk.Label(
+            key_fields,
+            text="Google AI Studio：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 12), pady=7)
+        gemini_entry = tk.Entry(
+            key_fields,
+            textvariable=gemini_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        gemini_entry.grid(row=0, column=1, sticky="ew", pady=7, ipady=5)
+        tk.Label(
+            key_fields,
+            text="Silicon Flow：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=1, column=0, sticky="w", padx=(0, 12), pady=7)
+        silicon_entry = tk.Entry(
+            key_fields,
+            textvariable=silicon_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        silicon_entry.grid(row=1, column=1, sticky="ew", pady=7, ipady=5)
+        tk.Label(
+            api_page,
+            text=(
+                "密钥仅保存到当前 Windows 用户的凭据管理器，不写入项目文件、"
+                "运行日志或输出文件。"
+            ),
+            font=("Microsoft YaHei", 8),
+            foreground="#64748B",
+            bg="#FFFFFF",
+            wraplength=520,
+            justify=tk.LEFT,
+        ).pack(fill=tk.X, pady=(8, 10))
+
+        tk.Label(
+            data_page,
+            text="数据保存位置",
+            font=("Microsoft YaHei", 17, "bold"),
+            foreground="#1E1B4B",
+            bg="#FFFFFF",
+        ).pack(anchor="center", pady=(0, 12))
+        path_fields = tk.Frame(data_page, bg="#FFFFFF")
+        path_fields.pack(fill=tk.X)
+        path_fields.columnconfigure(0, weight=1)
+
+        def add_path_row(row: int, label: str, variable: tk.StringVar):
+            tk.Label(
+                path_fields,
+                text=label,
+                font=("Microsoft YaHei", 10, "bold"),
+                foreground="#334155",
+                bg="#FFFFFF",
+            ).grid(row=row * 2, column=0, columnspan=3, sticky="w", pady=(4, 4))
+            entry = tk.Entry(
+                path_fields,
+                textvariable=variable,
+                state="readonly",
+                readonlybackground="#F8FAFC",
+                font=("Microsoft YaHei", 9),
+                relief=tk.SOLID,
+                bd=1,
+            )
+            entry.grid(row=row * 2 + 1, column=0, sticky="ew", ipady=5)
+            return entry
+
+        runtime_entry = add_path_row(0, "运行数据保存位置", runtime_var)
+        results_entry = add_path_row(
+            1,
+            "结果默认保存位置（未设置时每次询问）",
+            results_var,
+        )
+
+        def initial_browse_dir(value: str) -> str:
+            path = Path(value).expanduser() if value.strip() else Path.home()
+            if path.is_dir():
+                return str(path)
+            if path.parent.is_dir():
+                return str(path.parent)
+            return str(Path.home())
+
+        def browse_for(variable: tk.StringVar, title: str):
+            selected = filedialog.askdirectory(
+                parent=dialog,
+                title=title,
+                initialdir=initial_browse_dir(variable.get()),
+                mustexist=True,
+            )
+            if selected:
+                variable.set(str(Path(selected).resolve()))
+
+        tk.Button(
+            path_fields,
+            text="浏览…",
+            command=lambda: browse_for(runtime_var, "选择运行数据保存位置"),
+            font=("Microsoft YaHei", 9),
+            bg="#DBEAFE",
+            fg="#1D4ED8",
+            relief=tk.FLAT,
+            padx=12,
+            cursor="hand2",
+        ).grid(row=1, column=1, padx=(8, 0), sticky="ns")
+        tk.Button(
+            path_fields,
+            text="恢复默认",
+            command=lambda: runtime_var.set(
+                str(default_app_settings().runtime_data_dir)
+            ),
+            font=("Microsoft YaHei", 9),
+            bg="#E2E8F0",
+            fg="#334155",
+            relief=tk.FLAT,
+            padx=10,
+            cursor="hand2",
+        ).grid(row=1, column=2, padx=(6, 0), sticky="ns")
+        tk.Button(
+            path_fields,
+            text="浏览…",
+            command=lambda: browse_for(results_var, "选择结果默认保存位置"),
+            font=("Microsoft YaHei", 9),
+            bg="#DBEAFE",
+            fg="#1D4ED8",
+            relief=tk.FLAT,
+            padx=12,
+            cursor="hand2",
+        ).grid(row=3, column=1, padx=(8, 0), sticky="ns")
+        tk.Button(
+            path_fields,
+            text="清除",
+            command=lambda: results_var.set(""),
+            font=("Microsoft YaHei", 9),
+            bg="#E2E8F0",
+            fg="#334155",
+            relief=tk.FLAT,
+            padx=10,
+            cursor="hand2",
+        ).grid(row=3, column=2, padx=(6, 0), sticky="ns")
+
+        data_notice_var = tk.StringVar(
+            value=str(self._settings_load_error or "")
+        )
+        tk.Label(
+            data_page,
+            textvariable=data_notice_var,
+            font=("Microsoft YaHei", 8, "bold"),
+            foreground="#B91C1C",
+            bg="#FFFFFF",
+            wraplength=520,
+            justify=tk.LEFT,
+        ).pack(fill=tk.X, pady=(10, 2))
+        tk.Label(
+            data_page,
+            text=(
+                "运行数据包含浏览器登录会话、脱敏日志、总结缓存和开发调试快照。"
+                "更改从下一次任务生效；旧数据不会自动搬移，授权登录可能需要重新登录一次。\n"
+                "位置设置只以目录字符串保存在当前用户注册表中，不会上传。"
+            ),
+            font=("Microsoft YaHei", 8),
+            foreground="#64748B",
+            bg="#FFFFFF",
+            wraplength=520,
+            justify=tk.LEFT,
+        ).pack(fill=tk.X, pady=(4, 8))
+
+        def close_dialog():
+            gemini_var.set("")
+            silicon_var.set("")
+            self._settings_dialog = None
+            self._api_key_dialog = None
+            try:
+                dialog.grab_release()
+            except tk.TclError:
+                pass
+            dialog.destroy()
+
+        def save_keys():
+            keys = {
+                "gemini": gemini_var.get().strip(),
+                "siliconflow": silicon_var.get().strip(),
+            }
+            if require_key and not any(keys.values()):
+                show_notice("请先配置 API KEY")
+                return
+            try:
+                self.credential_store.save_api_keys(keys)
+            except CredentialStoreError as error:
+                show_notice(str(error), duration_ms=5000)
+                return
+            close_dialog()
+
+        def save_locations():
+            runtime_value = runtime_var.get().strip()
+            results_value = results_var.get().strip()
+            try:
+                self.app_settings = self.settings_store.save(AppSettings(
+                    runtime_data_dir=Path(runtime_value),
+                    default_results_dir=(
+                        Path(results_value) if results_value else None
+                    ),
+                ))
+                self._settings_load_error = None
+            except SettingsStoreError as error:
+                data_notice_var.set(str(error))
+                return
+            close_dialog()
+
+        def add_actions(page, save_text: str, save_command):
+            actions = tk.Frame(page, bg="#FFFFFF")
+            actions.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 0))
+            tk.Button(
+                actions,
+                text="取消",
+                command=close_dialog,
+                font=("Microsoft YaHei", 9),
+                bg="#E2E8F0",
+                fg="#334155",
+                relief=tk.FLAT,
+                padx=18,
+                pady=6,
+                cursor="hand2",
+            ).pack(side=tk.RIGHT, padx=(8, 0))
+            tk.Button(
+                actions,
+                text=save_text,
+                command=save_command,
+                font=("Microsoft YaHei", 9, "bold"),
+                bg="#2563EB",
+                fg="#FFFFFF",
+                activebackground="#1D4ED8",
+                activeforeground="#FFFFFF",
+                relief=tk.FLAT,
+                padx=18,
+                pady=6,
+                cursor="hand2",
+            ).pack(side=tk.RIGHT)
+
+        add_actions(api_page, "安全保存", save_keys)
+        add_actions(data_page, "保存位置设置", save_locations)
+
+        def show_page(page: str):
+            if page == "data":
+                notebook.select(data_page)
+                runtime_entry.focus_set()
+            else:
+                notebook.select(api_page)
+                gemini_entry.focus_set()
+
+        def save_current(_event=None):
+            if notebook.index(notebook.select()) == 0:
+                save_keys()
+            else:
+                save_locations()
+
+        dialog.show_notice = show_notice
+        dialog.show_page = show_page
+        dialog.protocol("WM_DELETE_WINDOW", close_dialog)
+        dialog.bind("<Escape>", lambda _event: close_dialog())
+        dialog.bind("<Return>", save_current)
+        dialog.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - 650) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - 470) // 2
+        dialog.geometry(f"650x470+{max(0, x)}+{max(0, y)}")
+        dialog.grab_set()
+        show_page("api" if require_key else initial_page)
+        if key_load_error:
+            show_notice(key_load_error, duration_ms=5000)
+        elif require_key:
+            show_notice("请先配置 API KEY")
+
     def _on_mode_toggled(self):
         self._update_generate_button_state()
 
@@ -1411,24 +1854,15 @@ class AIMemoryGUI:
                 self._show_api_key_settings(require_key=True)
                 return
 
-        # 同时选择保存位置和文件名；多模式会基于该名称追加模式后缀。
-        save_file = filedialog.asksaveasfilename(
-            title=(
-                "请选择保存位置并设置文件名"
-                if sum(bool(value) for value in modes.values()) == 1
-                else "请选择保存位置并设置共同文件名（将自动添加模式后缀）"
-            ),
-            initialdir=str(PROJECT_ROOT / "results" / "summary"),
-            initialfile=default_output_filename(modes),
-            defaultextension=".md",
-            filetypes=[("Markdown 文件", "*.md")],
+        settings = getattr(self, "app_settings", default_app_settings())
+        output_target = _prompt_output_target(
+            getattr(self, "root", None),
+            modes,
+            settings,
         )
-        if not save_file:
-            return  # 用户取消选择
-
-        selected_path = Path(save_file).resolve()
-        output_filename = normalize_markdown_filename(selected_path.name)
-        save_dir_path = selected_path.parent
+        if output_target is None:
+            return
+        save_dir_path, output_filename = output_target
 
         # 锁定界面输入并启动任务
         self.is_running = True
@@ -1449,6 +1883,7 @@ class AIMemoryGUI:
                 save_dir_path,
                 output_filename,
                 api_keys,
+                settings,
             ),
             daemon=True
         )
@@ -1699,6 +2134,7 @@ class AIMemoryGUI:
         save_dir: Path,
         output_filename: str,
         api_keys: dict[str, str],
+        app_settings: AppSettings,
     ):
         """后台异步流水线调用与平滑进度控制"""
         loop = asyncio.new_event_loop()
@@ -1706,7 +2142,7 @@ class AIMemoryGUI:
         task_started = time.perf_counter()
         run_succeeded = False
         run_log = GenerationRunLog(
-            LOG_DIR,
+            app_settings.log_dir,
             metadata={
                 "link_host": urlparse(url).netloc.lower(),
                 "link_fingerprint": hashlib.sha256(
@@ -1753,6 +2189,8 @@ class AIMemoryGUI:
                     logger=lambda m: update_progress(0.28, m),
                     image_output_dir=image_output_dir,
                     image_reference_base=save_dir,
+                    browser_profile_root=app_settings.browser_profile_dir,
+                    debug_html_file=app_settings.debug_html_file,
                 )
             )
             fetch_seconds = time.perf_counter() - fetch_started
@@ -1852,8 +2290,9 @@ class AIMemoryGUI:
                 modes=modes,
                 save_dir=save_dir,
                 output_filename=output_filename,
-                project_dir=PROJECT_ROOT,
+                project_dir=app_settings.runtime_data_dir,
                 api_keys=api_keys,
+                result_cache_dir=app_settings.summary_cache_dir,
                 topic_selector=(
                     select_summary_topics
                     if modes.get("normal") or modes.get("detailed")

@@ -167,8 +167,12 @@ def default_output_filename(modes: Mapping[str, bool]) -> str:
     return "AI_memory.md"
 
 
-def default_summary_result_cache_dir() -> Path:
+def default_summary_result_cache_dir(
+    runtime_data_dir: Optional[Path] = None,
+) -> Path:
     """返回 GUI 私有的本机完成结果缓存目录。"""
+    if runtime_data_dir is not None:
+        return Path(runtime_data_dir).resolve() / "summary_results"
     base = os.getenv("LOCALAPPDATA") or os.getenv("XDG_CACHE_HOME")
     if base:
         return Path(base) / "AI Memory Summary" / "summary_results"
@@ -549,6 +553,8 @@ async def fetch_chat_pipeline(
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
     image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
+    browser_profile_root: Optional[Path] = None,
+    debug_html_file: Optional[Path] = None,
 ) -> FetchResult:
     """异步抓取并提取网页中的对话和图片。"""
     fetch_warnings: list[str] = []
@@ -586,6 +592,7 @@ async def fetch_chat_pipeline(
                 viewport=viewport_config,
                 no_viewport=need_login,
                 logger=logger,
+                profile_root=browser_profile_root,
             )
             page = context.pages[0] if context.pages else await context.new_page()
 
@@ -669,8 +676,14 @@ async def fetch_chat_pipeline(
                 snapshot_saved = False
                 if SAVE_DEBUG_SNAPSHOT:
                     try:
-                        with open(DEBUG_HTML_FILE, "w", encoding="utf-8") as debug_file:
-                            debug_file.write(html)
+                        snapshot_path = Path(
+                            debug_html_file or DEBUG_HTML_FILE
+                        ).resolve()
+                        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(
+                            snapshot_path, "w", encoding="utf-8"
+                        ) as output:
+                            output.write(html)
                         snapshot_saved = True
                     except Exception:
                         pass
@@ -778,6 +791,7 @@ def generate_output_bundle(
     config: Any = None,
     gateway: Any = None,
     api_keys: Optional[Mapping[str, str]] = None,
+    result_cache_dir: Optional[Path] = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -932,7 +946,11 @@ def generate_output_bundle(
                 section_selector=section_callback,
                 selected_topics=(),
                 topic_selector=topic_callback,
-                result_cache_dir=default_summary_result_cache_dir(),
+                result_cache_dir=(
+                    Path(result_cache_dir).resolve()
+                    if result_cache_dir is not None
+                    else default_summary_result_cache_dir()
+                ),
             )
             config = candidate_config
             gateway = candidate_gateway
