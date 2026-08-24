@@ -11,6 +11,30 @@ DISPLAY_NAME = "豆包"
 WAIT_SELECTOR = ".message-item"
 
 
+async def collect_html(page):
+    """触发长对话中按可视区域挂载的图片，再返回完整页面 HTML。"""
+    messages = page.locator(WAIT_SELECTOR)
+    try:
+        message_count = await messages.count()
+    except Exception:
+        return None
+    if message_count == 0:
+        return None
+
+    for index in range(message_count):
+        try:
+            await messages.nth(index).scroll_into_view_if_needed(timeout=3000)
+            # 豆包在消息进入视野后异步挂载 picture/img；短暂停留可避免
+            # 长对话滚动过快时图片节点尚未生成就读取页面快照。
+            await page.wait_for_timeout(120)
+        except Exception:
+            # 单条消息滚动失败不应丢弃已经收集到的完整文字对话。
+            continue
+
+    await page.wait_for_timeout(700)
+    return await page.content()
+
+
 def _is_empty_svg_placeholder(img) -> bool:
     """只识别豆包懒加载产生的空 SVG，不误删含实际图形的 SVG。"""
     src = str(img.get("src") or "")

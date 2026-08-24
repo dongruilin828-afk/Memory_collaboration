@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import tempfile
@@ -741,6 +742,55 @@ class GeminiSummarizerTests(unittest.TestCase):
             )
         self.assertEqual(len(assets), 1)
         self.assertEqual(assets[0].label, "report.pdf")
+
+    def test_doubao_collector_scrolls_every_message_for_lazy_images(self):
+        class FakeMessage:
+            def __init__(self, page, index):
+                self.page = page
+                self.index = index
+
+            async def scroll_into_view_if_needed(self, timeout):
+                self.page.scrolled.append((self.index, timeout))
+
+        class FakeMessages:
+            def __init__(self, page):
+                self.page = page
+
+            async def count(self):
+                return self.page.message_count
+
+            def nth(self, index):
+                return FakeMessage(self.page, index)
+
+        class FakePage:
+            def __init__(self, message_count):
+                self.message_count = message_count
+                self.scrolled = []
+                self.waits = []
+
+            def locator(self, selector):
+                self.selector = selector
+                return FakeMessages(self)
+
+            async def wait_for_timeout(self, milliseconds):
+                self.waits.append(milliseconds)
+
+            async def content(self):
+                return "<div class='message-item'>完整页面</div>"
+
+        page = FakePage(4)
+        html = asyncio.run(doubao.collect_html(page))
+        self.assertEqual(page.selector, doubao.WAIT_SELECTOR)
+        self.assertEqual(page.scrolled, [
+            (0, 3000), (1, 3000), (2, 3000), (3, 3000)
+        ])
+        self.assertEqual(page.waits, [120, 120, 120, 120, 700])
+        self.assertIn("完整页面", html)
+
+        unrelated_page = FakePage(0)
+        self.assertIsNone(asyncio.run(doubao.collect_html(unrelated_page)))
+        self.assertEqual(unrelated_page.scrolled, [])
+        self.assertEqual(unrelated_page.waits, [])
 
     def test_doubao_document_covers_are_not_user_images(self):
         html = """
