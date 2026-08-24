@@ -37,6 +37,80 @@ from scripts.providers import WAIT_SELECTOR, collect_virtualized_html, parse_mes
 
 
 SAVE_DEBUG_SNAPSHOT = os.getenv("AI_MEMORY_SAVE_DEBUG_HTML", "").strip() == "1"
+BROWSER_MODE_ENV = "AI_MEMORY_BROWSER_MODE"
+LITE_BROWSER_CHANNELS = ("msedge", "chrome")
+BROWSER_CHANNEL_LABELS = {
+    "chromium": "内置 Chromium",
+    "msedge": "Microsoft Edge",
+    "chrome": "Google Chrome",
+}
+
+
+def browser_channel_candidates() -> tuple[str, ...]:
+    """返回当前发布变体允许使用的浏览器通道。"""
+    mode = os.getenv(BROWSER_MODE_ENV, "full").strip().lower()
+    return LITE_BROWSER_CHANNELS if mode == "lite" else ("chromium",)
+
+
+def _browser_profile_directory(
+    channel: str,
+    profile_root: Optional[Path] = None,
+) -> Path:
+    root = Path(profile_root or BROWSER_USER_DATA_DIR).resolve()
+    if browser_channel_candidates() == LITE_BROWSER_CHANNELS:
+        return root / channel
+    return root
+
+
+async def launch_browser_context(
+    playwright: Any,
+    *,
+    headless: bool,
+    viewport: Optional[dict[str, int]],
+    no_viewport: bool,
+    logger: Optional[Callable[[str], None]] = None,
+    profile_root: Optional[Path] = None,
+) -> tuple[Any, str]:
+    """启动当前变体的浏览器；轻量版按 Edge、Chrome 顺序回退。"""
+    channels = browser_channel_candidates()
+    last_error: Optional[BaseException] = None
+    for index, channel in enumerate(channels):
+        try:
+            context = await playwright.chromium.launch_persistent_context(
+                user_data_dir=str(
+                    _browser_profile_directory(channel, profile_root)
+                ),
+                headless=headless,
+                channel=channel,
+                viewport=viewport,
+                no_viewport=no_viewport,
+                ignore_default_args=["--enable-automation"],
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-first-run",
+                    "--no-service-autorun",
+                ],
+            )
+            if logger:
+                logger(f"正在使用 {BROWSER_CHANNEL_LABELS[channel]}。")
+            return context, channel
+        except Exception as error:
+            last_error = error
+            if logger and index + 1 < len(channels):
+                next_channel = channels[index + 1]
+                logger(
+                    f"未能启动 {BROWSER_CHANNEL_LABELS[channel]}，"
+                    f"正在尝试 {BROWSER_CHANNEL_LABELS[next_channel]}..."
+                )
+
+    if channels == LITE_BROWSER_CHANNELS:
+        raise RuntimeError(
+            "未检测到可用的 Microsoft Edge 或 Google Chrome，"
+            "请下载安装其中一个浏览器，或下载全量版。"
+        ) from None
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("未能启动浏览器。")
 
 
 @dataclass
@@ -478,7 +552,6 @@ async def fetch_chat_pipeline(
     """异步抓取并提取网页中的对话和图片。"""
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
-    user_data_dir = str(BROWSER_USER_DATA_DIR)
     if image_output_dir is None:
         resolved_images_dir = Path(IMAGES_DIR).resolve()
         image_reference_prefix = "./images"
@@ -505,18 +578,12 @@ async def fetch_chat_pipeline(
 
     try:
         async with async_playwright() as playwright:
-            context = await playwright.chromium.launch_persistent_context(
-                user_data_dir=user_data_dir,
+            context, _browser_channel = await launch_browser_context(
+                playwright,
                 headless=headless,
-                channel="chromium",
                 viewport=viewport_config,
                 no_viewport=need_login,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-first-run",
-                    "--no-service-autorun"
-                ]
+                logger=logger,
             )
             page = context.pages[0] if context.pages else await context.new_page()
 

@@ -47,6 +47,24 @@ EXE。用户完整解压后双击 `AI记忆总结工具.exe` 即可。目录模�
 完整网页调试快照默认关闭，只有开发者显式设置
 `AI_MEMORY_SAVE_DEBUG_HTML=1` 时才会保存。
 
+### Windows 轻量版
+
+轻量版不内置 Chromium，优先调用系统 Edge，启动失败时自动回退到系统
+Chrome；两者都不可用时提示用户安装浏览器或下载全量版。全量版 spec 与默认
+`gui.app` 行为不变。源码启动轻量版：
+
+    uv run python -m gui.lite_app
+
+独立构建轻量版：
+
+    .venv\Scripts\pyinstaller.exe --noconfirm --clean `
+      --distpath release\lite-dist --workpath release\lite-build `
+      AI_Memory_Summary_Lite.spec
+
+分发时同样必须压缩整个
+`release\lite-dist\AI记忆总结工具_轻量版` 文件夹，不能只发送 EXE。
+
+
 在 GUI 中粘贴分享链接、勾选一个或多个模式，并选择保存位置和 Markdown 文件名。
 抓取到的图片会放入 Markdown 同目录下的专属 `_images` 文件夹，并通过相对路径
 引用；分享或移动结果时，将 Markdown 与该图片文件夹一起保留即可离线显示。普通版或详细版

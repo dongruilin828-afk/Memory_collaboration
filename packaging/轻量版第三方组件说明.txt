@@ -1,0 +1,17 @@
+第三方组件说明（轻量版）
+========================
+
+本程序随包包含 Playwright、PyInstaller 运行时及 Python 第三方库，但不内置
+Microsoft Edge、Google Chrome 或 Chromium。运行时会调用用户电脑已安装的
+Edge 或 Chrome；这些浏览器的商标、版权与许可证归各自权利人所有。
+
+随包主要组件包括：
+
+- Playwright for Python
+- Google Gen AI SDK
+- keyring / pywin32-ctypes
+- Beautiful Soup、markdownify、Rich
+- PyInstaller bootloader
+
+各组件的商标、版权和许可证归各自权利人所有。第三方 Python 组件对应许可证
+保存在“第三方许可证”目录。
