@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html as html_lib
+import ipaddress
+import mimetypes
 import os
 import re
 import shutil
@@ -17,6 +20,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
 from urllib.parse import quote, urlparse
+from urllib.parse import unquote, urljoin
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -44,6 +48,237 @@ BROWSER_CHANNEL_LABELS = {
     "msedge": "Microsoft Edge",
     "chrome": "Google Chrome",
 }
+
+PRIVATE_CONVERSATION_PATTERNS = (
+    re.compile(r"^/c/[0-9a-f-]+/?$", re.IGNORECASE),
+    re.compile(r"^/a/chat/s/[0-9a-f-]+/?$", re.IGNORECASE),
+)
+DOCUMENT_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".txt", ".csv", ".md", ".rtf",
+}
+DOCUMENT_MIME_EXTENSIONS = {
+    "application/pdf": ".pdf",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "text/markdown": ".md",
+    "application/rtf": ".rtf",
+}
+GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
+UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md"}
+DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
+CHATGPT_ESCAPED_QUOTE = re.escape(chr(92) + '"')
+CHATGPT_EMBEDDED_DOCUMENT_PATTERNS = (
+    re.compile(
+        rf'{CHATGPT_ESCAPED_QUOTE}name{CHATGPT_ESCAPED_QUOTE},'
+        rf'{CHATGPT_ESCAPED_QUOTE}(?P<filename>.{{1,240}}?[.](?:pdf|docx?|xlsx?|xls|pptx?|ppt|txt|csv|md|rtf))'
+        rf'{CHATGPT_ESCAPED_QUOTE},{CHATGPT_ESCAPED_QUOTE}'
+        rf'(?P<file_id>file[_-][A-Za-z0-9_-]{{12,}}){CHATGPT_ESCAPED_QUOTE}',
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r'"name","(?P<filename>[^"]{1,240}[.](?:pdf|docx?|xlsx?|xls|pptx?|ppt|txt|csv|md|rtf))'
+        r'","(?P<file_id>file[_-][A-Za-z0-9_-]{12,})"',
+        re.IGNORECASE,
+    ),
+)
+
+
+@dataclass(frozen=True)
+class DocumentCandidate:
+    reference: str
+    url: str
+    filename: str
+
+
+
+def _iter_json_mappings(value: Any):
+    """递归遍历平台响应中的字典节点，不记录或输出原始响应。"""
+    if isinstance(value, Mapping):
+        yield value
+        for child in value.values():
+            yield from _iter_json_mappings(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            yield from _iter_json_mappings(child)
+
+
+def _collect_response_assets(
+    payload: Any,
+    page_url: str,
+    document_candidates: list[DocumentCandidate],
+    image_references: set[str],
+) -> None:
+    """从页面已获授权的 JSON 响应提取附件元数据，不额外上传数据。"""
+    parsed = urlparse(page_url)
+    host = parsed.netloc.lower().split(":", 1)[0]
+    origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    for item in _iter_json_mappings(payload):
+        filename = str(
+            item.get("file_name") or item.get("name") or ""
+        ).strip()
+        mime_type = str(item.get("mime_type") or "").lower()
+        suffix = Path(filename).suffix.lower()
+
+        signed_path = str(item.get("signed_path") or "").strip()
+        if (
+            host == "chat.deepseek.com"
+            and signed_path
+            and filename
+            and suffix in DOCUMENT_EXTENSIONS
+            and str(item.get("status") or "SUCCESS").upper() == "SUCCESS"
+        ):
+            if signed_path.startswith(("http://", "https://")):
+                download_url = signed_path
+            else:
+                download_url = (
+                    "https://files.deepseeksvc.com/api/"
+                    + signed_path.lstrip("/")
+                )
+            separator = "&" if "?" in download_url else "?"
+            if not re.search(r"(?:[?&])ty=", download_url):
+                download_url = f"{download_url}{separator}ty=r"
+            document_candidates.append(DocumentCandidate(
+                signed_path,
+                download_url,
+                _safe_document_filename(filename, suffix),
+            ))
+
+        if host in {"doubao.com", "www.doubao.com"} and filename:
+            uri = str(item.get("uri") or item.get("key") or "").strip()
+            if suffix in DOCUMENT_EXTENSIONS and _is_safe_doubao_file_uri(uri):
+                document_candidates.append(DocumentCandidate(
+                    uri,
+                    f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
+                    _safe_document_filename(filename, suffix),
+                ))
+
+        if host in {"chatgpt.com", "chat.openai.com"} and filename:
+            reference_ids = []
+            for key in ("id", "file_id", "library_file_id"):
+                reference = str(item.get(key) or "").strip()
+                if reference.startswith(("file_", "file-")):
+                    reference_ids.append(reference)
+            if suffix in DOCUMENT_EXTENSIONS:
+                for reference in dict.fromkeys(reference_ids):
+                    document_candidates.append(DocumentCandidate(
+                        reference,
+                        f"{origin}/backend-api/files/download/"
+                        f"{quote(reference, safe='')}",
+                        _safe_document_filename(filename, suffix),
+                    ))
+            if mime_type.startswith("image/") or suffix in {
+                ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"
+            }:
+                image_references.update(reference_ids or {filename.lower()})
+
+
+async def _capture_response_assets(
+    response: Any,
+    page_url: str,
+    document_candidates: list[DocumentCandidate],
+    image_references: set[str],
+) -> None:
+    try:
+        payload = await response.json()
+    except Exception:
+        return
+    _collect_response_assets(
+        payload,
+        page_url,
+        document_candidates,
+        image_references,
+    )
+
+
+def _is_asset_metadata_response(response_url: str) -> bool:
+    parsed = urlparse(str(response_url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    path = parsed.path.lower()
+    if host in {"chatgpt.com", "chat.openai.com"}:
+        return bool(re.match(r"^/backend-api/conversations/[^/]+/?$", path))
+    if host == "chat.deepseek.com":
+        return "/api/v0/" in path and any(
+            token in path for token in ("share/content", "history", "message")
+        )
+    if host in {"doubao.com", "www.doubao.com"}:
+        return any(
+            token in path
+            for token in ("/im/chain/single", "/im/chain/batch_single")
+        )
+    return False
+
+
+async def _drain_response_tasks(tasks: set[asyncio.Task]) -> None:
+    pending = list(tasks)
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
+    host = urlparse(page_url).netloc.lower().split(":", 1)[0]
+    if host in {"chatgpt.com", "chat.openai.com"}:
+        selector = "[data-message-author-role]"
+    elif host == "chat.deepseek.com":
+        selector = "[data-virtual-list-item-key] .ds-message"
+    elif host in {"doubao.com", "www.doubao.com"}:
+        selector = (
+            ".message-item, "
+            "div[class*='message-list-'] div.my-0.w-full.mx-auto "
+            "div.flex.flex-row.w-full"
+        )
+    else:
+        selector = WAIT_SELECTOR
+    try:
+        await page.wait_for_selector(selector, state="attached", timeout=10000)
+        return await page.locator(selector).count() > 0
+    except Exception:
+        return False
+
+
+async def _chatgpt_assets_need_rehydrate(
+    page: Any,
+    page_url: str,
+    document_candidates: list[DocumentCandidate],
+    image_references: set[str],
+) -> bool:
+    host = urlparse(page_url).netloc.lower().split(":", 1)[0]
+    if host not in {"chatgpt.com", "chat.openai.com"}:
+        return False
+    try:
+        body_text = await page.locator("body").inner_text(timeout=3000)
+        rendered_images = await page.locator(
+            "[data-message-author-role='user'] img"
+        ).count()
+    except Exception:
+        return False
+    if "上传文件" in body_text:
+        return True
+    if image_references and rendered_images < len(image_references):
+        return True
+    visible_names = {
+        candidate.filename.lower()
+        for candidate in document_candidates
+        if candidate.filename and candidate.filename.lower() in body_text.lower()
+    }
+    return bool(document_candidates and not visible_names)
+
+
+def requires_authenticated_browser(url: str) -> bool:
+    """账号内会话链接必须使用可见浏览器和持久登录态。"""
+    parsed = urlparse(str(url or "").strip())
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if host in {"chatgpt.com", "chat.openai.com"}:
+        return bool(PRIVATE_CONVERSATION_PATTERNS[0].match(parsed.path))
+    if host == "chat.deepseek.com":
+        return bool(PRIVATE_CONVERSATION_PATTERNS[1].match(parsed.path))
+    return False
 
 
 def browser_channel_candidates() -> tuple[str, ...]:
@@ -118,6 +353,7 @@ class FetchResult:
     html: Optional[str]
     image_map: dict[str, str]
     messages: list[dict[str, str]]
+    document_map: dict[str, str] = field(default_factory=dict)
     error: Optional[str] = None
     warnings: list[str] = field(default_factory=list)
     user_wait_seconds: float = 0.0
@@ -199,6 +435,15 @@ def build_image_asset_directory(
     """返回与本次 Markdown 主文件配套的便携图片目录。"""
     normalized = normalize_markdown_filename(output_filename)
     return Path(save_dir) / f"{Path(normalized).stem}_images"
+
+def build_document_asset_directory(
+    save_dir: Path,
+    output_filename: str,
+) -> Path:
+    """返回与本次 Markdown 主文件配套的便携附件目录。"""
+    normalized = normalize_markdown_filename(output_filename)
+    return Path(save_dir) / f"{Path(normalized).stem}_files"
+
 
 
 def build_markdown_asset_prefix(
@@ -343,6 +588,44 @@ async def goto_with_retry_gui(page, url: str, attempts: int = 3, logger: Optiona
             await page.wait_for_timeout(2000 * attempt)
 
 
+async def _rehydrate_chatgpt_conversation(
+    page: Any,
+    conversation_url: str,
+    logger: Optional[Callable[[str], None]] = None,
+) -> None:
+    """站内切到新对话再返回；失败时才用完整导航恢复原会话。"""
+    parsed = urlparse(str(conversation_url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if host not in {"chatgpt.com", "chat.openai.com"}:
+        return
+
+    # 只进入空白“新对话”视图，不访问用户的其他历史对话内容。
+    try:
+        new_chat_links = page.locator("a[href='/']")
+        if await new_chat_links.count() > 0:
+            await new_chat_links.first.click(force=True, timeout=5000)
+            await page.wait_for_timeout(900)
+            if urlparse(page.url).path != parsed.path:
+                await page.go_back(
+                    wait_until="domcontentloaded",
+                    timeout=45000,
+                )
+                await page.wait_for_timeout(900)
+                returned = urlparse(page.url)
+                if (
+                    returned.netloc.lower() == parsed.netloc.lower()
+                    and returned.path == parsed.path
+                ):
+                    return
+    except Exception:
+        pass
+
+    neutral_url = f"{parsed.scheme or 'https'}://{parsed.netloc}/"
+    await page.goto(neutral_url, wait_until="domcontentloaded", timeout=45000)
+    await page.wait_for_timeout(700)
+    await goto_with_retry_gui(page, conversation_url, logger=logger)
+
+
 def parse_fallback_messages_gui(soup: BeautifulSoup) -> list[dict[str, str]]:
     text_content = soup.get_text(separator="\n", strip=True)
     lines = text_content.split("\n")
@@ -380,6 +663,55 @@ def parse_fallback_messages_gui(soup: BeautifulSoup) -> list[dict[str, str]]:
         })
 
     return parsed_messages
+
+
+async def _authenticated_page_get(page: Any, url: str, timeout: int):
+    """同源资源由已登录网页发起请求，跨域资源沿用请求上下文。"""
+    page_origin = urlparse(str(getattr(page, "url", "") or ""))
+    target_origin = urlparse(str(url or ""))
+    same_origin = (
+        page_origin.scheme == target_origin.scheme
+        and page_origin.netloc.lower() == target_origin.netloc.lower()
+        and page_origin.scheme in {"http", "https"}
+    )
+    if not same_origin:
+        return await page.request.get(url, timeout=timeout)
+
+    async def fetch_from_page(target: str):
+        async with page.expect_response(
+            lambda response: response.url == target,
+            timeout=timeout,
+        ) as response_info:
+            await page.evaluate(
+                """async resource => {
+                    const response = await fetch(
+                        resource,
+                        {credentials: 'include'}
+                    );
+                    await response.arrayBuffer();
+                }""",
+                target,
+            )
+        return await response_info.value
+
+    # ChatGPT 的文件服务要求先访问 simple 端点准备当前会话授权，
+    # 随后 download 端点才会返回原文件；网页点击文件卡片也是此顺序。
+    download_match = re.match(
+        r"^/backend-api/files/download/(?P<file_id>[^/]+)$",
+        target_origin.path,
+    )
+    if (
+        download_match
+        and target_origin.netloc.lower()
+        in {"chatgpt.com", "chat.openai.com"}
+    ):
+        simple_url = (
+            f"{target_origin.scheme}://{target_origin.netloc}"
+            f"/backend-api/files/"
+            f"{download_match.group('file_id')}/simple"
+        )
+        await fetch_from_page(simple_url)
+    return await fetch_from_page(url)
 
 
 def _image_extension(src: str) -> str:
@@ -462,8 +794,8 @@ async def _download_image_candidates(
         for _attempt in range(GUI_IMAGE_DOWNLOAD_ATTEMPTS):
             try:
                 async with semaphore:
-                    response = await page.request.get(
-                        src, timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                    response = await _authenticated_page_get(
+                        page, src, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                     )
                     if response.ok:
                         body = await response.body()
@@ -526,6 +858,625 @@ async def _download_image_candidates(
     }
 
 
+def _document_filename_from_text(value: str) -> str:
+    match = re.search(
+        r'([^\\/:*?"<>|\r\n]{1,180}\.(?:pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf))',
+        str(value or ""),
+        re.IGNORECASE,
+    )
+    return Path(match.group(1).strip()).name if match else ""
+
+
+def _document_filename_from_disposition(value: str) -> str:
+    encoded = re.search(
+        r"filename\*\s*=\s*(?:UTF-8'')?([^;]+)",
+        str(value or ""),
+        re.IGNORECASE,
+    )
+    if encoded:
+        return Path(unquote(encoded.group(1).strip().strip('"'))).name
+    plain = re.search(
+        r'filename\s*=\s*"?([^";]+)',
+        str(value or ""),
+        re.IGNORECASE,
+    )
+    return Path(plain.group(1).strip()).name if plain else ""
+
+
+def _document_suffix(value: str) -> str:
+    suffix = Path(unquote(urlparse(str(value or "")).path)).suffix.lower()
+    return suffix if suffix in DOCUMENT_EXTENSIONS else ""
+
+
+def _safe_document_filename(name: str, fallback_suffix: str = "") -> str:
+    normalized = str(name or "").replace("\\", "/")
+    filename = Path(normalized).name.strip()
+    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename).strip(" .")
+    suffix = Path(filename).suffix.lower()
+    if suffix not in DOCUMENT_EXTENSIONS:
+        suffix = fallback_suffix if fallback_suffix in DOCUMENT_EXTENSIONS else ""
+        stem = filename or "attachment"
+        filename = f"{stem}{suffix}"
+    if not filename:
+        filename = f"attachment{fallback_suffix or '.bin'}"
+    suffix = Path(filename).suffix
+    stem = Path(filename).stem[: max(1, 180 - len(suffix))]
+    return f"{stem}{suffix}"
+
+
+def _is_safe_doubao_file_uri(value: str) -> bool:
+    """只接受豆包返回的公开对象标识，拒绝绝对地址和路径穿越。"""
+    normalized = str(value or "").strip()
+    return bool(
+        normalized.startswith("tos-")
+        and ".." not in normalized
+        and re.fullmatch(r"[A-Za-z0-9_./-]{1,500}", normalized)
+        and Path(normalized).suffix.lower() in DOCUMENT_EXTENSIONS
+    )
+
+
+def _repair_downloaded_text_mojibake(
+    body: bytes,
+    filename: str,
+    content_type: str = "",
+) -> bytes:
+    """仅在严格可逆且乱码特征显著下降时修复 UTF-8 二次解码。"""
+    suffix = Path(filename).suffix.lower()
+    if (
+        suffix not in UTF8_TEXT_DOCUMENT_EXTENSIONS
+        and not str(content_type or "").lower().startswith("text/")
+    ):
+        return body
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return body
+
+    markers = "ÃÂâðåæçèéïä"
+
+    def score(value: str) -> int:
+        return (
+            sum(value.count(marker) for marker in markers)
+            + 3 * sum(1 for char in value if 0x80 <= ord(char) <= 0x9F)
+        )
+
+    before_score = score(text)
+    if before_score < 3:
+        return body
+
+    reconstructed = bytearray()
+    try:
+        for char in text:
+            if ord(char) <= 0xFF:
+                reconstructed.append(ord(char))
+            else:
+                encoded = char.encode("cp1252")
+                if len(encoded) != 1:
+                    return body
+                reconstructed.extend(encoded)
+        repaired = bytes(reconstructed).decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return body
+
+    return repaired.encode("utf-8") if score(repaired) < before_score else body
+
+
+def _decode_doubao_embedded_text(value: str) -> str:
+    decoded = str(value or "")
+    for _ in range(4):
+        updated = html_lib.unescape(decoded)
+        updated = updated.replace(r"\/", "/").replace(r"\u0026", "&")
+        updated = updated.replace(r"\&quot;", '"').replace(r'\"', '"')
+        if updated == decoded:
+            break
+        decoded = updated
+    return decoded
+
+
+def _extract_doubao_embedded_document_candidates(
+    html: str,
+    origin: str,
+) -> list[DocumentCandidate]:
+    """从豆包分享页内嵌状态中提取文件名和原始对象标识。"""
+    decoded = _decode_doubao_embedded_text(html)
+    extension_pattern = r"(?:pdf|docx?|xlsx?|xls|pptx?|ppt|txt|csv|md|rtf)"
+    patterns = (
+        re.compile(
+            rf'"(?:name|file_name)"\s*:\s*"(?P<filename>[^"\r\n]{{1,240}}\.{extension_pattern})"'
+            rf'.{{0,1600}}?"(?:uri|key)"\s*:\s*"(?P<uri>tos-[A-Za-z0-9_./-]+\.{extension_pattern})"',
+            re.IGNORECASE | re.DOTALL,
+        ),
+        re.compile(
+            rf'"(?:uri|key)"\s*:\s*"(?P<uri>tos-[A-Za-z0-9_./-]+\.{extension_pattern})"'
+            rf'.{{0,1600}}?"(?:name|file_name)"\s*:\s*"(?P<filename>[^"\r\n]{{1,240}}\.{extension_pattern})"',
+            re.IGNORECASE | re.DOTALL,
+        ),
+    )
+    candidates: list[DocumentCandidate] = []
+    seen: set[tuple[str, str]] = set()
+    for pattern in patterns:
+        for match in pattern.finditer(decoded):
+            uri = match.group("uri")
+            filename = _safe_document_filename(match.group("filename"))
+            key = (uri, filename.lower())
+            if key in seen or not _is_safe_doubao_file_uri(uri):
+                continue
+            seen.add(key)
+            candidates.append(DocumentCandidate(
+                uri,
+                f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
+                filename,
+            ))
+    return candidates
+
+
+def _is_safe_document_url(value: str) -> bool:
+    """拒绝可能访问用户本机、内网或在 URL 中夹带凭据的附件地址。"""
+    try:
+        parsed = urlparse(str(value or ""))
+        port = parsed.port
+    except ValueError:
+        return False
+    if parsed.scheme.lower() not in {"http", "https"}:
+        return False
+    if parsed.username or parsed.password:
+        return False
+    if port not in {None, 80, 443}:
+        return False
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if (
+        not host
+        or host == "localhost"
+        or host.endswith((".localhost", ".local", ".internal"))
+    ):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    return address.is_global
+
+
+def _extract_document_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """从完整消息快照中提取真实 HTTP(S) 文档引用。"""
+    soup = BeautifulSoup(html or "", "html.parser")
+    candidates: list[DocumentCandidate] = []
+    seen: set[tuple[str, str]] = set()
+    url_attributes = (
+        "href", "data-url", "data-href", "data-download-url",
+        "data-file-url", "data-resource-url",
+    )
+    for element in soup.find_all(True):
+        label = " ".join(element.get_text(" ", strip=True).split())
+        declared_name = str(element.get("download") or "").strip()
+        for attribute in url_attributes:
+            reference = str(element.get(attribute) or "").strip()
+            if not reference:
+                continue
+            absolute_url = urljoin(base_url, reference)
+            if not _is_safe_document_url(absolute_url):
+                continue
+            filename = (
+                _document_filename_from_text(declared_name)
+                or _document_filename_from_text(label)
+                or Path(unquote(urlparse(absolute_url).path)).name
+            )
+            if (
+                Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS
+                and not _document_suffix(absolute_url)
+            ):
+                continue
+            filename = _safe_document_filename(
+                filename,
+                _document_suffix(absolute_url),
+            )
+            key = (absolute_url, filename.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(DocumentCandidate(reference, absolute_url, filename))
+
+    parsed_base = urlparse(base_url)
+    host = parsed_base.netloc.lower().split(":", 1)[0]
+    if host in {"doubao.com", "www.doubao.com"}:
+        origin = f"{parsed_base.scheme or 'https'}://{parsed_base.netloc}"
+        for candidate in _extract_doubao_embedded_document_candidates(html, origin):
+            key = (candidate.url, candidate.filename.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(candidate)
+
+    if host in {"chatgpt.com", "chat.openai.com"}:
+        origin = f"{parsed_base.scheme or 'https'}://{parsed_base.netloc}"
+        for pattern in CHATGPT_EMBEDDED_DOCUMENT_PATTERNS:
+            for match in pattern.finditer(html or ""):
+                filename = _safe_document_filename(match.group("filename"))
+                file_id = match.group("file_id")
+                absolute_url = (
+                    f"{origin}/backend-api/files/download/"
+                    f"{quote(file_id, safe='')}"
+                )
+                key = (absolute_url, filename.lower())
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates.append(
+                    DocumentCandidate(file_id, absolute_url, filename)
+                )
+    return candidates
+
+
+def _inject_chatgpt_attachment_names(
+    html: str,
+    candidates: list[DocumentCandidate],
+) -> str:
+    """分享页只显示“上传文件”时补入已获元数据中的真实文件名。"""
+    if not html or not candidates:
+        return html
+    soup = BeautifulSoup(html, "html.parser")
+    user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    placeholders = [
+        message for message in user_messages
+        if "上传文件" in message.get_text(" ", strip=True)
+    ]
+    if not placeholders:
+        return html
+    existing_text = soup.get_text(" ", strip=True).lower()
+    missing_names = list(dict.fromkeys(
+        candidate.filename
+        for candidate in candidates
+        if candidate.filename
+        and candidate.filename.lower() not in existing_text
+    ))
+    if not missing_names:
+        return html
+    target = placeholders[0]
+    for filename in missing_names:
+        marker = soup.new_tag("div")
+        marker["class"] = ["attachment", "document", "api-attachment-name"]
+        marker.string = filename
+        target.append(marker)
+    return str(soup)
+def _document_download_url_from_payload(payload: Any) -> str:
+    """只接受平台下载凭证中明确标注的安全公网 HTTP(S) 地址。"""
+    preferred_keys = {
+        "download_url", "signed_url", "file_url", "url", "href"
+    }
+    for item in _iter_json_mappings(payload):
+        ordered_items = sorted(
+            item.items(),
+            key=lambda pair: str(pair[0]).lower() not in preferred_keys,
+        )
+        for key, value in ordered_items:
+            key_text = str(key).lower()
+            if not isinstance(value, str):
+                continue
+            if not (
+                key_text in preferred_keys
+                or "download" in key_text
+                or key_text.endswith("url")
+            ):
+                continue
+            candidate = value.strip()
+            if _is_safe_document_url(candidate):
+                return candidate
+    return ""
+
+
+async def _scroll_to_chatgpt_file_card(
+    page: Any,
+    filename: str,
+) -> bool:
+    """逐屏挂载 ChatGPT 虚拟列表，直到目标历史文件卡片出现。"""
+    cards = page.locator(
+        "div.truncate.font-semibold",
+        has_text=filename,
+    )
+    if await cards.count() > 0:
+        return True
+    role_messages = page.locator("[data-message-author-role]")
+    try:
+        await role_messages.first.wait_for(state="attached", timeout=12000)
+        scroll_container = await role_messages.first.evaluate_handle(
+            """element => {
+                let current = element;
+                while (current) {
+                    const style = window.getComputedStyle(current);
+                    const canScroll = current.scrollHeight > current.clientHeight + 1;
+                    if (canScroll && /(auto|scroll)/.test(style.overflowY)) {
+                        return current;
+                    }
+                    current = current.parentElement;
+                }
+                return document.scrollingElement || document.documentElement;
+            }"""
+        )
+    except Exception:
+        return False
+
+    try:
+        scroll_top = 0
+        for _ in range(100):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                scroll_top,
+            )
+            await page.wait_for_timeout(450)
+            if await cards.count() > 0:
+                await cards.first.scroll_into_view_if_needed(timeout=3000)
+                return True
+            metrics = await scroll_container.evaluate(
+                """element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight
+                })"""
+            )
+            maximum = max(
+                0,
+                int(metrics["scrollHeight"]) - int(metrics["clientHeight"]),
+            )
+            if scroll_top >= maximum:
+                break
+            step = max(int(metrics["clientHeight"] * 0.55), 700)
+            next_top = min(scroll_top + step, maximum)
+            if next_top <= scroll_top:
+                break
+            scroll_top = next_top
+    finally:
+        await scroll_container.dispose()
+    return False
+
+
+async def _chatgpt_document_card_get(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+):
+    """点击 ChatGPT 已渲染的文件卡片并接收网页自身的授权下载响应。"""
+    parsed = urlparse(candidate.url)
+    if (
+        parsed.netloc.lower().split(":", 1)[0]
+        not in {"chatgpt.com", "chat.openai.com"}
+        or not re.match(r"^/backend-api/files/download/[^/]+$", parsed.path)
+    ):
+        return None
+    cards = page.locator(
+        "div.truncate.font-semibold",
+        has_text=candidate.filename,
+    )
+    if not await _scroll_to_chatgpt_file_card(page, candidate.filename):
+        return None
+    try:
+        expected_path = parsed.path
+        async with page.expect_response(
+            lambda response: urlparse(response.url).path == expected_path,
+            timeout=min(timeout, 10000),
+        ) as response_info:
+            await cards.first.click(force=True, timeout=5000)
+        return await response_info.value
+    except Exception:
+        return None
+
+
+async def _doubao_document_api_get(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+):
+    """用豆包页面自身的同源接口把对象标识兑换为短期下载地址。"""
+    parsed = urlparse(candidate.url)
+    if (
+        parsed.netloc.lower().split(":", 1)[0]
+        not in {"doubao.com", "www.doubao.com"}
+        or parsed.path != DOUBAO_DOCUMENT_API_PATH
+        or not _is_safe_doubao_file_uri(candidate.reference)
+    ):
+        return None
+    try:
+        payload = await page.evaluate(
+            """async ({endpoint, uri}) => {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {'content-type': 'application/json'},
+                    body: JSON.stringify({
+                        uris: [uri],
+                        type: 'file',
+                        expire_second: 604800
+                    })
+                });
+                if (!response.ok) return null;
+                return await response.json();
+            }""",
+            {"endpoint": candidate.url, "uri": candidate.reference},
+        )
+    except Exception:
+        return None
+    download_url = _document_download_url_from_payload(payload)
+    if not download_url:
+        return None
+    return await _authenticated_page_get(page, download_url, timeout)
+
+
+async def _download_document_candidates(
+    page: Any,
+    candidates: list[DocumentCandidate],
+    documents_dir: Path,
+    document_reference_prefix: str,
+    concurrency: int = 3,
+    warning_collector: Optional[list[str]] = None,
+    conversation_url: Optional[str] = None,
+) -> dict[str, str]:
+    """使用页面登录态下载可用附件，并返回 URL/文件名到本地相对链接的映射。"""
+    documents_dir = Path(documents_dir)
+    ordered = list(dict.fromkeys(candidates))
+    has_chatgpt_candidates = any(
+        urlparse(candidate.url).netloc.lower().split(":", 1)[0]
+        in {"chatgpt.com", "chat.openai.com"}
+        for candidate in ordered
+    )
+    has_doubao_candidates = any(
+        urlparse(candidate.url).netloc.lower().split(":", 1)[0]
+        in {"doubao.com", "www.doubao.com"}
+        and urlparse(candidate.url).path == DOUBAO_DOCUMENT_API_PATH
+        for candidate in ordered
+    )
+    effective_concurrency = (
+        1 if has_chatgpt_candidates or has_doubao_candidates
+        else max(1, min(int(concurrency), 4))
+    )
+    semaphore = asyncio.Semaphore(effective_concurrency)
+    chatgpt_card_lock = asyncio.Lock()
+
+    async def download(candidate: DocumentCandidate):
+        try:
+            async with semaphore:
+                response = None
+                parsed_candidate = urlparse(candidate.url)
+                candidate_host = parsed_candidate.netloc.lower().split(":", 1)[0]
+                is_doubao_candidate = (
+                    candidate_host in {"doubao.com", "www.doubao.com"}
+                    and parsed_candidate.path == DOUBAO_DOCUMENT_API_PATH
+                )
+                if is_doubao_candidate:
+                    response = await _doubao_document_api_get(
+                        page, candidate, 20000
+                    )
+                elif candidate_host in {"chatgpt.com", "chat.openai.com"}:
+                    async with chatgpt_card_lock:
+                        # 每次文件点击后 ChatGPT 可能卸载其余虚拟卡片；
+                        # 切到平台首页再返回原会话，让当前文件卡片重新挂载。
+                        if conversation_url:
+                            try:
+                                await _rehydrate_chatgpt_conversation(
+                                    page, conversation_url
+                                )
+                                await page.locator(
+                                    "[data-message-author-role]"
+                                ).first.wait_for(
+                                    state="attached",
+                                    timeout=15000,
+                                )
+                            except Exception:
+                                pass
+                        response = await _chatgpt_document_card_get(
+                            page, candidate, 20000
+                        )
+                if response is None:
+                    if is_doubao_candidate:
+                        return candidate, None, {}, "not_a_document"
+                    response = await _authenticated_page_get(
+                        page, candidate.url, 20000
+                    )
+            if not response.ok:
+                return candidate, None, {}, f"http_{response.status}"
+            headers = dict(getattr(response, "headers", {}) or {})
+            length = headers.get("content-length", "").strip()
+            if length.isdigit() and int(length) > GUI_DOCUMENT_MAX_BYTES:
+                return candidate, None, headers, "too_large"
+            content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+            if content_type == "application/json":
+                try:
+                    payload = await response.json()
+                except Exception:
+                    return candidate, None, headers, "not_a_document"
+                download_url = _document_download_url_from_payload(payload)
+                if not download_url:
+                    return candidate, None, headers, "not_a_document"
+                response = await _authenticated_page_get(
+                    page, download_url, 20000
+                )
+                if not response.ok:
+                    return candidate, None, {}, f"http_{response.status}"
+                headers = dict(getattr(response, "headers", {}) or {})
+                length = headers.get("content-length", "").strip()
+                if length.isdigit() and int(length) > GUI_DOCUMENT_MAX_BYTES:
+                    return candidate, None, headers, "too_large"
+                content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+            if content_type in {"text/html", "application/json"}:
+                return candidate, None, headers, "not_a_document"
+            body = await response.body()
+            if not body:
+                return candidate, None, headers, "empty_body"
+            if len(body) > GUI_DOCUMENT_MAX_BYTES:
+                return candidate, None, headers, "too_large"
+            return candidate, body, headers, None
+        except Exception as error:
+            return candidate, None, {}, type(error).__name__
+
+    if has_chatgpt_candidates or has_doubao_candidates:
+        results = []
+        for candidate in ordered:
+            results.append(await download(candidate))
+    else:
+        results = await asyncio.gather(*(
+            download(candidate) for candidate in ordered
+        ))
+    resolved: dict[str, str] = {}
+    failures: dict[str, int] = {}
+    for candidate, body, headers, reason in results:
+        if body is None:
+            failures[reason or "unknown_error"] = failures.get(
+                reason or "unknown_error", 0
+            ) + 1
+            continue
+        disposition_name = _document_filename_from_disposition(
+            headers.get("content-disposition", "")
+        )
+        content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+        inferred_suffix = (
+            DOCUMENT_MIME_EXTENSIONS.get(content_type)
+            or _document_suffix(candidate.url)
+            or mimetypes.guess_extension(content_type)
+            or ""
+        )
+        filename = _safe_document_filename(
+            disposition_name or candidate.filename,
+            inferred_suffix,
+        )
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS:
+            failures["unsupported_type"] = failures.get("unsupported_type", 0) + 1
+            continue
+        body = _repair_downloaded_text_mojibake(body, filename, content_type)
+        documents_dir.mkdir(parents=True, exist_ok=True)
+        target = documents_dir / filename
+        if target.exists():
+            try:
+                same_content = target.read_bytes() == body
+            except OSError:
+                same_content = False
+            if not same_content:
+                digest = hashlib.sha256(candidate.url.encode("utf-8")).hexdigest()[:8]
+                target = target.with_name(f"{target.stem}_{digest}{target.suffix}")
+        if not target.exists():
+            target.write_bytes(body)
+        local_reference = (
+            f"{document_reference_prefix}/"
+            f"{quote(target.name, safe='-_.~')}"
+        )
+        for key in {
+            candidate.reference,
+            candidate.url,
+            candidate.filename.lower(),
+            filename.lower(),
+        }:
+            if key:
+                resolved[key] = local_reference
+
+    if failures and warning_collector is not None:
+        reason_summary = "、".join(
+            f"{reason}×{count}" for reason, count in sorted(failures.items())
+        )
+        warning_collector.append(
+            f"{sum(failures.values())} 个文档附件未能保存到本地"
+            f"（{reason_summary}）；对话文字抓取继续保留。"
+        )
+    return resolved
+
 async def _close_browser_context_safely(
     context: Any,
     warnings: list[str],
@@ -549,9 +1500,13 @@ async def fetch_chat_pipeline(
     url: str,
     need_login: bool = False,
     login_ready_event: Optional[asyncio.Event] = None,
+    login_required_callback: Optional[Callable[[], None]] = None,
     logger: Optional[Callable[[str], None]] = None,
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
+    document_output_dir: Optional[Path] = None,
+    document_reference_base: Optional[Path] = None,
+    document_download_concurrency: int = 3,
     image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
     browser_profile_root: Optional[Path] = None,
     debug_html_file: Optional[Path] = None,
@@ -573,6 +1528,21 @@ async def fetch_chat_pipeline(
             reference_base,
         )
     headless = not need_login
+    if document_output_dir is None:
+        resolved_documents_dir = Path(PROJECT_ROOT, "attachments").resolve()
+        document_reference_prefix = "./attachments"
+    else:
+        resolved_documents_dir = Path(document_output_dir).resolve()
+        document_base = Path(
+            document_reference_base or resolved_documents_dir.parent
+        ).resolve()
+        document_reference_prefix = build_markdown_asset_prefix(
+            resolved_documents_dir,
+            document_base,
+        )
+    need_login = bool(need_login or requires_authenticated_browser(url))
+    headless = not need_login
+
     viewport_config = None if need_login else {
         "width": 1920,
         "height": 10800
@@ -580,7 +1550,7 @@ async def fetch_chat_pipeline(
 
     if logger:
         if need_login:
-            logger("正在启动浏览器供您登录 AI 账号...")
+            logger("正在启动浏览器读取已保存的 AI 登录状态...")
         else:
             logger("正在启动无头浏览器加载分享页...")
 
@@ -595,6 +1565,27 @@ async def fetch_chat_pipeline(
                 profile_root=browser_profile_root,
             )
             page = context.pages[0] if context.pages else await context.new_page()
+            response_document_candidates: list[DocumentCandidate] = []
+            response_image_references: set[str] = set()
+            response_tasks: set[asyncio.Task] = set()
+            authorized_content_responses: set[str] = set()
+            chatgpt_assets_rehydrated = False
+
+            def capture_response_assets(response: Any) -> None:
+                if not _is_asset_metadata_response(response.url):
+                    return
+                if response.status == 200:
+                    authorized_content_responses.add(response.url)
+                task = asyncio.create_task(_capture_response_assets(
+                    response,
+                    url,
+                    response_document_candidates,
+                    response_image_references,
+                ))
+                response_tasks.add(task)
+                task.add_done_callback(response_tasks.discard)
+
+            page.on("response", capture_response_assets)
 
             try:
                 if logger:
@@ -603,17 +1594,65 @@ async def fetch_chat_pipeline(
                 await goto_with_retry_gui(page, url, logger=logger)
 
                 if need_login:
+                    await page.wait_for_timeout(1800)
+                    await _drain_response_tasks(response_tasks)
+                    content_ready = (
+                        await _page_has_conversation_content(page, url)
+                        or bool(authorized_content_responses)
+                    )
+                    if content_ready:
+                        if logger:
+                            logger("已复用此前保存的登录状态，无需重复授权。")
+                    else:
+                        if logger:
+                            logger(
+                                "当前登录状态无法读取该会话，请在浏览器中登录后"
+                                "点击【登录完毕】..."
+                            )
+                        if login_required_callback is not None:
+                            login_required_callback()
+                        if login_ready_event:
+                            login_wait_started = time.perf_counter()
+                            await login_ready_event.wait()
+                            user_wait_seconds += (
+                                time.perf_counter() - login_wait_started
+                            )
+                        if logger:
+                            logger("登录确认完毕，正在继续抓取对话数据...")
+                        await page.wait_for_timeout(1200)
+
+                        # 登录流程可能跳回平台首页；确认后重新打开原始会话。
+                        await goto_with_retry_gui(page, url, logger=logger)
+                        await page.wait_for_timeout(1800)
+                        await _drain_response_tasks(response_tasks)
+                        if logger:
+                            logger("已重新打开原始对话链接，正在读取完整内容...")
+
+                await page.wait_for_timeout(1000)
+                await _drain_response_tasks(response_tasks)
+                current_host = urlparse(url).netloc.lower().split(":", 1)[0]
+                if current_host in {"chatgpt.com", "chat.openai.com"}:
+                    initial_snapshot = await page.content()
+                    response_document_candidates.extend(
+                        _extract_document_candidates(initial_snapshot, page.url)
+                    )
+                    response_document_candidates[:] = list(dict.fromkeys(
+                        response_document_candidates
+                    ))
+                if await _chatgpt_assets_need_rehydrate(
+                    page,
+                    url,
+                    response_document_candidates,
+                    response_image_references,
+                ):
                     if logger:
-                        logger("请在弹出的浏览器中完成登录，并在提示框中点击【登录完毕】...")
-                    if login_ready_event:
-                        login_wait_started = time.perf_counter()
-                        await login_ready_event.wait()
-                        user_wait_seconds += (
-                            time.perf_counter() - login_wait_started
+                        logger(
+                            "检测到附件尚未完成渲染，正在切到平台首页后返回原对话..."
                         )
-                    if logger:
-                        logger("登录确认完毕，正在继续抓取对话数据...")
-                    await page.wait_for_timeout(2000)
+                    await _rehydrate_chatgpt_conversation(page, url, logger=logger)
+                    chatgpt_assets_rehydrated = True
+                    await page.wait_for_timeout(2500)
+                    await _drain_response_tasks(response_tasks)
 
                 if logger:
                     logger("正在等待动态内容渲染...")
@@ -628,10 +1667,46 @@ async def fetch_chat_pipeline(
                         logger("等待动态节点超时，可能网页结构有所变化或需登录访问。")
                 await page.wait_for_timeout(2000)
 
+                current_host = urlparse(url).netloc.lower().split(":", 1)[0]
+                if current_host in {"chatgpt.com", "chat.openai.com"}:
+                    late_snapshot = await page.content()
+                    response_document_candidates.extend(
+                        _extract_document_candidates(late_snapshot, page.url)
+                    )
+                    response_document_candidates[:] = list(dict.fromkeys(
+                        response_document_candidates
+                    ))
+                    if (
+                        not chatgpt_assets_rehydrated
+                        and await _chatgpt_assets_need_rehydrate(
+                            page,
+                            url,
+                            response_document_candidates,
+                            response_image_references,
+                        )
+                    ):
+                        if logger:
+                            logger(
+                                "动态页面仍只显示附件占位，正在切换页面后返回原对话..."
+                            )
+                        await _rehydrate_chatgpt_conversation(
+                            page, url, logger=logger
+                        )
+                        await page.wait_for_timeout(3000)
+                        await _drain_response_tasks(response_tasks)
+                        try:
+                            await page.wait_for_selector(
+                                WAIT_SELECTOR,
+                                state="attached",
+                                timeout=10000,
+                            )
+                        except Exception:
+                            pass
+
+                page_snapshot_html = await page.content()
                 html = await collect_virtualized_html(page)
                 if html is None:
-                    html = await page.content()
-
+                    html = page_snapshot_html
                 soup_pre = BeautifulSoup(html, "html.parser")
                 image_candidates: list[str] = []
                 if logger:
@@ -647,10 +1722,16 @@ async def fetch_chat_pipeline(
                                 src_candidates.append(parts[0])
 
                     for src in src_candidates:
+                        alt = str(img.get("alt") or "").strip().lower()
                         if not (
                             src
                             and src.startswith("http")
                             and not src.startswith("data:image/svg")
+                        ):
+                            continue
+                        if (
+                            alt == "asset cover"
+                            or "doc-canvas-card-fallback" in src.lower()
                         ):
                             continue
                         image_candidates.append(src)
@@ -673,6 +1754,31 @@ async def fetch_chat_pipeline(
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
 
+                document_started = time.perf_counter()
+                document_candidates = list(dict.fromkeys([
+                    *response_document_candidates,
+                    *_extract_document_candidates(
+                        page_snapshot_html + chr(10) + html,
+                        page.url,
+                    ),
+                ]))
+                document_map = await _download_document_candidates(
+                    page,
+                    document_candidates,
+                    resolved_documents_dir,
+                    document_reference_prefix,
+                    document_download_concurrency,
+                    fetch_warnings,
+                    conversation_url=url,
+                )
+
+                if logger:
+                    logger(
+                        f"文档附件处理完成：发现 {len(document_candidates)} 个可用引用，"
+                        f"成功下载或复用 {len(set(document_map.values()))} 个，耗时 "
+                        f"{time.perf_counter() - document_started:.1f} 秒。"
+                    )
+
                 snapshot_saved = False
                 if SAVE_DEBUG_SNAPSHOT:
                     try:
@@ -688,8 +1794,15 @@ async def fetch_chat_pipeline(
                     except Exception:
                         pass
 
+                html = _inject_chatgpt_attachment_names(
+                    html,
+                    document_candidates,
+                )
                 soup = BeautifulSoup(html, "html.parser")
-                provider, parsed_messages = parse_messages(soup, image_map)
+                parser_asset_map = {**image_map, **document_map}
+                provider, parsed_messages = parse_messages(
+                    soup, parser_asset_map
+                )
                 if provider is not None:
                     if logger:
                         logger(f"检测到 {provider.DISPLAY_NAME} 对话格式，使用专用解析器。")
@@ -703,6 +1816,7 @@ async def fetch_chat_pipeline(
                         html=html,
                         image_map=image_map,
                         messages=[],
+                        document_map=document_map,
                         error=(
                             "未能提取到有效对话内容。"
                             + (
@@ -719,6 +1833,7 @@ async def fetch_chat_pipeline(
                     html=html,
                     image_map=image_map,
                     messages=parsed_messages,
+                    document_map=document_map,
                     warnings=fetch_warnings,
                     user_wait_seconds=user_wait_seconds,
                 )
@@ -728,7 +1843,6 @@ async def fetch_chat_pipeline(
                 await _close_browser_context_safely(
                     context, fetch_warnings, logger
                 )
-
     except Exception as e:
         if completed_result is not None:
             warning = (

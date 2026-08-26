@@ -14,7 +14,16 @@ from bs4 import BeautifulSoup
 
 from gui.service import (
     _close_browser_context_safely,
+    _collect_response_assets,
+    _document_download_url_from_payload,
+    _download_document_candidates,
     _download_image_candidates,
+    _extract_document_candidates,
+    _inject_chatgpt_attachment_names,
+    _rehydrate_chatgpt_conversation,
+    _repair_downloaded_text_mojibake,
+    DocumentCandidate,
+    build_document_asset_directory,
     build_image_asset_directory,
     build_markdown_asset_prefix,
     build_output_paths,
@@ -25,6 +34,7 @@ from gui.service import (
     gui_summary_config_candidates,
     normalize_markdown_filename,
     parse_fallback_messages_gui,
+    requires_authenticated_browser,
 )
 from scripts.gemini_summarizer import GeminiSummaryError, SummaryConfig
 
@@ -547,5 +557,326 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(bundle.summary_result, fake_result)
 
 
+    def test_private_conversation_urls_require_authenticated_browser(self):
+        self.assertTrue(requires_authenticated_browser(
+            "https://chatgpt.com/c/11111111-2222-3333-4444-555555555555"
+        ))
+        self.assertTrue(requires_authenticated_browser(
+            "https://chat.deepseek.com/a/chat/s/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        ))
+        self.assertFalse(requires_authenticated_browser(
+            "https://chatgpt.com/share/6a60329f-c73c-83ee-a272-ea3768b04ab5"
+        ))
+        self.assertFalse(requires_authenticated_browser(
+            "https://chat.deepseek.com/share/xxv4e99bimvt1p0uo2"
+        ))
+
+    def test_document_candidates_download_beside_markdown(self):
+        class FakeResponse:
+            ok = True
+            status = 200
+            headers = {
+                "content-type": (
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document"
+                ),
+                "content-disposition": "filename*=UTF-8''%E6%8A%A5%E5%91%8A.docx",
+            }
+
+            async def body(self):
+                return b"PK\x03\x04fake-docx"
+
+        class FakeRequest:
+            def __init__(self):
+                self.urls = []
+
+            async def get(self, url, timeout):
+                self.urls.append((url, timeout))
+                return FakeResponse()
+
+        page = SimpleNamespace(request=FakeRequest())
+        html = (
+            '<div data-testid="conversation-turn-1">'
+            '<a href="/backend-api/files/download?id=secret" '
+            'download="报告.docx">报告.docx</a></div>'
+        )
+        candidates = _extract_document_candidates(
+            html, "https://chatgpt.com/c/conversation-id"
+        )
+        self.assertEqual(len(candidates), 1)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                page,
+                candidates,
+                output_dir,
+                "./result_files",
+            ))
+            saved = list(output_dir.iterdir())
+            self.assertEqual([path.name for path in saved], ["报告.docx"])
+            self.assertEqual(saved[0].read_bytes(), b"PK\x03\x04fake-docx")
+            self.assertEqual(mapping["报告.docx"], "./result_files/%E6%8A%A5%E5%91%8A.docx")
+            self.assertNotIn("secret", " ".join(mapping.values()))
+
+    def test_document_candidates_reject_local_and_credential_urls(self):
+        html = (
+            '<a href="http://127.0.0.1/private.pdf">private.pdf</a>'
+            '<a href="http://192.168.1.10/report.docx">report.docx</a>'
+            '<a href="https://user:password@example.com/secret.pdf">'
+            'secret.pdf</a>'
+        )
+        self.assertEqual(
+            _extract_document_candidates(html, "https://chatgpt.com/c/example"),
+            [],
+        )
+
+    def test_chatgpt_embedded_document_metadata_becomes_session_download(self):
+        html = (
+            '<script>self.__next_f.push([1,"'
+            r'"file","name","课堂材料.docx",'
+            r'"file_test1234567890abcdef",'
+            r'"source","my_files","library_file_id"'
+            '"])</script>'
+        )
+        candidates = _extract_document_candidates(
+            html,
+            "https://chatgpt.com/c/conversation-id",
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].filename, "课堂材料.docx")
+        self.assertEqual(
+            candidates[0].url,
+            "https://chatgpt.com/backend-api/files/download/"
+            "file_test1234567890abcdef",
+        )
+
+    def test_authorized_platform_responses_produce_downloadable_documents(self):
+        chatgpt_documents = []
+        chatgpt_images = set()
+        _collect_response_assets(
+            {
+                "messages": [{
+                    "metadata": {
+                        "attachments": [
+                            {
+                                "id": "file_document123456",
+                                "name": "课堂材料.md",
+                                "mime_type": "text/markdown",
+                            },
+                            {
+                                "id": "file_image123456",
+                                "name": "课堂图片.png",
+                                "mime_type": "image/png",
+                            },
+                        ]
+                    }
+                }]
+            },
+            "https://chatgpt.com/c/conversation-id",
+            chatgpt_documents,
+            chatgpt_images,
+        )
+        self.assertEqual(len(chatgpt_documents), 1)
+        self.assertEqual(
+            chatgpt_documents[0].url,
+            "https://chatgpt.com/backend-api/files/download/"
+            "file_document123456",
+        )
+        self.assertEqual(chatgpt_images, {"file_image123456"})
+
+        deepseek_documents = []
+        _collect_response_assets(
+            {
+                "files": [{
+                    "status": "SUCCESS",
+                    "file_name": "资料.md",
+                    "signed_path": "/file?file_id=fake&state=signed",
+                }]
+            },
+            "https://chat.deepseek.com/share/example",
+            deepseek_documents,
+            set(),
+        )
+        self.assertEqual(len(deepseek_documents), 1)
+        self.assertEqual(
+            deepseek_documents[0].url,
+            "https://files.deepseeksvc.com/api/file?"
+            "file_id=fake&state=signed&ty=r",
+        )
+
+    def test_doubao_response_metadata_produces_authorized_candidate(self):
+        documents = []
+        _collect_response_assets(
+            {
+                "content": {
+                    "file": {
+                        "name": "课堂材料.docx",
+                        "uri": "tos-cn-i-test/folder/material.docx",
+                    }
+                }
+            },
+            "https://www.doubao.com/chat/conversation-id",
+            documents,
+            set(),
+        )
+        self.assertEqual(len(documents), 1)
+        self.assertEqual(
+            documents[0].url,
+            "https://www.doubao.com/alice/message/get_file_url",
+        )
+        self.assertEqual(
+            documents[0].reference,
+            "tos-cn-i-test/folder/material.docx",
+        )
+
+    def test_doubao_share_embedded_state_produces_document_candidate(self):
+        html = (
+            '&amp;quot;file&amp;quot;:{'
+            '&amp;quot;name&amp;quot;:&amp;quot;课堂材料.docx&amp;quot;,'
+            '&amp;quot;uri&amp;quot;:'
+            '&amp;quot;tos-cn-i-test/folder/material.docx&amp;quot;}'
+        )
+        candidates = _extract_document_candidates(
+            html,
+            "https://www.doubao.com/thread/example",
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].filename, "课堂材料.docx")
+        self.assertEqual(
+            candidates[0].reference,
+            "tos-cn-i-test/folder/material.docx",
+        )
+
+    def test_doubao_document_candidate_downloads_original_file(self):
+        class FakeResponse:
+            ok = True
+            status = 200
+            headers = {
+                "content-type": (
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document"
+                )
+            }
+
+            async def body(self):
+                return b"PK\x03\x04real-docx"
+
+        class FakeRequest:
+            async def get(self, url, timeout):
+                self.url = url
+                self.timeout = timeout
+                return FakeResponse()
+
+        class FakePage:
+            url = "https://www.doubao.com/thread/example"
+
+            def __init__(self):
+                self.request = FakeRequest()
+                self.evaluation_argument = None
+
+            async def evaluate(self, _script, argument):
+                self.evaluation_argument = argument
+                return {
+                    "data": {
+                        "file_urls": [{
+                            "main_url": (
+                                "https://p9-flow-sign.byteimg.com/"
+                                "tos-cn-i-test/folder/material.docx"
+                            )
+                        }]
+                    }
+                }
+
+        page = FakePage()
+        candidate = DocumentCandidate(
+            "tos-cn-i-test/folder/material.docx",
+            "https://www.doubao.com/alice/message/get_file_url",
+            "课堂材料.docx",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                page,
+                [candidate],
+                output_dir,
+                "./result_files",
+            ))
+            saved = list(output_dir.iterdir())
+            self.assertEqual([path.name for path in saved], ["课堂材料.docx"])
+            self.assertEqual(saved[0].read_bytes(), b"PK\x03\x04real-docx")
+            self.assertIn("课堂材料.docx", mapping)
+        self.assertEqual(
+            page.evaluation_argument["uri"],
+            "tos-cn-i-test/folder/material.docx",
+        )
+
+    def test_text_attachment_mojibake_is_repaired_only_when_reversible(self):
+        original = "# AI 对话记忆导出\n\n## 用户提问\n你好"
+        mojibake = original.encode("utf-8").decode("latin-1").encode("utf-8")
+        self.assertEqual(
+            _repair_downloaded_text_mojibake(
+                mojibake,
+                "课堂材料.md",
+                "text/markdown",
+            ).decode("utf-8"),
+            original,
+        )
+        normal = "正常中文和 English".encode("utf-8")
+        self.assertEqual(
+            _repair_downloaded_text_mojibake(normal, "课堂材料.md"),
+            normal,
+        )
+
+    def test_chatgpt_rehydrate_switches_home_then_returns_original(self):
+        class FakePage:
+            def __init__(self):
+                self.visited = []
+                self.waited = []
+
+            async def goto(self, url, **_kwargs):
+                self.visited.append(url)
+
+            async def wait_for_timeout(self, milliseconds):
+                self.waited.append(milliseconds)
+
+        page = FakePage()
+        url = "https://chatgpt.com/c/conversation-id"
+        asyncio.run(_rehydrate_chatgpt_conversation(page, url))
+        self.assertEqual(page.visited, ["https://chatgpt.com/", url])
+
+    def test_chatgpt_download_credential_accepts_only_safe_public_url(self):
+        self.assertEqual(
+            _document_download_url_from_payload({
+                "download_url": "https://chatgpt.com/backend-api/estuary/content?id=fake"
+            }),
+            "https://chatgpt.com/backend-api/estuary/content?id=fake",
+        )
+        self.assertEqual(
+            _document_download_url_from_payload({
+                "download_url": "http://127.0.0.1/private.docx"
+            }),
+            "",
+        )
+
+    def test_chatgpt_placeholder_gets_real_metadata_filename(self):
+        html = (
+            '<div data-message-author-role="user">上传文件</div>'
+        )
+        result = _inject_chatgpt_attachment_names(
+            html,
+            [DocumentCandidate(
+                "file_fake",
+                "https://chatgpt.com/backend-api/files/download/file_fake",
+                "课堂材料.docx",
+            )],
+        )
+        self.assertIn("课堂材料.docx", result)
+        self.assertIn("api-attachment-name", result)
+
+    def test_document_asset_directory_uses_output_stem(self):
+        self.assertEqual(
+            build_document_asset_directory(Path("D:/output"), "课程 总结.md"),
+            Path("D:/output/课程 总结_files"),
+        )
 if __name__ == "__main__":
     unittest.main()

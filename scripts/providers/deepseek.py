@@ -171,11 +171,11 @@ def parse_messages(soup, image_map=None):
     }
     attachment_name_pattern = re.compile(
         r'^[^\\/:*?"<>|\n]+\.(?:png|jpe?g|webp|gif|bmp|svg|pdf|docx?|'
-        r'xlsx?|pptx?|txt|csv|zip|rar)$',
+        r'xlsx?|pptx?|txt|csv|md|rtf|zip|rar)$',
         re.IGNORECASE
     )
     attachment_size_pattern = re.compile(
-        r'^(?:PNG|JPE?G|WEBP|GIF|BMP|SVG|PDF|DOCX?|XLSX?|PPTX?|TXT|CSV|ZIP|RAR)'
+        r'^(?:PNG|JPE?G|WEBP|GIF|BMP|SVG|PDF|DOCX?|XLSX?|PPTX?|TXT|CSV|MD|RTF|ZIP|RAR)'
         r'\s+\d+(?:\.\d+)?\s*(?:B|KB|MB|GB)$',
         re.IGNORECASE
     )
@@ -262,9 +262,15 @@ def parse_messages(soup, image_map=None):
                 attachment_name_pattern.match(line)
                 and attachment_size_pattern.match(next_line)
             ):
-                user_parts.append(
-                    f'📎 **[上传文件]** `{line}`（{next_line}）'
-                )
+                local_href = image_map.get(line.lower())
+                if local_href:
+                    user_parts.append(
+                        f'[📄 {line}]({local_href})（{next_line}）'
+                    )
+                else:
+                    user_parts.append(
+                        f'📎 **[上传文件]** `{line}`（{next_line}）'
+                    )
                 index += 2
                 continue
             if line not in ignored_ui_text:

@@ -43,3 +43,4 @@ log/*
 !tests/
 !tests/test_*.py
 !gui/test_gui_service.py
+summary_results/

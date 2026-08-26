@@ -111,7 +111,7 @@ async def collect_html(page):
                     order: turnMatch ? Number(turnMatch[1]) : null,
                     text_length: text.length,
                     image_score: imageScore,
-                    html: element.outerHTML
+                    html: (turn || element).outerHTML
                 };
             })"""
         )
@@ -232,6 +232,10 @@ def parse_messages(soup, image_map=None):
         role = msg.get("data-message-author-role")
         if role == "user":
             content_parts = []
+            message_container = msg.find_parent(
+                attrs={"data-testid": re.compile(r"^conversation-turn-")}
+            ) or msg
+            seen_document_names = set()
             # 提取用户发送的所有图片 (精准映射本地路径)
             for img in msg.find_all("img"):
                 src = img.get("src") or img.get("data-src")
@@ -241,7 +245,7 @@ def parse_messages(soup, image_map=None):
                     content_parts.append(f"![{alt}]({local_src})")
 
             # 精准检查显示的文件卡片或下载链接（排除纯文本里的误触发）
-            for a in msg.find_all("a", href=True):
+            for a in message_container.find_all("a", href=True):
                 href = a["href"]
                 link_text = a.get_text(strip=True) or "附件文件"
                 if (
@@ -250,14 +254,20 @@ def parse_messages(soup, image_map=None):
                         ext in link_text.lower()
                         for ext in [
                             '.doc', '.pdf', '.txt', '.xls', '.ppt',
-                            '.zip', '.rar', '.csv'
+                            '.zip', '.rar', '.csv', '.md', '.rtf'
                         ]
                     )
                 ):
-                    content_parts.append(f"[📄 {link_text}]({href})")
+                    local_href = image_map.get(
+                        href, image_map.get(link_text.lower(), href)
+                    )
+                    content_parts.append(
+                        f"[📄 {link_text}]({local_href})"
+                    )
+                    seen_document_names.add(link_text.lower())
 
             # 识别真实的 HTML 文件卡片节点（非纯文本正则）
-            file_cards = msg.find_all(
+            file_cards = message_container.find_all(
                 class_=re.compile(r'file|attachment|document', re.I)
             )
             for card in file_cards:
@@ -266,22 +276,40 @@ def parse_messages(soup, image_map=None):
                     ext in card_text.lower()
                     for ext in [
                         '.doc', '.pdf', '.txt', '.xls', '.ppt',
-                        '.zip', '.rar', '.csv'
+                        '.zip', '.rar', '.csv', '.md', '.rtf'
                     ]
                 ):
                     # 提炼出真正文件名
                     match = re.search(
                         r'[\w\-"\u4e00-\u9fa5\“\”]+\.'
-                        r'(?:docx|doc|pdf|txt|xlsx|xls|pptx|ppt|zip|rar|csv)',
+                        r'(?:docx|doc|pdf|txt|md|rtf|xlsx|xls|pptx|ppt|zip|rar|csv)',
                         card_text,
                         re.IGNORECASE
                     )
                     if match:
-                        content_parts.append(
-                            f"📎 **[上传文档]** `{match.group(0)}`"
-                        )
+                        filename = match.group(0)
+                        if filename.lower() in seen_document_names:
+                            continue
+                        seen_document_names.add(filename.lower())
+                        local_href = image_map.get(filename.lower())
+                        if local_href:
+                            content_parts.append(
+                                f"[📄 {filename}]({local_href})"
+                            )
+                        else:
+                            content_parts.append(
+                                f"📎 **[上传文档]** `{filename}`"
+                            )
+
+
 
             text = msg.get_text(separator='\n', strip=True)
+            if seen_document_names:
+                text = '\n'.join(
+                    line for line in text.splitlines()
+                    if line.strip() != '上传文件'
+                    and line.strip().lower() not in seen_document_names
+                ).strip()
             if text:
                 content_parts.append(text)
 

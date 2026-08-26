@@ -7,6 +7,7 @@ ChatGPT：
 
 网页对话链接：
 含数学公式：	https://chatgpt.com/c/6a5f0e9b-eb9c-83e8-b0df-0ffd18b0d78d
+含图片、文档：	https://chatgpt.com/c/6a8a521f-9f28-83e8-857b-577272409c92
 
 
 豆包：
@@ -15,6 +16,12 @@ ChatGPT：
 含图片：		https://www.doubao.com/thread/xhYS5JqcZxMWFrhzo
 含文档：		https://www.doubao.com/thread/xnISMN7xOWu7TFgSR
 
+网页对话链接：	
+含图片：	https://www.doubao.com/chat/38437174680751106
+含文档：
+	https://www.doubao.com/chat/38434307967828738
+
+
 
 deepseek：
 
@@ -22,3 +29,10 @@ deepseek：
 含图片：	https://chat.deepseek.com/share/xxv4e99bimvt1p0uo2
 超长对话：
 	https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk
+含文档：
+	https://chat.deepseek.com/share/uqsngdvmluy2zdkac3
+
+网页对话链接：
+含图片：	https://chat.deepseek.com/a/chat/s/0a438c82-9c76-4466-a5d7-7a9cc372d588
+含文档：
+	https://chat.deepseek.com/a/chat/s/50e7af55-dfc9-4788-a03a-74030fe95233

@@ -36,11 +36,13 @@ from gui.settings_store import (
 
 from gui.run_logging import GenerationRunLog
 from gui.service import (
+    build_document_asset_directory,
     build_image_asset_directory,
     default_output_filename,
     fetch_chat_pipeline,
     generate_output_bundle,
     normalize_markdown_filename,
+    requires_authenticated_browser,
 )
 
 
@@ -925,7 +927,7 @@ class AIMemoryGUI:
 
         self.capsule_entry = CapsuleEntryBox(
             url_section,
-            on_change=self._update_generate_button_state,
+            on_change=self._on_url_changed,
             bg_parent="#EEF2FF"
         )
         self.capsule_entry.pack(fill=tk.X)
@@ -1799,6 +1801,17 @@ class AIMemoryGUI:
             cursor="arrow" if locked else "hand2",
         )
 
+    def _on_url_changed(self):
+        """账号内会话地址仅提示复用登录态，不改动用户的界面选择。"""
+        url = self.capsule_entry.get_text()
+        if (
+            requires_authenticated_browser(url)
+            and hasattr(self, "card_need_login")
+        ):
+            self.status_var.set(
+                "检测到账号内对话链接，将优先复用已保存的登录状态。"
+            )
+        self._update_generate_button_state()
     def _update_generate_button_state(self):
         if self.is_running:
             self.btn_generate.set_enabled(False)
@@ -1829,6 +1842,8 @@ class AIMemoryGUI:
             return
 
         need_login = self.card_need_login.checked
+        if requires_authenticated_browser(url):
+            need_login = True
         modes = {
             "raw": self.card_raw.checked,
             "normal": self.card_normal.checked,
@@ -2169,9 +2184,6 @@ class AIMemoryGUI:
                 self.percent_var.set(percent_str)
             ])
 
-        if need_login:
-            self.root.after(0, lambda: self._show_login_dialog(loop, login_event))
-
         try:
             update_progress(0.15, "正在加载分享页并解析动态列表...")
 
@@ -2181,14 +2193,26 @@ class AIMemoryGUI:
                 save_dir,
                 output_filename,
             )
+            document_output_dir = build_document_asset_directory(
+                save_dir,
+                output_filename,
+            )
             fetch_res = loop.run_until_complete(
                 fetch_chat_pipeline(
                     url=url,
                     need_login=need_login,
                     login_ready_event=login_event if need_login else None,
+                    login_required_callback=(
+                        lambda: self.root.after(
+                            0,
+                            lambda: self._show_login_dialog(loop, login_event),
+                        )
+                    ) if need_login else None,
                     logger=lambda m: update_progress(0.28, m),
                     image_output_dir=image_output_dir,
                     image_reference_base=save_dir,
+                    document_output_dir=document_output_dir,
+                    document_reference_base=save_dir,
                     browser_profile_root=app_settings.browser_profile_dir,
                     debug_html_file=app_settings.debug_html_file,
                 )

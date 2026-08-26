@@ -85,6 +85,36 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         )
         return fake_gui, opened
 
+    def test_private_url_change_preserves_login_card_selection(self):
+        class FakeCard:
+            def __init__(self, checked):
+                self.checked = checked
+
+            def set_checked(self, value):
+                self.checked = bool(value)
+
+        statuses = []
+        updates = []
+        fake_gui = SimpleNamespace(
+            capsule_entry=SimpleNamespace(
+                get_text=lambda: (
+                    "https://chatgpt.com/c/"
+                    "11111111-2222-3333-4444-555555555555"
+                )
+            ),
+            card_need_login=FakeCard(False),
+            card_no_login=FakeCard(True),
+            status_var=SimpleNamespace(set=statuses.append),
+            _update_generate_button_state=lambda: updates.append(True),
+        )
+
+        AIMemoryGUI._on_url_changed(fake_gui)
+
+        self.assertFalse(fake_gui.card_need_login.checked)
+        self.assertTrue(fake_gui.card_no_login.checked)
+        self.assertIn("账号内对话链接", statuses[0])
+        self.assertIn("复用已保存", statuses[0])
+        self.assertEqual(updates, [True])
     def test_start_summary_without_key_opens_settings_before_save_dialog(self):
         class EmptyStore:
             @staticmethod

@@ -3,13 +3,14 @@ import json
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 from bs4 import BeautifulSoup
 
 from scripts import gemini_summarizer as summary
-from scripts.providers import chatgpt, doubao
+from scripts.providers import chatgpt, deepseek, doubao
 
 
 class FakeGateway:
@@ -523,6 +524,7 @@ class GeminiSummarizerTests(unittest.TestCase):
             assets = summary.discover_media(
                 messages, project, project, summary.SummaryConfig()
             )
+            self.assertTrue(assets[0].public_dict()["can_reverify"])
 
         self.assertEqual(len(assets), 1)
         self.assertEqual(assets[0].message_index, 1)
@@ -665,6 +667,72 @@ class GeminiSummarizerTests(unittest.TestCase):
             "用户上传的图片与 AI 图片被共同讨论。",
         )
 
+    def test_downloaded_docx_text_is_extracted_safely(self):
+        document_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+          <w:body>
+            <w:p><w:r><w:t>附件中的第一段正文</w:t></w:r></w:p>
+            <w:p><w:r><w:t>第二段包含总结所需信息</w:t></w:r></w:p>
+          </w:body>
+        </w:document>"""
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            document = project / "report.docx"
+            with zipfile.ZipFile(document, "w") as archive:
+                archive.writestr("word/document.xml", document_xml)
+            messages = [{
+                "role": "User",
+                "content": "[report.docx](./report.docx)"
+            }]
+            assets = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+            self.assertTrue(assets[0].public_dict()["can_reverify"])
+
+        self.assertEqual(len(assets), 1)
+        self.assertEqual(assets[0].status, "described")
+        self.assertIn("附件中的第一段正文", assets[0].description)
+        self.assertIn("第二段包含总结所需信息", assets[0].description)
+
+    def test_platform_parsers_use_downloaded_document_links(self):
+        local_reference = "./result_files/report.docx"
+        asset_map = {
+            "/download/report": local_reference,
+            "report.docx": local_reference,
+        }
+        chatgpt_html = """
+        <div data-testid="conversation-turn-1">
+          <div data-message-author-role="user">请总结附件</div>
+          <a href="/download/report">report.docx</a>
+        </div>
+        """
+        chatgpt_messages = chatgpt.parse_messages(
+            BeautifulSoup(chatgpt_html, "html.parser"), asset_map
+        )
+        self.assertIn(local_reference, chatgpt_messages[0]["content"])
+
+        deepseek_html = """
+        <div data-virtual-list-item-key="1">
+          <div class="ds-message">
+            <div>report.docx</div><div>DOCX 1 KB</div>
+          </div>
+        </div>
+        """
+        deepseek_messages = deepseek.parse_messages(
+            BeautifulSoup(deepseek_html, "html.parser"), asset_map
+        )
+        self.assertIn(local_reference, deepseek_messages[0]["content"])
+
+        doubao_html = """
+        <div class="message-item justify-end">
+          <div class="doc-card">report.docx</div>
+          请总结附件
+        </div>
+        """
+        doubao_messages = doubao.parse_messages(
+            BeautifulSoup(doubao_html, "html.parser"), asset_map
+        )
+        self.assertIn(local_reference, doubao_messages[0]["content"])
     def test_missing_document_gets_explicit_description(self):
         marker = chr(96)
         with tempfile.TemporaryDirectory() as temp:
@@ -780,7 +848,7 @@ class GeminiSummarizerTests(unittest.TestCase):
 
         page = FakePage(4)
         html = asyncio.run(doubao.collect_html(page))
-        self.assertEqual(page.selector, doubao.WAIT_SELECTOR)
+        self.assertEqual(page.selector, doubao.SHARE_MESSAGE_SELECTOR)
         self.assertEqual(page.scrolled, [
             (0, 3000), (1, 3000), (2, 3000), (3, 3000)
         ])
@@ -791,6 +859,58 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIsNone(asyncio.run(doubao.collect_html(unrelated_page)))
         self.assertEqual(unrelated_page.scrolled, [])
         self.assertEqual(unrelated_page.waits, [])
+
+    def test_direct_doubao_synthetic_roles_do_not_depend_on_css_role_class(self):
+        html = """
+        <div class="message-item" data-doubao-role="user">用户问题</div>
+        <div class="message-item" data-doubao-role="assistant">豆包回答</div>
+        """
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        )
+        self.assertEqual(
+            [message["role"] for message in messages],
+            ["User", "AI"],
+        )
+        self.assertIn("用户问题", messages[0]["content"])
+        self.assertIn("豆包回答", messages[1]["content"])
+
+    def test_deepseek_markdown_attachment_uses_downloaded_local_file(self):
+        html = """
+        <div data-virtual-list-item-key="1">
+          <div class="ds-message">
+            <div>课堂资料.md</div><div>MD 19.49KB</div>
+            <div>识别文档</div>
+          </div>
+        </div>
+        """
+        messages = deepseek.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"课堂资料.md": "./files/%E8%AF%BE%E5%A0%82.md"},
+        )
+        self.assertEqual(len(messages), 1)
+        self.assertIn("./files/%E8%AF%BE%E5%A0%82.md", messages[0]["content"])
+        self.assertIn("识别文档", messages[0]["content"])
+
+    def test_chatgpt_code_filenames_are_not_guessed_as_attachments(self):
+        html = """
+        <div data-testid="conversation-turn-0">
+          <div data-message-author-role="user" data-message-id="m0">
+            <pre>from reportlab.pdfgen import canvas
+sign = hashlib.md5(data).hexdigest()
+output = "Harry Potter_translated.pdf"</pre>
+          </div>
+        </div>
+        """
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {},
+        )
+        self.assertEqual(len(messages), 1)
+        self.assertIn("from reportlab.pdfgen", messages[0]["content"])
+        self.assertIn("sign = hashlib.md5", messages[0]["content"])
+        self.assertIn("Harry Potter_translated.pdf", messages[0]["content"])
+        self.assertNotIn("[上传文档]", messages[0]["content"])
 
     def test_doubao_document_covers_are_not_user_images(self):
         html = """
@@ -807,6 +927,8 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(len(messages), 1)
         self.assertNotIn("![用户图片]", messages[0]["content"])
         self.assertIn("申请表.docx", messages[0]["content"])
+        self.assertIn("📎 **[上传文档]**", messages[0]["content"])
+        self.assertEqual(messages[0]["content"].count("申请表.docx"), 1)
 
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)

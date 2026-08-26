@@ -12,9 +12,11 @@ import mimetypes
 import os
 import re
 import time
+import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.etree import ElementTree as ET
 from typing import Any, Callable, Collection, Protocol
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError, URLError
@@ -94,6 +96,7 @@ DOCUMENT_EXTENSIONS = {
     ".txt", ".csv", ".md", ".json", ".html", ".htm"
 }
 TEXT_EXTENSIONS = {".txt", ".csv", ".md", ".json", ".html", ".htm"}
+DOCX_XML_MAX_BYTES = 20 * 1024 * 1024
 
 SYSTEM_INSTRUCTION = """
 你是“AI 对话记忆整理器”。输入是已经发生过的历史“用户—AI”对话，
@@ -1264,6 +1267,41 @@ def discover_media(
     return assets
 
 
+def _extract_docx_text(path: Path, max_chars: int) -> str:
+    """只读取 DOCX 内的 WordprocessingML 文本，不执行宏或外部引用。"""
+    with zipfile.ZipFile(path) as archive:
+        members = [
+            info
+            for info in archive.infolist()
+            if re.fullmatch(
+                r"word/(?:document|header\d+|footer\d+|footnotes|endnotes)\.xml",
+                info.filename,
+                re.IGNORECASE,
+            )
+        ]
+        if not any(info.filename.lower() == "word/document.xml" for info in members):
+            raise ValueError("DOCX 缺少正文 XML。")
+        if sum(info.file_size for info in members) > DOCX_XML_MAX_BYTES:
+            raise ValueError("DOCX 解压后的正文超过安全限制。")
+
+        paragraphs: list[str] = []
+        for info in sorted(members, key=lambda item: item.filename):
+            root = ET.fromstring(archive.read(info))
+            for paragraph in root.iter():
+                if not str(paragraph.tag).endswith("}p"):
+                    continue
+                parts = [
+                    node.text or ""
+                    for node in paragraph.iter()
+                    if str(node.tag).endswith("}t")
+                ]
+                line = "".join(parts).strip()
+                if line:
+                    paragraphs.append(line)
+                if sum(len(item) + 1 for item in paragraphs) >= max_chars:
+                    return "\n".join(paragraphs)[:max_chars]
+        return "\n".join(paragraphs)[:max_chars]
+
 def _prepare_media_asset(
     asset: MediaAsset,
     project_dir: Path,
@@ -1319,6 +1357,21 @@ def _prepare_media_asset(
             )
         return
 
+    if suffix == ".docx":
+        try:
+            text = _extract_docx_text(local_path, config.text_attachment_chars)
+            asset.status = "described"
+            asset.description = (
+                f"用户上传了文档“{asset.label}”。程序已安全提取 DOCX 正文，内容是："
+                f"{text or '（空文档）'}"
+            )
+        except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError):
+            asset.status = "unavailable"
+            asset.description = _missing_media_description(
+                asset,
+                "DOCX 文件损坏、加密或超过安全读取限制"
+            )
+        return
     supported_inline = (
         asset.mime_type.startswith("image/")
         or asset.mime_type == "application/pdf"
