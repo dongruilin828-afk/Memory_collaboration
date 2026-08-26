@@ -13,11 +13,14 @@ from unittest.mock import patch
 from bs4 import BeautifulSoup
 
 from gui.service import (
+    _capture_document_content_response,
     _close_browser_context_safely,
     _collect_response_assets,
     _document_download_url_from_payload,
     _download_document_candidates,
     _download_image_candidates,
+    _extract_chatgpt_document_card_candidates,
+    _extract_deepseek_document_card_candidates,
     _extract_document_candidates,
     _inject_chatgpt_attachment_names,
     _rehydrate_chatgpt_conversation,
@@ -703,6 +706,77 @@ class GUIServiceTests(unittest.TestCase):
             "https://files.deepseeksvc.com/api/file?"
             "file_id=fake&state=signed&ty=r",
         )
+
+    def test_successful_chatgpt_document_response_is_reused_without_retry(self):
+        class FakeResponse:
+            status = 200
+            url = (
+                "https://chatgpt.com/backend-api/estuary/content?"
+                "id=file_document123456&sig=authorized"
+            )
+            headers = {
+                "content-type": "text/markdown; charset=utf-8"
+            }
+
+            async def body(self):
+                return b"# captured document"
+
+        cache = {}
+        asyncio.run(_capture_document_content_response(
+            FakeResponse(), cache
+        ))
+        self.assertIn("file_document123456", cache)
+        candidate = DocumentCandidate(
+            "file_document123456",
+            "https://chatgpt.com/backend-api/files/download/"
+            "file_document123456",
+            "captured.md",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(),
+                [candidate],
+                output_dir,
+                "./result_files",
+                captured_documents=cache,
+            ))
+            saved = output_dir / "captured.md"
+            self.assertEqual(saved.read_bytes(), b"# captured document")
+            self.assertIn("captured.md", mapping)
+
+    def test_chatgpt_only_real_file_title_nodes_become_click_candidates(self):
+        html = """
+        <div data-message-author-role="user">
+          <p>开头的代码提到 report.pdf，但它只是正文。</p>
+          <div class="truncate font-semibold">课堂材料.docx</div>
+        </div>
+        """
+        candidates = _extract_chatgpt_document_card_candidates(
+            html,
+            "https://chatgpt.com/c/conversation-id",
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].filename, "课堂材料.docx")
+        self.assertTrue(candidates[0].reference.startswith("chatgpt-card:"))
+
+    def test_deepseek_private_file_cards_become_click_candidates(self):
+        html = """
+        <div data-virtual-list-item-key="1">
+          <div class="ds-message">
+            <div>mddd.md</div><div>MD 19.49KB</div>
+            <div>普通正文.pdf 不是文件卡片</div>
+          </div>
+        </div>
+        """
+        candidates = _extract_deepseek_document_card_candidates(
+            html,
+            "https://chat.deepseek.com/a/chat/s/conversation-id",
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].filename, "mddd.md")
+        self.assertTrue(candidates[0].reference.startswith("deepseek-card:"))
+
 
     def test_doubao_response_metadata_produces_authorized_candidate(self):
         documents = []

@@ -213,6 +213,10 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertFalse(chatgpt._prefer_snapshot(
             {"text_length": 200, "image_score": 0}, existing
         ))
+        self.assertTrue(chatgpt._prefer_snapshot(
+            {"text_length": 50, "image_score": 0},
+            {"text_length": 0, "image_score": 1},
+        ))
 
     def test_detailed_outputs_use_separate_directory(self):
         project = Path("project")

@@ -15,6 +15,9 @@ SCROLL_PRIMARY_SETTLE_MS = 400
 SCROLL_SECONDARY_SETTLE_MS = 150
 BOUNDARY_SETTLE_MS = 350
 BOUNDARY_CAPTURE_ROUNDS = 3
+TOP_PRELOAD_SETTLE_MS = 800
+TOP_PRELOAD_MAX_ROUNDS = 12
+TOP_PRELOAD_STABLE_ROUNDS = 4
 
 
 def _prefer_snapshot(candidate, existing):
@@ -23,6 +26,8 @@ def _prefer_snapshot(candidate, existing):
     existing_text = int(existing.get("text_length") or 0)
     candidate_images = int(candidate.get("image_score") or 0)
     existing_images = int(existing.get("image_score") or 0)
+    if existing_text == 0 and candidate_text > 0:
+        return True
     return (
         candidate_text > existing_text
         and candidate_images >= existing_images
@@ -124,8 +129,20 @@ async def collect_html(page):
                 captured[key] = message
                 discovery_index += 1
             elif _prefer_snapshot(message, existing):
+                observed_orders = [
+                    order for order in (
+                        existing.get("order"), message.get("order")
+                    )
+                    if order is not None
+                ]
+                if observed_orders:
+                    message["order"] = max(observed_orders)
                 message["discovery_index"] = existing["discovery_index"]
                 captured[key] = message
+            elif message.get("order") is not None:
+                existing_order = existing.get("order")
+                if existing_order is None or message["order"] > existing_order:
+                    existing["order"] = message["order"]
 
     try:
         scroll_container = await page.locator(role_selector).first.evaluate_handle(
@@ -143,6 +160,39 @@ async def collect_html(page):
             }"""
         )
 
+        # ChatGPT 到达顶部后会异步补挂更早消息，并让既有 turn 编号整体后移。
+        # 先在顶部等到消息数和滚动高度连续稳定，再正式顺序采集。
+        previous_state = None
+        stable_rounds = 0
+        for _ in range(TOP_PRELOAD_MAX_ROUNDS):
+            # 从顶部轻微移开再返回，确保已在顶部时也能触发分页哨兵。
+            await scroll_container.evaluate(
+                "element => element.scrollTo(0, Math.min(240, element.scrollHeight))"
+            )
+            await page.wait_for_timeout(100)
+            await scroll_container.evaluate(
+                "element => element.scrollTo(0, 0)"
+            )
+            await page.wait_for_timeout(TOP_PRELOAD_SETTLE_MS)
+            await capture_visible_messages()
+            metrics = await scroll_container.evaluate(
+                """element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight
+                })"""
+            )
+            state = (len(captured), int(metrics["scrollHeight"]))
+            if state == previous_state:
+                stable_rounds += 1
+            else:
+                stable_rounds = 0
+            previous_state = state
+            if stable_rounds >= TOP_PRELOAD_STABLE_ROUNDS:
+                break
+
+        # 保留预热阶段已经出现过的历史消息。ChatGPT 的虚拟列表在顶部
+        # 补挂旧消息后，正式向下遍历时不一定会再次挂载每一个中间节点。
+        # capture_visible_messages 会持续更新同一 message-id 的最终 turn 顺序。
         scroll_top = 0
         max_scroll_top = 0
         for _ in range(100):

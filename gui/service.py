@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from urllib.parse import unquote, urljoin
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -73,6 +73,8 @@ DOCUMENT_MIME_EXTENSIONS = {
 GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
 UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md"}
 DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
+CHATGPT_CARD_REFERENCE_PREFIX = "chatgpt-card:"
+DEEPSEEK_CARD_REFERENCE_PREFIX = "deepseek-card:"
 CHATGPT_ESCAPED_QUOTE = re.escape(chr(92) + '"')
 CHATGPT_EMBEDDED_DOCUMENT_PATTERNS = (
     re.compile(
@@ -195,6 +197,57 @@ async def _capture_response_assets(
         document_candidates,
         image_references,
     )
+
+
+def _document_response_cache_keys(response_url: str) -> tuple[str, ...]:
+    parsed = urlparse(str(response_url or ""))
+    keys = [str(response_url or ""), parsed.path]
+    chatgpt_match = re.match(
+        r"^/backend-api/files/download/(?P<file_id>[^/]+)$",
+        parsed.path,
+    )
+    if chatgpt_match:
+        keys.append(unquote(chatgpt_match.group("file_id")))
+    if parsed.path == "/backend-api/estuary/content":
+        file_id = parse_qs(parsed.query).get("id", [""])[0]
+        if file_id:
+            keys.append(unquote(file_id))
+    return tuple(key for key in dict.fromkeys(keys) if key)
+
+
+def _is_document_content_response(response_url: str) -> bool:
+    parsed = urlparse(str(response_url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if host in {"chatgpt.com", "chat.openai.com"}:
+        return bool(
+            re.match(r"^/backend-api/files/download/[^/]+$", parsed.path)
+            or parsed.path == "/backend-api/estuary/content"
+        )
+    return host == "files.deepseeksvc.com" and parsed.path == "/api/file"
+
+
+async def _capture_document_content_response(
+    response: Any,
+    cache: dict[str, tuple[bytes, dict[str, str]]],
+) -> None:
+    if getattr(response, "status", 0) != 200:
+        return
+    headers = dict(getattr(response, "headers", {}) or {})
+    content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+    if content_type in {"text/html", "application/json"}:
+        return
+    length = headers.get("content-length", "").strip()
+    if length.isdigit() and int(length) > GUI_DOCUMENT_MAX_BYTES:
+        return
+    try:
+        body = await response.body()
+    except Exception:
+        return
+    if not body or len(body) > GUI_DOCUMENT_MAX_BYTES:
+        return
+    captured = (body, headers)
+    for key in _document_response_cache_keys(response.url):
+        cache[key] = captured
 
 
 def _is_asset_metadata_response(response_url: str) -> bool:
@@ -1037,6 +1090,89 @@ def _is_safe_document_url(value: str) -> bool:
     return address.is_global
 
 
+def _extract_chatgpt_document_card_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """仅从 ChatGPT 真实文件标题节点建立点击下载候选。"""
+    parsed = urlparse(str(base_url or ""))
+    if parsed.netloc.lower().split(":", 1)[0] not in {
+        "chatgpt.com", "chat.openai.com"
+    }:
+        return []
+    candidates: list[DocumentCandidate] = []
+    seen_names: set[str] = set()
+    soup = BeautifulSoup(html or "", "html.parser")
+    for title in soup.select("div.truncate.font-semibold"):
+        filename = _document_filename_from_text(
+            " ".join(title.get_text(" ", strip=True).split())
+        )
+        if (
+            not filename
+            or Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS
+        ):
+            continue
+        filename = _safe_document_filename(filename)
+        lowered = filename.lower()
+        if lowered in seen_names:
+            continue
+        seen_names.add(lowered)
+        candidates.append(DocumentCandidate(
+            f"{CHATGPT_CARD_REFERENCE_PREFIX}{lowered}",
+            str(base_url),
+            filename,
+        ))
+    return candidates
+
+
+def _extract_deepseek_document_card_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """从 DeepSeek 私有会话可见文件卡片建立点击下载候选。"""
+    parsed = urlparse(str(base_url or ""))
+    if parsed.netloc.lower().split(":", 1)[0] != "chat.deepseek.com":
+        return []
+    filename_pattern = re.compile(
+        r'[^\\/:*?"<>|\r\n]{1,180}\.'
+        r'(?:pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf)',
+        re.IGNORECASE,
+    )
+    size_pattern = re.compile(
+        r'^(?:PDF|DOCX?|XLSX?|PPTX?|TXT|CSV|MD|RTF)\s+'
+        r'\d+(?:\.\d+)?\s*(?:B|KB|MB|GB)$',
+        re.IGNORECASE,
+    )
+    candidates: list[DocumentCandidate] = []
+    seen_names: set[str] = set()
+    soup = BeautifulSoup(html or "", "html.parser")
+    for message in soup.select(
+        "[data-virtual-list-item-key] .ds-message"
+    ):
+        lines = [
+            line.strip()
+            for line in message.get_text(separator="\n", strip=True).splitlines()
+            if line.strip()
+        ]
+        for index, line in enumerate(lines[:-1]):
+            if (
+                not filename_pattern.fullmatch(line)
+                or not size_pattern.fullmatch(lines[index + 1])
+            ):
+                continue
+            filename = _safe_document_filename(line)
+            lowered = filename.lower()
+            if lowered in seen_names:
+                continue
+            seen_names.add(lowered)
+            candidates.append(DocumentCandidate(
+                f"{DEEPSEEK_CARD_REFERENCE_PREFIX}{lowered}",
+                str(base_url),
+                filename,
+            ))
+    return candidates
+
+
 def _extract_document_candidates(
     html: str,
     base_url: str,
@@ -1238,10 +1374,18 @@ async def _chatgpt_document_card_get(
 ):
     """点击 ChatGPT 已渲染的文件卡片并接收网页自身的授权下载响应。"""
     parsed = urlparse(candidate.url)
+    is_card_candidate = candidate.reference.startswith(
+        CHATGPT_CARD_REFERENCE_PREFIX
+    )
     if (
         parsed.netloc.lower().split(":", 1)[0]
         not in {"chatgpt.com", "chat.openai.com"}
-        or not re.match(r"^/backend-api/files/download/[^/]+$", parsed.path)
+        or (
+            not is_card_candidate
+            and not re.match(
+                r"^/backend-api/files/download/[^/]+$", parsed.path
+            )
+        )
     ):
         return None
     cards = page.locator(
@@ -1253,8 +1397,114 @@ async def _chatgpt_document_card_get(
     try:
         expected_path = parsed.path
         async with page.expect_response(
-            lambda response: urlparse(response.url).path == expected_path,
-            timeout=min(timeout, 10000),
+            lambda response: (
+                (
+                    is_card_candidate
+                    and response.status == 200
+                    and _is_document_content_response(response.url)
+                )
+                or (
+                    not is_card_candidate
+                    and urlparse(response.url).path == expected_path
+                )
+            ),
+            timeout=min(timeout, 15000),
+        ) as response_info:
+            await cards.first.click(force=True, timeout=5000)
+        return await response_info.value
+    except Exception:
+        return None
+
+
+def _deepseek_document_card_locator(page: Any, filename: str):
+    return page.get_by_text(filename, exact=True).locator(
+        "xpath=ancestor::*[@tabindex='0'][1]"
+    )
+
+
+async def _scroll_to_deepseek_file_card(
+    page: Any,
+    filename: str,
+) -> bool:
+    cards = _deepseek_document_card_locator(page, filename)
+    if await cards.count() > 0:
+        await cards.first.scroll_into_view_if_needed(timeout=3000)
+        return True
+    messages = page.locator("[data-virtual-list-item-key] .ds-message")
+    try:
+        await messages.first.wait_for(state="attached", timeout=12000)
+        scroll_container = await messages.first.evaluate_handle(
+            """element => {
+                let current = element;
+                while (current) {
+                    const style = window.getComputedStyle(current);
+                    const canScroll = current.scrollHeight > current.clientHeight + 1;
+                    if (canScroll && /(auto|scroll)/.test(style.overflowY)) {
+                        return current;
+                    }
+                    current = current.parentElement;
+                }
+                return document.scrollingElement || document.documentElement;
+            }"""
+        )
+    except Exception:
+        return False
+    try:
+        scroll_top = 0
+        for _ in range(500):
+            await scroll_container.evaluate(
+                "(element, top) => element.scrollTo(0, top)",
+                scroll_top,
+            )
+            await page.wait_for_timeout(450)
+            if await cards.count() > 0:
+                await cards.first.scroll_into_view_if_needed(timeout=3000)
+                return True
+            metrics = await scroll_container.evaluate(
+                """element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight
+                })"""
+            )
+            maximum = max(
+                0,
+                int(metrics["scrollHeight"]) - int(metrics["clientHeight"]),
+            )
+            if scroll_top >= maximum:
+                break
+            step = max(int(metrics["clientHeight"] * 0.55), 700)
+            next_top = min(scroll_top + step, maximum)
+            if next_top <= scroll_top:
+                break
+            scroll_top = next_top
+    finally:
+        await scroll_container.dispose()
+    return False
+
+
+async def _deepseek_document_card_get(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+):
+    """点击 DeepSeek 私有会话文件卡片并接收其已授权文件响应。"""
+    parsed = urlparse(candidate.url)
+    if (
+        parsed.netloc.lower().split(":", 1)[0] != "chat.deepseek.com"
+        or not candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+    ):
+        return None
+    if not await _scroll_to_deepseek_file_card(page, candidate.filename):
+        return None
+    cards = _deepseek_document_card_locator(page, candidate.filename)
+    try:
+        async with page.expect_response(
+            lambda response: (
+                urlparse(response.url).netloc.lower().split(":", 1)[0]
+                == "files.deepseeksvc.com"
+                and urlparse(response.url).path == "/api/file"
+            ),
+            timeout=min(timeout, 15000),
         ) as response_info:
             await cards.first.click(force=True, timeout=5000)
         return await response_info.value
@@ -1310,6 +1560,9 @@ async def _download_document_candidates(
     concurrency: int = 3,
     warning_collector: Optional[list[str]] = None,
     conversation_url: Optional[str] = None,
+    captured_documents: Optional[
+        Mapping[str, tuple[bytes, Mapping[str, str]]]
+    ] = None,
 ) -> dict[str, str]:
     """使用页面登录态下载可用附件，并返回 URL/文件名到本地相对链接的映射。"""
     documents_dir = Path(documents_dir)
@@ -1325,8 +1578,17 @@ async def _download_document_candidates(
         and urlparse(candidate.url).path == DOUBAO_DOCUMENT_API_PATH
         for candidate in ordered
     )
+    has_deepseek_card_candidates = any(
+        candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+        for candidate in ordered
+    )
     effective_concurrency = (
-        1 if has_chatgpt_candidates or has_doubao_candidates
+        1
+        if (
+            has_chatgpt_candidates
+            or has_doubao_candidates
+            or has_deepseek_card_candidates
+        )
         else max(1, min(int(concurrency), 4))
     )
     semaphore = asyncio.Semaphore(effective_concurrency)
@@ -1334,6 +1596,19 @@ async def _download_document_candidates(
 
     async def download(candidate: DocumentCandidate):
         try:
+            cached = None
+            if captured_documents:
+                for key in (
+                    candidate.reference,
+                    candidate.url,
+                    urlparse(candidate.url).path,
+                ):
+                    if key and key in captured_documents:
+                        cached = captured_documents[key]
+                        break
+            if cached is not None:
+                body, headers = cached
+                return candidate, body, dict(headers), None
             async with semaphore:
                 response = None
                 parsed_candidate = urlparse(candidate.url)
@@ -1342,8 +1617,18 @@ async def _download_document_candidates(
                     candidate_host in {"doubao.com", "www.doubao.com"}
                     and parsed_candidate.path == DOUBAO_DOCUMENT_API_PATH
                 )
+                is_deepseek_card_candidate = (
+                    candidate_host == "chat.deepseek.com"
+                    and candidate.reference.startswith(
+                        DEEPSEEK_CARD_REFERENCE_PREFIX
+                    )
+                )
                 if is_doubao_candidate:
                     response = await _doubao_document_api_get(
+                        page, candidate, 20000
+                    )
+                elif is_deepseek_card_candidate:
+                    response = await _deepseek_document_card_get(
                         page, candidate, 20000
                     )
                 elif candidate_host in {"chatgpt.com", "chat.openai.com"}:
@@ -1367,7 +1652,7 @@ async def _download_document_candidates(
                             page, candidate, 20000
                         )
                 if response is None:
-                    if is_doubao_candidate:
+                    if is_doubao_candidate or is_deepseek_card_candidate:
                         return candidate, None, {}, "not_a_document"
                     response = await _authenticated_page_get(
                         page, candidate.url, 20000
@@ -1408,7 +1693,11 @@ async def _download_document_candidates(
         except Exception as error:
             return candidate, None, {}, type(error).__name__
 
-    if has_chatgpt_candidates or has_doubao_candidates:
+    if (
+        has_chatgpt_candidates
+        or has_doubao_candidates
+        or has_deepseek_card_candidates
+    ):
         results = []
         for candidate in ordered:
             results.append(await download(candidate))
@@ -1418,8 +1707,15 @@ async def _download_document_candidates(
         ))
     resolved: dict[str, str] = {}
     failures: dict[str, int] = {}
+    successful_names = {
+        candidate.filename.lower()
+        for candidate, body, _headers, _reason in results
+        if body is not None
+    }
     for candidate, body, headers, reason in results:
         if body is None:
+            if candidate.filename.lower() in successful_names:
+                continue
             failures[reason or "unknown_error"] = failures.get(
                 reason or "unknown_error", 0
             ) + 1
@@ -1568,22 +1864,33 @@ async def fetch_chat_pipeline(
             response_document_candidates: list[DocumentCandidate] = []
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
+            captured_document_responses: dict[
+                str, tuple[bytes, dict[str, str]]
+            ] = {}
             authorized_content_responses: set[str] = set()
             chatgpt_assets_rehydrated = False
+            pre_rehydrate_chat_html: Optional[str] = None
 
             def capture_response_assets(response: Any) -> None:
-                if not _is_asset_metadata_response(response.url):
-                    return
-                if response.status == 200:
-                    authorized_content_responses.add(response.url)
-                task = asyncio.create_task(_capture_response_assets(
-                    response,
-                    url,
-                    response_document_candidates,
-                    response_image_references,
-                ))
-                response_tasks.add(task)
-                task.add_done_callback(response_tasks.discard)
+                task = None
+                if _is_asset_metadata_response(response.url):
+                    if response.status == 200:
+                        authorized_content_responses.add(response.url)
+                    task = asyncio.create_task(_capture_response_assets(
+                        response,
+                        url,
+                        response_document_candidates,
+                        response_image_references,
+                    ))
+                elif _is_document_content_response(response.url):
+                    task = asyncio.create_task(
+                        _capture_document_content_response(
+                            response, captured_document_responses
+                        )
+                    )
+                if task is not None:
+                    response_tasks.add(task)
+                    task.add_done_callback(response_tasks.discard)
 
             page.on("response", capture_response_assets)
 
@@ -1645,6 +1952,15 @@ async def fetch_chat_pipeline(
                     response_document_candidates,
                     response_image_references,
                 ):
+                    try:
+                        await page.wait_for_selector(
+                            WAIT_SELECTOR, state="attached", timeout=15000
+                        )
+                        pre_rehydrate_chat_html = (
+                            await collect_virtualized_html(page)
+                        )
+                    except Exception:
+                        pre_rehydrate_chat_html = None
                     if logger:
                         logger(
                             "检测到附件尚未完成渲染，正在切到平台首页后返回原对话..."
@@ -1685,6 +2001,13 @@ async def fetch_chat_pipeline(
                             response_image_references,
                         )
                     ):
+                        if pre_rehydrate_chat_html is None:
+                            try:
+                                pre_rehydrate_chat_html = (
+                                    await collect_virtualized_html(page)
+                                )
+                            except Exception:
+                                pass
                         if logger:
                             logger(
                                 "动态页面仍只显示附件占位，正在切换页面后返回原对话..."
@@ -1707,6 +2030,12 @@ async def fetch_chat_pipeline(
                 html = await collect_virtualized_html(page)
                 if html is None:
                     html = page_snapshot_html
+                if (
+                    pre_rehydrate_chat_html
+                    and pre_rehydrate_chat_html.count("data-message-author-role")
+                    > html.count("data-message-author-role")
+                ):
+                    html = pre_rehydrate_chat_html
                 soup_pre = BeautifulSoup(html, "html.parser")
                 image_candidates: list[str] = []
                 if logger:
@@ -1755,6 +2084,7 @@ async def fetch_chat_pipeline(
                     )
 
                 document_started = time.perf_counter()
+                await _drain_response_tasks(response_tasks)
                 document_candidates = list(dict.fromkeys([
                     *response_document_candidates,
                     *_extract_document_candidates(
@@ -1762,6 +2092,21 @@ async def fetch_chat_pipeline(
                         page.url,
                     ),
                 ]))
+                document_candidates.extend(
+                    _extract_chatgpt_document_card_candidates(html, page.url)
+                )
+                document_candidates = list(dict.fromkeys(document_candidates))
+                existing_document_names = {
+                    candidate.filename.lower()
+                    for candidate in document_candidates
+                }
+                for candidate in _extract_deepseek_document_card_candidates(
+                    html, page.url
+                ):
+                    if candidate.filename.lower() in existing_document_names:
+                        continue
+                    document_candidates.append(candidate)
+                    existing_document_names.add(candidate.filename.lower())
                 document_map = await _download_document_candidates(
                     page,
                     document_candidates,
@@ -1770,6 +2115,7 @@ async def fetch_chat_pipeline(
                     document_download_concurrency,
                     fetch_warnings,
                     conversation_url=url,
+                    captured_documents=captured_document_responses,
                 )
 
                 if logger:
