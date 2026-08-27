@@ -948,6 +948,54 @@ output = "Harry Potter_translated.pdf"</pre>
             )
         self.assertEqual(assets, [])
 
+    def test_doubao_ai_document_card_links_to_saved_markdown(self):
+        html = """
+        <div class="message-item" data-doubao-role="assistant">
+          <p>回答正文</p>
+          <div class="product-card-real123">
+            <div class="card-content-info-title-text-real123">在线报告</div>
+            <div>创建时间：07-08 10:06</div>
+          </div>
+        </div>
+        """
+        local_reference = "./result_files/%E5%9C%A8%E7%BA%BF%E6%8A%A5%E5%91%8A.md"
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"在线报告": local_reference},
+        )
+        self.assertEqual(len(messages), 1)
+        self.assertIn("回答正文", messages[0]["content"])
+        self.assertIn("查看 AI 生成文档：在线报告", messages[0]["content"])
+        self.assertIn(local_reference, messages[0]["content"])
+
+    def test_saved_doubao_ai_document_is_read_with_assistant_attribution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            files = root / "result_files"
+            files.mkdir()
+            (files / "online.md").write_text(
+                "# 在线报告\n\nAI 生成的正文内容",
+                encoding="utf-8",
+            )
+            assets = summary.discover_media(
+                [{
+                    "role": "AI",
+                    "content": (
+                        "[📄 查看 AI 生成文档：在线报告]"
+                        "(./result_files/online.md)"
+                    ),
+                }],
+                root,
+                root,
+                summary.SummaryConfig(),
+            )
+
+        self.assertEqual(len(assets), 1)
+        self.assertEqual(assets[0].source_role, "assistant")
+        self.assertEqual(assets[0].status, "described")
+        self.assertIn("AI 回答中包含文档", assets[0].description)
+        self.assertIn("AI 生成的正文内容", assets[0].description)
+
     def test_doubao_ai_images_drop_empty_placeholders_and_repeated_ui_icons(self):
         placeholder = (
             "data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27"
@@ -2606,6 +2654,36 @@ output = "Harry Potter_translated.pdf"</pre>
         }])
         self.assertIn("原文档不可重新验证", qualified[0]["title"])
         self.assertNotIn("原图不可重新验证", qualified[0]["title"])
+
+    def test_detailed_media_section_does_not_repeat_document_body(self):
+        body = "这是已经进入总结输入的原始文档正文，不应在详细版中重复。"
+        for description in (
+            f"用户上传了文档“报告.md”。程序已提取文本，内容是：{body}",
+            (
+                "用户上传了文档“报告.docx”。"
+                f"程序已安全提取 DOCX 正文，内容是：{body}"
+            ),
+        ):
+            with self.subTest(description=description[:30]):
+                rendered = summary._media_description_for_markdown({
+                    "kind": "document",
+                    "description": description,
+                })
+                self.assertNotIn(body, rendered)
+                self.assertIn("已提取正文供总结使用", rendered)
+                self.assertEqual(
+                    description.split("程序已", 1)[0],
+                    rendered.split("程序已", 1)[0],
+                )
+
+        image_description = "图片识别结果保持原样"
+        self.assertEqual(
+            summary._media_description_for_markdown({
+                "kind": "image",
+                "description": image_description,
+            }),
+            image_description,
+        )
 
     def test_compacted_topic_balances_chinese_quotes(self):
         compacted = summary._compact_balanced_topic(

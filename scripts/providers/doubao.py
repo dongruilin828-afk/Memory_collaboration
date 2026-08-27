@@ -138,6 +138,8 @@ def _remove_assistant_image_artifacts(msg) -> None:
         reference = str(img.get("src") or img.get("data-src") or "")
         if "img-z0eKj1" in classes and reference_counts[reference] > 1:
             img.decompose()
+
+
 def parse_messages(soup, image_map=None):
     """解析豆包消息；页面不属于豆包时返回 None。"""
     if image_map is None:
@@ -258,10 +260,36 @@ def parse_messages(soup, image_map=None):
                 })
         else:
             _remove_assistant_image_artifacts(msg)
+            ai_document_links = []
+            for card in msg.find_all(
+                "div", class_=re.compile(r"^product-card-")
+            ):
+                if "创建时间" not in card.get_text(" ", strip=True):
+                    continue
+                title_node = card.find(
+                    "div",
+                    class_=re.compile(r"^card-content-info-title-text-"),
+                )
+                title = " ".join(
+                    (
+                        title_node.get_text(" ", strip=True)
+                        if title_node else ""
+                    ).split()
+                )
+                local_href = image_map.get(title.lower()) if title else None
+                if local_href:
+                    link = f"[📄 查看 AI 生成文档：{title}]({local_href})"
+                    if link not in ai_document_links:
+                        ai_document_links.append(link)
             md_text = markdownify.markdownify(
                 str(msg),
                 heading_style="ATX"
             ).strip()
+            if ai_document_links:
+                md_text = "\n\n".join([
+                    md_text,
+                    *ai_document_links,
+                ]).strip()
             if md_text:
                 parsed_messages.append({'role': 'AI', 'content': md_text})
 

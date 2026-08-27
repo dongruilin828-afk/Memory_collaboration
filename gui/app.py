@@ -1788,7 +1788,7 @@ class AIMemoryGUI:
         self._update_generate_button_state()
 
     def _set_inputs_locked(self, locked: bool):
-        """生成过程中锁定所有输入与选项卡片"""
+        """生成过程中锁定任务输入；设置入口始终可用。"""
         self.capsule_entry.set_locked(locked)
         self.card_raw.set_disabled(locked)
         self.card_normal.set_disabled(locked)
@@ -1797,8 +1797,8 @@ class AIMemoryGUI:
         self.card_no_login.set_disabled(locked)
         self.card_need_login.set_disabled(locked)
         self.api_key_button.config(
-            state=tk.DISABLED if locked else tk.NORMAL,
-            cursor="arrow" if locked else "hand2",
+            state=tk.NORMAL,
+            cursor="hand2",
         )
 
     def _on_url_changed(self):
@@ -1869,7 +1869,20 @@ class AIMemoryGUI:
                 self._show_api_key_settings(require_key=True)
                 return
 
-        settings = getattr(self, "app_settings", default_app_settings())
+        # 后台任务只接收启动瞬间的副本。生成期间仍可修改设置，但新值只会
+        # 用于下一次任务，不会更换本次请求的密钥、缓存或浏览器数据目录。
+        api_keys = dict(api_keys)
+        current_settings = getattr(
+            self, "app_settings", default_app_settings()
+        )
+        settings = AppSettings(
+            runtime_data_dir=Path(current_settings.runtime_data_dir),
+            default_results_dir=(
+                Path(current_settings.default_results_dir)
+                if current_settings.default_results_dir is not None
+                else None
+            ),
+        )
         output_target = _prompt_output_target(
             getattr(self, "root", None),
             modes,

@@ -73,6 +73,7 @@ DOCUMENT_MIME_EXTENSIONS = {
 GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
 UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md"}
 DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
+DOUBAO_AI_DOCUMENT_MAX_COUNT = 12
 CHATGPT_CARD_REFERENCE_PREFIX = "chatgpt-card:"
 DEEPSEEK_CARD_REFERENCE_PREFIX = "deepseek-card:"
 CHATGPT_ESCAPED_QUOTE = re.escape(chr(92) + '"')
@@ -628,6 +629,46 @@ def resolve_gui_summary_config(
     return replace(base_config, provider=preferred_provider, model=model)
 
 
+def gui_summary_attempt_configs(
+    base_config: Any,
+    api_keys: Mapping[str, str],
+) -> list[Any]:
+    """按已配置密钥构造跨提供商回退链，首选项仍由基础配置决定。"""
+    from scripts.gemini_summarizer import (
+        DEFAULT_MODEL,
+        SILICONFLOW_DEFAULT_MODEL,
+    )
+
+    primary = resolve_gui_summary_config(base_config, api_keys)
+    provider_defaults = {
+        "gemini": DEFAULT_MODEL,
+        "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+    }
+    provider_order = [primary.provider] + [
+        provider
+        for provider in ("gemini", "siliconflow")
+        if provider != primary.provider and str(api_keys.get(provider) or "").strip()
+    ]
+    attempts: list[Any] = []
+    seen: set[tuple[str, str]] = set()
+    for provider in provider_order:
+        provider_base = (
+            primary
+            if provider == primary.provider
+            else replace(
+                primary,
+                provider=provider,
+                model=provider_defaults[provider],
+            )
+        )
+        for candidate in gui_summary_config_candidates(provider_base):
+            key = (candidate.provider, candidate.model)
+            if key not in seen:
+                seen.add(key)
+                attempts.append(candidate)
+    return attempts
+
+
 async def goto_with_retry_gui(page, url: str, attempts: int = 3, logger: Optional[Callable[[str], None]] = None):
     for attempt in range(1, attempts + 1):
         try:
@@ -1061,6 +1102,40 @@ def _extract_doubao_embedded_document_candidates(
                 filename,
             ))
     return candidates
+
+
+def _extract_doubao_ai_document_titles(
+    html: str,
+    base_url: str,
+) -> list[str]:
+    """只识别豆包 AI 回答里的在线文档产品卡片标题。"""
+    parsed = urlparse(str(base_url or ""))
+    if parsed.netloc.lower().split(":", 1)[0] not in {
+        "doubao.com", "www.doubao.com"
+    }:
+        return []
+    soup = BeautifulSoup(html or "", "html.parser")
+    titles: list[str] = []
+    seen: set[str] = set()
+    for card in soup.find_all(
+        "div", class_=re.compile(r"^product-card-")
+    ):
+        # 在线文档卡片同时具备专用标题节点与“创建时间”。严格限定结构，
+        # 避免把回答中的普通标题、文件名或其他产品卡片误当作文档。
+        if "创建时间" not in card.get_text(" ", strip=True):
+            continue
+        title_node = card.find(
+            "div",
+            class_=re.compile(r"^card-content-info-title-text-"),
+        )
+        title = " ".join(
+            (title_node.get_text(" ", strip=True) if title_node else "").split()
+        )
+        if not title or len(title) > 180 or title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        titles.append(title)
+    return titles[:DOUBAO_AI_DOCUMENT_MAX_COUNT]
 
 
 def _is_safe_document_url(value: str) -> bool:
@@ -1550,6 +1625,187 @@ async def _doubao_document_api_get(
     if not download_url:
         return None
     return await _authenticated_page_get(page, download_url, timeout)
+
+
+def _normalize_doubao_ai_document_text(parts: Collection[str]) -> str:
+    """清理豆包编辑器正文，并去除虚拟分页产生的重复文本。"""
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        text = str(part or "").replace("\u200b", "").replace("\ufeff", "")
+        text = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return "\n\n".join(normalized)
+
+
+async def _read_doubao_ai_document_body(document_page: Any) -> str:
+    """从豆包在线文档的同源内嵌编辑器读取用户可见正文。"""
+    deadline = time.monotonic() + 15.0
+    while time.monotonic() < deadline:
+        for frame in document_page.frames:
+            parsed = urlparse(str(frame.url or ""))
+            if (
+                parsed.netloc.lower().split(":", 1)[0]
+                not in {"doubao.com", "www.doubao.com"}
+                or not parsed.path.startswith("/partner/ccm-docx/docx/")
+            ):
+                continue
+            try:
+                parts = await frame.locator(
+                    ".render-unit-wrapper"
+                ).evaluate_all(
+                    "elements => elements.map(element => element.innerText || '')"
+                )
+            except Exception:
+                continue
+            body = _normalize_doubao_ai_document_text(parts)
+            if body:
+                return body
+        await document_page.wait_for_timeout(500)
+    return ""
+
+
+async def _save_doubao_ai_documents(
+    page: Any,
+    html: str,
+    documents_dir: Path,
+    document_reference_prefix: str,
+    warning_collector: Optional[list[str]] = None,
+    logger: Optional[Callable[[str], None]] = None,
+) -> tuple[dict[str, str], int]:
+    """打开豆包 AI 在线文档卡片，将可见正文保存为本地 Markdown。"""
+    titles = _extract_doubao_ai_document_titles(html, page.url)
+    if not titles:
+        return {}, 0
+    if logger:
+        logger(f"检测到 {len(titles)} 个豆包 AI 生成文档，正在读取正文...")
+
+    resolved: dict[str, str] = {}
+    failures = 0
+    documents_dir = Path(documents_dir)
+    for title in titles:
+        document_page = None
+        inline_document_opened = False
+        document_url = ""
+        try:
+            title_nodes = page.get_by_text(title, exact=True)
+            if await title_nodes.count() == 0:
+                failures += 1
+                continue
+            card = title_nodes.first.locator(
+                "xpath=ancestor::div[contains(@class,'product-card-')][1]"
+            )
+            if await card.count() == 0:
+                failures += 1
+                continue
+            is_direct_chat = urlparse(str(page.url or "")).path.startswith(
+                "/chat/"
+            )
+            if is_direct_chat:
+                # 账号内会话会在当前页的 Canvas 侧栏中挂载正文；只有标题
+                # 节点绑定了打开动作，点击外层卡片不会触发。
+                await title_nodes.first.scroll_into_view_if_needed(
+                    timeout=3000
+                )
+                await title_nodes.first.click(timeout=5000)
+                inline_document_opened = True
+                body_source = page
+            else:
+                # 分享页则由外层卡片打开独立文档页。
+                async with page.expect_popup(timeout=10000) as popup_info:
+                    await card.click(force=True, timeout=5000)
+                document_page = await popup_info.value
+                await document_page.wait_for_load_state(
+                    "domcontentloaded", timeout=10000
+                )
+                document_url = str(document_page.url or "")
+                parsed_document_url = urlparse(document_url)
+                if (
+                    parsed_document_url.netloc.lower().split(":", 1)[0]
+                    not in {"doubao.com", "www.doubao.com"}
+                    or not parsed_document_url.path.startswith("/docx/")
+                ):
+                    failures += 1
+                    continue
+                body_source = document_page
+
+            body = await _read_doubao_ai_document_body(body_source)
+            if not body:
+                failures += 1
+                continue
+            if not document_url:
+                document_url = next((
+                    str(frame.url or "")
+                    for frame in page.frames
+                    if re.match(
+                        r"^/partner/ccm-docx/docx/[^/]+$",
+                        urlparse(str(frame.url or "")).path,
+                    )
+                ), "")
+            payload = f"# {title}\n\n{body}\n".encode("utf-8")
+            if len(payload) > GUI_DOCUMENT_MAX_BYTES:
+                failures += 1
+                continue
+
+            filename = _safe_document_filename(f"{title}.md", ".md")
+            documents_dir.mkdir(parents=True, exist_ok=True)
+            target = documents_dir / filename
+            if target.exists():
+                try:
+                    same_content = target.read_bytes() == payload
+                except OSError:
+                    same_content = False
+                if not same_content:
+                    digest = hashlib.sha256(
+                        (document_url or title).encode("utf-8")
+                    ).hexdigest()[:8]
+                    target = target.with_name(
+                        f"{target.stem}_{digest}{target.suffix}"
+                    )
+            if not target.exists():
+                target.write_bytes(payload)
+            local_reference = (
+                f"{document_reference_prefix}/"
+                f"{quote(target.name, safe='-_.~')}"
+            )
+            for key in {
+                title.lower(),
+                f"doubao-ai-doc:{title.lower()}",
+                document_url,
+            }:
+                if key:
+                    resolved[key] = local_reference
+        except Exception:
+            failures += 1
+        finally:
+            if document_page is not None:
+                try:
+                    if not document_page.is_closed():
+                        await document_page.close()
+                except Exception:
+                    pass
+            elif inline_document_opened:
+                try:
+                    await page.keyboard.press("Escape")
+                    await page.wait_for_timeout(300)
+                except Exception:
+                    pass
+
+    if failures and warning_collector is not None:
+        warning_collector.append(
+            f"{failures} 个豆包 AI 生成文档未能读取正文；"
+            "对话文字与其余附件仍已保留。"
+        )
+    if logger:
+        logger(
+            f"豆包 AI 生成文档处理完成：发现 {len(titles)} 个，"
+            f"成功保存 {len(set(resolved.values()))} 个。"
+        )
+    return resolved, len(titles)
 
 
 async def _download_document_candidates(
@@ -2117,10 +2373,65 @@ async def fetch_chat_pipeline(
                     conversation_url=url,
                     captured_documents=captured_document_responses,
                 )
+                doubao_ai_document_count = 0
+                if current_host in {"doubao.com", "www.doubao.com"}:
+                    ai_document_map, doubao_ai_document_count = (
+                        await _save_doubao_ai_documents(
+                            page,
+                            html,
+                            resolved_documents_dir,
+                            document_reference_prefix,
+                            fetch_warnings,
+                            logger,
+                        )
+                    )
+                    document_map.update(ai_document_map)
+
+                    # 豆包混合对话中，用户附件卡片可能先渲染文件名，原始
+                    # 对象 uri 则在 AI 在线文档读取期间才写入页面状态。
+                    # 仅在豆包内补取一次内嵌附件，避免影响其他平台与通用
+                    # 文档候选规则。
+                    try:
+                        late_doubao_html = await page.content()
+                    except Exception:
+                        late_doubao_html = ""
+                    page_url = urlparse(page.url)
+                    late_doubao_candidates = (
+                        _extract_doubao_embedded_document_candidates(
+                            late_doubao_html,
+                            f"{page_url.scheme or 'https'}://{page_url.netloc}",
+                        )
+                        if late_doubao_html
+                        else []
+                    )
+                    known_doubao_candidates = set(document_candidates)
+                    late_doubao_candidates = [
+                        candidate
+                        for candidate in late_doubao_candidates
+                        if candidate not in known_doubao_candidates
+                    ]
+                    if late_doubao_candidates:
+                        document_map.update(
+                            await _download_document_candidates(
+                                page,
+                                late_doubao_candidates,
+                                resolved_documents_dir,
+                                document_reference_prefix,
+                                document_download_concurrency,
+                                fetch_warnings,
+                                conversation_url=url,
+                                captured_documents=(
+                                    captured_document_responses
+                                ),
+                            )
+                        )
+                        document_candidates.extend(late_doubao_candidates)
 
                 if logger:
                     logger(
-                        f"文档附件处理完成：发现 {len(document_candidates)} 个可用引用，"
+                        "文档附件处理完成：发现 "
+                        f"{len(document_candidates) + doubao_ai_document_count} "
+                        "个可用引用，"
                         f"成功下载或复用 {len(set(document_map.values()))} 个，耗时 "
                         f"{time.perf_counter() - document_started:.1f} 秒。"
                     )
@@ -2362,8 +2673,13 @@ def generate_output_bundle(
         attempts = [(config, gateway)]
     else:
         candidate_configs = (
-            [config] if config_was_provided
-            else gui_summary_config_candidates(config)
+            [config]
+            if config_was_provided
+            else (
+                gui_summary_attempt_configs(config, user_api_keys)
+                if user_api_keys is not None
+                else gui_summary_config_candidates(config)
+            )
         )
         attempts = [(candidate, None) for candidate in candidate_configs]
 
@@ -2375,9 +2691,19 @@ def generate_output_bundle(
 
     base_result = None
     last_error: Optional[BaseException] = None
+    timed_out_providers: set[str] = set()
+
+    def next_usable_config(start_index: int) -> Optional[Any]:
+        for later_config, _later_gateway in attempts[start_index:]:
+            if later_config.provider not in timed_out_providers:
+                return later_config
+        return None
+
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
+        if candidate_config.provider in timed_out_providers:
+            continue
         if candidate_gateway is None:
             if user_api_keys is None:
                 candidate_gateway = create_gateway(candidate_config)
@@ -2415,15 +2741,27 @@ def generate_output_bundle(
             config = candidate_config
             gateway = candidate_gateway
             break
-        except SummaryRequestTimeoutError:
-            # 网络层超时通常会同时影响同一提供商的其他模型；继续回退只会让
-            # GUI 再无反馈地等待数分钟。进度缓存会保留，直接提示重试更可靠。
-            raise
+        except SummaryRequestTimeoutError as error:
+            # 同一提供商的其他模型通常共享网络入口；超时后跳过该提供商，
+            # 但若用户还配置了另一提供商，则立即切换，避免 120 秒后直接失败。
+            last_error = error
+            timed_out_providers.add(candidate_config.provider)
+            next_config = next_usable_config(attempt_index)
+            if next_config is None:
+                raise
+            safe_message = safe_error_message(
+                error,
+                tuple(user_api_keys.values()) if user_api_keys else (),
+            )
+            progress(
+                f"{candidate_config.provider} 请求超时（{safe_message}），"
+                f"正在切换到 {next_config.provider}/{next_config.model}..."
+            )
         except GeminiSummaryError as error:
             last_error = error
-            if attempt_index >= len(attempts):
+            next_config = next_usable_config(attempt_index)
+            if next_config is None:
                 raise
-            next_config = attempts[attempt_index][0]
             safe_message = safe_error_message(
                 error,
                 tuple(user_api_keys.values()) if user_api_keys else (),

@@ -212,6 +212,98 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertNotIn(user_key, "\n".join(progress))
         self.assertIn("<redacted>", "\n".join(progress))
 
+    def test_gemini_timeout_switches_to_configured_siliconflow_key(self):
+        base_config = summary.SummaryConfig(
+            provider="gemini",
+            model="gemini-3.5-flash",
+            request_timeout_seconds=180,
+        )
+        keys = {
+            "gemini": "stored-gemini-user-key",
+            "siliconflow": "stored-silicon-user-key",
+        }
+        created = []
+        attempts = []
+        progress = []
+
+        def fake_create_gateway(config, api_key=None):
+            created.append((config.provider, config.model, api_key))
+            return object()
+
+        def fake_summarize(**kwargs):
+            provider = kwargs["config"].provider
+            attempts.append((provider, kwargs["config"].model))
+            if provider == "gemini":
+                raise summary.SummaryRequestTimeoutError(
+                    f"模拟超时：{keys['gemini']}"
+                )
+            return self._write_success(**kwargs)
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "scripts.gemini_summarizer.SummaryConfig.from_env",
+            return_value=base_config,
+        ), patch(
+            "scripts.gemini_summarizer.create_gateway",
+            side_effect=fake_create_gateway,
+        ), patch(
+            "scripts.gemini_summarizer.summarize_conversation",
+            side_effect=fake_summarize,
+        ):
+            generate_output_bundle(
+                messages=[
+                    {"role": "User", "content": "测试"},
+                    {"role": "AI", "content": "回答"},
+                ],
+                modes={"normal": True},
+                save_dir=Path(temp_dir),
+                api_keys=keys,
+                progress=progress.append,
+            )
+
+        self.assertEqual(
+            [provider for provider, _model in attempts],
+            ["gemini", "siliconflow"],
+        )
+        self.assertEqual(
+            created[1],
+            (
+                "siliconflow",
+                summary.SILICONFLOW_DEFAULT_MODEL,
+                keys["siliconflow"],
+            ),
+        )
+        progress_text = "\n".join(progress)
+        self.assertIn("正在切换到 siliconflow", progress_text)
+        self.assertNotIn(keys["gemini"], progress_text)
+        self.assertNotIn(keys["siliconflow"], progress_text)
+
+    def test_generation_lock_keeps_settings_button_enabled(self):
+        locked_values = []
+        disabled_values = []
+        button_configs = []
+
+        fake_gui = SimpleNamespace(
+            capsule_entry=SimpleNamespace(
+                set_locked=locked_values.append
+            ),
+            card_raw=SimpleNamespace(set_disabled=disabled_values.append),
+            card_normal=SimpleNamespace(set_disabled=disabled_values.append),
+            card_simple=SimpleNamespace(set_disabled=disabled_values.append),
+            card_detailed=SimpleNamespace(set_disabled=disabled_values.append),
+            card_no_login=SimpleNamespace(set_disabled=disabled_values.append),
+            card_need_login=SimpleNamespace(set_disabled=disabled_values.append),
+            api_key_button=SimpleNamespace(config=lambda **kwargs: button_configs.append(kwargs)),
+        )
+
+        AIMemoryGUI._set_inputs_locked(fake_gui, True)
+
+        self.assertEqual(locked_values, [True])
+        self.assertEqual(disabled_values, [True] * 6)
+        self.assertEqual(
+            button_configs,
+            [{"state": "normal", "cursor": "hand2"}],
+        )
+
     def test_user_gemini_key_overrides_environment_key(self):
         base_config = summary.SummaryConfig(
             provider="gemini",

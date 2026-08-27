@@ -22,7 +22,9 @@ from gui.service import (
     _extract_chatgpt_document_card_candidates,
     _extract_deepseek_document_card_candidates,
     _extract_document_candidates,
+    _extract_doubao_ai_document_titles,
     _inject_chatgpt_attachment_names,
+    _normalize_doubao_ai_document_text,
     _rehydrate_chatgpt_conversation,
     _repair_downloaded_text_mojibake,
     DocumentCandidate,
@@ -819,6 +821,42 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(
             candidates[0].reference,
             "tos-cn-i-test/folder/material.docx",
+        )
+
+    def test_only_real_doubao_ai_document_cards_produce_titles(self):
+        html = """
+        <div class="message-item">
+          <div class="product-card-real123">
+            <div class="card-content-info-title-text-real123">在线报告</div>
+            <div>创建时间：07-08 10:06</div>
+          </div>
+          <div class="product-card-other123">
+            <div class="card-content-info-title-text-other123">其他产品</div>
+          </div>
+          <p>普通正文标题：创建时间与在线报告</p>
+        </div>
+        """
+        self.assertEqual(
+            _extract_doubao_ai_document_titles(
+                html, "https://www.doubao.com/thread/example"
+            ),
+            ["在线报告"],
+        )
+        self.assertEqual(
+            _extract_doubao_ai_document_titles(
+                html, "https://example.com/thread/example"
+            ),
+            [],
+        )
+
+    def test_doubao_ai_document_pages_are_deduplicated_and_cleaned(self):
+        self.assertEqual(
+            _normalize_doubao_ai_document_text([
+                "第一段\u200b\n\n\n第二段",
+                "第一段\u200b\n\n\n第二段",
+                "第三段\ufeff",
+            ]),
+            "第一段\n\n第二段\n\n第三段",
         )
 
     def test_doubao_document_candidate_downloads_original_file(self):

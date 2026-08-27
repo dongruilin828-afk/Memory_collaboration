@@ -1345,8 +1345,14 @@ def _prepare_media_asset(
             )
             text = text[:config.text_attachment_chars]
             asset.status = "described"
+            source_description = (
+                "AI 回答中包含文档"
+                if asset.source_role == "assistant"
+                else "用户上传了文档"
+            )
             asset.description = (
-                f"用户上传了文档“{asset.label}”。程序已提取文本，内容是："
+                f"{source_description}“{asset.label}”。"
+                "程序已提取文本，内容是："
                 f"{text or '（空文档）'}"
             )
         except OSError:
@@ -1361,8 +1367,14 @@ def _prepare_media_asset(
         try:
             text = _extract_docx_text(local_path, config.text_attachment_chars)
             asset.status = "described"
+            source_description = (
+                "AI 回答中包含文档"
+                if asset.source_role == "assistant"
+                else "用户上传了文档"
+            )
             asset.description = (
-                f"用户上传了文档“{asset.label}”。程序已安全提取 DOCX 正文，内容是："
+                f"{source_description}“{asset.label}”。"
+                "程序已安全提取 DOCX 正文，内容是："
                 f"{text or '（空文档）'}"
             )
         except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError):
@@ -5378,6 +5390,24 @@ def _render_selected_topic_details(
             lines.extend(["（该主题没有可额外展开的结构化细节。）", ""])
 
 
+def _media_description_for_markdown(asset: dict[str, Any]) -> str:
+    """详细版不重复展开已供总结使用的文档全文。"""
+    description = str(asset.get("description") or "")
+    if asset.get("kind") != "document":
+        return description
+    for marker in (
+        "程序已提取文本，内容是：",
+        "程序已安全提取 DOCX 正文，内容是：",
+    ):
+        if marker in description:
+            prefix = description.split(marker, 1)[0]
+            return (
+                f"{prefix}程序已提取正文供总结使用；"
+                "为避免与原始抓取内容重复，本节不再展开全文。"
+            )
+    return description
+
+
 def render_summary_markdown(
     result: dict[str, Any],
     include_details: bool = False,
@@ -5535,7 +5565,7 @@ def render_summary_markdown(
                     ),
                     f"- 标签：{asset['label']}",
                     f"- 状态：{asset['status']}；{availability}",
-                    f"- 内容说明：{asset['description']}",
+                    f"- 内容说明：{_media_description_for_markdown(asset)}",
                 ])
                 bindings = asset.get("assistant_bindings", [])
                 if not bindings:
