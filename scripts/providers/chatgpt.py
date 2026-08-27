@@ -76,6 +76,55 @@ def _collapse_nested_markdown_fences(text):
     return "".join(cleaned)
 
 
+def _replace_math_with_placeholders(message):
+    """提取 ChatGPT 公式源并以占位符保护，避免 Markdown 转换破坏 LaTeX。"""
+    replacements = {}
+    counter = 0
+
+    def replace(target, latex, display):
+        nonlocal counter
+        latex = str(latex or "").strip()
+        if not latex:
+            return
+        token = f"AIMEMORYMATHPLACEHOLDER{counter:04d}Z"
+        counter += 1
+        replacements[token] = (
+            f"\n\n$$\n{latex}\n$$\n\n" if display else f"${latex}$"
+        )
+        target.replace_with(token)
+
+    # 当前 ChatGPT 把绝大多数公式源放在外层 role=math 节点中。
+    for node in list(message.select('[role="math"][data-math-source]')):
+        style = str(node.get("style") or "").replace(" ", "").lower()
+        display = (
+            node.select_one(".katex-display") is not None
+            or "display:block" in style
+        )
+        replace(node, node.get("data-math-source"), display)
+
+    # 兼容仍使用标准 KaTeX MathML annotation 的旧式公式节点。
+    for annotation in list(
+        message.select('annotation[encoding="application/x-tex"]')
+    ):
+        katex = annotation.find_parent(class_="katex")
+        if katex is None:
+            continue
+        display_container = katex.find_parent(class_="katex-display")
+        replace(
+            display_container or katex,
+            annotation.get_text(),
+            display_container is not None,
+        )
+
+    return replacements
+
+
+def _restore_math_placeholders(text, replacements):
+    for token, latex in replacements.items():
+        text = text.replace(token, latex)
+    return text
+
+
 async def collect_html(page):
     """逐屏收集 ChatGPT 虚拟列表中的消息，避免长对话首尾丢失。"""
     role_selector = WAIT_SELECTOR
@@ -280,6 +329,7 @@ def parse_messages(soup, image_map=None):
     parsed_messages = []
     for msg in chatgpt_messages:
         role = msg.get("data-message-author-role")
+        math_replacements = _replace_math_with_placeholders(msg)
         if role == "user":
             content_parts = []
             message_container = msg.find_parent(
@@ -374,6 +424,9 @@ def parse_messages(soup, image_map=None):
             final_user_text = (
                 "\n\n".join(ordered_parts) if ordered_parts else text
             )
+            final_user_text = _restore_math_placeholders(
+                final_user_text, math_replacements
+            )
             parsed_messages.append({
                 'role': 'User',
                 'content': final_user_text
@@ -403,6 +456,7 @@ def parse_messages(soup, image_map=None):
                 heading_style="ATX"
             ).strip()
             md_text = _collapse_nested_markdown_fences(md_text)
+            md_text = _restore_math_placeholders(md_text, math_replacements)
             parsed_messages.append({'role': 'AI', 'content': md_text})
 
     return parsed_messages

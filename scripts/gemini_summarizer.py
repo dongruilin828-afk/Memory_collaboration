@@ -3904,9 +3904,17 @@ def _message_range(message_ids: list[int]) -> str:
         if message_id == previous + 1:
             previous = message_id
             continue
-        ranges.append(str(start) if start == previous else f'{start}-{previous}')
+        run_length = previous - start + 1
+        if run_length >= 3:
+            ranges.append(f'{start}~{previous}')
+        else:
+            ranges.extend(str(value) for value in range(start, previous + 1))
         start = previous = message_id
-    ranges.append(str(start) if start == previous else f'{start}-{previous}')
+    run_length = previous - start + 1
+    if run_length >= 3:
+        ranges.append(f'{start}~{previous}')
+    else:
+        ranges.extend(str(value) for value in range(start, previous + 1))
     return ', '.join(ranges)
 
 
@@ -5143,9 +5151,7 @@ TYPE_LABELS = {
 def _claim_text(claim: dict[str, Any]) -> str:
     source = SOURCE_LABELS.get(claim.get("source"), claim.get("source", "未知"))
     status = STATUS_LABELS.get(claim.get("status"), claim.get("status", "未知"))
-    messages = ", ".join(
-        str(value) for value in claim.get("message_ids", [])
-    ) or "无"
+    messages = _message_range(claim.get("message_ids", [])) or "无"
     return (
         f"{claim.get('content', '未明确')} "
         f"`[来源：{source}｜状态：{status}｜消息：{messages}]`"
@@ -5348,9 +5354,7 @@ def _render_selected_topic_details(
             ]
 
         lines.extend([f"### {topic['title']}", ""])
-        message_label = ", ".join(
-            str(value) for value in sorted(topic_message_ids)
-        ) or "未标注"
+        message_label = _message_range(sorted(topic_message_ids)) or "未标注"
         lines.extend([f"- 主题来源消息：{message_label}", ""])
 
         if topic_memories:
@@ -5362,9 +5366,9 @@ def _render_selected_topic_details(
                 status = STATUS_LABELS.get(
                     item.get("status"), item.get("status", "未知")
                 )
-                item_messages = ", ".join(
-                    str(value) for value in item.get("message_ids", [])
-                ) or "未标注"
+                item_messages = (
+                    _message_range(item.get("message_ids", [])) or "未标注"
+                )
                 lines.append(
                     f"- **{item.get('topic') or topic['title']}**："
                     f"{item.get('content') or '（无）'} "
@@ -5467,9 +5471,10 @@ def render_summary_markdown(
         lines.extend(["（没有需要单独拆分的历史主题。）", ""])
     else:
         for topic in topics:
-            message_ids = ", ".join(
-                str(value) for value in topic.get("source_message_ids", [])
-            ) or "未标注"
+            message_ids = (
+                _message_range(topic.get("source_message_ids", []))
+                or "未标注"
+            )
             lines.extend([
                 f"### {topic['title']}",
                 "",
@@ -5517,9 +5522,9 @@ def render_summary_markdown(
         for item in memories:
             source = SOURCE_LABELS.get(item["source"], item["source"])
             status = STATUS_LABELS.get(item["status"], item["status"])
-            message_ids = ", ".join(
-                str(value) for value in item.get("message_ids", [])
-            ) or "未标注"
+            message_ids = (
+                _message_range(item.get("message_ids", [])) or "未标注"
+            )
             lines.append(
                 f"- **{item['memory_id']}｜{item['topic']}**："
                 f"{item['content']} "
@@ -5985,9 +5990,7 @@ def _append_claims(
 
 
 def _message_label(record: dict[str, Any]) -> str:
-    return ", ".join(
-        str(value) for value in record.get("message_ids", [])
-    ) or "未标注"
+    return _message_range(record.get("message_ids", [])) or "未标注"
 
 
 def _render_programming_records(

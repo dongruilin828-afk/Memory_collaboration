@@ -756,7 +756,45 @@ class GeminiSummarizerTests(unittest.TestCase):
 
     def test_message_range_is_deterministic(self):
         # message_range 由程序根据消息编号确定性生成。
-        self.assertEqual(summary._message_range([1, 2, 3, 5, 7, 8]), '1-3, 5, 7-8')
+        self.assertEqual(
+            summary._message_range([1, 2, 3, 5, 7, 8]),
+            '1~3, 5, 7, 8'
+        )
+        self.assertEqual(
+            summary._message_range([
+                *range(1, 11), 17, 18, *range(29, 87),
+                *range(89, 187), *range(213, 229), *range(231, 237)
+            ]),
+            '1~10, 17, 18, 29~86, 89~186, 213~228, 231~236'
+        )
+
+    def test_chatgpt_math_nodes_restore_latex_before_markdown_conversion(self):
+        html = r"""
+        <div data-message-author-role="assistant">
+          <p>行内公式
+            <span role="math" data-math-source="n\ge3">
+              <span class="katex">n ≥ 3</span>
+            </span>
+          </p>
+          <span role="math" data-math-source="\boxed{m-n+p}"
+                style="display: block;">
+            <span class="katex-display"><span class="katex">m−n+p</span></span>
+          </span>
+          <span class="katex">
+            <span class="katex-mathml"><math><semantics>
+              <annotation encoding="application/x-tex">\binom{6}{3}</annotation>
+            </semantics></math></span>
+          </span>
+        </div>
+        """
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        )
+        content = messages[0]["content"]
+        self.assertIn(r"$n\ge3$", content)
+        self.assertIn("$$\n\\boxed{m-n+p}\n$$", content)
+        self.assertIn(r"$\binom{6}{3}$", content)
+        self.assertNotIn("m−n+p", content)
 
     def test_upload_placeholder_is_preserved_as_unavailable_document(self):
         messages = [{
