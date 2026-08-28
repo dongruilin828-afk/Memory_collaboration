@@ -367,9 +367,14 @@ def parse_messages(soup, image_map=None):
                     seen_document_names.add(link_text.lower())
 
             # 识别真实的 HTML 文件卡片节点（非纯文本正则）
-            file_cards = message_container.find_all(
+            file_cards = list(message_container.find_all(
                 class_=re.compile(r'file|attachment|document', re.I)
-            )
+            ))
+            # ChatGPT 当前版文件卡片的标题节点不再带 file/attachment 类名。
+            # 仅补充平台稳定使用的真实标题节点，避免扫描普通消息文本。
+            for title in message_container.select("div.truncate.font-semibold"):
+                if title not in file_cards:
+                    file_cards.append(title)
             for card in file_cards:
                 card_text = card.get_text(strip=True)
                 if any(
@@ -381,7 +386,7 @@ def parse_messages(soup, image_map=None):
                 ):
                     # 提炼出真正文件名
                     match = re.search(
-                        r'[\w\-"\u4e00-\u9fa5\“\”]+\.'
+                        r'[\w\-()"\u4e00-\u9fa5\“\”]+\.'
                         r'(?:docx|doc|pdf|txt|md|rtf|xlsx|xls|pptx|ppt|zip|rar|csv)',
                         card_text,
                         re.IGNORECASE

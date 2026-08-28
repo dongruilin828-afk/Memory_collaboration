@@ -16,9 +16,11 @@ from scripts.providers import chatgpt, deepseek, doubao
 class FakeGateway:
     def __init__(self):
         self.calls = []
+        self.prompts = []
 
     def generate_json(self, prompt, schema, media_assets=None):
         self.calls.append((schema, media_assets or []))
+        self.prompts.append((schema, prompt))
         if schema is summary.MEDIA_SCHEMA:
             return {
                 "items": [
@@ -445,6 +447,14 @@ class GeminiSummarizerTests(unittest.TestCase):
 
         self.assertEqual(warnings, [])
         self.assertIn("截图显示一段测试文字", enriched[0]["content"])
+        self.assertIn(
+            "图片要描述主要对象、可读文字、数据/界面和与对话可能有关的信息；"
+            "PDF 要概括主题、关键事实和结论。看不清时 status 使用 unclear。",
+            gateway.prompts[0][1],
+        )
+        self.assertNotIn("extracted_document_text", gateway.prompts[0][1])
+        self.assertIn("- M001：用户上传了一张图片", enriched[0]["content"])
+        self.assertNotIn("｜媒体说明", enriched[0]["content"])
         self.assertEqual(public["access_status"], "available_local")
         self.assertTrue(public["can_reverify"])
         self.assertEqual(public["source_role"], "user")
@@ -672,6 +682,20 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
 
     def test_downloaded_docx_text_is_extracted_safely(self):
+        class DocumentGateway:
+            def __init__(self):
+                self.prompt = ""
+                self.media_assets = []
+
+            def generate_json(self, prompt, schema, media_assets=None):
+                self.prompt = prompt
+                self.media_assets = list(media_assets or [])
+                return {"items": [{
+                    "media_id": "M001",
+                    "description": "这份报告包含两段正文，并提供总结所需信息。",
+                    "status": "described",
+                }]}
+
         document_xml = """<?xml version="1.0" encoding="UTF-8"?>
         <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
           <w:body>
@@ -691,12 +715,161 @@ class GeminiSummarizerTests(unittest.TestCase):
             assets = summary.discover_media(
                 messages, project, project, summary.SummaryConfig()
             )
+            self.assertEqual(assets[0].status, "ready")
+            self.assertIn("附件中的第一段正文", assets[0].extracted_text)
+            self.assertIn("第二段包含总结所需信息", assets[0].extracted_text)
+            gateway = DocumentGateway()
+            warnings = summary.describe_media(
+                assets,
+                gateway,
+                summary.SummaryConfig(),
+                lambda _message: None,
+            )
             self.assertTrue(assets[0].public_dict()["can_reverify"])
 
         self.assertEqual(len(assets), 1)
         self.assertEqual(assets[0].status, "described")
-        self.assertIn("附件中的第一段正文", assets[0].description)
-        self.assertIn("第二段包含总结所需信息", assets[0].description)
+        self.assertEqual(warnings, [])
+        self.assertIn("主要内容为", assets[0].description)
+        self.assertIn("两段正文", assets[0].description)
+        self.assertNotIn("附件中的第一段正文", assets[0].description)
+        self.assertIn("附件中的第一段正文", gateway.prompt)
+        self.assertEqual(gateway.media_assets, [])
+        self.assertNotIn("extracted_text", assets[0].public_dict())
+
+    def test_text_document_is_summarized_before_conversation_chunks(self):
+        class PipelineGateway(FakeGateway):
+            def __init__(self):
+                super().__init__()
+                self.captured_prompts = []
+
+            def generate_json(self, prompt, schema, media_assets=None):
+                self.captured_prompts.append(
+                    (schema, prompt, list(media_assets or []))
+                )
+                if schema is summary.MEDIA_SCHEMA:
+                    return {"items": [{
+                        "media_id": "M001",
+                        "description": (
+                            "这是一份旧对话记录，涉及英语词汇和部署案例；"
+                            "它在本次对话中仅作为待审查附件。"
+                        ),
+                        "status": "described",
+                    }]}
+                return super().generate_json(prompt, schema, media_assets)
+
+        raw_only_marker = "ATTACHMENT_RAW_ONLY_MARKER"
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            document = project / "历史记录.md"
+            document.write_text(
+                "# 英语词汇\n\n" + raw_only_marker + "\n\n# 部署任务",
+                encoding="utf-8",
+            )
+            messages = [{
+                "role": "User",
+                "content": "[历史记录.md](./历史记录.md)\n请比较这份文件的总结质量",
+            }, {
+                "role": "AI",
+                "content": "已比较文件结构和状态标注。",
+            }]
+            gateway = PipelineGateway()
+            summary.summarize_conversation(
+                messages,
+                project_dir=project,
+                source_dir=project,
+                source_name="test.md",
+                output_json=project / "result.json",
+                output_markdown=project / "result.md",
+                config=summary.SummaryConfig(),
+                gateway=gateway,
+                progress=lambda _message: None,
+            )
+
+        media_prompts = [
+            prompt for schema, prompt, _assets in gateway.captured_prompts
+            if schema is summary.MEDIA_SCHEMA
+        ]
+        chunk_prompts = [
+            prompt for schema, prompt, _assets in gateway.captured_prompts
+            if schema is summary.CHUNK_SCHEMA
+        ]
+        final_prompts = [
+            prompt for schema, prompt, _assets in gateway.captured_prompts
+            if schema is summary.FINAL_SCHEMA
+        ]
+        self.assertEqual(len(media_prompts), 1)
+        self.assertIn(raw_only_marker, media_prompts[0])
+        self.assertTrue(chunk_prompts)
+        self.assertTrue(final_prompts)
+        self.assertTrue(all(raw_only_marker not in prompt for prompt in chunk_prompts))
+        self.assertTrue(all(raw_only_marker not in prompt for prompt in final_prompts))
+        self.assertIn("附件上下文（不是独立对话主题）", chunk_prompts[0])
+        self.assertIn("不得把文档内部", chunk_prompts[0])
+        self.assertIn("AI 对附件内部子主题的逐项复述", chunk_prompts[0])
+        self.assertIn("文档摘要中的内部章节", final_prompts[0])
+        self.assertIn("上一 AI 在识别、概括、总结或审查附件时", final_prompts[0])
+
+    def test_attachment_content_cannot_create_language_topic(self):
+        memories = [
+            {
+                "memory_id": "M1", "topic": "文档识别与内容概括",
+                "content": "附件记录了庄园英文翻译和其他历史问答。",
+                "memory_type": "fact", "source": "attachment",
+                "message_ids": [1],
+            },
+            {
+                "memory_id": "M2", "topic": "文档识别与内容概括",
+                "content": "AI 对两份文档进行了识别和结构化概括。",
+                "memory_type": "verification", "source": "assistant",
+                "message_ids": [2],
+            },
+            {
+                "memory_id": "M3", "topic": "军训衣服丢失处理",
+                "content": "用户询问军训衣服丢了怎么办。",
+                "memory_type": "user_condition", "source": "user",
+                "message_ids": [3],
+            },
+            {
+                "memory_id": "M4", "topic": "军训衣服丢失处理",
+                "content": "AI 给出了寻找和补购军训服的建议。",
+                "memory_type": "assistant_suggestion", "source": "assistant",
+                "message_ids": [4],
+            },
+        ]
+        topics = [
+            {
+                "title": "英语词汇、翻译与表达学习",
+                "memory_ids": ["M1", "M3"],
+                "source_message_ids": [1, 2, 3, 4],
+            },
+            {
+                "title": "文档识别与内容概括",
+                "memory_ids": ["M2"], "source_message_ids": [1, 2],
+            },
+            {
+                "title": "军训衣服丢失处理",
+                "memory_ids": ["M4"], "source_message_ids": [3, 4],
+            },
+        ]
+
+        normalized = summary._normalize_topic_assignments(
+            topics, memories, message_count=4
+        )
+
+        self.assertFalse(any(
+            topic["title"] == "英语词汇、翻译与表达学习"
+            for topic in normalized
+        ))
+        by_title = {topic["title"]: topic for topic in normalized}
+        self.assertEqual(
+            set(by_title["文档识别与内容概括"]["memory_ids"]),
+            {"M1", "M2"},
+        )
+        self.assertEqual(
+            set(by_title["军训衣服丢失处理"]["memory_ids"]),
+            {"M3", "M4"},
+        )
 
     def test_platform_parsers_use_downloaded_document_links(self):
         local_reference = "./result_files/report.docx"
@@ -954,6 +1127,28 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertIn("Harry Potter_translated.pdf", messages[0]["content"])
         self.assertNotIn("[上传文档]", messages[0]["content"])
 
+    def test_chatgpt_parenthesized_file_card_uses_downloaded_local_file(self):
+        html = """
+        <div data-testid="conversation-turn-0">
+          <div data-message-author-role="user" data-message-id="m0">
+            <div class="truncate font-semibold">fuckk(1).md</div>
+            <div>文件</div>
+            <div>忘记 haiku，重新比较</div>
+          </div>
+        </div>
+        """
+        local_reference = "./files/fuckk%281%29.md"
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"fuckk(1).md": local_reference},
+        )
+        self.assertEqual(len(messages), 1)
+        self.assertIn(
+            f"[📄 fuckk(1).md]({local_reference})",
+            messages[0]["content"],
+        )
+        self.assertIn("忘记 haiku，重新比较", messages[0]["content"])
+
     def test_doubao_document_covers_are_not_user_images(self):
         html = """
         <div class="message-item justify-end">
@@ -1007,6 +1202,15 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertIn(local_reference, messages[0]["content"])
 
     def test_saved_doubao_ai_document_is_read_with_assistant_attribution(self):
+        class DocumentGateway:
+            def generate_json(self, _prompt, _schema, media_assets=None):
+                self.media_assets = list(media_assets or [])
+                return {"items": [{
+                    "media_id": "M001",
+                    "description": "这是一份由 AI 生成的在线报告。",
+                    "status": "described",
+                }]}
+
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             files = root / "result_files"
@@ -1027,12 +1231,23 @@ output = "Harry Potter_translated.pdf"</pre>
                 root,
                 summary.SummaryConfig(),
             )
+            self.assertEqual(assets[0].status, "ready")
+            self.assertIn("AI 生成的正文内容", assets[0].extracted_text)
+            gateway = DocumentGateway()
+            summary.describe_media(
+                assets,
+                gateway,
+                summary.SummaryConfig(),
+                lambda _message: None,
+            )
 
         self.assertEqual(len(assets), 1)
         self.assertEqual(assets[0].source_role, "assistant")
         self.assertEqual(assets[0].status, "described")
         self.assertIn("AI 回答中包含文档", assets[0].description)
-        self.assertIn("AI 生成的正文内容", assets[0].description)
+        self.assertIn("AI 生成的在线报告", assets[0].description)
+        self.assertNotIn("AI 生成的正文内容", assets[0].description)
+        self.assertEqual(gateway.media_assets, [])
 
     def test_doubao_ai_images_drop_empty_placeholders_and_repeated_ui_icons(self):
         placeholder = (

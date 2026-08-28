@@ -44,3 +44,6 @@ log/*
 !tests/test_*.py
 !gui/test_gui_service.py
 summary_results/
+
+# 用于 agent
+agents.md
