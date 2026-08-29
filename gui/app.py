@@ -1192,7 +1192,7 @@ class AIMemoryGUI:
         dialog = tk.Toplevel(self.root)
         self._api_key_dialog = dialog
         dialog.title("API KEY 设置")
-        dialog.geometry("540x350")
+        dialog.geometry("540x390")
         dialog.resizable(False, False)
         dialog.configure(bg="#F8FAFC")
         dialog.transient(self.root)
@@ -1261,6 +1261,7 @@ class AIMemoryGUI:
         silicon_var = tk.StringVar(
             value=existing_keys.get("siliconflow", "")
         )
+        deepseek_var = tk.StringVar(value=existing_keys.get("deepseek", ""))
 
         tk.Label(
             fields,
@@ -1303,6 +1304,26 @@ class AIMemoryGUI:
         silicon_entry.grid(row=1, column=1, sticky="ew", pady=7, ipady=5)
 
         tk.Label(
+            fields,
+            text="DeepSeek：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=2, column=0, sticky="w", padx=(0, 12), pady=7)
+        deepseek_entry = tk.Entry(
+            fields,
+            textvariable=deepseek_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        deepseek_entry.grid(row=2, column=1, sticky="ew", pady=7, ipady=5)
+
+        tk.Label(
             panel,
             text=(
                 "密钥仅保存到当前 Windows 用户的凭据管理器，不写入项目文件、"
@@ -1318,6 +1339,7 @@ class AIMemoryGUI:
         def close_dialog():
             gemini_var.set("")
             silicon_var.set("")
+            deepseek_var.set("")
             self._api_key_dialog = None
             try:
                 dialog.grab_release()
@@ -1329,6 +1351,7 @@ class AIMemoryGUI:
             keys = {
                 "gemini": gemini_var.get().strip(),
                 "siliconflow": silicon_var.get().strip(),
+                "deepseek": deepseek_var.get().strip(),
             }
             if require_key and not any(keys.values()):
                 show_notice("请先配置 API KEY")
@@ -1374,9 +1397,9 @@ class AIMemoryGUI:
         dialog.bind("<Return>", lambda _event: save_keys())
         dialog.update_idletasks()
         x = self.root.winfo_rootx() + (self.root.winfo_width() - 540) // 2
-        y = self.root.winfo_rooty() + (self.root.winfo_height() - 350) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - 390) // 2
         dialog.geometry(
-            f"540x350+{max(0, x)}+{max(0, y)}"
+            f"540x390+{max(0, x)}+{max(0, y)}"
         )
 
         dialog.grab_set()
@@ -1446,6 +1469,7 @@ class AIMemoryGUI:
         silicon_var = tk.StringVar(
             value=existing_keys.get("siliconflow", "")
         )
+        deepseek_var = tk.StringVar(value=existing_keys.get("deepseek", ""))
         settings = self.app_settings
         runtime_var = tk.StringVar(value=str(settings.runtime_data_dir))
         results_var = tk.StringVar(
@@ -1530,6 +1554,25 @@ class AIMemoryGUI:
             highlightbackground="#CBD5E1",
         )
         silicon_entry.grid(row=1, column=1, sticky="ew", pady=7, ipady=5)
+        tk.Label(
+            key_fields,
+            text="DeepSeek：",
+            font=("Microsoft YaHei", 10, "bold"),
+            foreground="#334155",
+            bg="#FFFFFF",
+        ).grid(row=2, column=0, sticky="w", padx=(0, 12), pady=7)
+        deepseek_entry = tk.Entry(
+            key_fields,
+            textvariable=deepseek_var,
+            show="●",
+            font=("Microsoft YaHei", 10),
+            relief=tk.SOLID,
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#60A5FA",
+            highlightbackground="#CBD5E1",
+        )
+        deepseek_entry.grid(row=2, column=1, sticky="ew", pady=7, ipady=5)
         tk.Label(
             api_page,
             text=(
@@ -1675,6 +1718,7 @@ class AIMemoryGUI:
         def close_dialog():
             gemini_var.set("")
             silicon_var.set("")
+            deepseek_var.set("")
             self._settings_dialog = None
             self._api_key_dialog = None
             try:
@@ -1687,6 +1731,7 @@ class AIMemoryGUI:
             keys = {
                 "gemini": gemini_var.get().strip(),
                 "siliconflow": silicon_var.get().strip(),
+                "deepseek": deepseek_var.get().strip(),
             }
             if require_key and not any(keys.values()):
                 show_notice("请先配置 API KEY")
@@ -1802,14 +1847,14 @@ class AIMemoryGUI:
         )
 
     def _on_url_changed(self):
-        """账号内会话地址仅提示复用登录态，不改动用户的界面选择。"""
+        """账号内会话地址仅提示后台复用登录态，不改动用户选择。"""
         url = self.capsule_entry.get_text()
         if (
             requires_authenticated_browser(url)
             and hasattr(self, "card_need_login")
         ):
             self.status_var.set(
-                "检测到账号内对话链接，将优先复用已保存的登录状态。"
+                "检测到账号内对话链接，将先在后台复用已保存的登录状态。"
             )
         self._update_generate_button_state()
     def _update_generate_button_state(self):
@@ -1842,8 +1887,6 @@ class AIMemoryGUI:
             return
 
         need_login = self.card_need_login.checked
-        if requires_authenticated_browser(url):
-            need_login = True
         modes = {
             "raw": self.card_raw.checked,
             "normal": self.card_normal.checked,
@@ -2214,13 +2257,13 @@ class AIMemoryGUI:
                 fetch_chat_pipeline(
                     url=url,
                     need_login=need_login,
-                    login_ready_event=login_event if need_login else None,
+                    login_ready_event=login_event,
                     login_required_callback=(
                         lambda: self.root.after(
                             0,
                             lambda: self._show_login_dialog(loop, login_event),
                         )
-                    ) if need_login else None,
+                    ),
                     logger=lambda m: update_progress(0.28, m),
                     image_output_dir=image_output_dir,
                     image_reference_base=save_dir,

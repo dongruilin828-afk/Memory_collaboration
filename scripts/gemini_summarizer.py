@@ -27,6 +27,8 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash"
 SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3.5-397B-A17B"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
+DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-pro"
+DEEPSEEK_API_BASE = "https://api.deepseek.com"
 SUMMARY_DIRNAME = "results/summary"
 DETAILED_SUMMARY_DIRNAME = "results/summary_detailed"
 DEFAULT_CHUNK_CHARS = 24_000
@@ -545,21 +547,23 @@ class SummaryConfig:
             or os.getenv("GEMINI_MODEL") or ""
         ).strip()
         if not provider:
-            provider = (
-                "siliconflow"
-                if model.lower().startswith(("qwen/", "deepseek-ai/"))
-                else DEFAULT_PROVIDER
-            )
-        if provider not in {"gemini", "siliconflow"}:
+            lowered_model = model.lower()
+            if lowered_model.startswith("deepseek-"):
+                provider = "deepseek"
+            elif lowered_model.startswith(("qwen/", "deepseek-ai/")):
+                provider = "siliconflow"
+            else:
+                provider = DEFAULT_PROVIDER
+        if provider not in {"gemini", "siliconflow", "deepseek"}:
             raise GeminiSummaryError(
-                "SUMMARY_PROVIDER 只能是 gemini 或 siliconflow。"
+                "SUMMARY_PROVIDER 只能是 gemini、siliconflow 或 deepseek。"
             )
         if not model:
-            model = (
-                SILICONFLOW_DEFAULT_MODEL
-                if provider == "siliconflow"
-                else DEFAULT_MODEL
-            )
+            model = {
+                "gemini": DEFAULT_MODEL,
+                "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+                "deepseek": DEEPSEEK_DEFAULT_MODEL,
+            }[provider]
         thinking_level = (
             os.getenv("GEMINI_THINKING_LEVEL") or DEFAULT_THINKING_LEVEL
         ).strip().lower()
@@ -673,7 +677,8 @@ def safe_error_message(
     known_secrets = [
         os.getenv(variable) or ""
         for variable in (
-            "GEMINI_API_KEY", "Silicon_API_KEY", "SILICONFLOW_API_KEY"
+            "GEMINI_API_KEY", "Silicon_API_KEY", "SILICONFLOW_API_KEY",
+            "DEEPSEEK_API_KEY",
         )
     ]
     known_secrets.extend(str(secret or "").strip() for secret in secrets)
@@ -846,9 +851,9 @@ class SummaryGateway(Protocol):
     ) -> dict[str, Any]: ...
 
 
-class _SiliconFlowHTTPError(RuntimeError):
-    def __init__(self, code: int, status: str = ""):
-        super().__init__(f"SiliconFlow HTTP {code}")
+class _OpenAICompatibleHTTPError(RuntimeError):
+    def __init__(self, provider_name: str, code: int, status: str = ""):
+        super().__init__(f"{provider_name} HTTP {code}")
         self.status_code = code
         self.code = code
         self.status = status
@@ -873,7 +878,7 @@ def _parse_json_object(text: str) -> dict[str, Any]:
 
 
 class SiliconFlowGateway:
-    """SiliconFlow OpenAI 兼容接口的窄封装。"""
+    """SiliconFlow/DeepSeek OpenAI 兼容接口的窄封装。"""
 
     def __init__(
         self,
@@ -881,22 +886,27 @@ class SiliconFlowGateway:
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
     ):
-        api_key = str(
-            api_key
-            or os.getenv("Silicon_API_KEY")
-            or os.getenv("SILICONFLOW_API_KEY")
-            or ""
-        ).strip()
+        if config.provider == "deepseek":
+            provider_name = "DeepSeek"
+            environment_key = os.getenv("DEEPSEEK_API_KEY")
+            api_base = os.getenv("DEEPSEEK_API_BASE", DEEPSEEK_API_BASE)
+        else:
+            provider_name = "SiliconFlow"
+            environment_key = (
+                os.getenv("Silicon_API_KEY")
+                or os.getenv("SILICONFLOW_API_KEY")
+            )
+            api_base = os.getenv("SILICONFLOW_API_BASE", SILICONFLOW_API_BASE)
+        api_key = str(api_key or environment_key or "").strip()
         if not api_key:
             raise GeminiSummaryError(
-                "未检测到 Silicon_API_KEY 环境变量。"
+                f"未检测到 {provider_name} API KEY。"
             )
         self.config = config
         self._api_key = api_key
         self._sleep = sleep
-        self._api_base = os.getenv(
-            "SILICONFLOW_API_BASE", SILICONFLOW_API_BASE
-        ).rstrip("/")
+        self._api_base = api_base.rstrip("/")
+        self._provider_name = provider_name
 
     def generate_json(
         self,
@@ -938,25 +948,39 @@ class SiliconFlowGateway:
                 ])
             user_content = content_parts
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.config.model,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
                 {"role": "user", "content": user_content}
             ],
-            "response_format": {
+            "temperature": 0.1,
+            "max_tokens": self.config.max_output_tokens,
+            "stream": False
+        }
+        if self.config.provider == "deepseek":
+            payload.update({
+                "response_format": {"type": "json_object"},
+                "reasoning_effort": (
+                    "low"
+                    if self.config.thinking_level == "minimal"
+                    else self.config.thinking_level
+                ),
+                "thinking": {"type": "enabled"},
+            })
+        else:
+            payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "summary_response",
                     "strict": True,
                     "schema": schema
                 }
-            },
-            "temperature": 0.1,
-            "max_tokens": self.config.max_output_tokens,
-            "stream": False
-        }
-        if "qwen3.5" in self.config.model.lower():
+            }
+        if (
+            self.config.provider == "siliconflow"
+            and "qwen3.5" in self.config.model.lower()
+        ):
             payload["enable_thinking"] = True
             payload["thinking_budget"] = min(
                 4096, max(128, self.config.max_output_tokens // 3)
@@ -983,7 +1007,9 @@ class SiliconFlowGateway:
                 content = response_data["choices"][0]["message"]["content"]
                 return _parse_json_object(content)
             except HTTPError as error:
-                last_error = _SiliconFlowHTTPError(error.code)
+                last_error = _OpenAICompatibleHTTPError(
+                    self._provider_name, error.code
+                )
             except (URLError, TimeoutError) as error:
                 last_error = error
             except Exception as error:
@@ -999,7 +1025,7 @@ class SiliconFlowGateway:
 
         if _is_timeout_error(last_error):
             raise SummaryRequestTimeoutError(
-                "SiliconFlow API 单次请求超过 "
+                f"{self._provider_name} API 单次请求超过 "
                 f"{self.config.request_timeout_seconds} 秒，已停止等待；"
                 "已完成的媒体和分块进度会保留，可稍后重试。"
             )
@@ -1007,7 +1033,7 @@ class SiliconFlowGateway:
         code = getattr(last_error, "status_code", None)
         hint = f", code={code}" if code else ""
         raise GeminiSummaryError(
-            f"SiliconFlow API 连续 {self.config.retries} 次调用失败"
+            f"{self._provider_name} API 连续 {self.config.retries} 次调用失败"
             f"（{error_type}{hint}）。请检查网络、额度和模型配置。"
         )
 
@@ -1016,7 +1042,7 @@ def create_gateway(
     config: SummaryConfig,
     api_key: str | None = None,
 ) -> SummaryGateway:
-    if config.provider == "siliconflow":
+    if config.provider in {"siliconflow", "deepseek"}:
         return SiliconFlowGateway(config, api_key=api_key)
     return GeminiGateway(config, api_key=api_key)
 
@@ -5684,7 +5710,8 @@ def _detail_topic_key(topic: Any) -> str:
     for word in (
         "用户", "ai", "问题", "原因", "修复", "建议", "方案", "完整",
         "提供", "记录", "结论", "结果", "分析", "说明", "作答", "润色",
-        "内容", "核心", "大学", "条件", "更新", "估算", "用电量", "用电"
+        "内容", "核心", "大学", "条件", "更新", "概括", "应对", "处理", "与",
+        "估算", "用电量", "用电"
     ):
         text = text.replace(word, "")
     return text or str(topic or "未分类")
@@ -5786,11 +5813,6 @@ def _is_vocabulary_memory(
     }:
         return False
     if any(marker in text for marker in (
-        "单词", "词汇", "英文", "英语", "翻译", "近义词", "语法",
-        "句意", "介词"
-    )):
-        return True
-    if any(marker in text for marker in (
         "python", "future.result", "threadpoolexecutor", "并发报错",
         "代码现状", "程序运行", "脚本实现", "api 调用", "函数实现",
         "解析器", "异常堆栈",
@@ -5802,6 +5824,11 @@ def _is_vocabulary_memory(
         "未来三年", "大学生活", "健康跑", "辅导员", "请审信"
     )):
         return False
+    if any(marker in text for marker in (
+        "单词", "词汇", "英文", "英语", "翻译", "近义词", "语法",
+        "句意", "介词"
+    )):
+        return True
     if any(marker in text for marker in ("含义", "用法")):
         return True
     if language_heavy and "术语解释" in text:

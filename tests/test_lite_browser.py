@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from gui.service import (
     BROWSER_MODE_ENV,
     browser_channel_candidates,
+    fetch_chat_pipeline,
     launch_browser_context,
 )
 
@@ -91,3 +93,79 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
             await self._launch(chromium, "lite")
 
         self.assertNotIn("sensitive failure", str(raised.exception))
+
+    async def test_chatgpt_private_url_starts_minimized_and_only_restores_for_login(self):
+        class FakePage:
+            def on(self, *_args):
+                pass
+
+            async def wait_for_timeout(self, _milliseconds):
+                pass
+
+            async def content(self):
+                raise RuntimeError("stop after login-mode check")
+
+        class FakeContext:
+            def __init__(self):
+                self.pages = [FakePage()]
+
+            async def close(self):
+                pass
+
+        class FakePlaywrightManager:
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, *_args):
+                return False
+
+        for content_states, expected_callback in (
+            ((True,), 0),
+            ((False,), 1),
+        ):
+            with self.subTest(content_states=content_states):
+                contexts = [FakeContext()]
+                callback = Mock()
+                login_event = asyncio.Event()
+                login_event.set()
+                launcher = AsyncMock(side_effect=[
+                    (context, "chromium") for context in contexts
+                ])
+                with patch(
+                    "gui.service.async_playwright",
+                    return_value=FakePlaywrightManager(),
+                ), patch(
+                    "gui.service.launch_browser_context",
+                    new=launcher,
+                ), patch(
+                    "gui.service.goto_with_retry_gui",
+                    new=AsyncMock(),
+                ), patch(
+                    "gui.service._drain_response_tasks",
+                    new=AsyncMock(),
+                ), patch(
+                    "gui.service._page_has_conversation_content",
+                    new=AsyncMock(side_effect=content_states),
+                ), patch(
+                    "gui.service._set_browser_window_state",
+                    new=AsyncMock(),
+                ):
+                    await fetch_chat_pipeline(
+                        "https://chatgpt.com/c/"
+                        "11111111-2222-3333-4444-555555555555",
+                        need_login=False,
+                        login_ready_event=login_event,
+                        login_required_callback=callback,
+                    )
+
+                self.assertEqual(
+                    [
+                        call.kwargs["headless"]
+                        for call in launcher.await_args_list
+                    ],
+                    [False],
+                )
+                self.assertTrue(
+                    launcher.await_args_list[0].kwargs["start_minimized"]
+                )
+                self.assertEqual(callback.call_count, expected_callback)

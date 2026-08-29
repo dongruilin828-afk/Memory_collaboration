@@ -14,6 +14,7 @@ SERVICE_NAME = "AI Memory Summary"
 ACCOUNT_NAMES = {
     "gemini": "gemini-api-key",
     "siliconflow": "siliconflow-api-key",
+    "deepseek": "deepseek-api-key",
 }
 
 

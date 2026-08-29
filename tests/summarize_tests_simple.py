@@ -13,7 +13,9 @@ from pathlib import Path
 from rich.console import Console
 
 from scripts.gemini_summarizer import (
+    DEEPSEEK_DEFAULT_MODEL,
     SCHEMA_VERSION,
+    SILICONFLOW_DEFAULT_MODEL,
     SummaryConfig,
     create_gateway,
     load_exported_markdown,
@@ -52,7 +54,9 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="复用普通版结构化结果，生成只含总览的极简版总结。"
     )
-    parser.add_argument("--provider", choices=("gemini", "siliconflow"))
+    parser.add_argument(
+        "--provider", choices=("gemini", "siliconflow", "deepseek")
+    )
     parser.add_argument("--model")
     parser.add_argument(
         "--resume", action="store_true", help="跳过已经存在的极简版文件"
@@ -88,8 +92,17 @@ def model_candidates(base: SummaryConfig) -> list[SummaryConfig]:
             provider="siliconflow",
             model=os.getenv(
                 "SUMMARY_SIMPLE_SILICON_MODEL",
-                "Qwen/Qwen3.5-397B-A17B"
+                SILICONFLOW_DEFAULT_MODEL,
             )
+        ))
+    if os.getenv("DEEPSEEK_API_KEY"):
+        candidates.append(replace(
+            base,
+            provider="deepseek",
+            model=os.getenv(
+                "SUMMARY_SIMPLE_DEEPSEEK_MODEL",
+                DEEPSEEK_DEFAULT_MODEL,
+            ),
         ))
     return candidates
 

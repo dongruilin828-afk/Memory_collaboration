@@ -33,7 +33,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--provider",
-        choices=("gemini", "siliconflow"),
+        choices=("gemini", "siliconflow", "deepseek"),
         help="总结后端；默认读取 SUMMARY_PROVIDER 或使用 Gemini"
     )
     parser.add_argument(

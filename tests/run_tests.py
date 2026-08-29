@@ -478,7 +478,7 @@ if __name__ == "__main__":
 
     argument_parser.add_argument(
         "--provider",
-        choices=("gemini", "siliconflow"),
+        choices=("gemini", "siliconflow", "deepseek"),
         help="总结后端，仅与 --summarize 配合使用"
     )
 

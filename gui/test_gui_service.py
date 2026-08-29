@@ -953,8 +953,13 @@ class GUIServiceTests(unittest.TestCase):
 
         page = FakePage()
         url = "https://chatgpt.com/c/conversation-id"
-        asyncio.run(_rehydrate_chatgpt_conversation(page, url))
+        with patch("gui.service._set_browser_window_state") as set_state:
+            asyncio.run(_rehydrate_chatgpt_conversation(page, url))
         self.assertEqual(page.visited, ["https://chatgpt.com/", url])
+        self.assertTrue(set_state.await_count >= 3)
+        self.assertTrue(all(
+            call.args[1] == "minimized" for call in set_state.await_args_list
+        ))
 
     def test_chatgpt_download_credential_accepts_only_safe_public_url(self):
         self.assertEqual(

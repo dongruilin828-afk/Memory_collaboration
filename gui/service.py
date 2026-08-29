@@ -325,7 +325,7 @@ async def _chatgpt_assets_need_rehydrate(
 
 
 def requires_authenticated_browser(url: str) -> bool:
-    """账号内会话链接必须使用可见浏览器和持久登录态。"""
+    """账号内会话链接需要检测持久登录态。"""
     parsed = urlparse(str(url or "").strip())
     host = parsed.netloc.lower().split(":", 1)[0]
     if host in {"chatgpt.com", "chat.openai.com"}:
@@ -357,6 +357,7 @@ async def launch_browser_context(
     headless: bool,
     viewport: Optional[dict[str, int]],
     no_viewport: bool,
+    start_minimized: bool = False,
     logger: Optional[Callable[[str], None]] = None,
     profile_root: Optional[Path] = None,
 ) -> tuple[Any, str]:
@@ -378,6 +379,7 @@ async def launch_browser_context(
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
                     "--no-service-autorun",
+                    *(["--start-minimized"] if start_minimized else []),
                 ],
             )
             if logger:
@@ -400,6 +402,26 @@ async def launch_browser_context(
     if last_error is not None:
         raise last_error
     raise RuntimeError("未能启动浏览器。")
+
+
+async def _set_browser_window_state(page: Any, state: str) -> None:
+    """最小化后台兼容窗口，确需登录时再恢复。"""
+    session = None
+    try:
+        session = await page.context.new_cdp_session(page)
+        window = await session.send("Browser.getWindowForTarget")
+        await session.send("Browser.setWindowBounds", {
+            "windowId": window["windowId"],
+            "bounds": {"windowState": state},
+        })
+    except Exception:
+        pass
+    finally:
+        if session is not None:
+            try:
+                await session.detach()
+            except Exception:
+                pass
 
 
 @dataclass
@@ -597,35 +619,34 @@ def resolve_gui_summary_config(
     base_config: Any,
     api_keys: Mapping[str, str],
 ) -> Any:
-    """按已配置的用户密钥选择提供商，不改变该提供商的模型回退链。"""
+    """按固定优先级选择已配置的用户提供商。"""
     normalized = {
         provider: str(api_keys.get(provider) or "").strip()
-        for provider in ("gemini", "siliconflow")
+        for provider in ("gemini", "siliconflow", "deepseek")
         if str(api_keys.get(provider) or "").strip()
     }
     if not normalized:
         from scripts.gemini_summarizer import GeminiSummaryError
         raise GeminiSummaryError("请先配置API KEY。")
 
-    preferred_provider = (
-        base_config.provider
-        if base_config.provider in normalized
-        else (
-            "gemini" if "gemini" in normalized else "siliconflow"
-        )
+    preferred_provider = next(
+        provider
+        for provider in ("gemini", "siliconflow", "deepseek")
+        if provider in normalized
     )
     if preferred_provider == base_config.provider:
         return base_config
 
     from scripts.gemini_summarizer import (
+        DEEPSEEK_DEFAULT_MODEL,
         DEFAULT_MODEL,
         SILICONFLOW_DEFAULT_MODEL,
     )
-    model = (
-        SILICONFLOW_DEFAULT_MODEL
-        if preferred_provider == "siliconflow"
-        else DEFAULT_MODEL
-    )
+    model = {
+        "gemini": DEFAULT_MODEL,
+        "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+        "deepseek": DEEPSEEK_DEFAULT_MODEL,
+    }[preferred_provider]
     return replace(base_config, provider=preferred_provider, model=model)
 
 
@@ -633,8 +654,9 @@ def gui_summary_attempt_configs(
     base_config: Any,
     api_keys: Mapping[str, str],
 ) -> list[Any]:
-    """按已配置密钥构造跨提供商回退链，首选项仍由基础配置决定。"""
+    """按 Gemini、SiliconFlow、DeepSeek 构造已配置项回退链。"""
     from scripts.gemini_summarizer import (
+        DEEPSEEK_DEFAULT_MODEL,
         DEFAULT_MODEL,
         SILICONFLOW_DEFAULT_MODEL,
     )
@@ -643,11 +665,12 @@ def gui_summary_attempt_configs(
     provider_defaults = {
         "gemini": DEFAULT_MODEL,
         "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+        "deepseek": DEEPSEEK_DEFAULT_MODEL,
     }
-    provider_order = [primary.provider] + [
+    provider_order = [
         provider
-        for provider in ("gemini", "siliconflow")
-        if provider != primary.provider and str(api_keys.get(provider) or "").strip()
+        for provider in ("gemini", "siliconflow", "deepseek")
+        if str(api_keys.get(provider) or "").strip()
     ]
     attempts: list[Any] = []
     seen: set[tuple[str, str]] = set()
@@ -692,18 +715,21 @@ async def _rehydrate_chatgpt_conversation(
     host = parsed.netloc.lower().split(":", 1)[0]
     if host not in {"chatgpt.com", "chat.openai.com"}:
         return
+    await _set_browser_window_state(page, "minimized")
 
     # 只进入空白“新对话”视图，不访问用户的其他历史对话内容。
     try:
         new_chat_links = page.locator("a[href='/']")
         if await new_chat_links.count() > 0:
             await new_chat_links.first.click(force=True, timeout=5000)
+            await _set_browser_window_state(page, "minimized")
             await page.wait_for_timeout(900)
             if urlparse(page.url).path != parsed.path:
                 await page.go_back(
                     wait_until="domcontentloaded",
                     timeout=45000,
                 )
+                await _set_browser_window_state(page, "minimized")
                 await page.wait_for_timeout(900)
                 returned = urlparse(page.url)
                 if (
@@ -716,8 +742,10 @@ async def _rehydrate_chatgpt_conversation(
 
     neutral_url = f"{parsed.scheme or 'https'}://{parsed.netloc}/"
     await page.goto(neutral_url, wait_until="domcontentloaded", timeout=45000)
+    await _set_browser_window_state(page, "minimized")
     await page.wait_for_timeout(700)
     await goto_with_retry_gui(page, conversation_url, logger=logger)
+    await _set_browser_window_state(page, "minimized")
 
 
 def parse_fallback_messages_gui(soup: BeautifulSoup) -> list[dict[str, str]]:
@@ -1467,6 +1495,7 @@ async def _chatgpt_document_card_get(
         "div.truncate.font-semibold",
         has_text=candidate.filename,
     )
+    await _set_browser_window_state(page, "minimized")
     if not await _scroll_to_chatgpt_file_card(page, candidate.filename):
         return None
     try:
@@ -1486,9 +1515,12 @@ async def _chatgpt_document_card_get(
             timeout=min(timeout, 15000),
         ) as response_info:
             await cards.first.click(force=True, timeout=5000)
+            await _set_browser_window_state(page, "minimized")
         return await response_info.value
     except Exception:
         return None
+    finally:
+        await _set_browser_window_state(page, "minimized")
 
 
 def _deepseek_document_card_locator(page: Any, filename: str):
@@ -2079,7 +2111,6 @@ async def fetch_chat_pipeline(
             resolved_images_dir,
             reference_base,
         )
-    headless = not need_login
     if document_output_dir is None:
         resolved_documents_dir = Path(PROJECT_ROOT, "attachments").resolve()
         document_reference_prefix = "./attachments"
@@ -2092,17 +2123,27 @@ async def fetch_chat_pipeline(
             resolved_documents_dir,
             document_base,
         )
-    need_login = bool(need_login or requires_authenticated_browser(url))
-    headless = not need_login
+    requires_login_probe = requires_authenticated_browser(url)
+    requested_host = urlparse(url).netloc.lower().split(":", 1)[0]
+    chatgpt_minimized = (
+        not need_login
+        and requires_login_probe
+        and requested_host in {"chatgpt.com", "chat.openai.com"}
+    )
+    headless = not need_login and not chatgpt_minimized
 
-    viewport_config = None if need_login else {
+    viewport_config = None if need_login or chatgpt_minimized else {
         "width": 1920,
         "height": 10800
     }
 
     if logger:
         if need_login:
-            logger("正在启动浏览器读取已保存的 AI 登录状态...")
+            logger("正在启动浏览器供您登录或读取已保存的登录状态...")
+        elif chatgpt_minimized:
+            logger("正在最小化浏览器中读取已保存的 ChatGPT 登录状态...")
+        elif requires_login_probe:
+            logger("正在后台读取已保存的 AI 登录状态...")
         else:
             logger("正在启动无头浏览器加载分享页...")
 
@@ -2112,11 +2153,14 @@ async def fetch_chat_pipeline(
                 playwright,
                 headless=headless,
                 viewport=viewport_config,
-                no_viewport=need_login,
+                no_viewport=need_login or chatgpt_minimized,
+                start_minimized=chatgpt_minimized,
                 logger=logger,
                 profile_root=browser_profile_root,
             )
             page = context.pages[0] if context.pages else await context.new_page()
+            if chatgpt_minimized:
+                await _set_browser_window_state(page, "minimized")
             response_document_candidates: list[DocumentCandidate] = []
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
@@ -2156,7 +2200,7 @@ async def fetch_chat_pipeline(
                     logger(f"正在加载 {host} 分享页...")
                 await goto_with_retry_gui(page, url, logger=logger)
 
-                if need_login:
+                if need_login or requires_login_probe:
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
                     content_ready = (
@@ -2164,32 +2208,89 @@ async def fetch_chat_pipeline(
                         or bool(authorized_content_responses)
                     )
                     if content_ready:
+                        if requested_host in {"chatgpt.com", "chat.openai.com"}:
+                            await _set_browser_window_state(page, "minimized")
                         if logger:
                             logger("已复用此前保存的登录状态，无需重复授权。")
                     else:
-                        if logger:
-                            logger(
-                                "当前登录状态无法读取该会话，请在浏览器中登录后"
-                                "点击【登录完毕】..."
+                        if not need_login and not chatgpt_minimized:
+                            if logger:
+                                logger(
+                                    "该平台无法在无界面模式读取会话，"
+                                    "正在最小化浏览器中继续尝试..."
+                                )
+                            await _close_browser_context_safely(
+                                context, fetch_warnings, logger
                             )
-                        if login_required_callback is not None:
-                            login_required_callback()
-                        if login_ready_event:
-                            login_wait_started = time.perf_counter()
-                            await login_ready_event.wait()
-                            user_wait_seconds += (
-                                time.perf_counter() - login_wait_started
+                            context, _browser_channel = (
+                                await launch_browser_context(
+                                    playwright,
+                                    headless=False,
+                                    viewport=None,
+                                    no_viewport=True,
+                                    start_minimized=True,
+                                    logger=logger,
+                                    profile_root=browser_profile_root,
+                                )
                             )
-                        if logger:
-                            logger("登录确认完毕，正在继续抓取对话数据...")
-                        await page.wait_for_timeout(1200)
+                            page = (
+                                context.pages[0]
+                                if context.pages
+                                else await context.new_page()
+                            )
+                            await _set_browser_window_state(page, "minimized")
+                            page.on("response", capture_response_assets)
+                            await goto_with_retry_gui(page, url, logger=logger)
+                            await page.wait_for_timeout(1800)
+                            await _drain_response_tasks(response_tasks)
+                            content_ready = (
+                                await _page_has_conversation_content(page, url)
+                                or bool(authorized_content_responses)
+                            )
+                            if content_ready:
+                                if logger:
+                                    logger(
+                                        "已在最小化浏览器中复用登录状态，"
+                                        "无需重复授权。"
+                                    )
+                            else:
+                                need_login = True
+                                await _set_browser_window_state(page, "normal")
+                        elif not need_login:
+                            need_login = True
+                            await _set_browser_window_state(page, "normal")
+                        if not content_ready:
+                            if logger:
+                                logger(
+                                    "当前登录状态无法读取该会话，请在浏览器中登录后"
+                                    "点击【登录完毕】..."
+                                )
+                            if login_required_callback is not None:
+                                login_required_callback()
+                            if login_ready_event:
+                                login_wait_started = time.perf_counter()
+                                await login_ready_event.wait()
+                                user_wait_seconds += (
+                                    time.perf_counter() - login_wait_started
+                                )
+                            if logger:
+                                logger("登录确认完毕，正在继续抓取对话数据...")
+                            await page.wait_for_timeout(1200)
 
-                        # 登录流程可能跳回平台首页；确认后重新打开原始会话。
-                        await goto_with_retry_gui(page, url, logger=logger)
-                        await page.wait_for_timeout(1800)
-                        await _drain_response_tasks(response_tasks)
-                        if logger:
-                            logger("已重新打开原始对话链接，正在读取完整内容...")
+                            # 登录流程可能跳回平台首页；确认后重新打开原始会话。
+                            await goto_with_retry_gui(page, url, logger=logger)
+                            await page.wait_for_timeout(1800)
+                            await _drain_response_tasks(response_tasks)
+                            if requested_host in {
+                                "chatgpt.com", "chat.openai.com"
+                            }:
+                                await _set_browser_window_state(
+                                    page, "minimized"
+                                )
+                            if logger:
+                                logger(
+                                    "已重新打开原始对话链接，正在读取完整内容..."
+                                )
 
                 await page.wait_for_timeout(1000)
                 await _drain_response_tasks(response_tasks)
@@ -2612,7 +2713,7 @@ def generate_output_bundle(
         if api_keys is None
         else {
             provider: str(api_keys.get(provider) or "").strip()
-            for provider in ("gemini", "siliconflow")
+            for provider in ("gemini", "siliconflow", "deepseek")
             if str(api_keys.get(provider) or "").strip()
         }
     )

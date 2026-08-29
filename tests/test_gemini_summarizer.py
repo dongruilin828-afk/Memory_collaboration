@@ -299,6 +299,16 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(config.provider, "siliconflow")
         self.assertEqual(config.model, "Qwen/Qwen3.5-397B-A17B")
 
+    def test_deepseek_provider_is_inferred_from_deepseek_model(self):
+        with patch.dict(
+            os.environ,
+            {"SUMMARY_MODEL": "deepseek-v4-pro"},
+            clear=True,
+        ):
+            config = summary.SummaryConfig.from_env()
+        self.assertEqual(config.provider, "deepseek")
+        self.assertEqual(config.model, "deepseek-v4-pro")
+
     def test_safe_error_message_redacts_siliconflow_key(self):
         secret = "sk-test-silicon-key-that-must-not-leak"
         with patch.dict(os.environ, {"Silicon_API_KEY": secret}, clear=True):
@@ -350,6 +360,60 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
         self.assertTrue(captured["payload"]["enable_thinking"])
         self.assertGreaterEqual(captured["payload"]["thinking_budget"], 128)
+
+    def test_deepseek_gateway_uses_user_key_and_thinking_payload(self):
+        captured = {}
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "choices": [{"message": {"content": "{\"ok\": true}"}}]
+                }).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["authorization"] = request.get_header("Authorization")
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return FakeResponse()
+
+        config = summary.SummaryConfig(
+            provider="deepseek",
+            model=summary.DEEPSEEK_DEFAULT_MODEL,
+            thinking_level="high",
+            retries=1,
+        )
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "developer-environment-key"},
+            clear=True,
+        ), patch.object(summary, "urlopen", side_effect=fake_urlopen):
+            gateway = summary.create_gateway(
+                config, api_key="user-deepseek-key"
+            )
+            result = gateway.generate_json("测试 JSON", {"type": "object"})
+
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(
+            captured["url"],
+            "https://api.deepseek.com/chat/completions",
+        )
+        self.assertEqual(
+            captured["authorization"], "Bearer user-deepseek-key"
+        )
+        self.assertEqual(captured["payload"]["model"], "deepseek-v4-pro")
+        self.assertEqual(
+            captured["payload"]["response_format"], {"type": "json_object"}
+        )
+        self.assertEqual(captured["payload"]["reasoning_effort"], "high")
+        self.assertEqual(
+            captured["payload"]["thinking"], {"type": "enabled"}
+        )
 
     def test_gemini_client_receives_millisecond_request_timeout(self):
         captured = {}
@@ -813,13 +877,13 @@ class GeminiSummarizerTests(unittest.TestCase):
     def test_attachment_content_cannot_create_language_topic(self):
         memories = [
             {
-                "memory_id": "M1", "topic": "文档识别与内容概括",
-                "content": "附件记录了庄园英文翻译和其他历史问答。",
-                "memory_type": "fact", "source": "attachment",
+                "memory_id": "M1", "topic": "文档识别：mddd.md 与 豆包豆包.md",
+                "content": "用户上传的文档记录了庄园英文翻译和其他历史问答。",
+                "memory_type": "user_condition", "source": "user",
                 "message_ids": [1],
             },
             {
-                "memory_id": "M2", "topic": "文档识别与内容概括",
+                "memory_id": "M2", "topic": "文档识别：mddd.md 与 豆包豆包.md",
                 "content": "AI 对两份文档进行了识别和结构化概括。",
                 "memory_type": "verification", "source": "assistant",
                 "message_ids": [2],
@@ -844,11 +908,11 @@ class GeminiSummarizerTests(unittest.TestCase):
                 "source_message_ids": [1, 2, 3, 4],
             },
             {
-                "title": "文档识别与内容概括",
+                "title": "文档识别与概括（mddd.md与豆包豆包.md）",
                 "memory_ids": ["M2"], "source_message_ids": [1, 2],
             },
             {
-                "title": "军训衣服丢失处理",
+                "title": "军训衣服丢失应对建议",
                 "memory_ids": ["M4"], "source_message_ids": [3, 4],
             },
         ]
@@ -863,11 +927,13 @@ class GeminiSummarizerTests(unittest.TestCase):
         ))
         by_title = {topic["title"]: topic for topic in normalized}
         self.assertEqual(
-            set(by_title["文档识别与内容概括"]["memory_ids"]),
+            set(by_title[
+                "文档识别与概括（mddd.md与豆包豆包.md）"
+            ]["memory_ids"]),
             {"M1", "M2"},
         )
         self.assertEqual(
-            set(by_title["军训衣服丢失处理"]["memory_ids"]),
+            set(by_title["军训衣服丢失应对建议"]["memory_ids"]),
             {"M3", "M4"},
         )
 

@@ -1,7 +1,7 @@
 # AI 记忆协同管理工具
 
 本项目从 ChatGPT、DeepSeek 和豆包分享页提取完整对话，并可选择调用
-Gemini API 或 SiliconFlow 兼容接口，对文字、图片和可用文档进行多模态
+Gemini API、SiliconFlow 或 DeepSeek 兼容接口，对文字、图片和可用文档进行多模态
 分层总结。
 
 ## 安装
@@ -9,14 +9,14 @@ Gemini API 或 SiliconFlow 兼容接口，对文字、图片和可用文档进�
     uv pip install -r requirements.txt
     playwright install chromium
 
-GUI 通过右上角齿轮配置 Gemini 或 SiliconFlow API KEY，密钥仅保存到当前
+GUI 通过右上角齿轮配置 Gemini、SiliconFlow 或 DeepSeek API KEY，密钥仅保存到当前
 Windows 用户的凭据管理器，不写入源码、配置文件、命令参数、日志、输出文件
-或提交记录。GUI 显式传入的用户密钥优先于环境变量；只配置 SiliconFlow 时
-会直接使用 SiliconFlow，并继续沿用该提供商现有的模型回退链。
+或提交记录。GUI 只使用用户在此配置的密钥，不会借用开发环境密钥；已配置
+提供商按 Gemini、SiliconFlow、DeepSeek 顺序回退，未配置项直接跳过。
 
 “仅抓取对话”不要求配置密钥；选择任一总结模式但尚未配置时，GUI 会拒绝启动
 并打开密钥设置页。命令行入口仍从 GEMINI_API_KEY、Silicon_API_KEY（兼容
-SILICONFLOW_API_KEY）读取密钥。
+SILICONFLOW_API_KEY）或 DEEPSEEK_API_KEY 读取密钥。
 
 ## 使用
 
@@ -66,7 +66,10 @@ Chrome；两者都不可用时提示用户安装浏览器或下载全量版。�
 
 
 在 GUI 中可粘贴公开分享链接，也可粘贴 ChatGPT `/c/` 或 DeepSeek
-`/a/chat/s/` 私有会话地址；后两者会自动启用授权登录并在确认后重新打开原始会话。
+`/a/chat/s/` 私有会话地址。选择“不登录”时，ChatGPT 私有会话直接使用始终
+最小化的浏览器，其他平台先在后台无头复用登录态；只有确认当前登录态无法
+读取会话时，才恢复浏览器窗口要求登录。
+选择“授权登录”时则直接显示浏览器，并在确认后重新打开原始会话。
 勾选一个或多个模式，并选择保存位置和 Markdown 文件名。抓取到的图片与当前账号
 有权下载的文档，会分别放入 Markdown 同目录下的专属 `_images` 与 `_files`
 文件夹，并通过相对路径引用；分享或移动结果时，应把 Markdown 与这些同名资源
@@ -78,9 +81,9 @@ Chrome；两者都不可用时提示用户安装浏览器或下载全量版。�
 记忆不受影响。仅抓取和极简版不会弹出该窗口；短对话没有独立主题时也不弹窗。
 
 GUI 会在进度栏显示当前总结模型。Gemini 默认模型因额度或可用性失败时，
-GUI 会在同一 Gemini 服务内快速尝试 3.6 Flash 和 3.5 Flash Lite；不会自动
-把对话转发给 SiliconFlow 等另一家提供商。若需 SiliconFlow，必须通过
-SUMMARY_PROVIDER 明确选择。
+GUI 会在同一 Gemini 服务内快速尝试 3.6 Flash 和 3.5 Flash Lite；若仍失败，
+再按已配置项切换到 SiliconFlow、DeepSeek。只配置部分提供商时，未配置项会从
+回退链中删除。
 
 保持原有行为、只抓取对话：
 
@@ -125,7 +128,7 @@ JSON。本轮批量总结优先使用 3.5 Flash；其额度在超长对话中耗
 结果显式改用 3.6 Flash。模型可用性和额度会变化，运行时仍应以真实探测为准。
 
 命令行核心不会静默切换模型，以免费用、能力和输出变化在用户不知情时发生；
-上述 GUI 同提供商回退会在进度栏明确显示每次切换。显式选择 SiliconFlow
+上述 GUI 跨提供商回退会在进度栏明确显示每次切换。使用 SiliconFlow
 时，GUI 会在当前模型失败后尝试 2026-08-22 完整总结流水线实测通过的免费
 候选 Qwen/Qwen3-8B。连同当前模型最多尝试 2 个，不会为凑数量加入质量未
 达标的模型。
@@ -133,6 +136,10 @@ JSON。本轮批量总结优先使用 3.5 Flash；其额度在超长对话中耗
 显式使用 SiliconFlow 的 Qwen 备用模型：
 
     uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider siliconflow --model Qwen/Qwen3.5-397B-A17B
+
+显式使用 DeepSeek：
+
+    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider deepseek --model deepseek-v4-pro
 
 ## 总结流水线
 

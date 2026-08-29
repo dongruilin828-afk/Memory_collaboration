@@ -12,7 +12,11 @@ from gui.credential_store import (
     WindowsCredentialStore,
 )
 from gui.app import AIMemoryGUI
-from gui.service import generate_output_bundle, resolve_gui_summary_config
+from gui.service import (
+    generate_output_bundle,
+    gui_summary_attempt_configs,
+    resolve_gui_summary_config,
+)
 from scripts import gemini_summarizer as summary
 
 
@@ -38,15 +42,18 @@ class CredentialStoreTests(unittest.TestCase):
         store.save_api_keys({
             "gemini": "  gemini-user-key  ",
             "siliconflow": "silicon-user-key",
+            "deepseek": "deepseek-user-key",
         })
         self.assertEqual(store.load_api_keys(), {
             "gemini": "gemini-user-key",
             "siliconflow": "silicon-user-key",
+            "deepseek": "deepseek-user-key",
         })
 
         store.save_api_keys({
             "gemini": "replacement-key",
             "siliconflow": "",
+            "deepseek": "",
         })
         self.assertEqual(store.load_api_keys(), {
             "gemini": "replacement-key",
@@ -115,6 +122,43 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertIn("账号内对话链接", statuses[0])
         self.assertIn("复用已保存", statuses[0])
         self.assertEqual(updates, [True])
+
+    def test_private_url_no_login_reaches_pipeline_as_no_login(self):
+        fake_gui, _opened = self._fake_gui(raw=True)
+        fake_gui.capsule_entry = SimpleNamespace(
+            get_text=lambda: (
+                "https://chatgpt.com/c/"
+                "11111111-2222-3333-4444-555555555555"
+            )
+        )
+        fake_gui.root = object()
+        fake_gui._run_generation_task = lambda *_args: None
+        fake_gui._set_inputs_locked = lambda _locked: None
+        fake_gui._update_generate_button_state = lambda: None
+        fake_gui.done_badge = SimpleNamespace(pack_forget=lambda: None)
+        fake_gui.progress_bar = SimpleNamespace(
+            reset=lambda: None,
+            set_progress=lambda _value: None,
+        )
+        fake_gui.status_var = SimpleNamespace(set=lambda _value: None)
+        fake_gui.percent_var = SimpleNamespace(set=lambda _value: None)
+        captured = {}
+
+        class FakeThread:
+            def __init__(self, *, target, args, daemon):
+                captured["args"] = args
+
+            def start(self):
+                pass
+
+        with patch(
+            "gui.app._prompt_output_target",
+            return_value=(Path("output"), "result.md"),
+        ), patch("gui.app.threading.Thread", FakeThread):
+            AIMemoryGUI._on_start_generate(fake_gui)
+
+        self.assertFalse(captured["args"][1])
+
     def test_start_summary_without_key_opens_settings_before_save_dialog(self):
         class EmptyStore:
             @staticmethod
@@ -211,6 +255,36 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertTrue(all(key == user_key for _p, _m, key in created))
         self.assertNotIn(user_key, "\n".join(progress))
         self.assertIn("<redacted>", "\n".join(progress))
+
+    def test_configured_provider_order_drops_missing_keys(self):
+        base_config = summary.SummaryConfig(
+            provider="deepseek",
+            model=summary.DEEPSEEK_DEFAULT_MODEL,
+        )
+
+        def providers(keys):
+            return list(dict.fromkeys(
+                item.provider
+                for item in gui_summary_attempt_configs(base_config, keys)
+            ))
+
+        self.assertEqual(
+            providers({
+                "gemini": "g",
+                "siliconflow": "s",
+                "deepseek": "d",
+            }),
+            ["gemini", "siliconflow", "deepseek"],
+        )
+        self.assertEqual(
+            providers({"gemini": "g", "deepseek": "d"}),
+            ["gemini", "deepseek"],
+        )
+        self.assertEqual(
+            providers({"siliconflow": "s", "deepseek": "d"}),
+            ["siliconflow", "deepseek"],
+        )
+        self.assertEqual(providers({"deepseek": "d"}), ["deepseek"])
 
     def test_gemini_timeout_switches_to_configured_siliconflow_key(self):
         base_config = summary.SummaryConfig(
