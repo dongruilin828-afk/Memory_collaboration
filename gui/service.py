@@ -2664,6 +2664,7 @@ def generate_output_bundle(
     gateway: Any = None,
     api_keys: Optional[Mapping[str, str]] = None,
     result_cache_dir: Optional[Path] = None,
+    source_platform: Optional[str] = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -2838,6 +2839,7 @@ def generate_output_bundle(
                     if result_cache_dir is not None
                     else default_summary_result_cache_dir()
                 ),
+                source_platform=source_platform,
             )
             config = candidate_config
             gateway = candidate_gateway

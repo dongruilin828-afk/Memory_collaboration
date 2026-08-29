@@ -269,6 +269,39 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
         self.assertIn(4, containing_user.message_indices)
 
+    def test_deepseek_dense_conversation_uses_smaller_chunks_only_there(self):
+        messages = [
+            {
+                "role": "User" if index % 2 == 0 else "AI",
+                "content": str(index) + "X" * 700,
+            }
+            for index in range(20)
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            regular = summary.summarize_conversation(
+                messages=messages,
+                project_dir=project,
+                output_json=project / "regular.json",
+                output_markdown=project / "regular.md",
+                config=summary.SummaryConfig(),
+                gateway=FakeGateway(),
+                progress=lambda _message: None,
+            )
+            deepseek_result = summary.summarize_conversation(
+                messages=messages,
+                project_dir=project,
+                output_json=project / "deepseek.json",
+                output_markdown=project / "deepseek.md",
+                config=summary.SummaryConfig(),
+                gateway=FakeGateway(),
+                progress=lambda _message: None,
+                source_platform="deepseek",
+            )
+
+        self.assertEqual(regular["conversation"]["chunk_count"], 1)
+        self.assertGreater(deepseek_result["conversation"]["chunk_count"], 1)
+
     def test_model_and_chunk_size_are_configurable(self):
         with patch.dict(
             os.environ,
@@ -1091,6 +1124,30 @@ class GeminiSummarizerTests(unittest.TestCase):
             )
         self.assertEqual(len(assets), 1)
         self.assertEqual(assets[0].label, "report.pdf")
+
+    def test_deepseek_assistant_web_citation_is_not_a_document(self):
+        messages = [{
+            "role": "AI",
+            "content": (
+                "[-1](https://example.com/reference/article.html)\n"
+                "[report.pdf](https://example.com/files/report.pdf)"
+            ),
+        }]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            regular = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+            deepseek_assets = summary.discover_media(
+                messages,
+                project,
+                project,
+                summary.SummaryConfig(),
+                source_platform="deepseek",
+            )
+
+        self.assertEqual([asset.label for asset in regular], ["-1", "report.pdf"])
+        self.assertEqual([asset.label for asset in deepseek_assets], ["report.pdf"])
 
     def test_doubao_collector_scrolls_every_message_for_lazy_images(self):
         class FakeMessage:

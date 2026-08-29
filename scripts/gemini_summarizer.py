@@ -13,7 +13,7 @@ import os
 import re
 import time
 import zipfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -32,6 +32,7 @@ DEEPSEEK_API_BASE = "https://api.deepseek.com"
 SUMMARY_DIRNAME = "results/summary"
 DETAILED_SUMMARY_DIRNAME = "results/summary_detailed"
 DEFAULT_CHUNK_CHARS = 24_000
+DEEPSEEK_DENSE_CHUNK_CHARS = 8_000
 DEFAULT_SHORT_CONVERSATION_CHARS = 18_000
 DEFAULT_MAX_OUTPUT_TOKENS = 16_384
 DEFAULT_THINKING_LEVEL = "medium"
@@ -1094,7 +1095,8 @@ def discover_media(
     messages: list[dict[str, str]],
     project_dir: Path,
     source_dir: Path,
-    config: SummaryConfig
+    config: SummaryConfig,
+    source_platform: str | None = None,
 ) -> list[MediaAsset]:
     """从统一消息文本中确定性识别图片和文档引用。"""
     assets: list[MediaAsset] = []
@@ -1227,6 +1229,13 @@ def discover_media(
             ).name
             reference_suffix = Path(reference_name).suffix.lower()
             label_suffix = Path(label).suffix.lower()
+            if (
+                source_platform == "deepseek"
+                and source_role == "assistant"
+                and urlparse(reference).scheme in {"http", "https"}
+                and reference_suffix in {".html", ".htm"}
+            ):
+                continue
             if (
                 reference_suffix not in DOCUMENT_EXTENSIONS
                 and label_suffix not in DOCUMENT_EXTENSIONS
@@ -1816,11 +1825,13 @@ def _summary_cache_path(output_json: Path) -> Path:
 
 
 def _summary_fingerprint(
-    messages: list[dict[str, str]], config: SummaryConfig
+    messages: list[dict[str, str]],
+    config: SummaryConfig,
+    source_platform: str | None = None,
 ) -> str:
     payload = json.dumps(
         {
-            "cache_schema_version": 12,
+            "cache_schema_version": 13 if source_platform == "deepseek" else 12,
             "provider": config.provider,
             "model": config.model,
             "chunk_chars": config.chunk_chars,
@@ -2002,6 +2013,7 @@ def summarize_conversation(
     selected_topics: Collection[str] | str | None = None,
     topic_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None,
     result_cache_dir: Path | None = None,
+    source_platform: str | None = None,
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
     pipeline_started = time.perf_counter()
@@ -2013,6 +2025,16 @@ def summarize_conversation(
     source_dir = Path(source_dir or project_dir).resolve()
     config = config or SummaryConfig.from_env()
     message_count = len(messages)
+    if (
+        source_platform == "deepseek"
+        and message_count >= 20
+        and sum(len(message.get("content", "")) for message in messages)
+        <= config.chunk_chars
+    ):
+        config = replace(
+            config,
+            chunk_chars=min(config.chunk_chars, DEEPSEEK_DENSE_CHUNK_CHARS),
+        )
 
     default_json, default_markdown = default_summary_paths(
         project_dir, source_name, include_details=include_details
@@ -2020,7 +2042,7 @@ def summarize_conversation(
     output_json = output_json or default_json
     output_markdown = output_markdown or default_markdown
     cache_path = _summary_cache_path(output_json)
-    fingerprint = _summary_fingerprint(messages, config)
+    fingerprint = _summary_fingerprint(messages, config, source_platform)
     cache = _load_summary_cache(cache_path, fingerprint)
 
     progress(f"总结后端：{config.provider}；模型：{config.model}")
@@ -2029,7 +2051,8 @@ def summarize_conversation(
         messages,
         project_dir=project_dir,
         source_dir=source_dir,
-        config=config
+        config=config,
+        source_platform=source_platform,
     )
     timings["media_discovery"] = time.perf_counter() - stage_started
     stage_started = time.perf_counter()

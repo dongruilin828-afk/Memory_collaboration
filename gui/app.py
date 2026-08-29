@@ -2373,6 +2373,11 @@ class AIMemoryGUI:
                 project_dir=app_settings.runtime_data_dir,
                 api_keys=api_keys,
                 result_cache_dir=app_settings.summary_cache_dir,
+                source_platform=(
+                    "deepseek"
+                    if urlparse(url).hostname == "chat.deepseek.com"
+                    else None
+                ),
                 topic_selector=(
                     select_summary_topics
                     if modes.get("normal") or modes.get("detailed")
