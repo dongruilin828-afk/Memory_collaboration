@@ -1324,6 +1324,22 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertIn("查看 AI 生成文档：在线报告", messages[0]["content"])
         self.assertIn(local_reference, messages[0]["content"])
 
+    def test_doubao_state_only_document_links_to_saved_markdown(self):
+        html = """
+        <div class="message-item" data-doubao-role="assistant">
+          <p>已创建在线报告</p>
+        </div>
+        """
+        local_reference = "./result_files/report.md"
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"doubao-ai-doc:在线报告": local_reference},
+        )
+        self.assertIn(
+            f"[📄 查看 AI 生成文档：在线报告]({local_reference})",
+            messages[0]["content"],
+        )
+
     def test_saved_doubao_ai_document_is_read_with_assistant_attribution(self):
         class DocumentGateway:
             def generate_json(self, _prompt, _schema, media_assets=None):

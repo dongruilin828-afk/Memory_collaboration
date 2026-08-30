@@ -419,7 +419,7 @@ async def _set_browser_window_state(page: Any, state: str) -> None:
     finally:
         if session is not None:
             try:
-                await session.detach()
+                await asyncio.wait_for(session.detach(), timeout=3)
             except Exception:
                 pass
 
@@ -799,20 +799,52 @@ async def _authenticated_page_get(page: Any, url: str, timeout: int):
     if not same_origin:
         return await page.request.get(url, timeout=timeout)
 
-    async def fetch_from_page(target: str):
+    async def fetch_from_page(
+        target: str,
+        prepare: Optional[str] = None,
+    ):
         async with page.expect_response(
             lambda response: response.url == target,
             timeout=timeout,
         ) as response_info:
             await page.evaluate(
-                """async resource => {
+                """async ({resource, prepare}) => {
+                    const options = {credentials: 'include'};
+                    if (prepare) {
+                        const resourceUrl = new URL(resource, location.href);
+                        const prepareUrl = new URL(prepare, location.href);
+                        if (
+                            resourceUrl.origin === location.origin
+                            && prepareUrl.origin === location.origin
+                        ) {
+                            const sessionResponse = await fetch(
+                                '/api/auth/session',
+                                {credentials: 'include'}
+                            );
+                            if (sessionResponse.ok) {
+                                const session = await sessionResponse.json();
+                                const token = (
+                                    session.accessToken
+                                    || session.access_token
+                                    || ''
+                                );
+                                if (token) {
+                                    options.headers = {
+                                        Authorization: `Bearer ${token}`
+                                    };
+                                }
+                            }
+                            const prepared = await fetch(prepareUrl, options);
+                            await prepared.arrayBuffer();
+                        }
+                    }
                     const response = await fetch(
                         resource,
-                        {credentials: 'include'}
+                        options
                     );
                     await response.arrayBuffer();
                 }""",
-                target,
+                {"resource": target, "prepare": prepare},
             )
         return await response_info.value
 
@@ -832,7 +864,9 @@ async def _authenticated_page_get(page: Any, url: str, timeout: int):
             f"/backend-api/files/"
             f"{download_match.group('file_id')}/simple"
         )
-        await fetch_from_page(simple_url)
+        if target_origin.query:
+            simple_url = f"{simple_url}?{target_origin.query}"
+        return await fetch_from_page(url, simple_url)
     return await fetch_from_page(url)
 
 
@@ -860,6 +894,64 @@ def _ordered_image_sources(candidates: list[str]) -> list[str]:
         src for src in candidates
         if src and not _is_decorative_image_candidate(src)
     ))
+
+
+def _extract_chatgpt_shared_image_sources(
+    page_html: str,
+    conversation_url: str,
+) -> list[str]:
+    """从 ChatGPT 分享页状态中还原未渲染的用户图片下载地址。"""
+    parsed = urlparse(conversation_url)
+    host = parsed.netloc.lower().split(":", 1)[0]
+    path_match = re.fullmatch(
+        r"/share/(?P<share_id>[0-9a-f-]{32,36})/?",
+        parsed.path,
+        re.IGNORECASE,
+    )
+    if host not in {"chatgpt.com", "chat.openai.com"} or not path_match:
+        return []
+
+    share_id = path_match.group("share_id")
+    origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    sources = []
+    for match in re.finditer(
+        r"sediment://(?P<file_id>file_[A-Za-z0-9_-]+)"
+        r"\?shared_conversation_id=(?P<share_id>[0-9a-f-]{32,36})",
+        page_html or "",
+        re.IGNORECASE,
+    ):
+        if match.group("share_id").lower() != share_id.lower():
+            continue
+        sources.append(
+            f"{origin}/backend-api/files/download/"
+            f"{quote(match.group('file_id'), safe='')}"
+            f"?shared_conversation_id={quote(share_id, safe='')}"
+        )
+    return list(dict.fromkeys(sources))
+
+
+def _inject_chatgpt_shared_images(html: str, sources: list[str]) -> str:
+    """将分享页占位图片补回对应用户消息，供现有解析器生成 Markdown。"""
+    if not html or not sources:
+        return html
+    soup = BeautifulSoup(html, "html.parser")
+    placeholders = [
+        node for node in soup.find_all("span")
+        if node.get_text(" ", strip=True) == "已上传图片"
+    ]
+    for placeholder, source in zip(placeholders, sources):
+        turn = placeholder.find_parent(
+            attrs={"data-testid": re.compile(r"^conversation-turn-")}
+        )
+        target = (
+            turn.find(attrs={"data-message-author-role": "user"})
+            if turn else None
+        )
+        if target is None or target.find("img", src=source):
+            continue
+        image = soup.new_tag("img", src=source, alt="已上传的图片")
+        target.insert(0, image)
+    return str(soup)
 
 
 def _image_file_index(path: Path) -> int:
@@ -1088,6 +1180,7 @@ def _decode_doubao_embedded_text(value: str) -> str:
     for _ in range(4):
         updated = html_lib.unescape(decoded)
         updated = updated.replace(r"\/", "/").replace(r"\u0026", "&")
+        updated = updated.replace(r"\u002F", "/").replace(r"\u002f", "/")
         updated = updated.replace(r"\&quot;", '"').replace(r'\"', '"')
         if updated == decoded:
             break
@@ -1164,6 +1257,44 @@ def _extract_doubao_ai_document_titles(
         seen.add(title.lower())
         titles.append(title)
     return titles[:DOUBAO_AI_DOCUMENT_MAX_COUNT]
+
+
+def _extract_doubao_ai_document_resources(
+    html: str,
+    base_url: str,
+) -> dict[str, str]:
+    """从分享页状态提取豆包在线文档的公开资源地址。"""
+    parsed = urlparse(str(base_url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if host not in {"doubao.com", "www.doubao.com"}:
+        return {}
+    origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    decoded = _decode_doubao_embedded_text(html)
+    resources: dict[str, str] = {}
+    for marker in re.finditer(r'"artifact_block"\s*:\s*\{', decoded):
+        block = decoded[marker.end():marker.end() + 12000]
+        finish = block.find('"is_finish"')
+        if finish >= 0:
+            block = block[:finish]
+        if not re.search(r'"resource_type"\s*:\s*10', block):
+            continue
+        resource_match = re.search(
+            r'"resource_id"\s*:\s*"(?P<id>[A-Za-z0-9_-]{8,128})"',
+            block,
+        )
+        title_match = re.search(
+            r'"title"\s*:\s*"(?P<title>[^"\r\n]{1,240})"',
+            block,
+        )
+        if not resource_match or not title_match:
+            continue
+        title = " ".join(title_match.group("title").split())
+        if title:
+            resources.setdefault(
+                title,
+                f"{origin}/docx/{resource_match.group('id')}",
+            )
+    return resources
 
 
 def _is_safe_document_url(value: str) -> bool:
@@ -1523,6 +1654,90 @@ async def _chatgpt_document_card_get(
         await _set_browser_window_state(page, "minimized")
 
 
+async def _chatgpt_document_card_file_id(
+    page: Any,
+    candidate: DocumentCandidate,
+) -> str:
+    """从已挂载文件卡片的 React 属性读取 ID，不触发可见下载。"""
+    if not candidate.reference.startswith(CHATGPT_CARD_REFERENCE_PREFIX):
+        return ""
+    if not await _scroll_to_chatgpt_file_card(page, candidate.filename):
+        return ""
+    cards = page.locator(
+        "div.truncate.font-semibold",
+        has_text=candidate.filename,
+    )
+    try:
+        return str(await cards.first.evaluate(
+            """(element, targetName) => {
+                const pattern = /(?:^|[^A-Za-z0-9])(file[_-][A-Za-z0-9_-]{12,})/g;
+                const seen = new WeakSet();
+                let visited = 0;
+                const scan = (value, depth) => {
+                    if (typeof value === 'string') {
+                        const ids = Array.from(
+                            value.matchAll(pattern), match => match[1]
+                        ).filter(id => /\d/.test(id));
+                        const hasName = value.includes(targetName);
+                        return {
+                            hasName,
+                            ids,
+                            match: hasName && ids.length ? ids[0] : ''
+                        };
+                    }
+                    if (
+                        value == null
+                        || depth > 10
+                        || visited++ > 6000
+                        || (typeof value !== 'object'
+                            && typeof value !== 'function')
+                        || seen.has(value)
+                    ) {
+                        return {hasName: false, ids: [], match: ''};
+                    }
+                    seen.add(value);
+                    let hasName = false;
+                    const ids = [];
+                    let keys = [];
+                    try { keys = Object.keys(value); } catch { return {hasName, ids, match: ''}; }
+                    for (const key of keys.slice(0, 240)) {
+                        if (key === 'accessToken' || key === 'access_token') continue;
+                        let child;
+                        try { child = scan(value[key], depth + 1); } catch { continue; }
+                        if (child.match) return child;
+                        hasName ||= child.hasName;
+                        ids.push(...child.ids);
+                    }
+                    return {
+                        hasName,
+                        ids,
+                        match: hasName && ids.length ? ids[0] : ''
+                    };
+                };
+                let current = element;
+                for (let depth = 0; current && depth < 8; depth++) {
+                    const keys = Object.keys(current);
+                    const reactKeys = [
+                        ...keys.filter(key => key.startsWith('__reactProps')),
+                        ...keys.filter(key => (
+                            key.startsWith('__react')
+                            && !key.startsWith('__reactProps')
+                        ))
+                    ];
+                    for (const key of reactKeys) {
+                        const result = scan(current[key], 0);
+                        if (result.match) return result.match;
+                    }
+                    current = current.parentElement;
+                }
+                return '';
+            }""",
+            candidate.filename,
+        ) or "")
+    except Exception:
+        return ""
+
+
 def _deepseek_document_card_locator(page: Any, filename: str):
     return page.get_by_text(filename, exact=True).locator(
         "xpath=ancestor::*[@tabindex='0'][1]"
@@ -1676,7 +1891,7 @@ def _normalize_doubao_ai_document_text(parts: Collection[str]) -> str:
 
 async def _read_doubao_ai_document_body(document_page: Any) -> str:
     """从豆包在线文档的同源内嵌编辑器读取用户可见正文。"""
-    deadline = time.monotonic() + 15.0
+    deadline = time.monotonic() + 30.0
     while time.monotonic() < deadline:
         for frame in document_page.frames:
             parsed = urlparse(str(frame.url or ""))
@@ -1711,6 +1926,11 @@ async def _save_doubao_ai_documents(
 ) -> tuple[dict[str, str], int]:
     """打开豆包 AI 在线文档卡片，将可见正文保存为本地 Markdown。"""
     titles = _extract_doubao_ai_document_titles(html, page.url)
+    resource_urls = _extract_doubao_ai_document_resources(html, page.url)
+    known_titles = {title.lower() for title in titles}
+    titles.extend(
+        title for title in resource_urls if title.lower() not in known_titles
+    )
     if not titles:
         return {}, 0
     if logger:
@@ -1724,46 +1944,59 @@ async def _save_doubao_ai_documents(
         inline_document_opened = False
         document_url = ""
         try:
-            title_nodes = page.get_by_text(title, exact=True)
-            if await title_nodes.count() == 0:
-                failures += 1
-                continue
-            card = title_nodes.first.locator(
-                "xpath=ancestor::div[contains(@class,'product-card-')][1]"
-            )
-            if await card.count() == 0:
-                failures += 1
-                continue
-            is_direct_chat = urlparse(str(page.url or "")).path.startswith(
-                "/chat/"
-            )
-            if is_direct_chat:
-                # 账号内会话会在当前页的 Canvas 侧栏中挂载正文；只有标题
-                # 节点绑定了打开动作，点击外层卡片不会触发。
-                await title_nodes.first.scroll_into_view_if_needed(
-                    timeout=3000
-                )
-                await title_nodes.first.click(timeout=5000)
-                inline_document_opened = True
-                body_source = page
-            else:
-                # 分享页则由外层卡片打开独立文档页。
-                async with page.expect_popup(timeout=10000) as popup_info:
-                    await card.click(force=True, timeout=5000)
-                document_page = await popup_info.value
-                await document_page.wait_for_load_state(
-                    "domcontentloaded", timeout=10000
+            direct_document_url = resource_urls.get(title, "")
+            if direct_document_url:
+                document_page = await page.context.new_page()
+                await document_page.goto(
+                    direct_document_url,
+                    wait_until="domcontentloaded",
+                    timeout=10000,
                 )
                 document_url = str(document_page.url or "")
-                parsed_document_url = urlparse(document_url)
-                if (
-                    parsed_document_url.netloc.lower().split(":", 1)[0]
-                    not in {"doubao.com", "www.doubao.com"}
-                    or not parsed_document_url.path.startswith("/docx/")
-                ):
+                body_source = document_page
+            else:
+                title_nodes = page.get_by_text(title, exact=True)
+                if await title_nodes.count() == 0:
                     failures += 1
                     continue
-                body_source = document_page
+                card = title_nodes.first.locator(
+                    "xpath=ancestor::div[contains(@class,'product-card-')][1]"
+                )
+                if await card.count() == 0:
+                    failures += 1
+                    continue
+                is_direct_chat = urlparse(str(page.url or "")).path.startswith(
+                    "/chat/"
+                )
+                if is_direct_chat:
+                    await title_nodes.first.scroll_into_view_if_needed(
+                        timeout=3000
+                    )
+                    await title_nodes.first.click(timeout=5000)
+                    inline_document_opened = True
+                    body_source = page
+                else:
+                    async with page.expect_popup(timeout=10000) as popup_info:
+                        await card.click(force=True, timeout=5000)
+                    document_page = await popup_info.value
+                    await document_page.wait_for_url(
+                        re.compile(r"^https://(?:www\.)?doubao\.com/docx/"),
+                        timeout=10000,
+                    )
+                    await document_page.wait_for_load_state(
+                        "domcontentloaded", timeout=10000
+                    )
+                    document_url = str(document_page.url or "")
+                    body_source = document_page
+
+            parsed_document_url = urlparse(document_url)
+            if document_url and (
+                parsed_document_url.netloc.lower().split(":", 1)[0]
+                not in {"doubao.com", "www.doubao.com"}
+                or not parsed_document_url.path.startswith("/docx/")
+            ):
+                failures += 1
+                continue
 
             body = await _read_doubao_ai_document_body(body_source)
             if not body:
@@ -1806,7 +2039,7 @@ async def _save_doubao_ai_documents(
             )
             for key in {
                 title.lower(),
-                f"doubao-ai-doc:{title.lower()}",
+                f"doubao-ai-doc:{title}",
                 document_url,
             }:
                 if key:
@@ -1911,6 +2144,13 @@ async def _download_document_candidates(
                         DEEPSEEK_CARD_REFERENCE_PREFIX
                     )
                 )
+                is_chatgpt_direct_candidate = (
+                    candidate_host in {"chatgpt.com", "chat.openai.com"}
+                    and bool(re.match(
+                        r"^/backend-api/files/download/[^/]+$",
+                        parsed_candidate.path,
+                    ))
+                )
                 if is_doubao_candidate:
                     response = await _doubao_document_api_get(
                         page, candidate, 20000
@@ -1919,11 +2159,29 @@ async def _download_document_candidates(
                     response = await _deepseek_document_card_get(
                         page, candidate, 20000
                     )
+                elif is_chatgpt_direct_candidate:
+                    response = await _authenticated_page_get(
+                        page, candidate.url, 20000
+                    )
                 elif candidate_host in {"chatgpt.com", "chat.openai.com"}:
                     async with chatgpt_card_lock:
+                        file_id = await _chatgpt_document_card_file_id(
+                            page, candidate
+                        )
+                        if file_id:
+                            origin = (
+                                f"{parsed_candidate.scheme or 'https'}://"
+                                f"{parsed_candidate.netloc}"
+                            )
+                            response = await _authenticated_page_get(
+                                page,
+                                f"{origin}/backend-api/files/download/"
+                                f"{quote(file_id, safe='')}",
+                                20000,
+                            )
                         # 每次文件点击后 ChatGPT 可能卸载其余虚拟卡片；
                         # 切到平台首页再返回原会话，让当前文件卡片重新挂载。
-                        if conversation_url:
+                        if response is None and conversation_url:
                             try:
                                 await _rehydrate_chatgpt_conversation(
                                     page, conversation_url
@@ -1936,9 +2194,10 @@ async def _download_document_candidates(
                                 )
                             except Exception:
                                 pass
-                        response = await _chatgpt_document_card_get(
-                            page, candidate, 20000
-                        )
+                        if response is None:
+                            response = await _chatgpt_document_card_get(
+                                page, candidate, 20000
+                            )
                 if response is None:
                     if is_doubao_candidate or is_deepseek_card_candidate:
                         return candidate, None, {}, "not_a_document"
@@ -1987,8 +2246,17 @@ async def _download_document_candidates(
         or has_deepseek_card_candidates
     ):
         results = []
+        downloaded_names: set[str] = set()
         for candidate in ordered:
-            results.append(await download(candidate))
+            if (
+                candidate.reference.startswith(CHATGPT_CARD_REFERENCE_PREFIX)
+                and candidate.filename.lower() in downloaded_names
+            ):
+                continue
+            result = await download(candidate)
+            results.append(result)
+            if result[1] is not None:
+                downloaded_names.add(candidate.filename.lower())
     else:
         results = await asyncio.gather(*(
             download(candidate) for candidate in ordered
@@ -2068,7 +2336,7 @@ async def _close_browser_context_safely(
 ) -> None:
     """关闭浏览器；驱动已断开时保留此前结果并记录清理警告。"""
     try:
-        await context.close()
+        await asyncio.wait_for(context.close(), timeout=10)
     except Exception as error:
         warning = f"浏览器清理异常（已保留此前抓取结果）：{error}"
         if warning not in warnings:
@@ -2394,7 +2662,11 @@ async def fetch_chat_pipeline(
                 ):
                     html = pre_rehydrate_chat_html
                 soup_pre = BeautifulSoup(html, "html.parser")
-                image_candidates: list[str] = []
+                shared_image_sources = _extract_chatgpt_shared_image_sources(
+                    page_snapshot_html,
+                    url,
+                )
+                image_candidates: list[str] = list(shared_image_sources)
                 if logger:
                     logger("正在检查并下载页面中的图片资产...")
 
@@ -2439,6 +2711,10 @@ async def fetch_chat_pipeline(
                         f"成功下载或复用 {len(image_map)} 个，耗时 "
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
+                html = _inject_chatgpt_shared_images(
+                    html,
+                    [src for src in shared_image_sources if src in image_map],
+                )
 
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
@@ -2665,6 +2941,8 @@ def generate_output_bundle(
     api_keys: Optional[Mapping[str, str]] = None,
     result_cache_dir: Optional[Path] = None,
     source_platform: Optional[str] = None,
+    source_name: Optional[str] = None,
+    source_dir: Optional[Path] = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -2822,8 +3100,12 @@ def generate_output_bundle(
             base_result = summarize_conversation(
                 messages=messages,
                 project_dir=Path(project_dir).resolve(),
-                source_dir=save_dir,
-                source_name=output_paths["raw_markdown"].name,
+                source_dir=(
+                    Path(source_dir).resolve()
+                    if source_dir is not None
+                    else save_dir
+                ),
+                source_name=source_name or output_paths["raw_markdown"].name,
                 output_json=primary_json,
                 output_markdown=primary_markdown,
                 config=candidate_config,

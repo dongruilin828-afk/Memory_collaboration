@@ -13,6 +13,7 @@ from unittest.mock import patch
 from bs4 import BeautifulSoup
 
 from gui.service import (
+    _authenticated_page_get,
     _capture_document_content_response,
     _close_browser_context_safely,
     _collect_response_assets,
@@ -20,10 +21,13 @@ from gui.service import (
     _download_document_candidates,
     _download_image_candidates,
     _extract_chatgpt_document_card_candidates,
+    _extract_chatgpt_shared_image_sources,
     _extract_deepseek_document_card_candidates,
     _extract_document_candidates,
+    _extract_doubao_ai_document_resources,
     _extract_doubao_ai_document_titles,
     _inject_chatgpt_attachment_names,
+    _inject_chatgpt_shared_images,
     _normalize_doubao_ai_document_text,
     _rehydrate_chatgpt_conversation,
     _repair_downloaded_text_mojibake,
@@ -185,6 +189,31 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(len(warnings), 1)
         self.assertIn("浏览器清理异常", warnings[0])
         self.assertEqual(messages, warnings)
+
+    def test_browser_cleanup_timeout_becomes_warning(self):
+        class HangingContext:
+            async def close(self):
+                await asyncio.Event().wait()
+
+        observed_timeouts = []
+
+        async def timeout_immediately(awaitable, timeout):
+            awaitable.close()
+            observed_timeouts.append(timeout)
+            raise asyncio.TimeoutError
+
+        warnings = []
+        with patch(
+            "gui.service.asyncio.wait_for",
+            new=timeout_immediately,
+        ):
+            asyncio.run(_close_browser_context_safely(
+                HangingContext(), warnings
+            ))
+
+        self.assertEqual(observed_timeouts, [10])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("浏览器清理异常", warnings[0])
 
     def test_image_asset_directory_sits_beside_markdown_outputs(self):
         base = Path("用户结果")
@@ -392,15 +421,19 @@ class GUIServiceTests(unittest.TestCase):
                 output_dir,
                 section_selector=lambda _result: ("calculations",),
                 config=fake_config,
+                source_name="原始对话.md",
+                source_dir=output_dir / "input",
             )
             self.assertFalse((output_dir / "AI_memory_summary.md").exists())
             self.assertFalse((output_dir / "AI_memory_result.json").exists())
 
         self.assertTrue(captured["include_details"])
-        self.assertEqual(captured["source_dir"], output_dir.resolve())
+        self.assertEqual(
+            captured["source_dir"], (output_dir / "input").resolve()
+        )
         self.assertEqual(
             captured["source_name"],
-            "AI_memory_export.md",
+            "原始对话.md",
         )
         self.assertEqual(bundle.selected_sections, ("calculations",))
         self.assertEqual(
@@ -823,6 +856,21 @@ class GUIServiceTests(unittest.TestCase):
             "tos-cn-i-test/folder/material.docx",
         )
 
+    def test_doubao_share_decodes_unicode_escaped_document_uri(self):
+        html = (
+            r'\"name\":\"课堂材料.docx\",'
+            r'\"uri\":\"tos-cn-i-test\u002Ffolder\u002Fmaterial.docx\"'
+        )
+        candidates = _extract_document_candidates(
+            html,
+            "https://www.doubao.com/thread/example",
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(
+            candidates[0].reference,
+            "tos-cn-i-test/folder/material.docx",
+        )
+
     def test_only_real_doubao_ai_document_cards_produce_titles(self):
         html = """
         <div class="message-item">
@@ -847,6 +895,19 @@ class GUIServiceTests(unittest.TestCase):
                 html, "https://example.com/thread/example"
             ),
             [],
+        )
+
+    def test_doubao_share_state_produces_ai_document_resource(self):
+        html = r'''\"artifact_block\":{\"resource_id\":\"DocResource123\",\"title\":\"在线报告\",\"resource_type\":10},\"is_finish\":true'''
+        self.assertEqual(
+            _extract_doubao_ai_document_resources(
+                html, "https://www.doubao.com/thread/example"
+            ),
+            {
+                "在线报告": (
+                    "https://www.doubao.com/docx/DocResource123"
+                )
+            },
         )
 
     def test_doubao_ai_document_pages_are_deduplicated_and_cleaned(self):
@@ -974,6 +1035,76 @@ class GUIServiceTests(unittest.TestCase):
             }),
             "",
         )
+
+    def test_chatgpt_file_token_stays_in_same_origin_page_request(self):
+        class ResponseInfo:
+            def __init__(self):
+                self.value = asyncio.sleep(0, result=SimpleNamespace(ok=True))
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakePage:
+            url = "https://chatgpt.com/c/conversation-id"
+
+            def __init__(self):
+                self.request = SimpleNamespace(get=None)
+                self.evaluation = None
+
+            def expect_response(self, *_args, **_kwargs):
+                return ResponseInfo()
+
+            async def evaluate(self, script, argument):
+                self.evaluation = (script, argument)
+
+        page = FakePage()
+        result = asyncio.run(_authenticated_page_get(
+            page,
+            "https://chatgpt.com/backend-api/files/download/file_fake",
+            1000,
+        ))
+        script, argument = page.evaluation
+        self.assertTrue(result.ok)
+        self.assertEqual(argument, {
+            "resource": (
+                "https://chatgpt.com/backend-api/files/download/file_fake"
+            ),
+            "prepare": (
+                "https://chatgpt.com/backend-api/files/file_fake/simple"
+            ),
+        })
+        self.assertIn("/api/auth/session", script)
+        self.assertNotIn("token", argument)
+
+    def test_chatgpt_share_placeholder_uses_matching_embedded_image(self):
+        share_id = "6a5ed6e7-bd38-83ee-936d-571f7594a63e"
+        source_html = (
+            "sediment://file_good?shared_conversation_id=" + share_id
+            + " sediment://file_wrong?shared_conversation_id="
+            + "00000000-0000-0000-0000-000000000000"
+        )
+        sources = _extract_chatgpt_shared_image_sources(
+            source_html,
+            f"https://chatgpt.com/share/{share_id}",
+        )
+        self.assertEqual(sources, [
+            "https://chatgpt.com/backend-api/files/download/file_good"
+            f"?shared_conversation_id={share_id}"
+        ])
+
+        html = (
+            '<div data-testid="conversation-turn-1">'
+            '<span>已上传图片</span>'
+            '<div data-message-author-role="user">他说的对吗</div>'
+            '</div>'
+        )
+        injected = _inject_chatgpt_shared_images(html, sources)
+        image = BeautifulSoup(injected, "html.parser").find("img")
+        self.assertEqual(image["src"], sources[0])
+        self.assertEqual(image["alt"], "已上传的图片")
 
     def test_chatgpt_placeholder_gets_real_metadata_filename(self):
         html = (

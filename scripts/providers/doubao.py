@@ -293,4 +293,23 @@ def parse_messages(soup, image_map=None):
             if md_text:
                 parsed_messages.append({'role': 'AI', 'content': md_text})
 
+    for key, local_href in image_map.items():
+        if not isinstance(key, str) or not key.lower().startswith("doubao-ai-doc:"):
+            continue
+        title = key.split(":", 1)[1]
+        if any(local_href in item["content"] for item in parsed_messages):
+            continue
+        target = next((
+            item for item in reversed(parsed_messages)
+            if item["role"] == "AI" and title.lower() in item["content"].lower()
+        ), None)
+        if target is None:
+            target = next((
+                item for item in reversed(parsed_messages) if item["role"] == "AI"
+            ), None)
+        if target is not None:
+            target["content"] += (
+                f"\n\n[📄 查看 AI 生成文档：{title}]({local_href})"
+            )
+
     return parsed_messages
