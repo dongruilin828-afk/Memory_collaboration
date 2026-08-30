@@ -10,6 +10,7 @@ project_root = Path(SPECPATH).resolve()
 playwright_datas, playwright_binaries, playwright_hidden = collect_all(
     "playwright"
 )
+tkdnd_datas, tkdnd_binaries, tkdnd_hidden = collect_all("tkinterdnd2")
 
 browser_cache = Path(os.environ["LOCALAPPDATA"]) / "ms-playwright"
 browser_datas = []
@@ -27,6 +28,7 @@ release_docs = [
 
 hidden_imports = sorted(set(
     playwright_hidden
+    + tkdnd_hidden
     + [
         "keyring.backends.Windows",
         "jaraco.classes",
@@ -37,8 +39,8 @@ hidden_imports = sorted(set(
 a = Analysis(
     [str(project_root / "gui" / "app.py")],
     pathex=[str(project_root)],
-    binaries=playwright_binaries,
-    datas=playwright_datas + browser_datas + release_docs,
+    binaries=playwright_binaries + tkdnd_binaries,
+    datas=playwright_datas + tkdnd_datas + browser_datas + release_docs,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

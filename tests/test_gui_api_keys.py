@@ -11,7 +11,11 @@ from gui.credential_store import (
     CredentialStoreError,
     WindowsCredentialStore,
 )
-from gui.app import AIMemoryGUI
+from gui.app import (
+    AIMemoryGUI,
+    _direct_summary_output_filename,
+    _load_direct_summary_file,
+)
 from gui.service import (
     generate_output_bundle,
     gui_summary_attempt_configs,
@@ -355,6 +359,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         locked_values = []
         disabled_values = []
         button_configs = []
+        file_button_configs = []
 
         fake_gui = SimpleNamespace(
             capsule_entry=SimpleNamespace(
@@ -366,6 +371,12 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             card_detailed=SimpleNamespace(set_disabled=disabled_values.append),
             card_no_login=SimpleNamespace(set_disabled=disabled_values.append),
             card_need_login=SimpleNamespace(set_disabled=disabled_values.append),
+            file_select_button=SimpleNamespace(
+                config=lambda **kwargs: file_button_configs.append(kwargs)
+            ),
+            clear_file_button=SimpleNamespace(
+                config=lambda **kwargs: file_button_configs.append(kwargs)
+            ),
             api_key_button=SimpleNamespace(config=lambda **kwargs: button_configs.append(kwargs)),
         )
 
@@ -374,9 +385,182 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertEqual(locked_values, [True])
         self.assertEqual(disabled_values, [True] * 6)
         self.assertEqual(
+            file_button_configs,
+            [{"state": "disabled", "cursor": "arrow"}] * 2,
+        )
+        self.assertEqual(
             button_configs,
             [{"state": "normal", "cursor": "hand2"}],
         )
+
+    def test_direct_summary_uses_file_modes_and_ignores_raw_and_login(self):
+        captured = {}
+
+        class KeyStore:
+            @staticmethod
+            def load_api_keys():
+                return {"gemini": "user-key"}
+
+        class FakeThread:
+            def __init__(self, *, target, args, daemon):
+                captured["target"] = target
+                captured["args"] = args
+
+            def start(self):
+                captured["started"] = True
+
+        with tempfile.TemporaryDirectory() as temp:
+            source_path = Path(temp) / "原始对话.md"
+            source_path.write_text(
+                "## 🔵 👤 用户提问\n\n问题\n\n"
+                "## 🟣 🤖 AI 回答\n\n回答\n",
+                encoding="utf-8",
+            )
+            fake_gui = SimpleNamespace(
+                selected_summary_file=source_path,
+                card_raw=SimpleNamespace(checked=True),
+                card_normal=SimpleNamespace(checked=True),
+                card_simple=SimpleNamespace(checked=False),
+                card_detailed=SimpleNamespace(checked=False),
+                card_need_login=SimpleNamespace(checked=True),
+                credential_store=KeyStore(),
+                app_settings=SimpleNamespace(
+                    runtime_data_dir=Path(temp) / "runtime",
+                    default_results_dir=Path(temp) / "results",
+                ),
+                root=object(),
+                done_badge=SimpleNamespace(pack_forget=lambda: None),
+                _set_inputs_locked=lambda _locked: None,
+                _update_generate_button_state=lambda: None,
+                progress_bar=SimpleNamespace(
+                    reset=lambda: None,
+                    set_progress=lambda _value: None,
+                ),
+                status_var=SimpleNamespace(set=lambda _value: None),
+                percent_var=SimpleNamespace(set=lambda _value: None),
+                _run_generation_task=lambda *_args: None,
+            )
+
+            with patch(
+                "gui.app._prompt_output_target",
+                return_value=(Path(temp), "原始对话_summary.md"),
+            ) as prompt, patch("gui.app.threading.Thread", FakeThread):
+                AIMemoryGUI._on_direct_summary(fake_gui)
+
+        args = captured["args"]
+        self.assertEqual(args[0:2], ("", False))
+        self.assertEqual(
+            args[2],
+            {"raw": False, "normal": True, "simple": False, "detailed": False},
+        )
+        self.assertEqual(args[-1], source_path.resolve())
+        self.assertTrue(captured["started"])
+        self.assertEqual(
+            prompt.call_args.kwargs["suggested_name"],
+            "原始对话_summary.md",
+        )
+
+    def test_direct_file_validation_and_default_names(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source_path = Path(temp) / "课程对话.txt"
+            source_path.write_text(
+                "## 🔵 👤 用户提问\n\n问题\n\n"
+                "## 🟣 🤖 AI 回答\n\n回答\n",
+                encoding="utf-8",
+            )
+            messages = _load_direct_summary_file(source_path)
+            self.assertEqual([item["role"] for item in messages], ["User", "AI"])
+            self.assertEqual(
+                _direct_summary_output_filename(
+                    source_path, {"simple": True}
+                ),
+                "课程对话_simple.md",
+            )
+            self.assertEqual(
+                _direct_summary_output_filename(
+                    source_path, {"normal": True, "detailed": True}
+                ),
+                "课程对话.md",
+            )
+
+            unsupported = Path(temp) / "课程对话.pdf"
+            unsupported.write_text("text", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "仅支持"):
+                _load_direct_summary_file(unsupported)
+
+    def test_dropped_file_is_selected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source_path = Path(temp) / "拖入对话.md"
+            source_path.write_text(
+                "## 🔵 👤 用户提问\n\n问题\n\n"
+                "## 🟣 🤖 AI 回答\n\n回答\n",
+                encoding="utf-8",
+            )
+            selected_names = []
+            shown_rows = []
+            button_styles = []
+            fake_gui = SimpleNamespace(
+                is_running=False,
+                root=SimpleNamespace(
+                    tk=SimpleNamespace(splitlist=lambda _data: (str(source_path),))
+                ),
+                selected_summary_file=None,
+                selected_file_name_var=SimpleNamespace(set=selected_names.append),
+                selected_file_row=SimpleNamespace(
+                    pack=lambda **kwargs: shown_rows.append(kwargs)
+                ),
+                file_select_button=SimpleNamespace(
+                    config=lambda **kwargs: button_styles.append(kwargs)
+                ),
+                _update_generate_button_state=lambda: None,
+                _select_summary_file=lambda path: AIMemoryGUI._select_summary_file(
+                    fake_gui, path
+                ),
+                _set_file_drop_highlight=lambda value: (
+                    AIMemoryGUI._set_file_drop_highlight(fake_gui, value)
+                ),
+            )
+
+            AIMemoryGUI._on_file_drag_enter(
+                fake_gui,
+                SimpleNamespace(action="copy"),
+            )
+            self.assertEqual(button_styles[-1]["bg"], "#DBEAFE")
+
+            action = AIMemoryGUI._on_file_drop(
+                fake_gui,
+                SimpleNamespace(data="ignored", action="copy"),
+            )
+
+            self.assertEqual(action, "copy")
+            self.assertEqual(fake_gui.selected_summary_file, source_path.resolve())
+            self.assertEqual(selected_names, [source_path.name])
+            self.assertEqual(shown_rows, [{"fill": "x", "pady": (2, 0)}])
+            self.assertEqual(button_styles[-1]["bg"], "#EEF2FF")
+
+    def test_direct_button_requires_file_and_summary_mode(self):
+        states = []
+        fake_gui = SimpleNamespace(
+            is_running=False,
+            selected_summary_file=Path("dialog.md"),
+            capsule_entry=SimpleNamespace(get_text=lambda: ""),
+            card_raw=SimpleNamespace(checked=True),
+            card_normal=SimpleNamespace(checked=False),
+            card_simple=SimpleNamespace(checked=False),
+            card_detailed=SimpleNamespace(checked=False),
+            card_no_login=SimpleNamespace(checked=False),
+            card_need_login=SimpleNamespace(checked=False),
+            btn_generate=SimpleNamespace(set_enabled=lambda _value: None),
+            btn_direct=SimpleNamespace(set_enabled=states.append),
+        )
+
+        AIMemoryGUI._update_generate_button_state(fake_gui)
+        fake_gui.card_simple.checked = True
+        AIMemoryGUI._update_generate_button_state(fake_gui)
+        fake_gui.selected_summary_file = None
+        AIMemoryGUI._update_generate_button_state(fake_gui)
+
+        self.assertEqual(states, [False, True, False])
 
     def test_user_gemini_key_overrides_environment_key(self):
         base_config = summary.SummaryConfig(

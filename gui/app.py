@@ -26,6 +26,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
 from gui.settings_store import (
     AppSettings,
@@ -36,6 +37,7 @@ from gui.settings_store import (
 
 from gui.run_logging import GenerationRunLog
 from gui.service import (
+    MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
     build_image_asset_directory,
     default_output_filename,
@@ -50,9 +52,10 @@ def _prompt_output_target(
     parent: tk.Misc,
     modes: dict[str, bool],
     settings: AppSettings,
+    suggested_name: str | None = None,
 ) -> tuple[Path, str] | None:
     """按设置询问输出目标；配置默认目录时只询问文件名。"""
-    suggested_name = default_output_filename(modes)
+    suggested_name = suggested_name or default_output_filename(modes)
     if settings.default_results_dir is not None:
         chosen_name = simpledialog.askstring(
             "设置保存名称",
@@ -83,6 +86,46 @@ def _prompt_output_target(
         return None
     selected_path = Path(save_file).resolve()
     return selected_path.parent, normalize_markdown_filename(selected_path.name)
+
+
+DIRECT_SUMMARY_FILE_TYPES = {".md", ".txt"}
+DIRECT_SUMMARY_MAX_BYTES = 10 * 1024 * 1024
+
+
+def _load_direct_summary_file(path: Path) -> list[dict[str, str]]:
+    """校验并读取可直接总结的本项目对话导出文件。"""
+    path = Path(path).resolve()
+    if path.suffix.lower() not in DIRECT_SUMMARY_FILE_TYPES:
+        raise ValueError("仅支持 UTF-8 编码的 Markdown 或文本文件（.md/.txt）。")
+    if not path.is_file():
+        raise ValueError("所选文件不存在或已被移动。")
+    size = path.stat().st_size
+    if size <= 0:
+        raise ValueError("所选文件为空。")
+    if size > DIRECT_SUMMARY_MAX_BYTES:
+        raise ValueError("所选文件超过 10 MiB 限制。")
+
+    from scripts.gemini_summarizer import load_exported_markdown
+
+    try:
+        return load_exported_markdown(path)
+    except UnicodeDecodeError as error:
+        raise ValueError("所选文件不是有效的 UTF-8 文本。") from error
+
+
+def _direct_summary_output_filename(
+    source_path: Path,
+    modes: dict[str, bool],
+) -> str:
+    """按原文件名生成直接总结的默认名称。"""
+    stem = Path(source_path).stem.strip() or "AI_memory"
+    enabled = [
+        mode for mode in ("normal", "simple", "detailed")
+        if modes.get(mode)
+    ]
+    if len(enabled) == 1:
+        stem += MODE_FILENAME_SUFFIXES[enabled[0]]
+    return f"{stem}.md"
 
 
 # ==================== 颜色计算与渐变工具 ====================
@@ -819,6 +862,7 @@ class AIMemoryGUI:
         self.root.configure(bg="#E0E7FF")
 
         self.is_running = False
+        self.selected_summary_file: Path | None = None
         self.credential_store = WindowsCredentialStore()
         self.settings_store = WindowsAppSettingsStore()
         try:
@@ -831,6 +875,7 @@ class AIMemoryGUI:
         # 兼容缺少 API KEY 时复用已有窗口的旧属性名。
         self._api_key_dialog = None
         self._build_ui()
+        self._configure_file_drop()
         self._bind_mousewheel()
         self._update_generate_button_state()
 
@@ -925,12 +970,62 @@ class AIMemoryGUI:
         )
         url_label.pack(anchor="w", pady=(0, 4))
 
+        url_input_row = tk.Frame(url_section, bg="#EEF2FF")
+        url_input_row.pack(fill=tk.X)
+
         self.capsule_entry = CapsuleEntryBox(
-            url_section,
+            url_input_row,
             on_change=self._on_url_changed,
             bg_parent="#EEF2FF"
         )
-        self.capsule_entry.pack(fill=tk.X)
+        self.capsule_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+
+        file_action_column = tk.Frame(url_input_row, bg="#EEF2FF")
+        file_action_column.pack(side=tk.RIGHT, anchor="n")
+        self.file_select_button = tk.Button(
+            file_action_column,
+            text="📄 选取文件总结",
+            font=("Microsoft YaHei", 9, "bold"),
+            bg="#EEF2FF",
+            fg="#4F46E5",
+            activebackground="#E0E7FF",
+            activeforeground="#3730A3",
+            relief=tk.FLAT,
+            padx=10,
+            pady=7,
+            cursor="hand2",
+            command=self._choose_summary_file,
+        )
+        self.file_select_button.pack(fill=tk.X)
+
+        self.selected_file_row = tk.Frame(file_action_column, bg="#EEF2FF")
+        self.selected_file_name_var = tk.StringVar(value="")
+        tk.Label(
+            self.selected_file_row,
+            textvariable=self.selected_file_name_var,
+            font=("Microsoft YaHei", 8),
+            foreground="#475569",
+            bg="#EEF2FF",
+            anchor="w",
+            justify=tk.LEFT,
+            wraplength=145,
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.clear_file_button = tk.Button(
+            self.selected_file_row,
+            text="×",
+            font=("Segoe UI", 10, "bold"),
+            foreground="#64748B",
+            bg="#EEF2FF",
+            activeforeground="#DC2626",
+            activebackground="#EEF2FF",
+            relief=tk.FLAT,
+            bd=0,
+            padx=2,
+            pady=0,
+            cursor="hand2",
+            command=self._clear_summary_file,
+        )
+        self.clear_file_button.pack(side=tk.RIGHT)
 
         # 导出模式（4 大彩色胶囊卡片）
         mode_section = tk.Frame(self.sheet_frame, bg="#EEF2FF")
@@ -1111,16 +1206,34 @@ class AIMemoryGUI:
         action_box = tk.Frame(self.sheet_frame, bg="#EEF2FF")
         action_box.pack(fill=tk.X, pady=(0, 6))
 
+        action_buttons = tk.Frame(action_box, bg="#EEF2FF")
+        action_buttons.pack(anchor="center")
+
         self.btn_generate = GradientPillButton(
-            action_box,
+            action_buttons,
             text="🚀 开始生成",
             command=self._on_start_generate,
-            width=240,
+            width=220,
             height=48,
             font=("Microsoft YaHei", 12, "bold"),
             bg_parent="#EEF2FF"
         )
-        self.btn_generate.pack(anchor="center")
+        self.btn_generate.pack(side=tk.LEFT, padx=8)
+
+        self.btn_direct = GradientPillButton(
+            action_buttons,
+            text="📝 直接总结",
+            command=self._on_direct_summary,
+            color_start="#0D9488",
+            color_end="#4F46E5",
+            hover_start="#14B8A6",
+            hover_end="#6366F1",
+            width=220,
+            height=48,
+            font=("Microsoft YaHei", 12, "bold"),
+            bg_parent="#EEF2FF",
+        )
+        self.btn_direct.pack(side=tk.LEFT, padx=8)
 
         self.done_badge = tk.Label(
             action_box,
@@ -1822,6 +1935,76 @@ class AIMemoryGUI:
         elif require_key:
             show_notice("请先配置 API KEY")
 
+    def _choose_summary_file(self):
+        """选择并校验一个本项目导出的对话文件。"""
+        current_settings = getattr(
+            self, "app_settings", default_app_settings()
+        )
+        selected = filedialog.askopenfilename(
+            parent=getattr(self, "root", None),
+            title="选择要直接总结的对话文件",
+            initialdir=str(current_settings.runtime_data_dir),
+            filetypes=[
+                ("对话 Markdown 或文本", "*.md *.txt"),
+                ("Markdown 文件", "*.md"),
+                ("文本文件", "*.txt"),
+            ],
+        )
+        if not selected:
+            return
+        try:
+            self._select_summary_file(Path(selected))
+        except Exception as error:
+            messagebox.showerror("无法选择文件", str(error))
+
+    def _select_summary_file(self, selected_path: Path):
+        selected_path = Path(selected_path).resolve()
+        _load_direct_summary_file(selected_path)
+        self.selected_summary_file = selected_path
+        self.selected_file_name_var.set(selected_path.name)
+        self.selected_file_row.pack(fill=tk.X, pady=(2, 0))
+        self._update_generate_button_state()
+
+    def _configure_file_drop(self):
+        self.root.drop_target_register(DND_FILES)
+        self.root.dnd_bind("<<DropEnter>>", self._on_file_drag_enter)
+        self.root.dnd_bind("<<DropLeave>>", self._on_file_drag_leave)
+        self.root.dnd_bind("<<Drop>>", self._on_file_drop)
+
+    def _set_file_drop_highlight(self, highlighted: bool):
+        self.file_select_button.config(
+            bg="#DBEAFE" if highlighted else "#EEF2FF",
+            fg="#3730A3" if highlighted else "#4F46E5",
+        )
+
+    def _on_file_drag_enter(self, event):
+        if not self.is_running:
+            self._set_file_drop_highlight(True)
+        return event.action
+
+    def _on_file_drag_leave(self, event):
+        self._set_file_drop_highlight(False)
+        return event.action
+
+    def _on_file_drop(self, event):
+        self._set_file_drop_highlight(False)
+        if self.is_running:
+            return event.action
+        try:
+            paths = self.root.tk.splitlist(event.data)
+            if len(paths) != 1:
+                raise ValueError("请一次只拖入一个文件。")
+            self._select_summary_file(Path(paths[0]))
+        except Exception as error:
+            messagebox.showerror("无法选择文件", str(error))
+        return event.action
+
+    def _clear_summary_file(self):
+        self.selected_summary_file = None
+        self.selected_file_name_var.set("")
+        self.selected_file_row.pack_forget()
+        self._update_generate_button_state()
+
     def _on_mode_toggled(self):
         self._update_generate_button_state()
 
@@ -1841,6 +2024,13 @@ class AIMemoryGUI:
         self.card_detailed.set_disabled(locked)
         self.card_no_login.set_disabled(locked)
         self.card_need_login.set_disabled(locked)
+        for button_name in ("file_select_button", "clear_file_button"):
+            button = getattr(self, button_name, None)
+            if button is not None:
+                button.config(
+                    state=tk.DISABLED if locked else tk.NORMAL,
+                    cursor="arrow" if locked else "hand2",
+                )
         self.api_key_button.config(
             state=tk.NORMAL,
             cursor="hand2",
@@ -1860,6 +2050,8 @@ class AIMemoryGUI:
     def _update_generate_button_state(self):
         if self.is_running:
             self.btn_generate.set_enabled(False)
+            if hasattr(self, "btn_direct"):
+                self.btn_direct.set_enabled(False)
             return
 
         has_mode = any([
@@ -1872,6 +2064,16 @@ class AIMemoryGUI:
         has_url = len(self.capsule_entry.get_text()) > 0
 
         self.btn_generate.set_enabled(bool(has_mode and has_auth and has_url))
+        if hasattr(self, "btn_direct"):
+            has_summary_mode = any([
+                self.card_normal.checked,
+                self.card_simple.checked,
+                self.card_detailed.checked,
+            ])
+            self.btn_direct.set_enabled(bool(
+                getattr(self, "selected_summary_file", None)
+                and has_summary_mode
+            ))
 
     def _show_completed_badge(self, duration_sec: int = 5):
         self.done_badge.pack(anchor="center", pady=(8, 0))
@@ -1959,6 +2161,82 @@ class AIMemoryGUI:
             daemon=True
         )
         thread.start()
+
+    def _on_direct_summary(self):
+        source_path = getattr(self, "selected_summary_file", None)
+        if source_path is None:
+            messagebox.showwarning("提示", "请先选取要直接总结的对话文件。")
+            return
+
+        modes = {
+            "raw": False,
+            "normal": self.card_normal.checked,
+            "simple": self.card_simple.checked,
+            "detailed": self.card_detailed.checked,
+        }
+        if not any(modes.values()):
+            messagebox.showwarning(
+                "提示", "请至少勾选普通版、极简版或细节版之一。"
+            )
+            return
+
+        try:
+            _load_direct_summary_file(source_path)
+            api_keys = self.credential_store.load_api_keys()
+        except CredentialStoreError:
+            self._show_api_key_settings(require_key=True)
+            return
+        except Exception as error:
+            messagebox.showerror("无法读取文件", str(error))
+            return
+        if not api_keys:
+            self._show_api_key_settings(require_key=True)
+            return
+
+        current_settings = getattr(
+            self, "app_settings", default_app_settings()
+        )
+        settings = AppSettings(
+            runtime_data_dir=Path(current_settings.runtime_data_dir),
+            default_results_dir=(
+                Path(current_settings.default_results_dir)
+                if current_settings.default_results_dir is not None
+                else None
+            ),
+        )
+        output_target = _prompt_output_target(
+            getattr(self, "root", None),
+            modes,
+            settings,
+            suggested_name=_direct_summary_output_filename(source_path, modes),
+        )
+        if output_target is None:
+            return
+        save_dir_path, output_filename = output_target
+
+        self.is_running = True
+        self.done_badge.pack_forget()
+        self._set_inputs_locked(True)
+        self._update_generate_button_state()
+        self.progress_bar.reset()
+        self.progress_bar.set_progress(0.06)
+        self.status_var.set("正在读取所选对话文件...")
+        self.percent_var.set("6%")
+
+        threading.Thread(
+            target=self._run_generation_task,
+            args=(
+                "",
+                False,
+                modes,
+                save_dir_path,
+                output_filename,
+                dict(api_keys),
+                settings,
+                Path(source_path),
+            ),
+            daemon=True,
+        ).start()
 
     def _show_login_dialog(self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event):
         """弹出登录提示对话框"""
@@ -2197,6 +2475,61 @@ class AIMemoryGUI:
         dialog.bind("<Return>", lambda _event: finish(True))
         dialog.focus_force()
 
+    def _select_summary_topics(
+        self,
+        result,
+        update_progress,
+        run_log: GenerationRunLog,
+    ) -> tuple[tuple[str, ...], float]:
+        """在 GUI 线程询问重点主题，供两种总结入口共用。"""
+        from scripts.gemini_summarizer import available_summary_topics
+
+        available = available_summary_topics(result)
+        if not available:
+            update_progress(
+                0.80,
+                "主题分类完成，本次没有需要单独选择的历史主题。",
+            )
+            return (), 0.0
+
+        update_progress(
+            0.80,
+            "主题分类完成，请在弹出的窗口中勾选重要主题...",
+        )
+        run_log.event("topic_selection_started", topic_count=len(available))
+        selection_ready = threading.Event()
+        selection_holder = {"topics": ()}
+
+        def on_selected(topics):
+            selection_holder["topics"] = tuple(topics)
+            selection_ready.set()
+
+        def show_dialog():
+            try:
+                self._show_summary_topic_dialog(available, on_selected)
+            except Exception:
+                on_selected(())
+
+        self.root.after(0, show_dialog)
+        selection_started = time.perf_counter()
+        selection_ready.wait()
+        wait_seconds = time.perf_counter() - selection_started
+        selected = selection_holder["topics"]
+        run_log.event(
+            "topic_selection_completed",
+            selected_count=len(selected),
+            wait_seconds=round(wait_seconds, 3),
+        )
+        update_progress(
+            0.84,
+            (
+                f"已选择 {len(selected)} 个重点主题，正在写入结果..."
+                if selected
+                else "未选择重点主题，正在写入完整主题摘要..."
+            ),
+        )
+        return selected, wait_seconds
+
     def _run_generation_task(
         self,
         url: str,
@@ -2206,23 +2539,38 @@ class AIMemoryGUI:
         output_filename: str,
         api_keys: dict[str, str],
         app_settings: AppSettings,
+        source_path: Path | None = None,
     ):
         """后台异步流水线调用与平滑进度控制"""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         task_started = time.perf_counter()
         run_succeeded = False
-        run_log = GenerationRunLog(
-            app_settings.log_dir,
-            metadata={
+        direct_summary = source_path is not None
+        if direct_summary:
+            source_path = Path(source_path).resolve()
+            metadata = {
+                "input_file_name": source_path.name,
+                "input_file_fingerprint": hashlib.sha256(
+                    str(source_path).encode("utf-8")
+                ).hexdigest()[:12],
+                "direct_summary": True,
+            }
+        else:
+            metadata = {
                 "link_host": urlparse(url).netloc.lower(),
                 "link_fingerprint": hashlib.sha256(
                     url.encode("utf-8")
                 ).hexdigest()[:12],
                 "need_login": need_login,
-                "modes": [key for key, enabled in modes.items() if enabled],
-                "output_filename": output_filename,
-            },
+            }
+        metadata.update({
+            "modes": [key for key, enabled in modes.items() if enabled],
+            "output_filename": output_filename,
+        })
+        run_log = GenerationRunLog(
+            app_settings.log_dir,
+            metadata=metadata,
         )
 
         login_event = asyncio.Event()
@@ -2241,126 +2589,104 @@ class AIMemoryGUI:
             ])
 
         try:
-            update_progress(0.15, "正在加载分享页并解析动态列表...")
-
-            # 1. 抓取网页内容
             fetch_started = time.perf_counter()
-            image_output_dir = build_image_asset_directory(
-                save_dir,
-                output_filename,
-            )
-            document_output_dir = build_document_asset_directory(
-                save_dir,
-                output_filename,
-            )
-            fetch_res = loop.run_until_complete(
-                fetch_chat_pipeline(
-                    url=url,
-                    need_login=need_login,
-                    login_ready_event=login_event,
-                    login_required_callback=(
-                        lambda: self.root.after(
-                            0,
-                            lambda: self._show_login_dialog(loop, login_event),
-                        )
-                    ),
-                    logger=lambda m: update_progress(0.28, m),
-                    image_output_dir=image_output_dir,
-                    image_reference_base=save_dir,
-                    document_output_dir=document_output_dir,
-                    document_reference_base=save_dir,
-                    browser_profile_root=app_settings.browser_profile_dir,
-                    debug_html_file=app_settings.debug_html_file,
+            source_name = None
+            source_dir = None
+            if direct_summary:
+                update_progress(0.15, "正在读取所选对话文件...")
+                messages = _load_direct_summary_file(source_path)
+                fetch_seconds = time.perf_counter() - fetch_started
+                fetch_active_seconds = fetch_seconds
+                login_wait_seconds = 0.0
+                source_name = source_path.name
+                source_dir = source_path.parent
+                run_log.event(
+                    "file_loaded",
+                    "本地对话文件读取完成",
+                    elapsed_seconds=round(fetch_seconds, 3),
+                    message_count=len(messages),
                 )
-            )
-            fetch_seconds = time.perf_counter() - fetch_started
-            login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
-            fetch_active_seconds = max(0.0, fetch_seconds - login_wait_seconds)
-            run_log.event(
-                "fetch_completed" if not fetch_res.error else "fetch_failed",
-                fetch_res.error or "抓取完成",
-                elapsed_seconds=round(fetch_seconds, 3),
-                active_seconds=round(fetch_active_seconds, 3),
-                login_wait_seconds=round(login_wait_seconds, 3),
-                message_count=len(fetch_res.messages),
-                downloaded_images=len(fetch_res.image_map),
-            )
-            for warning in fetch_res.warnings:
-                run_log.event("fetch_warning", warning)
+                update_progress(
+                    0.42,
+                    f"成功读取 {len(messages)} 条对话消息，正在准备总结...",
+                )
+            else:
+                update_progress(0.15, "正在加载分享页并解析动态列表...")
+                image_output_dir = build_image_asset_directory(
+                    save_dir,
+                    output_filename,
+                )
+                document_output_dir = build_document_asset_directory(
+                    save_dir,
+                    output_filename,
+                )
+                fetch_res = loop.run_until_complete(
+                    fetch_chat_pipeline(
+                        url=url,
+                        need_login=need_login,
+                        login_ready_event=login_event,
+                        login_required_callback=(
+                            lambda: self.root.after(
+                                0,
+                                lambda: self._show_login_dialog(
+                                    loop, login_event
+                                ),
+                            )
+                        ),
+                        logger=lambda m: update_progress(0.28, m),
+                        image_output_dir=image_output_dir,
+                        image_reference_base=save_dir,
+                        document_output_dir=document_output_dir,
+                        document_reference_base=save_dir,
+                        browser_profile_root=app_settings.browser_profile_dir,
+                        debug_html_file=app_settings.debug_html_file,
+                    )
+                )
+                fetch_seconds = time.perf_counter() - fetch_started
+                login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
+                fetch_active_seconds = max(
+                    0.0, fetch_seconds - login_wait_seconds
+                )
+                run_log.event(
+                    "fetch_completed" if not fetch_res.error else "fetch_failed",
+                    fetch_res.error or "抓取完成",
+                    elapsed_seconds=round(fetch_seconds, 3),
+                    active_seconds=round(fetch_active_seconds, 3),
+                    login_wait_seconds=round(login_wait_seconds, 3),
+                    message_count=len(fetch_res.messages),
+                    downloaded_images=len(fetch_res.image_map),
+                )
+                for warning in fetch_res.warnings:
+                    run_log.event("fetch_warning", warning)
+                if fetch_res.error or not fetch_res.messages:
+                    err = fetch_res.error or "未能提取到有效对话内容。"
+                    self.root.after(
+                        0,
+                        lambda: messagebox.showerror("生成失败", err),
+                    )
+                    return
 
-            if fetch_res.error or not fetch_res.messages:
-                err = fetch_res.error or "未能提取到有效对话内容。"
-                self.root.after(0, lambda: messagebox.showerror("生成失败", err))
-                return
-
-            messages = fetch_res.messages
-            login_wait_detail = (
-                f"，等待登录 {login_wait_seconds:.1f} 秒"
-                if login_wait_seconds >= 0.1
-                else ""
-            )
-            update_progress(
-                0.42,
-                f"成功提取 {len(messages)} 条对话交互"
-                f"（实际抓取 {fetch_active_seconds:.1f} 秒"
-                f"{login_wait_detail}），正在按要求生成文件...",
-            )
+                messages = fetch_res.messages
+                login_wait_detail = (
+                    f"，等待登录 {login_wait_seconds:.1f} 秒"
+                    if login_wait_seconds >= 0.1
+                    else ""
+                )
+                update_progress(
+                    0.42,
+                    f"成功提取 {len(messages)} 条对话交互"
+                    f"（实际抓取 {fetch_active_seconds:.1f} 秒"
+                    f"{login_wait_detail}），正在按要求生成文件...",
+                )
 
             selection_wait_seconds = 0.0
 
             def select_summary_topics(result):
                 nonlocal selection_wait_seconds
-                from scripts.gemini_summarizer import available_summary_topics
-
-                available = available_summary_topics(result)
-                if not available:
-                    update_progress(
-                        0.80,
-                        "主题分类完成，本次没有需要单独选择的历史主题。",
-                    )
-                    return ()
-
-                update_progress(
-                    0.80,
-                    "主题分类完成，请在弹出的窗口中勾选重要主题...",
+                selected, wait_seconds = self._select_summary_topics(
+                    result, update_progress, run_log
                 )
-                run_log.event(
-                    "topic_selection_started",
-                    topic_count=len(available),
-                )
-                selection_ready = threading.Event()
-                selection_holder = {"topics": ()}
-
-                def on_selected(topics):
-                    selection_holder["topics"] = tuple(topics)
-                    selection_ready.set()
-
-                def show_dialog():
-                    try:
-                        self._show_summary_topic_dialog(
-                            available, on_selected
-                        )
-                    except Exception:
-                        on_selected(())
-
-                self.root.after(0, show_dialog)
-                selection_started = time.perf_counter()
-                selection_ready.wait()
-                selection_wait_seconds += time.perf_counter() - selection_started
-                selected = selection_holder["topics"]
-                run_log.event(
-                    "topic_selection_completed",
-                    selected_count=len(selected),
-                    wait_seconds=round(selection_wait_seconds, 3),
-                )
-                update_progress(
-                    0.84,
-                    (
-                        f"已选择 {len(selected)} 个重点主题，正在写入结果..."
-                        if selected
-                        else "未选择重点主题，正在写入完整主题摘要..."
-                    ),
-                )
+                selection_wait_seconds += wait_seconds
                 return selected
 
             update_progress(0.56, "正在连接总结后端并准备生成文件...")
@@ -2375,9 +2701,14 @@ class AIMemoryGUI:
                 result_cache_dir=app_settings.summary_cache_dir,
                 source_platform=(
                     "deepseek"
-                    if urlparse(url).hostname == "chat.deepseek.com"
+                    if (
+                        not direct_summary
+                        and urlparse(url).hostname == "chat.deepseek.com"
+                    )
                     else None
                 ),
+                source_name=source_name,
+                source_dir=source_dir,
                 topic_selector=(
                     select_summary_topics
                     if modes.get("normal") or modes.get("detailed")
@@ -2427,8 +2758,10 @@ class AIMemoryGUI:
             update_progress(
                 1.0,
                 (
-                    f"所有任务生成完成（程序处理 {program_seconds:.1f} 秒："
-                    f"抓取 {fetch_active_seconds:.1f}/"
+                    f"{'直接总结' if direct_summary else '所有任务生成'}完成"
+                    f"（程序处理 {program_seconds:.1f} 秒："
+                    f"{'读取' if direct_summary else '抓取'} "
+                    f"{fetch_active_seconds:.1f}/"
                     f"总结 {generation_seconds:.1f}"
                     f"{wait_text}；总计 {total_seconds:.1f} 秒）："
                     f"{file_list_str}"
@@ -2479,7 +2812,7 @@ def main():
 
         raise SystemExit(run_package_smoke_test(report_path))
 
-    root = tk.Tk()
+    root = TkinterDnD.Tk()
     app = AIMemoryGUI(root)
     root.mainloop()
 
