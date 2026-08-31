@@ -134,6 +134,83 @@ class FakeGateway:
 
 
 class GeminiSummarizerTests(unittest.TestCase):
+    def test_progress_cache_is_shared_across_fallback_models(self):
+        messages = [{"role": "User", "content": "请总结这段内容"}]
+        first = summary.SummaryConfig(
+            provider="gemini",
+            model="gemini-3.5-flash",
+            chunk_chars=12000,
+        )
+        fallback = summary.SummaryConfig(
+            provider="deepseek",
+            model="deepseek-v4-pro",
+            chunk_chars=12000,
+        )
+        different_chunks = summary.SummaryConfig(
+            provider="deepseek",
+            model="deepseek-v4-pro",
+            chunk_chars=8000,
+        )
+
+        self.assertEqual(
+            summary._summary_fingerprint(messages, first),
+            summary._summary_fingerprint(messages, fallback),
+        )
+        self.assertNotEqual(
+            summary._summary_fingerprint(messages, first),
+            summary._summary_fingerprint(messages, different_chunks),
+        )
+
+    def test_fallback_model_reuses_completed_chunks(self):
+        class FailingFinalGateway(FakeGateway):
+            def generate_json(self, prompt, schema, media_assets=None):
+                if schema is summary.FINAL_SCHEMA:
+                    raise RuntimeError("temporary provider failure")
+                return super().generate_json(prompt, schema, media_assets)
+
+        messages = [
+            {"role": "User", "content": "请解决报错"},
+            {"role": "AI", "content": "建议增加 try-except"},
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            output_json = project / "result.json"
+            output_markdown = project / "summary.md"
+            with self.assertRaises(RuntimeError):
+                summary.summarize_conversation(
+                    messages=messages,
+                    project_dir=project,
+                    output_json=output_json,
+                    output_markdown=output_markdown,
+                    config=summary.SummaryConfig(
+                        provider="gemini", model="gemini-3.5-flash"
+                    ),
+                    gateway=FailingFinalGateway(),
+                    progress=lambda _message: None,
+                )
+
+            fallback_gateway = FakeGateway()
+            progress_messages = []
+            summary.summarize_conversation(
+                messages=messages,
+                project_dir=project,
+                output_json=output_json,
+                output_markdown=output_markdown,
+                config=summary.SummaryConfig(
+                    provider="deepseek", model="deepseek-v4-pro"
+                ),
+                gateway=fallback_gateway,
+                progress=progress_messages.append,
+            )
+
+        self.assertEqual(
+            [schema for schema, _assets in fallback_gateway.calls],
+            [summary.FINAL_SCHEMA],
+        )
+        self.assertTrue(any(
+            "恢复细粒度记忆" in message for message in progress_messages
+        ))
+
     def test_completed_result_cache_is_exact_and_invalidates_on_input_change(self):
         messages = [
             {"role": "User", "content": "请解决报错"},

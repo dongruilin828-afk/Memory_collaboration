@@ -1831,9 +1831,7 @@ def _summary_fingerprint(
 ) -> str:
     payload = json.dumps(
         {
-            "cache_schema_version": 13 if source_platform == "deepseek" else 12,
-            "provider": config.provider,
-            "model": config.model,
+            "cache_schema_version": 15 if source_platform == "deepseek" else 14,
             "chunk_chars": config.chunk_chars,
             "messages": messages
         },

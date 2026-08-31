@@ -54,6 +54,7 @@ class GUIServiceTests(unittest.TestCase):
             def __init__(self, ok, payload):
                 self.ok = ok
                 self.payload = payload
+                self.headers = {}
 
             async def body(self):
                 return self.payload
@@ -69,7 +70,13 @@ class GUIServiceTests(unittest.TestCase):
                 self.max_active = max(self.max_active, self.active)
                 try:
                     await asyncio.sleep(0.01)
-                    return FakeResponse("fail" not in src, src.encode("utf-8"))
+                    if src.endswith(".jpg"):
+                        payload = b"\xff\xd8\xff" + src.encode("utf-8")
+                    elif src.endswith(".webp"):
+                        payload = b"RIFF\x00\x00\x00\x00WEBP" + src.encode("utf-8")
+                    else:
+                        payload = b"\x89PNG\r\n\x1a\n" + src.encode("utf-8")
+                    return FakeResponse("fail" not in src, payload)
                 finally:
                     self.active -= 1
 
@@ -94,9 +101,9 @@ class GUIServiceTests(unittest.TestCase):
             self.assertEqual(
                 [path.read_bytes() for path in files],
                 [
-                    b"https://example.com/a.png",
-                    b"https://example.com/b.jpg",
-                    b"https://example.com/c.webp",
+                    b"\x89PNG\r\n\x1a\nhttps://example.com/a.png",
+                    b"\xff\xd8\xffhttps://example.com/b.jpg",
+                    b"RIFF\x00\x00\x00\x00WEBPhttps://example.com/c.webp",
                 ],
             )
 
@@ -115,6 +122,7 @@ class GUIServiceTests(unittest.TestCase):
             def __init__(self, ok, payload):
                 self.ok = ok
                 self.payload = payload
+                self.headers = {}
 
             async def body(self):
                 return self.payload
@@ -131,7 +139,8 @@ class GUIServiceTests(unittest.TestCase):
                 self.max_active = max(self.max_active, self.active)
                 try:
                     await asyncio.sleep(0.01)
-                    return FakeResponse("fail" not in src, src.encode("utf-8"))
+                    payload = b"\xff\xd8\xff" + src.encode("utf-8")
+                    return FakeResponse("fail" not in src, payload)
                 finally:
                     self.active -= 1
 
@@ -149,7 +158,7 @@ class GUIServiceTests(unittest.TestCase):
             images_dir = Path(temp_dir)
             digest = hashlib.md5(existing.encode("utf-8")).hexdigest()[:8]
             existing_file = images_dir / f"img_7_{digest}.png"
-            existing_file.write_bytes(b"existing")
+            existing_file.write_bytes(b"\x89PNG\r\n\x1a\nexisting")
             image_map = asyncio.run(_download_image_candidates(
                 page,
                 [existing, failing, failing, failing, favicon, fresh],
@@ -159,7 +168,9 @@ class GUIServiceTests(unittest.TestCase):
                 warning_collector=warnings,
             ))
 
-            self.assertEqual(existing_file.read_bytes(), b"existing")
+            self.assertEqual(
+                existing_file.read_bytes(), b"\x89PNG\r\n\x1a\nexisting"
+            )
             self.assertEqual(len(list(images_dir.iterdir())), 2)
 
         self.assertEqual(request.calls.get(existing, 0), 0)
@@ -172,6 +183,51 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(list(image_map), [existing, fresh])
         self.assertEqual(image_map[existing], f"./assets/{existing_file.name}")
         self.assertTrue(image_map[fresh].startswith("./assets/img_8_"))
+
+    def test_image_download_follows_signed_metadata_and_skips_stale_json(self):
+        source = "https://chatgpt.com/backend-api/files/download/file_image"
+        signed = "https://example.com/signed.png"
+
+        class FakeResponse:
+            def __init__(self, body, content_type):
+                self.ok = True
+                self.status = 200
+                self.payload = body
+                self.headers = {"content-type": content_type}
+
+            async def body(self):
+                return self.payload
+
+            async def json(self):
+                return {"download_url": signed}
+
+        class FakeRequest:
+            def __init__(self):
+                self.calls = []
+
+            async def get(self, src, timeout):
+                self.calls.append(src)
+                if src == source:
+                    return FakeResponse(b'{"status":"success"}', "application/json")
+                return FakeResponse(b"\x89PNG\r\n\x1a\nreal", "image/png")
+
+        request = FakeRequest()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            images_dir = Path(temp_dir)
+            digest = hashlib.md5(source.encode("utf-8")).hexdigest()[:8]
+            stale = images_dir / f"img_1_{digest}.png"
+            stale.write_bytes(b'{"status":"success"}')
+            image_map = asyncio.run(_download_image_candidates(
+                SimpleNamespace(request=request),
+                [source],
+                images_dir,
+                "./assets",
+            ))
+            saved = images_dir / Path(image_map[source]).name
+            self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nreal")
+            self.assertNotEqual(saved, stale)
+
+        self.assertEqual(request.calls, [source, signed])
 
     def test_browser_cleanup_failure_becomes_warning(self):
         class BrokenContext:
@@ -688,6 +744,17 @@ class GUIServiceTests(unittest.TestCase):
             "file_test1234567890abcdef",
         )
 
+        shared = _extract_document_candidates(
+            html,
+            "https://chatgpt.com/share/6a60329f-c73c-83ee-a272-ea3768b04ab5",
+        )
+        self.assertEqual(
+            shared[0].url,
+            "https://chatgpt.com/backend-api/files/download/"
+            "file_test1234567890abcdef"
+            "?shared_conversation_id=6a60329f-c73c-83ee-a272-ea3768b04ab5",
+        )
+
     def test_authorized_platform_responses_produce_downloadable_documents(self):
         chatgpt_documents = []
         chatgpt_images = set()
@@ -721,6 +788,22 @@ class GUIServiceTests(unittest.TestCase):
             "file_document123456",
         )
         self.assertEqual(chatgpt_images, {"file_image123456"})
+
+        shared_documents = []
+        _collect_response_assets(
+            {
+                "attachments": [{
+                    "id": "file_document123456",
+                    "name": "课堂材料.md",
+                }]
+            },
+            "https://chatgpt.com/share/6a60329f-c73c-83ee-a272-ea3768b04ab5",
+            shared_documents,
+            set(),
+        )
+        self.assertTrue(shared_documents[0].url.endswith(
+            "?shared_conversation_id=6a60329f-c73c-83ee-a272-ea3768b04ab5"
+        ))
 
         deepseek_documents = []
         _collect_response_assets(

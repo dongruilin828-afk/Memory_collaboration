@@ -1573,9 +1573,13 @@ class AIMemoryGUI:
 
         try:
             existing_keys = self.credential_store.load_api_keys()
+            provider_order = list(
+                self.credential_store.load_provider_order()
+            )
             key_load_error = None
         except CredentialStoreError as error:
             existing_keys = {}
+            provider_order = ["gemini", "siliconflow", "deepseek"]
             key_load_error = str(error)
 
         gemini_var = tk.StringVar(value=existing_keys.get("gemini", ""))
@@ -1626,66 +1630,138 @@ class AIMemoryGUI:
                 duration_ms, clear_notice
             )
 
+        tk.Label(
+            api_page,
+            text="拖动左侧手柄调整兜底顺序（上方优先，未配置自动忽略）",
+            font=("Microsoft YaHei", 8),
+            foreground="#64748B",
+            bg="#FFFFFF",
+        ).pack(fill=tk.X, pady=(0, 3))
+
         key_fields = tk.Frame(api_page, bg="#FFFFFF")
         key_fields.pack(fill=tk.X)
-        key_fields.columnconfigure(1, weight=1)
-        tk.Label(
-            key_fields,
-            text="Google AI Studio：",
-            font=("Microsoft YaHei", 10, "bold"),
-            foreground="#334155",
-            bg="#FFFFFF",
-        ).grid(row=0, column=0, sticky="w", padx=(0, 12), pady=7)
-        gemini_entry = tk.Entry(
-            key_fields,
-            textvariable=gemini_var,
-            show="●",
-            font=("Microsoft YaHei", 10),
-            relief=tk.SOLID,
-            bd=1,
-            highlightthickness=1,
-            highlightcolor="#60A5FA",
-            highlightbackground="#CBD5E1",
-        )
-        gemini_entry.grid(row=0, column=1, sticky="ew", pady=7, ipady=5)
-        tk.Label(
-            key_fields,
-            text="Silicon Flow：",
-            font=("Microsoft YaHei", 10, "bold"),
-            foreground="#334155",
-            bg="#FFFFFF",
-        ).grid(row=1, column=0, sticky="w", padx=(0, 12), pady=7)
-        silicon_entry = tk.Entry(
-            key_fields,
-            textvariable=silicon_var,
-            show="●",
-            font=("Microsoft YaHei", 10),
-            relief=tk.SOLID,
-            bd=1,
-            highlightthickness=1,
-            highlightcolor="#60A5FA",
-            highlightbackground="#CBD5E1",
-        )
-        silicon_entry.grid(row=1, column=1, sticky="ew", pady=7, ipady=5)
-        tk.Label(
-            key_fields,
-            text="DeepSeek：",
-            font=("Microsoft YaHei", 10, "bold"),
-            foreground="#334155",
-            bg="#FFFFFF",
-        ).grid(row=2, column=0, sticky="w", padx=(0, 12), pady=7)
-        deepseek_entry = tk.Entry(
-            key_fields,
-            textvariable=deepseek_var,
-            show="●",
-            font=("Microsoft YaHei", 10),
-            relief=tk.SOLID,
-            bd=1,
-            highlightthickness=1,
-            highlightcolor="#60A5FA",
-            highlightbackground="#CBD5E1",
-        )
-        deepseek_entry.grid(row=2, column=1, sticky="ew", pady=7, ipady=5)
+        provider_vars = {
+            "gemini": gemini_var,
+            "siliconflow": silicon_var,
+            "deepseek": deepseek_var,
+        }
+        provider_labels = {
+            "gemini": "Google AI Studio：",
+            "siliconflow": "Silicon Flow：",
+            "deepseek": "DeepSeek：",
+        }
+        provider_rows = {}
+        provider_row_parts = {}
+        provider_entries = {}
+        dragged_provider = {"value": None}
+
+        def set_provider_row_active(provider: str, active: bool):
+            background = "#EFF6FF" if active else "#F8FAFC"
+            row, handle, label = provider_row_parts[provider]
+            row.config(
+                bg=background,
+                highlightbackground="#60A5FA" if active else "#E2E8F0",
+            )
+            handle.config(bg=background)
+            label.config(bg=background)
+
+        def render_provider_rows():
+            for row in provider_rows.values():
+                row.pack_forget()
+            for provider in provider_order:
+                provider_rows[provider].pack(fill=tk.X, pady=3)
+            key_fields.update_idletasks()
+
+        def start_provider_drag(provider: str, _event=None):
+            dragged_provider["value"] = provider
+            set_provider_row_active(provider, True)
+            return "break"
+
+        def move_provider_drag(event):
+            provider = dragged_provider["value"]
+            if provider is None:
+                return "break"
+            pointer_y = event.widget.winfo_pointery()
+            target = min(
+                range(len(provider_order)),
+                key=lambda index: abs(
+                    pointer_y
+                    - (
+                        provider_rows[provider_order[index]].winfo_rooty()
+                        + provider_rows[provider_order[index]].winfo_height() / 2
+                    )
+                ),
+            )
+            current = provider_order.index(provider)
+            if target != current:
+                provider_order.insert(target, provider_order.pop(current))
+                render_provider_rows()
+            return "break"
+
+        def end_provider_drag(_event=None):
+            provider = dragged_provider["value"]
+            if provider is not None:
+                set_provider_row_active(provider, False)
+            dragged_provider["value"] = None
+            return "break"
+
+        for provider in provider_order:
+            row = tk.Frame(
+                key_fields,
+                bg="#F8FAFC",
+                padx=5,
+                pady=3,
+                cursor="fleur",
+                highlightthickness=1,
+                highlightbackground="#E2E8F0",
+            )
+            row.columnconfigure(2, weight=1)
+            handle = tk.Label(
+                row,
+                text="☰",
+                font=("Microsoft YaHei", 11),
+                foreground="#64748B",
+                bg="#F8FAFC",
+                cursor="fleur",
+            )
+            handle.grid(row=0, column=0, padx=(2, 8))
+            label = tk.Label(
+                row,
+                text=provider_labels[provider],
+                width=17,
+                anchor="w",
+                font=("Microsoft YaHei", 10, "bold"),
+                foreground="#334155",
+                bg="#F8FAFC",
+                cursor="fleur",
+            )
+            label.grid(row=0, column=1, sticky="w", padx=(0, 8))
+            entry = tk.Entry(
+                row,
+                textvariable=provider_vars[provider],
+                show="●",
+                font=("Microsoft YaHei", 10),
+                relief=tk.SOLID,
+                bd=1,
+                highlightthickness=1,
+                highlightcolor="#60A5FA",
+                highlightbackground="#CBD5E1",
+            )
+            entry.grid(row=0, column=2, sticky="ew", ipady=4)
+            provider_rows[provider] = row
+            provider_row_parts[provider] = (row, handle, label)
+            provider_entries[provider] = entry
+            for widget in (row, handle, label):
+                widget.bind(
+                    "<ButtonPress-1>",
+                    lambda event, value=provider: start_provider_drag(
+                        value, event
+                    ),
+                )
+                widget.bind("<B1-Motion>", move_provider_drag)
+                widget.bind("<ButtonRelease-1>", end_provider_drag)
+
+        render_provider_rows()
         tk.Label(
             api_page,
             text=(
@@ -1851,6 +1927,7 @@ class AIMemoryGUI:
                 return
             try:
                 self.credential_store.save_api_keys(keys)
+                self.credential_store.save_provider_order(provider_order)
             except CredentialStoreError as error:
                 show_notice(str(error), duration_ms=5000)
                 return
@@ -1911,7 +1988,7 @@ class AIMemoryGUI:
                 runtime_entry.focus_set()
             else:
                 notebook.select(api_page)
-                gemini_entry.focus_set()
+                provider_entries[provider_order[0]].focus_set()
 
         def save_current(_event=None):
             if notebook.index(notebook.select()) == 0:

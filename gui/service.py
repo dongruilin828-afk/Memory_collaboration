@@ -29,6 +29,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
+from gui.credential_store import normalize_provider_order
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
     BROWSER_USER_DATA_DIR,
@@ -100,6 +101,19 @@ class DocumentCandidate:
     filename: str
 
 
+def _chatgpt_shared_conversation_id(url: str) -> str:
+    parsed = urlparse(str(url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    match = re.fullmatch(
+        r"/share/(?P<share_id>[0-9a-f-]{32,36})/?",
+        parsed.path,
+        re.IGNORECASE,
+    )
+    if host not in {"chatgpt.com", "chat.openai.com"} or not match:
+        return ""
+    return match.group("share_id")
+
+
 
 def _iter_json_mappings(value: Any):
     """递归遍历平台响应中的字典节点，不记录或输出原始响应。"""
@@ -122,6 +136,11 @@ def _collect_response_assets(
     parsed = urlparse(page_url)
     host = parsed.netloc.lower().split(":", 1)[0]
     origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    share_id = _chatgpt_shared_conversation_id(page_url)
+    share_query = (
+        f"?shared_conversation_id={quote(share_id, safe='')}"
+        if share_id else ""
+    )
     for item in _iter_json_mappings(payload):
         filename = str(
             item.get("file_name") or item.get("name") or ""
@@ -173,7 +192,7 @@ def _collect_response_assets(
                     document_candidates.append(DocumentCandidate(
                         reference,
                         f"{origin}/backend-api/files/download/"
-                        f"{quote(reference, safe='')}",
+                        f"{quote(reference, safe='')}{share_query}",
                         _safe_document_filename(filename, suffix),
                     ))
             if mime_type.startswith("image/") or suffix in {
@@ -619,10 +638,11 @@ def resolve_gui_summary_config(
     base_config: Any,
     api_keys: Mapping[str, str],
 ) -> Any:
-    """按固定优先级选择已配置的用户提供商。"""
+    """按用户设置的优先级选择已配置的提供商。"""
+    provider_order = normalize_provider_order(api_keys)
     normalized = {
         provider: str(api_keys.get(provider) or "").strip()
-        for provider in ("gemini", "siliconflow", "deepseek")
+        for provider in provider_order
         if str(api_keys.get(provider) or "").strip()
     }
     if not normalized:
@@ -630,9 +650,7 @@ def resolve_gui_summary_config(
         raise GeminiSummaryError("请先配置API KEY。")
 
     preferred_provider = next(
-        provider
-        for provider in ("gemini", "siliconflow", "deepseek")
-        if provider in normalized
+        provider for provider in provider_order if provider in normalized
     )
     if preferred_provider == base_config.provider:
         return base_config
@@ -654,7 +672,7 @@ def gui_summary_attempt_configs(
     base_config: Any,
     api_keys: Mapping[str, str],
 ) -> list[Any]:
-    """按 Gemini、SiliconFlow、DeepSeek 构造已配置项回退链。"""
+    """按用户顺序构造已配置提供商的回退链。"""
     from scripts.gemini_summarizer import (
         DEEPSEEK_DEFAULT_MODEL,
         DEFAULT_MODEL,
@@ -669,7 +687,7 @@ def gui_summary_attempt_configs(
     }
     provider_order = [
         provider
-        for provider in ("gemini", "siliconflow", "deepseek")
+        for provider in normalize_provider_order(api_keys)
         if str(api_keys.get(provider) or "").strip()
     ]
     attempts: list[Any] = []
@@ -902,16 +920,10 @@ def _extract_chatgpt_shared_image_sources(
 ) -> list[str]:
     """从 ChatGPT 分享页状态中还原未渲染的用户图片下载地址。"""
     parsed = urlparse(conversation_url)
-    host = parsed.netloc.lower().split(":", 1)[0]
-    path_match = re.fullmatch(
-        r"/share/(?P<share_id>[0-9a-f-]{32,36})/?",
-        parsed.path,
-        re.IGNORECASE,
-    )
-    if host not in {"chatgpt.com", "chat.openai.com"} or not path_match:
+    share_id = _chatgpt_shared_conversation_id(conversation_url)
+    if not share_id:
         return []
 
-    share_id = path_match.group("share_id")
     origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
     sources = []
     for match in re.finditer(
@@ -959,6 +971,13 @@ def _image_file_index(path: Path) -> int:
     return int(match.group(1)) if match else 0
 
 
+def _is_supported_image_body(body: bytes) -> bool:
+    return bool(
+        body.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF8", b"BM"))
+        or (len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP")
+    )
+
+
 def _existing_image_for_source(images_dir: Path, src: str) -> Optional[Path]:
     """按 URL 哈希寻找此前已成功下载的同一资源，不依赖旧顺序编号。"""
     url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
@@ -969,8 +988,10 @@ def _existing_image_for_source(images_dir: Path, src: str) -> Optional[Path]:
     ) if images_dir.is_dir() else []
     for path in matches:
         try:
-            if path.is_file() and path.stat().st_size > 0:
-                return path
+            if path.is_file():
+                with path.open("rb") as stream:
+                    if _is_supported_image_body(stream.read(16)):
+                        return path
         except OSError:
             continue
     return None
@@ -1012,10 +1033,29 @@ async def _download_image_candidates(
                         page, src, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                     )
                     if response.ok:
+                        headers = dict(getattr(response, "headers", {}) or {})
+                        content_type = headers.get("content-type", "").split(
+                            ";", 1
+                        )[0].lower()
+                        if content_type == "application/json":
+                            payload = await response.json()
+                            download_url = _document_download_url_from_payload(payload)
+                            if not download_url:
+                                failure_reason = "not_an_image"
+                                continue
+                            response = await _authenticated_page_get(
+                                page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                            )
+                            if not response.ok:
+                                status = getattr(response, "status", None)
+                                failure_reason = (
+                                    f"http_{status}" if status else "http_error"
+                                )
+                                continue
                         body = await response.body()
-                        if body:
+                        if _is_supported_image_body(body):
                             return src, body, None
-                        failure_reason = "empty_body"
+                        failure_reason = "empty_body" if not body else "not_an_image"
                     else:
                         status = getattr(response, "status", None)
                         failure_reason = (
@@ -1462,13 +1502,18 @@ def _extract_document_candidates(
 
     if host in {"chatgpt.com", "chat.openai.com"}:
         origin = f"{parsed_base.scheme or 'https'}://{parsed_base.netloc}"
+        share_id = _chatgpt_shared_conversation_id(base_url)
+        share_query = (
+            f"?shared_conversation_id={quote(share_id, safe='')}"
+            if share_id else ""
+        )
         for pattern in CHATGPT_EMBEDDED_DOCUMENT_PATTERNS:
             for match in pattern.finditer(html or ""):
                 filename = _safe_document_filename(match.group("filename"))
                 file_id = match.group("file_id")
                 absolute_url = (
                     f"{origin}/backend-api/files/download/"
-                    f"{quote(file_id, safe='')}"
+                    f"{quote(file_id, safe='')}{share_query}"
                 )
                 key = (absolute_url, filename.lower())
                 if key in seen:
@@ -2114,6 +2159,11 @@ async def _download_document_candidates(
     )
     semaphore = asyncio.Semaphore(effective_concurrency)
     chatgpt_card_lock = asyncio.Lock()
+    chatgpt_share_id = _chatgpt_shared_conversation_id(conversation_url or "")
+    chatgpt_share_query = (
+        f"?shared_conversation_id={quote(chatgpt_share_id, safe='')}"
+        if chatgpt_share_id else ""
+    )
 
     async def download(candidate: DocumentCandidate):
         try:
@@ -2176,7 +2226,8 @@ async def _download_document_candidates(
                             response = await _authenticated_page_get(
                                 page,
                                 f"{origin}/backend-api/files/download/"
-                                f"{quote(file_id, safe='')}",
+                                f"{quote(file_id, safe='')}"
+                                f"{chatgpt_share_query}",
                                 20000,
                             )
                         # 每次文件点击后 ChatGPT 可能卸载其余虚拟卡片；
@@ -2992,7 +3043,7 @@ def generate_output_bundle(
         if api_keys is None
         else {
             provider: str(api_keys.get(provider) or "").strip()
-            for provider in ("gemini", "siliconflow", "deepseek")
+            for provider in normalize_provider_order(api_keys)
             if str(api_keys.get(provider) or "").strip()
         }
     )

@@ -53,6 +53,17 @@ class CredentialStoreTests(unittest.TestCase):
             "siliconflow": "silicon-user-key",
             "deepseek": "deepseek-user-key",
         })
+        store.save_provider_order(
+            ("deepseek", "gemini", "siliconflow")
+        )
+        self.assertEqual(
+            store.load_provider_order(),
+            ("deepseek", "gemini", "siliconflow"),
+        )
+        self.assertEqual(
+            list(store.load_api_keys()),
+            ["deepseek", "gemini", "siliconflow"],
+        )
 
         store.save_api_keys({
             "gemini": "replacement-key",
@@ -289,6 +300,57 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             ["siliconflow", "deepseek"],
         )
         self.assertEqual(providers({"deepseek": "d"}), ["deepseek"])
+        self.assertEqual(
+            providers({
+                "deepseek": "d",
+                "gemini": "g",
+                "siliconflow": "s",
+            }),
+            ["deepseek", "gemini", "siliconflow"],
+        )
+
+    def test_output_generation_keeps_custom_provider_order(self):
+        base_config = summary.SummaryConfig(
+            provider="gemini",
+            model="gemini-3.5-flash",
+        )
+        created = []
+
+        def fake_create_gateway(config, api_key=None):
+            created.append((config.provider, config.model, api_key))
+            return object()
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "scripts.gemini_summarizer.SummaryConfig.from_env",
+            return_value=base_config,
+        ), patch(
+            "scripts.gemini_summarizer.create_gateway",
+            side_effect=fake_create_gateway,
+        ), patch(
+            "scripts.gemini_summarizer.summarize_conversation",
+            side_effect=self._write_success,
+        ):
+            generate_output_bundle(
+                messages=[
+                    {"role": "User", "content": "测试"},
+                    {"role": "AI", "content": "回答"},
+                ],
+                modes={"normal": True},
+                save_dir=Path(temp_dir),
+                api_keys={
+                    "deepseek": "deepseek-user-key",
+                    "gemini": "gemini-user-key",
+                },
+            )
+
+        self.assertEqual(
+            created,
+            [(
+                "deepseek",
+                summary.DEEPSEEK_DEFAULT_MODEL,
+                "deepseek-user-key",
+            )],
+        )
 
     def test_gemini_timeout_switches_to_configured_siliconflow_key(self):
         base_config = summary.SummaryConfig(
