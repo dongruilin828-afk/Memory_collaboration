@@ -939,7 +939,133 @@ def _extract_chatgpt_shared_image_sources(
             f"{quote(match.group('file_id'), safe='')}"
             f"?shared_conversation_id={quote(share_id, safe='')}"
         )
-    return list(dict.fromkeys(sources))
+    # ChatGPT 的压缩映射按当前节点向父节点写入，附件在源码中是倒序。
+    # 这里只作为页面运行时状态不可用时的兜底。
+    return list(reversed(dict.fromkeys(sources)))
+
+
+async def _chatgpt_message_asset_groups(
+    page: Any,
+    conversation_url: str,
+) -> tuple[list[list[str]], list[list[DocumentCandidate]]]:
+    """读取 ChatGPT 已解码的线性对话，保留每条用户消息的附件归属。"""
+    parsed = urlparse(str(conversation_url or ""))
+    if parsed.netloc.lower().split(":", 1)[0] not in {
+        "chatgpt.com", "chat.openai.com"
+    }:
+        return [], []
+    try:
+        groups = await page.evaluate(
+            """() => {
+                const root = window.__reactRouterDataRouter?.state?.loaderData;
+                const seen = new WeakSet();
+                let linear = null;
+                function find(value) {
+                    if (linear || !value || typeof value !== "object"
+                        || seen.has(value)) return;
+                    seen.add(value);
+                    if (Array.isArray(value)) {
+                        for (const item of value) find(item);
+                        return;
+                    }
+                    if (Array.isArray(value.linear_conversation)) {
+                        linear = value.linear_conversation;
+                        return;
+                    }
+                    for (const item of Object.values(value)) find(item);
+                }
+                find(root);
+                return (linear || [])
+                    .filter(item => item?.message?.author?.role === "user")
+                    .map(item => {
+                        const message = item.message;
+                        const parts = Array.isArray(message.content?.parts)
+                            ? message.content.parts : [];
+                        const attachments = Array.isArray(
+                            message.metadata?.attachments
+                        ) ? message.metadata.attachments : [];
+                        return {
+                            images: parts
+                                .filter(part => part && typeof part === "object"
+                                    && part.content_type === "image_asset_pointer")
+                                .map(part => part.asset_pointer)
+                                .filter(Boolean),
+                            attachments: attachments.map(attachment => ({
+                                id: attachment.id || attachment.file_id || "",
+                                name: attachment.name || attachment.file_name || "",
+                            })),
+                        };
+                    });
+            }"""
+        )
+    except Exception:
+        return [], []
+
+    origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+    share_id = _chatgpt_shared_conversation_id(conversation_url)
+    share_query = (
+        f"?shared_conversation_id={quote(share_id, safe='')}"
+        if share_id else ""
+    )
+    image_groups: list[list[str]] = []
+    document_groups: list[list[DocumentCandidate]] = []
+    for group in groups if isinstance(groups, list) else []:
+        if not isinstance(group, Mapping):
+            continue
+        images = []
+        for pointer in group.get("images") or []:
+            match = re.match(
+                r"^(?:sediment|file-service)://"
+                r"(?P<file_id>file[_-][A-Za-z0-9_-]+)",
+                str(pointer or ""),
+                re.IGNORECASE,
+            )
+            if match:
+                images.append(
+                    f"{origin}/backend-api/files/download/"
+                    f"{quote(match.group('file_id'), safe='')}{share_query}"
+                )
+        documents = []
+        for attachment in group.get("attachments") or []:
+            if not isinstance(attachment, Mapping):
+                continue
+            file_id = str(attachment.get("id") or "").strip()
+            filename = str(attachment.get("name") or "").strip()
+            suffix = Path(filename).suffix.lower()
+            if (
+                not re.fullmatch(r"file[_-][A-Za-z0-9_-]+", file_id)
+                or suffix not in DOCUMENT_EXTENSIONS
+            ):
+                continue
+            documents.append(DocumentCandidate(
+                file_id,
+                f"{origin}/backend-api/files/download/"
+                f"{quote(file_id, safe='')}{share_query}",
+                _safe_document_filename(filename, suffix),
+            ))
+        image_groups.append(list(dict.fromkeys(images)))
+        document_groups.append(list(dict.fromkeys(documents)))
+    return image_groups, document_groups
+
+
+def _inject_chatgpt_message_images(
+    html: str,
+    sources_by_message: list[list[str]],
+) -> str:
+    """按线性对话中的用户消息序号补回图片，不再猜全局附件顺序。"""
+    if not html or not sources_by_message:
+        return html
+    soup = BeautifulSoup(html, "html.parser")
+    user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    for target, sources in zip(user_messages, sources_by_message):
+        existing = target.find_all("img")
+        if len(existing) >= len(sources):
+            continue
+        missing = sources[len(existing):]
+        for source in reversed(missing):
+            image = soup.new_tag("img", src=source, alt="已上传的图片")
+            target.insert(0, image)
+    return str(soup)
 
 
 def _inject_chatgpt_shared_images(html: str, sources: list[str]) -> str:
@@ -1528,12 +1654,31 @@ def _extract_document_candidates(
 def _inject_chatgpt_attachment_names(
     html: str,
     candidates: list[DocumentCandidate],
+    candidates_by_message: Optional[list[list[DocumentCandidate]]] = None,
 ) -> str:
-    """分享页只显示“上传文件”时补入已获元数据中的真实文件名。"""
+    """ChatGPT 只显示“上传文件”时补入已获元数据中的真实文件名。"""
     if not html or not candidates:
         return html
     soup = BeautifulSoup(html, "html.parser")
     user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    if candidates_by_message:
+        for target, message_candidates in zip(
+            user_messages, candidates_by_message
+        ):
+            existing_text = target.get_text(" ", strip=True).lower()
+            for candidate in dict.fromkeys(message_candidates):
+                if (
+                    not candidate.filename
+                    or candidate.filename.lower() in existing_text
+                ):
+                    continue
+                marker = soup.new_tag("div")
+                marker["class"] = [
+                    "attachment", "document", "api-attachment-name"
+                ]
+                marker.string = candidate.filename
+                target.append(marker)
+        return str(soup)
     placeholders = [
         message for message in user_messages
         if "上传文件" in message.get_text(" ", strip=True)
@@ -2712,12 +2857,22 @@ async def fetch_chat_pipeline(
                     > html.count("data-message-author-role")
                 ):
                     html = pre_rehydrate_chat_html
-                soup_pre = BeautifulSoup(html, "html.parser")
-                shared_image_sources = _extract_chatgpt_shared_image_sources(
-                    page_snapshot_html,
-                    url,
+                chatgpt_image_groups, chatgpt_document_groups = (
+                    await _chatgpt_message_asset_groups(page, url)
                 )
-                image_candidates: list[str] = list(shared_image_sources)
+                if chatgpt_image_groups:
+                    html = _inject_chatgpt_message_images(
+                        html, chatgpt_image_groups
+                    )
+                else:
+                    html = _inject_chatgpt_shared_images(
+                        html,
+                        _extract_chatgpt_shared_image_sources(
+                            page_snapshot_html, url
+                        ),
+                    )
+                soup_pre = BeautifulSoup(html, "html.parser")
+                image_candidates: list[str] = []
                 if logger:
                     logger("正在检查并下载页面中的图片资产...")
 
@@ -2762,14 +2917,14 @@ async def fetch_chat_pipeline(
                         f"成功下载或复用 {len(image_map)} 个，耗时 "
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
-                html = _inject_chatgpt_shared_images(
-                    html,
-                    [src for src in shared_image_sources if src in image_map],
-                )
-
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
                 document_candidates = list(dict.fromkeys([
+                    *(
+                        candidate
+                        for group in chatgpt_document_groups
+                        for candidate in group
+                    ),
                     *response_document_candidates,
                     *_extract_document_candidates(
                         page_snapshot_html + chr(10) + html,
@@ -2882,6 +3037,7 @@ async def fetch_chat_pipeline(
                 html = _inject_chatgpt_attachment_names(
                     html,
                     document_candidates,
+                    chatgpt_document_groups,
                 )
                 soup = BeautifulSoup(html, "html.parser")
                 parser_asset_map = {**image_map, **document_map}

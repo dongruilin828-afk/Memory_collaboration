@@ -27,7 +27,9 @@ from gui.service import (
     _extract_doubao_ai_document_resources,
     _extract_doubao_ai_document_titles,
     _inject_chatgpt_attachment_names,
+    _inject_chatgpt_message_images,
     _inject_chatgpt_shared_images,
+    _chatgpt_message_asset_groups,
     _normalize_doubao_ai_document_text,
     _rehydrate_chatgpt_conversation,
     _repair_downloaded_text_mojibake,
@@ -1165,7 +1167,8 @@ class GUIServiceTests(unittest.TestCase):
     def test_chatgpt_share_placeholder_uses_matching_embedded_image(self):
         share_id = "6a5ed6e7-bd38-83ee-936d-571f7594a63e"
         source_html = (
-            "sediment://file_good?shared_conversation_id=" + share_id
+            "sediment://file_older?shared_conversation_id=" + share_id
+            + " sediment://file_newer?shared_conversation_id=" + share_id
             + " sediment://file_wrong?shared_conversation_id="
             + "00000000-0000-0000-0000-000000000000"
         )
@@ -1174,7 +1177,9 @@ class GUIServiceTests(unittest.TestCase):
             f"https://chatgpt.com/share/{share_id}",
         )
         self.assertEqual(sources, [
-            "https://chatgpt.com/backend-api/files/download/file_good"
+            "https://chatgpt.com/backend-api/files/download/file_newer"
+            f"?shared_conversation_id={share_id}",
+            "https://chatgpt.com/backend-api/files/download/file_older"
             f"?shared_conversation_id={share_id}"
         ])
 
@@ -1188,6 +1193,50 @@ class GUIServiceTests(unittest.TestCase):
         image = BeautifulSoup(injected, "html.parser").find("img")
         self.assertEqual(image["src"], sources[0])
         self.assertEqual(image["alt"], "已上传的图片")
+
+    def test_chatgpt_runtime_assets_keep_message_and_multi_image_order(self):
+        share_id = "6a5ed6e7-bd38-83ee-936d-571f7594a63e"
+
+        class FakePage:
+            async def evaluate(self, _script):
+                return [
+                    {
+                        "images": [
+                            "sediment://file_first?shared_conversation_id="
+                            + share_id,
+                            "sediment://file_second?shared_conversation_id="
+                            + share_id,
+                        ],
+                        "attachments": [],
+                    },
+                    {
+                        "images": [],
+                        "attachments": [{
+                            "id": "file_document",
+                            "name": "课堂材料.docx",
+                        }],
+                    },
+                ]
+
+        image_groups, document_groups = asyncio.run(
+            _chatgpt_message_asset_groups(
+                FakePage(), f"https://chatgpt.com/share/{share_id}"
+            )
+        )
+        html = (
+            '<div data-message-author-role="user">第一问</div>'
+            '<div data-message-author-role="user">第二问</div>'
+        )
+        result = _inject_chatgpt_message_images(html, image_groups)
+        messages = BeautifulSoup(result, "html.parser").find_all(
+            attrs={"data-message-author-role": "user"}
+        )
+        self.assertEqual(
+            [image["src"] for image in messages[0].find_all("img")],
+            image_groups[0],
+        )
+        self.assertFalse(messages[1].find_all("img"))
+        self.assertEqual(document_groups[1][0].filename, "课堂材料.docx")
 
     def test_chatgpt_placeholder_gets_real_metadata_filename(self):
         html = (
@@ -1203,6 +1252,25 @@ class GUIServiceTests(unittest.TestCase):
         )
         self.assertIn("课堂材料.docx", result)
         self.assertIn("api-attachment-name", result)
+
+    def test_chatgpt_document_name_stays_with_its_user_message(self):
+        document = DocumentCandidate(
+            "file_fake",
+            "https://chatgpt.com/backend-api/files/download/file_fake",
+            "课堂材料.docx",
+        )
+        html = (
+            '<div data-message-author-role="user">第一问</div>'
+            '<div data-message-author-role="user">上传文件\n第二问</div>'
+        )
+        result = _inject_chatgpt_attachment_names(
+            html, [document], [[], [document]]
+        )
+        messages = BeautifulSoup(result, "html.parser").find_all(
+            attrs={"data-message-author-role": "user"}
+        )
+        self.assertNotIn("课堂材料.docx", messages[0].get_text())
+        self.assertIn("课堂材料.docx", messages[1].get_text())
 
     def test_document_asset_directory_uses_output_stem(self):
         self.assertEqual(
