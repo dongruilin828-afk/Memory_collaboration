@@ -15,6 +15,7 @@ gui/gui_results/
 AI_memory_export.md
 *.md
 !README.md
+!工作交接.md
 
 # 网页抓取快照与 JSON 缓存
 *.html
