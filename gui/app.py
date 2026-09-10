@@ -29,10 +29,11 @@ import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 try:
-    from tkinterdnd2 import DND_FILES, TkinterDnD
+    from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
     _HAS_DND = True
 except ImportError:
     DND_FILES = ""
+    DND_TEXT = ""
     TkinterDnD = None
     _HAS_DND = False
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
@@ -560,10 +561,65 @@ class FlatProgressBar(tk.Canvas):
             )
 
 
+# ==================== 对话输入胶囊 ====================
+
+class GlassCapsulePanel(tk.Canvas):
+    """Tk 的毛玻璃视觉等价物：柔和渐变、高光边框与弥散阴影。
+
+    Tk 不支持 CSS ``backdrop-filter``，因此用分层色块模拟半透明玻璃的
+    深浅变化；交互层仍是普通 Tk 控件，保证拖拽、键盘与辅助功能正常工作。
+    """
+
+    def __init__(self, master, bg_parent: str = COLOR_BG_APP, **kwargs):
+        # 选中文件时会额外显示一行文件胶囊，预留高度避免内容被 Canvas 裁切。
+        super().__init__(master, height=172, highlightthickness=0,
+                         bg=bg_parent, **kwargs)
+        self._bg_parent = bg_parent
+        self._dragging = False
+        self.content = tk.Frame(self, bg="#F7F9FD", padx=20, pady=16)
+        self._content_window = self.create_window(
+            16, 12, window=self.content, anchor="nw"
+        )
+        self.bind("<Configure>", self._on_resize)
+        self.redraw()
+
+    def _on_resize(self, event):
+        self.itemconfigure(
+            self._content_window,
+            width=max(1, event.width - 32),
+            height=max(1, event.height - 24),
+        )
+        self.redraw()
+
+    def set_drop_highlight(self, highlighted: bool):
+        self._dragging = bool(highlighted)
+        self.redraw()
+
+    def redraw(self):
+        self.delete("glass")
+        w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
+        # 三层柔影 + 内部高光，模拟 8px/32px 的弥散投影与玻璃边缘。
+        _round_rectangle(self, 12, 10, w - 4, h - 1, r=24,
+                         fill="#E5EAF2", outline="", tags="glass")
+        _round_rectangle(self, 8, 6, w - 8, h - 7, r=24,
+                         fill="#EEF2F8", outline="", tags="glass")
+        fill = "#EEF6FF" if self._dragging else "#F7F9FD"
+        outline = COLOR_ACCENT_BLUE if self._dragging else "#FFFFFF"
+        _round_rectangle(self, 8, 4, w - 8, h - 9, r=24,
+                         fill=fill, outline=outline,
+                         width=2 if self._dragging else 1, tags="glass")
+        # 轻微的蓝 / 暖色渐变带，作为 CSS 渐变的桌面端替代。
+        self.create_line(33, 8, w * .58, 8, fill="#EAF2FF", width=3,
+                         tags="glass")
+        self.create_line(w * .58, 8, w - 34, 8, fill="#FFF0E9", width=3,
+                         tags="glass")
+        self.tag_lower("glass")
+
+
 # ==================== 极简扁平输入框 ====================
 
 class FlatEntryBox(tk.Canvas):
-    """扁平输入框：白底灰描边、聚焦黑边。"""
+    """胶囊内的白色输入框，带 12px 圆角和蓝色焦点光晕。"""
 
     def __init__(
         self,
@@ -574,7 +630,7 @@ class FlatEntryBox(tk.Canvas):
         **kwargs
     ):
         super().__init__(
-            master, height=42, highlightthickness=0,
+            master, height=48, highlightthickness=0,
             bg=bg_parent, **kwargs
         )
         self._bg_parent = bg_parent
@@ -583,12 +639,12 @@ class FlatEntryBox(tk.Canvas):
         self._focused = False
         self._placeholder = placeholder
 
-        inner = tk.Frame(self, bg=COLOR_CARD, padx=12, pady=8)
+        inner = tk.Frame(self, bg="#FFFFFF", padx=14, pady=10)
         self.window_id = self.create_window(0, 0, window=inner, anchor="nw")
         self.var = tk.StringVar()
         self.entry = tk.Entry(
             inner, textvariable=self.var, font=FONT_BODY,
-            bg=COLOR_CARD, fg=COLOR_TEXT_PRIMARY,
+            bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
             insertbackground=COLOR_TEXT_PRIMARY,
             relief=tk.FLAT, bd=0, highlightthickness=0
         )
@@ -603,7 +659,7 @@ class FlatEntryBox(tk.Canvas):
 
     def _on_resize(self, event):
         self.configure(width=event.width)
-        self.itemconfig(self.window_id, width=event.width, height=42)
+        self.itemconfig(self.window_id, width=event.width, height=48)
 
     def _on_focus_in(self, _event):
         self._focused = True
@@ -645,11 +701,17 @@ class FlatEntryBox(tk.Canvas):
     def redraw(self):
         self.delete("frame")
         w = max(self.winfo_width(), 1)
-        outline = COLOR_TEXT_PRIMARY if self._focused else COLOR_BORDER
+        # 外圈是桌面端对 ``focus box-shadow`` 的近似实现。
+        if self._focused:
+            _round_rectangle(
+                self, 0, 0, w, 48, r=13, fill="#DCEBFF", outline="",
+                tags="frame"
+            )
+        outline = COLOR_ACCENT_BLUE if self._focused else "#DCE2EB"
         outline_w = 1.5 if self._focused else 1
         _round_rectangle(
-            self, 1, 1, w - 1, 41, r=6,
-            fill=COLOR_CARD, outline=outline, width=outline_w, tags="frame"
+            self, 2, 2, w - 2, 46, r=12,
+            fill="#FFFFFF", outline=outline, width=outline_w, tags="frame"
         )
         self.tag_lower("frame")
         # placeholder：未聚焦且为空时显示浅灰提示
@@ -661,8 +723,8 @@ class FlatEntryBox(tk.Canvas):
             and not self.var.get()
         ):
             self.create_text(
-                22, 21, text=self._placeholder,
-                font=FONT_BODY, fill=COLOR_TEXT_MUTED,
+                18, 24, text=self._placeholder,
+                font=(FONT_FAMILY, 10), fill="#9CA3AF",
                 anchor="w", tags="placeholder",
             )
 
@@ -961,34 +1023,31 @@ class AIMemoryGUI:
         ).pack()
 
         # ===== 统一 Omnibox 卡片（居中，最大宽度 ~720px） =====
-        omnibox = tk.Frame(
-            center, bg=COLOR_OMNIBOX_BG, padx=20, pady=16,
-            highlightthickness=1, highlightbackground=COLOR_BORDER,
-            highlightcolor=COLOR_BORDER_FOCUS,
-        )
-        omnibox.pack(fill=tk.X, padx=80, pady=(28, 0))
+        omnibox = GlassCapsulePanel(center, bg_parent=COLOR_BG_APP)
+        omnibox.pack(fill=tk.X, padx=72, pady=(28, 0))
         self._omnibox = omnibox
+        omnibox_body = omnibox.content
 
         # 文件胶囊区（默认隐藏，文件附加后显示）
-        self.selected_file_row = tk.Frame(omnibox, bg=COLOR_OMNIBOX_BG)
+        self.selected_file_row = tk.Frame(omnibox_body, bg="#F7F9FD")
         self.selected_file_row.pack(fill=tk.X, pady=(0, 8))
         self.selected_file_row.pack_forget()
         self.selected_file_name_var = tk.StringVar(value="")
         file_capsule = tk.Frame(
-            self.selected_file_row, bg=COLOR_ACCENT_BG,
+            self.selected_file_row, bg="#EAF2FF",
             padx=10, pady=4,
         )
         file_capsule.pack(side=tk.LEFT)
         tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
-            font=FONT_SMALL, fg=COLOR_TEXT_PRIMARY, bg=COLOR_ACCENT_BG,
+            font=FONT_SMALL, fg=COLOR_TEXT_PRIMARY, bg="#EAF2FF",
             anchor="w",
         ).pack(side=tk.LEFT)
         self.clear_file_button = tk.Button(
             file_capsule, text="✕",
             command=self._clear_summary_file,
-            font=FONT_SMALL_BOLD, bg=COLOR_ACCENT_BG, fg=COLOR_DANGER,
-            activebackground=COLOR_ACCENT_BG, activeforeground=COLOR_DANGER,
+            font=FONT_SMALL_BOLD, bg="#EAF2FF", fg=COLOR_DANGER,
+            activebackground="#EAF2FF", activeforeground=COLOR_DANGER,
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=4, pady=0
         )
@@ -996,48 +1055,48 @@ class AIMemoryGUI:
 
         # 自适应文本输入区
         self.capsule_entry = FlatEntryBox(
-            omnibox, on_change=self._on_url_changed,
-            bg_parent=COLOR_OMNIBOX_BG,
-            placeholder="输入问题，粘贴 ChatGPT / DeepSeek / 豆包链接，或直接将对话文件拖拽至此…",
+            omnibox_body, on_change=self._on_url_changed,
+            bg_parent="#F7F9FD",
+            placeholder="粘贴或拖拽文件/链接",
         )
-        self.capsule_entry.pack(fill=tk.X, pady=(0, 10))
+        self.capsule_entry.pack(fill=tk.X)
 
         # ===== 底部微型工具栏 =====
-        toolbar = tk.Frame(omnibox, bg=COLOR_OMNIBOX_BG)
-        toolbar.pack(fill=tk.X)
+        toolbar = tk.Frame(omnibox_body, bg="#F7F9FD")
+        toolbar.pack(fill=tk.X, pady=(12, 0))
 
         # 左下角：添加文件 + 粘贴链接
-        toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_BG)
+        toolbar_left = tk.Frame(toolbar, bg="#F7F9FD")
         toolbar_left.pack(side=tk.LEFT)
 
         self.file_select_button = tk.Button(
             toolbar_left, text="📎 添加文件",
             command=self._choose_summary_file,
-            font=FONT_SMALL, bg=COLOR_OMNIBOX_BG, fg=COLOR_TEXT_SECONDARY,
-            activebackground=COLOR_HOVER, activeforeground=COLOR_TEXT_PRIMARY,
+            font=(FONT_FAMILY, 9), bg="#F7F9FD", fg="#4B5563",
+            activebackground="#F7F9FD", activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
-        self.file_select_button.pack(side=tk.LEFT, padx=(0, 4))
+        self.file_select_button.pack(side=tk.LEFT, padx=(0, 16))
 
         btn_paste = tk.Button(
             toolbar_left, text="🔗 粘贴链接",
             command=self._paste_clipboard_to_entry,
-            font=FONT_SMALL, bg=COLOR_OMNIBOX_BG, fg=COLOR_TEXT_SECONDARY,
-            activebackground=COLOR_HOVER, activeforeground=COLOR_TEXT_PRIMARY,
+            font=(FONT_FAMILY, 9), bg="#F7F9FD", fg="#4B5563",
+            activebackground="#F7F9FD", activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
         btn_paste.pack(side=tk.LEFT)
 
         # 右下角：直接总结 + 发送按钮
-        toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_BG)
+        toolbar_right = tk.Frame(toolbar, bg="#F7F9FD")
         toolbar_right.pack(side=tk.RIGHT)
 
         self.btn_direct = FlatButton(
             toolbar_right, text="📝 直接总结此文件",
             command=self._on_direct_summary,
-            variant="secondary", width=160, height=32, bg_parent=COLOR_OMNIBOX_BG
+            variant="secondary", width=160, height=32, bg_parent="#F7F9FD"
         )
         # 默认隐藏（仅文件附加时显示）
         self.btn_direct.pack(side=tk.RIGHT, padx=(4, 0))
@@ -1046,13 +1105,15 @@ class AIMemoryGUI:
         self.btn_send = tk.Button(
             toolbar_right, text="→",
             command=self._on_omnibox_send,
-            font=(FONT_FAMILY, 14, "bold"), bg=COLOR_DISABLED,
+            font=(FONT_FAMILY, 15, "bold"), bg="#F7F9FD",
             fg="#FFFFFF",
-            activebackground=COLOR_ACCENT, activeforeground="#FFFFFF",
+            activebackground="#F7F9FD", activeforeground=COLOR_ACCENT_BLUE,
             relief=tk.FLAT, bd=0, cursor="arrow",
-            width=3, pady=2
+            width=3, pady=2, highlightthickness=0,
         )
         self.btn_send.pack(side=tk.RIGHT)
+        self.btn_send.bind("<Enter>", self._on_send_hover)
+        self.btn_send.bind("<Leave>", self._on_send_leave)
         self._update_send_button_state()
 
         # 配置拖拽到整个 Omnibox
@@ -1078,13 +1139,13 @@ class AIMemoryGUI:
         active = bool(url.strip()) or has_file
         if active:
             self.btn_send.config(
-                bg=COLOR_ACCENT, fg="#FFFFFF",
-                activebackground=COLOR_ACCENT_BLUE,
+                bg="#F7F9FD", fg=COLOR_ACCENT_BLUE,
+                activebackground="#F7F9FD",
                 cursor="hand2",
             )
         else:
             self.btn_send.config(
-                bg=COLOR_DISABLED, fg="#FFFFFF",
+                bg="#F7F9FD", fg="#B8C0CB",
                 cursor="arrow",
             )
         # 文件附加时显示"直接总结"按钮
@@ -1092,6 +1153,16 @@ class AIMemoryGUI:
             self.btn_direct.pack(side=tk.RIGHT, padx=(4, 0))
         else:
             self.btn_direct.pack_forget()
+
+    def _on_send_hover(self, _event=None):
+        """用字符位移模拟无边框箭头按钮的 hover 微动效。"""
+        if self.btn_send.cget("cursor") == "hand2":
+            self.btn_send.config(text="  →", fg="#1E293B")
+
+    def _on_send_leave(self, _event=None):
+        self.btn_send.config(text="→")
+        if self.btn_send.cget("cursor") == "hand2":
+            self.btn_send.config(fg=COLOR_ACCENT_BLUE)
 
     def _paste_clipboard_to_entry(self):
         try:
@@ -1504,7 +1575,7 @@ class AIMemoryGUI:
             return
         try:
             # 整个 Omnibox 作为拖拽响应区
-            self._omnibox.drop_target_register(DND_FILES)
+            self._omnibox.drop_target_register(DND_FILES, DND_TEXT)
             self._omnibox.dnd_bind("<<DropEnter>>", self._on_file_drag_enter)
             self._omnibox.dnd_bind("<<DropLeave>>", self._on_file_drag_leave)
             self._omnibox.dnd_bind("<<Drop>>", self._on_file_drop)
@@ -1515,16 +1586,14 @@ class AIMemoryGUI:
         """拖拽高亮：Omnibox 描边变蓝 + 背景淡化。"""
         if not hasattr(self, "_omnibox"):
             return
+        if isinstance(self._omnibox, GlassCapsulePanel):
+            self._omnibox.set_drop_highlight(highlighted)
+            return
         self._omnibox.config(
             bg=COLOR_DRAG_HIGHLIGHT if highlighted else COLOR_OMNIBOX_BG,
             highlightbackground=COLOR_ACCENT_BLUE if highlighted else COLOR_BORDER,
             highlightthickness=2 if highlighted else 1,
         )
-        for child in self._omnibox.winfo_children():
-            try:
-                child.config(bg=COLOR_DRAG_HIGHLIGHT if highlighted else COLOR_OMNIBOX_BG)
-            except tk.TclError:
-                pass
 
     def _on_file_drag_enter(self, event):
         self._set_file_drop_highlight(True)
@@ -1539,7 +1608,15 @@ class AIMemoryGUI:
         except AttributeError:
             files = (event.data,)
         if files:
-            self._select_summary_file(Path(files[0]))
+            dropped = str(files[0]).strip()
+            candidate = Path(dropped)
+            if candidate.is_file():
+                self._select_summary_file(candidate)
+            elif dropped.startswith(("http://", "https://")):
+                self.capsule_entry.set_text(dropped)
+                self._on_url_changed()
+            else:
+                messagebox.showwarning("提示", "请拖入对话文件或有效的分享链接。")
         return getattr(event, "action", "copy")
 
     def _clear_summary_file(self):
