@@ -196,6 +196,48 @@ def _round_rectangle(canvas: tk.Canvas, x1, y1, x2, y2, r=6, **kwargs):
     return canvas.create_polygon(points, smooth=True, **kwargs)
 
 
+def _logo_png_path(size: int, variant: str = "neutral") -> Path:
+    return (
+        _PROJECT_ROOT / "gui" / "assets" / "logo"
+        / variant / f"icon-{size}.png"
+    )
+
+
+def _navigation_icon_path(name: str, size: int = 24) -> Path:
+    return _PROJECT_ROOT / "gui" / "assets" / "icons" / f"{name}-{size}.png"
+
+
+class StackedLayersIcon(tk.Canvas):
+    """显示正式版分层记忆 Logo 的透明 PNG 资源。"""
+
+    def __init__(self, master, width: int, height: int, bg: str, **kwargs):
+        super().__init__(
+            master, width=width, height=height, bg=bg,
+            highlightthickness=0, bd=0, **kwargs,
+        )
+        self._icon_width = width
+        self._icon_height = height
+        requested_size = min(width, height)
+        self._asset_size = min(
+            (16, 32, 64, 128, 256, 512, 1024),
+            key=lambda size: abs(size - requested_size),
+        )
+        self._image = tk.PhotoImage(
+            file=str(_logo_png_path(self._asset_size))
+        )
+        self._draw()
+
+    def _draw(self):
+        self.delete("icon")
+        self.create_image(
+            self._icon_width / 2,
+            self._icon_height / 2,
+            image=self._image,
+            anchor=tk.CENTER,
+            tags="icon",
+        )
+
+
 # ==================== 极简扁平滚动条 ====================
 
 class MinimalScrollbar(tk.Canvas):
@@ -563,8 +605,12 @@ class FlatProgressBar(tk.Canvas):
 
 # ==================== 对话输入胶囊 ====================
 
+# Omnibox 的控件层无法像 Web CSS 一样透明，因此使用这层浅紫蓝作为
+# 渐变中心色；真正的渐变由 GlassCapsulePanel 的 Canvas 绘制在整个面板上。
+COLOR_OMNIBOX_SURFACE = "#EEF1FF"
+
 class GlassCapsulePanel(tk.Canvas):
-    """Tk 的毛玻璃视觉等价物：柔和渐变、高光边框与弥散阴影。
+    """带全幅渐变、高光边框与弥散阴影的对话输入控制台。
 
     Tk 不支持 CSS ``backdrop-filter``，因此用分层色块模拟半透明玻璃的
     深浅变化；交互层仍是普通 Tk 控件，保证拖拽、键盘与辅助功能正常工作。
@@ -576,7 +622,7 @@ class GlassCapsulePanel(tk.Canvas):
                          bg=bg_parent, **kwargs)
         self._bg_parent = bg_parent
         self._dragging = False
-        self.content = tk.Frame(self, bg="#F7F9FD", padx=20, pady=16)
+        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=16)
         self._content_window = self.create_window(
             16, 12, window=self.content, anchor="nw"
         )
@@ -598,21 +644,35 @@ class GlassCapsulePanel(tk.Canvas):
     def redraw(self):
         self.delete("glass")
         w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
-        # 三层柔影 + 内部高光，模拟 8px/32px 的弥散投影与玻璃边缘。
+        # 三层柔影 + 覆盖整个控制台的蓝紫暖色渐变。
         _round_rectangle(self, 12, 10, w - 4, h - 1, r=24,
                          fill="#E5EAF2", outline="", tags="glass")
         _round_rectangle(self, 8, 6, w - 8, h - 7, r=24,
                          fill="#EEF2F8", outline="", tags="glass")
-        fill = "#EEF6FF" if self._dragging else "#F7F9FD"
+        fill = "#E6F0FF" if self._dragging else "#EEF1FF"
         outline = COLOR_ACCENT_BLUE if self._dragging else "#FFFFFF"
         _round_rectangle(self, 8, 4, w - 8, h - 9, r=24,
                          fill=fill, outline=outline,
                          width=2 if self._dragging else 1, tags="glass")
-        # 轻微的蓝 / 暖色渐变带，作为 CSS 渐变的桌面端替代。
-        self.create_line(33, 8, w * .58, 8, fill="#EAF2FF", width=3,
-                         tags="glass")
-        self.create_line(w * .58, 8, w - 34, 8, fill="#FFF0E9", width=3,
-                         tags="glass")
+        # Tk 没有原生渐变填充，逐行混色让整块控制台（而非仅顶部）呈现渐变。
+        stops = ((0.0, (224, 238, 255)), (0.54, (239, 232, 255)),
+                 (1.0, (255, 237, 226)))
+        for y in range(5, max(6, h - 8)):
+            position = (y - 5) / max(1, h - 13)
+            for index, (start, start_rgb) in enumerate(stops[:-1]):
+                end, end_rgb = stops[index + 1]
+                if start <= position <= end:
+                    progress = (position - start) / (end - start)
+                    rgb = tuple(round(a + (b - a) * progress)
+                                for a, b in zip(start_rgb, end_rgb))
+                    self.create_line(9, y, w - 9, y,
+                                     fill="#{:02X}{:02X}{:02X}".format(*rgb),
+                                     tags="glass")
+                    break
+        # 重新绘制内层描边，使渐变在圆角内完整收口。
+        _round_rectangle(self, 8, 4, w - 8, h - 9, r=24,
+                         fill="", outline=outline,
+                         width=2 if self._dragging else 1, tags="glass")
         self.tag_lower("glass")
 
 
@@ -729,6 +789,127 @@ class FlatEntryBox(tk.Canvas):
             )
 
 
+# ==================== 侧栏毛玻璃导航项 ====================
+
+class GlassNavigationItem(tk.Canvas):
+    """Gemini 风格的侧栏激活卡片，使用 Canvas 模拟渐变和柔光过渡。"""
+
+    _CARD_MARGIN = 2
+    _CARD_RADIUS = 16
+
+    def __init__(self, master, icon: str, title: str, description: str, **kwargs):
+        super().__init__(
+            master, height=68, highlightthickness=0, bd=0,
+            bg=COLOR_SIDEBAR, cursor="hand2", **kwargs,
+        )
+        self._icon = icon
+        self._title = title
+        self._description = description
+        icon_asset = {
+            "对话": "chat-outline",
+            "生成": "document-outline",
+            "历史": "history-clock",
+        }.get(title)
+        self._navigation_icon_image = (
+            tk.PhotoImage(file=str(_navigation_icon_path(icon_asset)))
+            if icon_asset
+            else None
+        )
+        self._active = False
+        self._progress = 0.0
+        self._target_progress = 0.0
+        self._animation_id = None
+        self._hovered = False
+        self.bind("<Configure>", lambda _event: self.redraw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.redraw()
+
+    def set_active(self, active: bool):
+        """绑定页面 active 状态，并以约 250ms 的缓动完成状态切换。"""
+        self._active = bool(active)
+        self._target_progress = 1.0 if self._active else 0.0
+        if self._animation_id is None:
+            self._animate()
+
+    def _on_enter(self, _event):
+        self._hovered = True
+        self.redraw()
+
+    def _on_leave(self, _event):
+        self._hovered = False
+        self.redraw()
+
+    def _animate(self):
+        # 16ms 一帧、缓入缓出，等效 CSS 的 0.25s cubic-bezier 过渡。
+        delta = self._target_progress - self._progress
+        if abs(delta) < 0.02:
+            self._progress = self._target_progress
+            self._animation_id = None
+        else:
+            self._progress += delta * 0.23
+            self._animation_id = self.after(16, self._animate)
+        self.redraw()
+
+    @staticmethod
+    def _mix(start: tuple[int, int, int], end: tuple[int, int, int], amount: float):
+        return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
+
+    def redraw(self):
+        self.delete("all")
+        width, height = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
+        progress = self._progress
+        left, top = self._CARD_MARGIN, self._CARD_MARGIN
+        right, bottom = width - self._CARD_MARGIN, height - self._CARD_MARGIN
+
+        if progress > 0.01:
+            # 0 4px 16px 蓝色柔光与 0 2px 4px 中性阴影的 Tk 等效层。
+            shadow = self._mix((255, 255, 255), (222, 234, 251), progress)
+            _round_rectangle(self, left + 1, top + 4, right - 1, bottom,
+                             r=self._CARD_RADIUS, fill="#%02X%02X%02X" % shadow,
+                             outline="", tags="card")
+            # 以逐行混色描绘冰蓝 -> 靛紫 -> 暖橙粉的弥散渐变。
+            stops = ((191, 219, 254), (224, 231, 255), (254, 215, 170))
+            for y in range(top, bottom + 1):
+                ratio = (y - top) / max(1, bottom - top)
+                if ratio < 0.55:
+                    color = self._mix(stops[0], stops[1], ratio / 0.55)
+                else:
+                    color = self._mix(stops[1], stops[2], (ratio - 0.55) / 0.45)
+                # 以白底混合模拟 rgba(…, 0.5–0.7)，并让渐变随 active 渐入。
+                color = self._mix((255, 255, 255), color, progress * 0.7)
+                # 圆角区域按圆弧收缩，避免渐变在边角变成方形。
+                edge = min(y - top, bottom - y)
+                inset = 0
+                if edge < self._CARD_RADIUS:
+                    inset = self._CARD_RADIUS - int(
+                        max(0, self._CARD_RADIUS ** 2 - (self._CARD_RADIUS - edge) ** 2) ** 0.5
+                    )
+                self.create_line(left + inset, y, right - inset, y,
+                                 fill="#%02X%02X%02X" % color, tags="card")
+            _round_rectangle(
+                self, left, top, right, bottom, r=self._CARD_RADIUS,
+                fill="", outline="#FFFFFF", width=1, tags="card",
+            )
+        elif self._hovered:
+            _round_rectangle(self, left, top, right, bottom, r=self._CARD_RADIUS,
+                             fill="#F7F9FC", outline="", tags="card")
+
+        icon_color = "#1E293B" if (self._active or self._hovered) else COLOR_TEXT_SECONDARY
+        if self._navigation_icon_image is not None:
+            self.create_image(
+                27, 34, image=self._navigation_icon_image,
+                anchor=tk.CENTER, tags="content",
+            )
+        else:
+            self.create_text(27, 34, text=self._icon, font=(FONT_FAMILY, 14),
+                             fill=icon_color, anchor="center", tags="content")
+        self.create_text(52, 27, text=self._title, font=(FONT_FAMILY, 10, "bold"),
+                         fill="#0F172A", anchor="w", tags="content")
+        self.create_text(52, 45, text=self._description, font=(FONT_FAMILY, 8),
+                         fill="#475569", anchor="w", tags="content")
+
+
 # ==================== 悬停提示 ====================
 
 class HoverTooltip:
@@ -787,6 +968,8 @@ class AIMemoryGUI:
         root.geometry("960x680")
         root.minsize(820, 560)
         root.configure(bg=COLOR_BG_APP)
+        self._window_icon = tk.PhotoImage(file=str(_logo_png_path(64)))
+        root.iconphoto(True, self._window_icon)
 
         self.is_running = False
         self.selected_summary_file: Path | None = None
@@ -823,10 +1006,9 @@ class AIMemoryGUI:
         header.pack(fill=tk.X)
         logo_row = tk.Frame(header, bg=COLOR_SIDEBAR)
         logo_row.pack(fill=tk.X)
-        # 图标用 Unicode 几何方块作为简约 Logo
-        tk.Label(
-            logo_row, text="▣", font=(FONT_FAMILY, 16, "bold"),
-            fg=COLOR_ACCENT, bg=COLOR_SIDEBAR, width=2, anchor="w",
+        # 使用统一的灰色堆叠层图标，替换旧的黑色方块标识。
+        StackedLayersIcon(
+            logo_row, width=32, height=32, bg=COLOR_SIDEBAR,
         ).pack(side=tk.LEFT)
         tk.Label(
             logo_row, text="AI 记忆协同管理", font=FONT_SIDEBAR_TITLE,
@@ -847,34 +1029,14 @@ class AIMemoryGUI:
             ("🕒", "历史", "查看任务记录"),
             ("⚙️", "设置", "API KEY / 数据位置"),
         ]
-        self._nav_items: list[tk.Frame] = []
+        self._nav_items: list[GlassNavigationItem] = []
         for idx, (icon, title, desc) in enumerate(self._nav_steps):
-            item = tk.Frame(
-                nav, bg=COLOR_SIDEBAR, padx=10, pady=10,
-                cursor="hand2",
-            )
-            item.pack(fill=tk.X, pady=2)
-            tk.Label(
-                item, text=icon, font=(FONT_FAMILY, 14),
-                fg=COLOR_TEXT_SECONDARY, bg=COLOR_SIDEBAR, width=2, anchor="center",
-            ).pack(side=tk.LEFT, padx=(0, 10))
-            text_col = tk.Frame(item, bg=COLOR_SIDEBAR)
-            text_col.pack(side=tk.LEFT, fill=tk.X)
-            tk.Label(
-                text_col, text=title, font=FONT_BODY_BOLD,
-                fg=COLOR_TEXT_PRIMARY, bg=COLOR_SIDEBAR, anchor="w",
-            ).pack(fill=tk.X)
-            tk.Label(
-                text_col, text=desc, font=FONT_TINY,
-                fg=COLOR_TEXT_MUTED, bg=COLOR_SIDEBAR, anchor="w",
-            ).pack(fill=tk.X, pady=(1, 0))
+            item = GlassNavigationItem(nav, icon, title, desc)
+            # nav 自身保留 10px 内边距，让卡片距侧栏两侧自然留白。
+            item.pack(fill=tk.X, pady=3)
             self._nav_items.append(item)
-            # 绑定整行及子控件
+            # Canvas 作为完整的可点击卡片，点击任意位置均切换页面。
             item.bind("<Button-1>", lambda _e, i=idx: self._show_page(i))
-            for child in item.winfo_children():
-                child.bind("<Button-1>", lambda _e, i=idx: self._show_page(i))
-                for grand in child.winfo_children():
-                    grand.bind("<Button-1>", lambda _e, i=idx: self._show_page(i))
 
         # 保留 api_key_button 契约：指向设置导航项（测试依赖此属性存在）
         self.api_key_button = self._nav_items[-1]
@@ -942,18 +1104,7 @@ class AIMemoryGUI:
             else:
                 page.pack_forget()
         for i, item in enumerate(self._nav_items):
-            active = i == idx
-            item.config(
-                bg=COLOR_SIDEBAR_ACTIVE_BG if active else COLOR_SIDEBAR
-            )
-            for child in item.winfo_children():
-                child.config(
-                    bg=COLOR_SIDEBAR_ACTIVE_BG if active else COLOR_SIDEBAR
-                )
-                for grand in child.winfo_children():
-                    grand.config(
-                        bg=COLOR_SIDEBAR_ACTIVE_BG if active else COLOR_SIDEBAR
-                    )
+            item.set_active(i == idx)
         self.bg_canvas.update_idletasks()
         self._on_canvas_configure(None)
         # 强制更新 scrollregion 确保滚动生效
@@ -1009,9 +1160,9 @@ class AIMemoryGUI:
 
         welcome = tk.Frame(center, bg=COLOR_BG_APP)
         welcome.pack(pady=(0, 8))
-        tk.Label(
-            welcome, text="✦", font=(FONT_FAMILY, 42, "bold"),
-            fg=COLOR_ACCENT_BLUE, bg=COLOR_BG_APP,
+        # 使用同一品牌图标，替换旧的蓝色四角星标识。
+        StackedLayersIcon(
+            welcome, width=64, height=64, bg=COLOR_BG_APP,
         ).pack()
         tk.Label(
             welcome, text="AI 记忆协同管理", font=FONT_HERO,
@@ -1029,7 +1180,7 @@ class AIMemoryGUI:
         omnibox_body = omnibox.content
 
         # 文件胶囊区（默认隐藏，文件附加后显示）
-        self.selected_file_row = tk.Frame(omnibox_body, bg="#F7F9FD")
+        self.selected_file_row = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
         self.selected_file_row.pack(fill=tk.X, pady=(0, 8))
         self.selected_file_row.pack_forget()
         self.selected_file_name_var = tk.StringVar(value="")
@@ -1056,24 +1207,24 @@ class AIMemoryGUI:
         # 自适应文本输入区
         self.capsule_entry = FlatEntryBox(
             omnibox_body, on_change=self._on_url_changed,
-            bg_parent="#F7F9FD",
+            bg_parent=COLOR_OMNIBOX_SURFACE,
             placeholder="粘贴或拖拽文件/链接",
         )
         self.capsule_entry.pack(fill=tk.X)
 
         # ===== 底部微型工具栏 =====
-        toolbar = tk.Frame(omnibox_body, bg="#F7F9FD")
+        toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
         toolbar.pack(fill=tk.X, pady=(12, 0))
 
         # 左下角：添加文件 + 粘贴链接
-        toolbar_left = tk.Frame(toolbar, bg="#F7F9FD")
+        toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_left.pack(side=tk.LEFT)
 
         self.file_select_button = tk.Button(
             toolbar_left, text="📎 添加文件",
             command=self._choose_summary_file,
-            font=(FONT_FAMILY, 9), bg="#F7F9FD", fg="#4B5563",
-            activebackground="#F7F9FD", activeforeground="#1E293B",
+            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
+            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
@@ -1082,21 +1233,21 @@ class AIMemoryGUI:
         btn_paste = tk.Button(
             toolbar_left, text="🔗 粘贴链接",
             command=self._paste_clipboard_to_entry,
-            font=(FONT_FAMILY, 9), bg="#F7F9FD", fg="#4B5563",
-            activebackground="#F7F9FD", activeforeground="#1E293B",
+            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
+            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
         btn_paste.pack(side=tk.LEFT)
 
         # 右下角：直接总结 + 发送按钮
-        toolbar_right = tk.Frame(toolbar, bg="#F7F9FD")
+        toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_right.pack(side=tk.RIGHT)
 
         self.btn_direct = FlatButton(
             toolbar_right, text="📝 直接总结此文件",
             command=self._on_direct_summary,
-            variant="secondary", width=160, height=32, bg_parent="#F7F9FD"
+            variant="secondary", width=160, height=32, bg_parent=COLOR_OMNIBOX_SURFACE
         )
         # 默认隐藏（仅文件附加时显示）
         self.btn_direct.pack(side=tk.RIGHT, padx=(4, 0))
@@ -1105,9 +1256,9 @@ class AIMemoryGUI:
         self.btn_send = tk.Button(
             toolbar_right, text="→",
             command=self._on_omnibox_send,
-            font=(FONT_FAMILY, 15, "bold"), bg="#F7F9FD",
+            font=(FONT_FAMILY, 15, "bold"), bg=COLOR_OMNIBOX_SURFACE,
             fg="#FFFFFF",
-            activebackground="#F7F9FD", activeforeground=COLOR_ACCENT_BLUE,
+            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_ACCENT_BLUE,
             relief=tk.FLAT, bd=0, cursor="arrow",
             width=3, pady=2, highlightthickness=0,
         )
@@ -1139,13 +1290,13 @@ class AIMemoryGUI:
         active = bool(url.strip()) or has_file
         if active:
             self.btn_send.config(
-                bg="#F7F9FD", fg=COLOR_ACCENT_BLUE,
-                activebackground="#F7F9FD",
+                bg=COLOR_OMNIBOX_SURFACE, fg=COLOR_ACCENT_BLUE,
+                activebackground=COLOR_OMNIBOX_SURFACE,
                 cursor="hand2",
             )
         else:
             self.btn_send.config(
-                bg="#F7F9FD", fg="#B8C0CB",
+                bg=COLOR_OMNIBOX_SURFACE, fg="#B8C0CB",
                 cursor="arrow",
             )
         # 文件附加时显示"直接总结"按钮
