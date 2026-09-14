@@ -83,6 +83,9 @@ COLOR_OMNIBOX_BG = "#F0F4F9"
 COLOR_OMNIBOX_BG_FOCUS = "#FFFFFF"
 COLOR_DRAG_HIGHLIGHT = "#EFF6FF"
 COLOR_DRAG_NORMAL = "#F0F4F9"
+COLOR_GENERATION_ACCENT = "#6F55E8"
+COLOR_GENERATION_ACCENT_HOVER = "#5F43D2"
+COLOR_GENERATION_ACCENT_BG = "#F4F1FF"
 
 FONT_FAMILY = "Microsoft YaHei UI"
 FONT_TITLE = (FONT_FAMILY, 18, "bold")
@@ -219,7 +222,7 @@ class StackedLayersIcon(tk.Canvas):
         self._icon_height = height
         requested_size = min(width, height)
         self._asset_size = min(
-            (16, 32, 64, 128, 256, 512, 1024),
+            (16, 32, 40, 64, 128, 256, 512, 1024),
             key=lambda size: abs(size - requested_size),
         )
         self._image = tk.PhotoImage(
@@ -366,6 +369,13 @@ class FlatButton(tk.Canvas):
         w, h = self._width, self._height
         if not self._enabled:
             bg, fg = COLOR_DISABLED, COLOR_TEXT_DISABLED
+            outline = ""
+        elif self._variant == "accent":
+            bg = (
+                COLOR_GENERATION_ACCENT_HOVER
+                if self._hover else COLOR_GENERATION_ACCENT
+            )
+            fg = "#FFFFFF"
             outline = ""
         elif self._variant == "primary":
             bg = "#0A0A0A" if not self._hover else "#262626"
@@ -552,6 +562,7 @@ class FlatProgressBar(tk.Canvas):
         master,
         height: int = 6,
         bg_parent: str = COLOR_BG_APP,
+        fill_color: str = COLOR_TEXT_PRIMARY,
         **kwargs
     ):
         super().__init__(
@@ -559,6 +570,7 @@ class FlatProgressBar(tk.Canvas):
             bg=bg_parent, **kwargs
         )
         self._height = height
+        self._fill_color = fill_color
         self._value = 0.0
         self._target = 0.0
         self._anim_id = None
@@ -599,22 +611,207 @@ class FlatProgressBar(tk.Canvas):
             fw = max(h, int(w * self._value))
             _round_rectangle(
                 self, 0, 0, fw, h, r=h // 2,
-                fill=COLOR_TEXT_PRIMARY, outline=""
+                fill=self._fill_color, outline=""
             )
+
+
+class GenerationChoiceCard(tk.Canvas):
+    """Responsive mode card used only inside the generation page."""
+
+    def __init__(
+        self, master, title: str, subtitle: str,
+        badge_text: str = "", initial_checked: bool = False,
+        on_toggle: callable = None, height: int = 108, **kwargs
+    ):
+        super().__init__(
+            master, height=height, bg=COLOR_CARD,
+            highlightthickness=0, cursor="hand2", **kwargs
+        )
+        self._title = title
+        self._subtitle = subtitle
+        self._badge = badge_text
+        self._checked = bool(initial_checked)
+        self.checked = self._checked
+        self._disabled = False
+        self._hover = False
+        self._on_toggle = on_toggle
+        self._height = height
+        self.bind("<Configure>", lambda _event: self.redraw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+
+    def set_disabled(self, disabled: bool):
+        self._disabled = bool(disabled)
+        self.configure(cursor="arrow" if disabled else "hand2")
+        self.redraw()
+
+    def set_checked(self, value: bool):
+        self._checked = bool(value)
+        self.checked = self._checked
+        self.redraw()
+
+    def _on_enter(self, _event=None):
+        self._hover = True
+        self.redraw()
+
+    def _on_leave(self, _event=None):
+        self._hover = False
+        self.redraw()
+
+    def _on_click(self, _event=None):
+        if self._disabled:
+            return
+        self.set_checked(not self._checked)
+        if self._on_toggle:
+            self._on_toggle(self)
+
+    def redraw(self):
+        self.delete("all")
+        width = max(self.winfo_width(), 180)
+        height = self._height
+        if self._disabled:
+            background = "#F8F9FB"
+            outline = COLOR_BORDER
+            title_color = COLOR_TEXT_DISABLED
+        elif self._checked:
+            background = COLOR_GENERATION_ACCENT_BG
+            outline = COLOR_GENERATION_ACCENT
+            title_color = COLOR_TEXT_PRIMARY
+        elif self._hover:
+            background = "#FAF9FF"
+            outline = "#CFC5FA"
+            title_color = COLOR_TEXT_PRIMARY
+        else:
+            background = COLOR_CARD
+            outline = COLOR_BORDER
+            title_color = COLOR_TEXT_PRIMARY
+        _round_rectangle(
+            self, 1, 1, width - 1, height - 1, r=12,
+            fill=background, outline=outline,
+            width=2 if self._checked else 1,
+        )
+        self.create_text(
+            18, 18, text=self._title, fill=title_color,
+            font=FONT_H2, anchor="nw",
+        )
+        self.create_text(
+            18, 51, text=self._subtitle,
+            fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
+            font=FONT_SMALL, anchor="nw", width=max(120, width - 66),
+        )
+        if self._badge:
+            badge_width = 42
+            _round_rectangle(
+                self, width - badge_width - 13, 13,
+                width - 13, 33, r=10,
+                fill="#E8E1FF", outline="",
+            )
+            self.create_text(
+                width - badge_width / 2 - 13, 23,
+                text=self._badge, fill="#6548D8",
+                font=FONT_TINY,
+            )
+        indicator_x = width - 29
+        _round_rectangle(
+            self, indicator_x, height - 29,
+            indicator_x + 16, height - 13, r=4,
+            fill=(COLOR_GENERATION_ACCENT if self._checked else COLOR_CARD),
+            outline=(COLOR_GENERATION_ACCENT if self._checked else COLOR_BORDER),
+        )
+        if self._checked:
+            self.create_text(
+                indicator_x + 8, height - 21, text="✓",
+                fill="#FFFFFF", font=FONT_TINY,
+            )
+
+
+class GenerationSegmentOption(tk.Canvas):
+    """Radio-like segmented option with the legacy card contract."""
+
+    def __init__(
+        self, master, text: str, initial_checked: bool = False,
+        on_toggle: callable = None, width: int = 142, height: int = 38,
+        **kwargs
+    ):
+        super().__init__(
+            master, width=width, height=height, bg="#F1F3F7",
+            highlightthickness=0, cursor="hand2", **kwargs
+        )
+        self._text = text
+        self._checked = bool(initial_checked)
+        self.checked = self._checked
+        self._disabled = False
+        self._hover = False
+        self._on_toggle = on_toggle
+        self._width = width
+        self._height = height
+        self.bind("<Enter>", lambda _event: self._set_hover(True))
+        self.bind("<Leave>", lambda _event: self._set_hover(False))
+        self.bind("<Button-1>", self._on_click)
+        self.redraw()
+
+    def _set_hover(self, value: bool):
+        self._hover = value
+        self.redraw()
+
+    def set_disabled(self, disabled: bool):
+        self._disabled = bool(disabled)
+        self.configure(cursor="arrow" if disabled else "hand2")
+        self.redraw()
+
+    def set_checked(self, value: bool):
+        self._checked = bool(value)
+        self.checked = self._checked
+        self.redraw()
+
+    def _on_click(self, _event=None):
+        if self._disabled or self._checked:
+            return
+        self.set_checked(True)
+        if self._on_toggle:
+            self._on_toggle(self)
+
+    def redraw(self):
+        self.delete("all")
+        if self._checked:
+            background = COLOR_CARD
+            foreground = COLOR_TEXT_PRIMARY
+            outline = "#E1E4EA"
+        elif self._hover and not self._disabled:
+            background = "#E9EBF1"
+            foreground = COLOR_TEXT_PRIMARY
+            outline = ""
+        else:
+            background = "#F1F3F7"
+            foreground = (
+                COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED
+            )
+            outline = ""
+        _round_rectangle(
+            self, 1, 1, self._width - 1, self._height - 1, r=9,
+            fill=background, outline=outline, width=1,
+        )
+        self.create_text(
+            self._width // 2, self._height // 2,
+            text=self._text, fill=foreground,
+            font=FONT_SMALL_BOLD if self._checked else FONT_SMALL,
+        )
 
 
 # ==================== 对话输入胶囊 ====================
 
-# Omnibox 的控件层无法像 Web CSS 一样透明，因此使用这层浅紫蓝作为
-# 渐变中心色；真正的渐变由 GlassCapsulePanel 的 Canvas 绘制在整个面板上。
-COLOR_OMNIBOX_SURFACE = "#EEF1FF"
+# Omnibox 除输入框内部外统一使用同一浅紫色。
+COLOR_OMNIBOX_SURFACE = "#F1ECFF"
 
 class GlassCapsulePanel(tk.Canvas):
-    """带全幅渐变、高光边框与弥散阴影的对话输入控制台。
+    """带紫色填充与圆角描边的对话输入控制台。
 
     Tk 不支持 CSS ``backdrop-filter``，因此用分层色块模拟半透明玻璃的
     深浅变化；交互层仍是普通 Tk 控件，保证拖拽、键盘与辅助功能正常工作。
     """
+
+    _PANEL_RADIUS = 32
 
     def __init__(self, master, bg_parent: str = COLOR_BG_APP, **kwargs):
         # 选中文件时会额外显示一行文件胶囊，预留高度避免内容被 Canvas 裁切。
@@ -644,33 +841,14 @@ class GlassCapsulePanel(tk.Canvas):
     def redraw(self):
         self.delete("glass")
         w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
-        # 三层柔影 + 覆盖整个控制台的蓝紫暖色渐变。
-        _round_rectangle(self, 12, 10, w - 4, h - 1, r=24,
-                         fill="#E5EAF2", outline="", tags="glass")
-        _round_rectangle(self, 8, 6, w - 8, h - 7, r=24,
-                         fill="#EEF2F8", outline="", tags="glass")
-        fill = "#E6F0FF" if self._dragging else "#EEF1FF"
-        outline = COLOR_ACCENT_BLUE if self._dragging else "#FFFFFF"
-        _round_rectangle(self, 8, 4, w - 8, h - 9, r=24,
+        # 使用纯描边勾勒控制台，避免阴影造成边缘发灰或显得厚重。
+        fill = COLOR_OMNIBOX_SURFACE
+        outline = COLOR_GENERATION_ACCENT if self._dragging else "#C9B8F7"
+        _round_rectangle(self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
                          fill=fill, outline=outline,
                          width=2 if self._dragging else 1, tags="glass")
-        # Tk 没有原生渐变填充，逐行混色让整块控制台（而非仅顶部）呈现渐变。
-        stops = ((0.0, (224, 238, 255)), (0.54, (239, 232, 255)),
-                 (1.0, (255, 237, 226)))
-        for y in range(5, max(6, h - 8)):
-            position = (y - 5) / max(1, h - 13)
-            for index, (start, start_rgb) in enumerate(stops[:-1]):
-                end, end_rgb = stops[index + 1]
-                if start <= position <= end:
-                    progress = (position - start) / (end - start)
-                    rgb = tuple(round(a + (b - a) * progress)
-                                for a, b in zip(start_rgb, end_rgb))
-                    self.create_line(9, y, w - 9, y,
-                                     fill="#{:02X}{:02X}{:02X}".format(*rgb),
-                                     tags="glass")
-                    break
-        # 重新绘制内层描边，使渐变在圆角内完整收口。
-        _round_rectangle(self, 8, 4, w - 8, h - 9, r=24,
+        # 重新绘制描边，确保圆角边缘清晰。
+        _round_rectangle(self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
                          fill="", outline=outline,
                          width=2 if self._dragging else 1, tags="glass")
         self.tag_lower("glass")
@@ -863,13 +1041,13 @@ class GlassNavigationItem(tk.Canvas):
         right, bottom = width - self._CARD_MARGIN, height - self._CARD_MARGIN
 
         if progress > 0.01:
-            # 0 4px 16px 蓝色柔光与 0 2px 4px 中性阴影的 Tk 等效层。
-            shadow = self._mix((255, 255, 255), (222, 234, 251), progress)
+            # 0 4px 16px 紫色柔光与 0 2px 4px 中性阴影的 Tk 等效层。
+            shadow = self._mix((255, 255, 255), (232, 222, 252), progress)
             _round_rectangle(self, left + 1, top + 4, right - 1, bottom,
                              r=self._CARD_RADIUS, fill="#%02X%02X%02X" % shadow,
                              outline="", tags="card")
-            # 以逐行混色描绘冰蓝 -> 靛紫 -> 暖橙粉的弥散渐变。
-            stops = ((191, 219, 254), (224, 231, 255), (254, 215, 170))
+            # 以逐行混色描绘浅紫 -> 薰衣草紫 -> 深紫的弥散渐变。
+            stops = ((221, 214, 254), (196, 181, 253), (167, 139, 250))
             for y in range(top, bottom + 1):
                 ratio = (y - top) / max(1, bottom - top)
                 if ratio < 0.55:
@@ -1008,7 +1186,7 @@ class AIMemoryGUI:
         logo_row.pack(fill=tk.X)
         # 使用统一的灰色堆叠层图标，替换旧的黑色方块标识。
         StackedLayersIcon(
-            logo_row, width=32, height=32, bg=COLOR_SIDEBAR,
+            logo_row, width=40, height=40, bg=COLOR_SIDEBAR,
         ).pack(side=tk.LEFT)
         tk.Label(
             logo_row, text="AI 记忆协同管理", font=FONT_SIDEBAR_TITLE,
@@ -1326,136 +1504,223 @@ class AIMemoryGUI:
     # ---------------- 生成页（合并配置 + 生成） ----------------
 
     def _build_generation_section(self):
-        """生成页：模式选择 + 登录策略 + 进度 + 生成按钮。"""
+        """生成页：模式网格、任务摘要与统一执行栏。"""
         page = self.page_frames[1]
         page.configure(bg=COLOR_BG_APP)
 
         section = tk.Frame(page, bg=COLOR_BG_APP)
-        section.pack(fill=tk.BOTH, expand=True, padx=80, pady=(24, 24))
+        section.pack(fill=tk.BOTH, expand=True, padx=28, pady=(16, 20))
 
+        heading = tk.Frame(section, bg=COLOR_BG_APP)
+        heading.pack(fill=tk.X, pady=(0, 14))
+        heading_copy = tk.Frame(heading, bg=COLOR_BG_APP)
+        heading_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
-            section, text="生成", font=(FONT_FAMILY, 18, "bold"),
+            heading_copy, text="生成记忆总结", font=(FONT_FAMILY, 20, "bold"),
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
         ).pack(fill=tk.X)
         tk.Label(
-            section, text="选择合适的模式，开始生成你的记忆总结",
-            font=FONT_SMALL, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
+            heading_copy, text="选择输出方式，系统会按你的偏好整理当前对话。",
+            font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
             anchor="w",
-        ).pack(fill=tk.X, pady=(4, 16))
-
-        # 模式卡片列表（纵向堆叠）
-        self.card_raw = FlatSelectCard(
-            section, title="仅抓取对话",
-            subtitle="raw 原始问答 / 不调用总结 API",
-            badge_text="", initial_checked=False,
-            on_toggle=self._on_mode_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=72,
+        ).pack(fill=tk.X, pady=(4, 0))
+        ready_badge = tk.Label(
+            heading, text="  ●  已就绪  ", font=FONT_SMALL_BOLD,
+            fg=COLOR_SUCCESS, bg="#F1FAF6", padx=8, pady=6,
         )
-        self.card_raw.configure(bg=COLOR_BG_APP)
-        self.card_raw.pack(fill=tk.X, pady=4)
+        ready_badge.pack(side=tk.RIGHT, anchor="n", pady=2)
 
-        self.card_normal = FlatSelectCard(
-            section, title="结构化总结",
-            subtitle="整理为结构化多级总结，支持自定义大纲",
-            badge_text="推荐", initial_checked=True,
-            on_toggle=self._on_mode_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=72,
-        )
-        self.card_normal.configure(bg=COLOR_BG_APP)
-        self.card_normal.pack(fill=tk.X, pady=4)
+        workspace = tk.Frame(section, bg=COLOR_BG_APP)
+        workspace.pack(fill=tk.BOTH, expand=True)
+        workspace.grid_columnconfigure(0, weight=1, minsize=390)
+        workspace.grid_columnconfigure(1, weight=0, minsize=210)
+        workspace.grid_rowconfigure(0, weight=1)
 
-        self.card_simple = FlatSelectCard(
-            section, title="高保真总览",
-            subtitle="单段落高保真总览，保留关键信息",
-            badge_text="", initial_checked=False,
-            on_toggle=self._on_mode_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=72,
-        )
-        self.card_simple.configure(bg=COLOR_BG_APP)
-        self.card_simple.pack(fill=tk.X, pady=4)
+        left_column = tk.Frame(workspace, bg=COLOR_BG_APP)
+        left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
+        right_column = tk.Frame(workspace, bg=COLOR_BG_APP, width=210)
+        right_column.grid(row=0, column=1, sticky="nsew")
+        right_column.grid_propagate(False)
 
-        self.card_detailed = FlatSelectCard(
-            section, title="细节要点",
-            subtitle="提取核心要点、事实与数据引用",
-            badge_text="", initial_checked=False,
-            on_toggle=self._on_mode_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=72,
-        )
-        self.card_detailed.configure(bg=COLOR_BG_APP)
-        self.card_detailed.pack(fill=tk.X, pady=4)
-
-        # 登录策略
-        tk.Label(
-            section, text="登录策略", font=FONT_BODY_BOLD,
-            fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
-        ).pack(fill=tk.X, pady=(20, 4))
-        tk.Label(
-            section, text="选择用于访问受限内容的方式",
-            font=FONT_SMALL, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
-            anchor="w",
-        ).pack(fill=tk.X, pady=(0, 8))
-
-        self.card_no_login = FlatSelectCard(
-            section, title="复用会话",
-            subtitle="使用当前会话进行操作，适用于临时任务",
-            is_radio=True, initial_checked=True,
-            on_toggle=self._on_auth_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=64, badge_text=""
-        )
-        self.card_no_login.configure(bg=COLOR_BG_APP)
-        self.card_no_login.pack(fill=tk.X, pady=4)
-
-        self.card_need_login = FlatSelectCard(
-            section, title="授权登录",
-            subtitle="系统呼出独立隔离浏览器，手动完成首次登录",
-            is_radio=True, initial_checked=False,
-            on_toggle=self._on_auth_toggled, theme_color=COLOR_ACCENT,
-            bg_parent=COLOR_BG_APP, width=640, height=64, badge_text=""
-        )
-        self.card_need_login.configure(bg=COLOR_BG_APP)
-        self.card_need_login.pack(fill=tk.X, pady=4)
-
-        # 状态 + 进度卡
-        progress_card = tk.Frame(
-            section, bg=COLOR_CARD, padx=24, pady=18,
+        mode_panel = tk.Frame(
+            left_column, bg=COLOR_CARD, padx=16, pady=14,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
-        progress_card.pack(fill=tk.X, pady=(20, 16))
-
-        status_row = tk.Frame(progress_card, bg=COLOR_CARD)
-        status_row.pack(fill=tk.X, pady=(0, 10))
-        self.status_var = tk.StringVar(value="准备就绪")
+        mode_panel.pack(fill=tk.BOTH, expand=True)
+        mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
+        mode_header.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
-            status_row, textvariable=self.status_var,
-            font=FONT_SMALL, fg=COLOR_TEXT_SECONDARY, bg=COLOR_CARD,
-            anchor="w",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.percent_var = tk.StringVar(value="")
+            mode_header, text="选择生成模式", font=FONT_BODY_BOLD,
+            fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+        ).pack(side=tk.LEFT)
+        self.generation_selection_var = tk.StringVar(value="已选 1 项")
         tk.Label(
-            status_row, textvariable=self.percent_var,
-            font=FONT_SMALL_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
-            anchor="e",
+            mode_header, textvariable=self.generation_selection_var,
+            font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
         ).pack(side=tk.RIGHT)
 
-        self.progress_bar = FlatProgressBar(
-            progress_card, height=6, bg_parent=COLOR_CARD
-        )
-        self.progress_bar.pack(fill=tk.X)
+        mode_grid = tk.Frame(mode_panel, bg=COLOR_CARD)
+        mode_grid.pack(fill=tk.BOTH, expand=True)
+        mode_grid.grid_columnconfigure(0, weight=1, uniform="mode")
+        mode_grid.grid_columnconfigure(1, weight=1, uniform="mode")
+        mode_grid.grid_rowconfigure(0, weight=1)
+        mode_grid.grid_rowconfigure(1, weight=1)
 
-        # 操作按钮
-        action_row = tk.Frame(section, bg=COLOR_BG_APP)
-        action_row.pack(fill=tk.X, pady=(12, 0))
+        cards = (
+            ("card_raw", "仅抓取对话", "保留原始问答，不调用总结 API。", "", False),
+            ("card_normal", "结构化总结", "整理为清晰的多级结构，支持自定义大纲。", "推荐", True),
+            ("card_simple", "高保真总览", "紧凑还原重点，减少信息压缩损失。", "", False),
+            ("card_detailed", "细节要点", "提取事实、数据、行动项与重要引用。", "", False),
+        )
+        for index, card_data in enumerate(cards):
+            attr, title, subtitle, badge, checked = card_data
+            card = GenerationChoiceCard(
+                mode_grid, title=title, subtitle=subtitle,
+                badge_text=badge,
+                initial_checked=checked, on_toggle=self._on_mode_toggled,
+            )
+            card.grid(
+                row=index // 2, column=index % 2, sticky="nsew",
+                padx=(0, 5) if index % 2 == 0 else (5, 0),
+                pady=(0, 5) if index < 2 else (5, 0),
+            )
+            setattr(self, attr, card)
+
+        auth_panel = tk.Frame(
+            left_column, bg=COLOR_CARD, padx=16, pady=12,
+            highlightthickness=1, highlightbackground=COLOR_BORDER,
+        )
+        auth_panel.pack(fill=tk.X, pady=(12, 0))
+        auth_copy = tk.Frame(auth_panel, bg=COLOR_CARD)
+        auth_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(
+            auth_copy, text="访问方式", font=FONT_BODY_BOLD,
+            fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w",
+        ).pack(fill=tk.X)
+        tk.Label(
+            auth_copy, text="受限页面可切换为独立浏览器授权",
+            font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
+        ).pack(fill=tk.X, pady=(3, 0))
+        auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=3, pady=3)
+        auth_switch.pack(side=tk.RIGHT)
+        self.card_no_login = GenerationSegmentOption(
+            auth_switch, text="复用当前会话", initial_checked=True,
+            on_toggle=self._on_auth_toggled, width=102,
+        )
+        self.card_no_login.pack(side=tk.LEFT)
+        self.card_need_login = GenerationSegmentOption(
+            auth_switch, text="授权登录", initial_checked=False,
+            on_toggle=self._on_auth_toggled, width=102,
+        )
+        self.card_need_login.pack(side=tk.LEFT)
+
+        task_panel = tk.Frame(
+            right_column, bg=COLOR_CARD, padx=15, pady=14,
+            highlightthickness=1, highlightbackground=COLOR_BORDER,
+        )
+        task_panel.pack(fill=tk.X)
+        tk.Label(
+            task_panel, text="本次任务", font=FONT_BODY_BOLD,
+            fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w",
+        ).pack(fill=tk.X)
+        source_box = tk.Frame(task_panel, bg="#F4F6FA", padx=11, pady=10)
+        source_box.pack(fill=tk.X, pady=(12, 12))
+        tk.Label(
+            source_box, text="内容来源", font=FONT_TINY,
+            fg=COLOR_TEXT_MUTED, bg="#F4F6FA", anchor="w",
+        ).pack(fill=tk.X)
+        tk.Label(
+            source_box, text="当前对话 / 已选文件", font=FONT_SMALL_BOLD,
+            fg=COLOR_TEXT_PRIMARY, bg="#F4F6FA", anchor="w",
+        ).pack(fill=tk.X, pady=(5, 0))
+
+        self.generation_output_var = tk.StringVar(value="1 个 Markdown")
+        self.generation_modes_var = tk.StringVar(value="结构化总结")
+        self.generation_auth_var = tk.StringVar(value="复用当前会话")
+        for label_text, value_var in (
+            ("输出文件", self.generation_output_var),
+            ("生成模式", self.generation_modes_var),
+            ("访问方式", self.generation_auth_var),
+        ):
+            row = tk.Frame(task_panel, bg=COLOR_CARD)
+            row.pack(fill=tk.X, pady=5)
+            tk.Label(
+                row, text=label_text, font=FONT_TINY,
+                fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                row, textvariable=value_var, font=FONT_TINY,
+                fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+            ).pack(side=tk.RIGHT)
+        tk.Frame(task_panel, bg=COLOR_BORDER, height=1).pack(fill=tk.X, pady=(8, 9))
+        tk.Label(
+            task_panel, text="◷  预计耗时 1–3 分钟", font=FONT_TINY,
+            fg=COLOR_SUCCESS, bg=COLOR_CARD, anchor="w",
+        ).pack(fill=tk.X)
+
+        tip_panel = tk.Frame(
+            right_column, bg=COLOR_GENERATION_ACCENT_BG,
+            padx=14, pady=12, highlightthickness=1,
+            highlightbackground="#E4DDFE",
+        )
+        tip_panel.pack(fill=tk.X, pady=(12, 0))
+        tk.Label(
+            tip_panel, text="✦  更好的总结效果", font=FONT_SMALL_BOLD,
+            fg="#6047C8", bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
+        ).pack(fill=tk.X)
+        tk.Label(
+            tip_panel,
+            text="结构化总结适合归档；高保真总览适合快速回顾。",
+            font=FONT_TINY, fg=COLOR_TEXT_MUTED,
+            bg=COLOR_GENERATION_ACCENT_BG, justify=tk.LEFT,
+            wraplength=170, anchor="w",
+        ).pack(fill=tk.X, pady=(6, 0))
+
+        run_panel = tk.Frame(
+            section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
+            highlightthickness=1, highlightbackground="#DED7FA",
+        )
+        run_panel.pack(fill=tk.X, pady=(14, 0))
+        run_row = tk.Frame(run_panel, bg=COLOR_GENERATION_ACCENT_BG)
+        run_row.pack(fill=tk.X)
+        run_icon = tk.Label(
+            run_row, text="↗", font=(FONT_FAMILY, 14, "bold"),
+            fg="#FFFFFF", bg=COLOR_GENERATION_ACCENT,
+            width=3, height=1,
+        )
+        run_icon.pack(side=tk.LEFT, padx=(0, 10))
+        status_copy = tk.Frame(run_row, bg=COLOR_GENERATION_ACCENT_BG)
+        status_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.status_var = tk.StringVar(value="所有配置已完成")
+        tk.Label(
+            status_copy, textvariable=self.status_var,
+            font=FONT_SMALL_BOLD, fg=COLOR_TEXT_PRIMARY,
+            bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
+        ).pack(fill=tk.X)
+        self.percent_var = tk.StringVar(value="")
+        tk.Label(
+            status_copy, textvariable=self.percent_var,
+            font=FONT_TINY, fg=COLOR_TEXT_MUTED,
+            bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
+        ).pack(fill=tk.X, pady=(3, 0))
         self.btn_generate = FlatButton(
-            action_row, text="🚀 开始生成",
+            run_row, text="开始生成总结  →",
             command=self._on_start_generate,
-            variant="primary", width=180, height=44, bg_parent=COLOR_BG_APP
+            variant="accent", width=174, height=44,
+            bg_parent=COLOR_GENERATION_ACCENT_BG,
         )
-        self.btn_generate.pack(side=tk.LEFT, padx=(0, 12))
-
+        self.btn_generate.pack(side=tk.RIGHT, padx=(12, 0))
+        self.progress_bar = FlatProgressBar(
+            run_panel, height=5,
+            bg_parent=COLOR_GENERATION_ACCENT_BG,
+            fill_color=COLOR_GENERATION_ACCENT,
+        )
+        self.progress_bar.pack(fill=tk.X, pady=(10, 0))
         self.done_badge = tk.Label(
-            section, text="✓ 生成完成", font=FONT_BODY_BOLD,
-            fg=COLOR_SUCCESS, bg=COLOR_BG_APP, anchor="w"
+            run_panel, text="✓ 生成完成", font=FONT_SMALL_BOLD,
+            fg=COLOR_SUCCESS, bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
         )
+        self._refresh_generation_summary()
 
     # ---------------- 历史页 ----------------
 
@@ -1628,7 +1893,19 @@ class AIMemoryGUI:
         else:
             w = event.width
             h = event.height
-        self.bg_canvas.itemconfig(self.canvas_window_id, width=w)
+        if self._current_page == 0:
+            content_height = max(h, self.main_content.winfo_reqheight())
+            self.bg_canvas.itemconfig(
+                self.canvas_window_id,
+                width=w,
+                height=content_height,
+            )
+        else:
+            self.bg_canvas.itemconfig(
+                self.canvas_window_id,
+                width=w,
+                height=0,
+            )
         self._draw_vibrant_gradient(w, h)
 
     def _on_content_configure(self, _event):
@@ -1779,7 +2056,41 @@ class AIMemoryGUI:
 
     # ---------------- 模式与登录切换 ----------------
 
+    def _refresh_generation_summary(self):
+        """Keep the generation-page summary aligned with current choices."""
+        mode_cards = (
+            (getattr(self, "card_raw", None), "原始对话"),
+            (getattr(self, "card_normal", None), "结构化总结"),
+            (getattr(self, "card_simple", None), "高保真总览"),
+            (getattr(self, "card_detailed", None), "细节要点"),
+        )
+        selected_modes = [
+            label for card, label in mode_cards
+            if card is not None and getattr(card, "checked", False)
+        ]
+        selected_count = len(selected_modes)
+        if hasattr(self, "generation_selection_var"):
+            self.generation_selection_var.set(f"已选 {selected_count} 项")
+        if hasattr(self, "generation_output_var"):
+            self.generation_output_var.set(f"{selected_count} 个 Markdown")
+        if hasattr(self, "generation_modes_var"):
+            if not selected_modes:
+                summary = "尚未选择"
+            elif len(selected_modes) <= 2:
+                summary = " / ".join(selected_modes)
+            else:
+                summary = f"{selected_modes[0]}等 {selected_count} 项"
+            self.generation_modes_var.set(summary)
+        if hasattr(self, "generation_auth_var"):
+            need_login = getattr(
+                getattr(self, "card_need_login", None), "checked", False
+            )
+            self.generation_auth_var.set(
+                "授权登录" if need_login else "复用当前会话"
+            )
+
     def _on_mode_toggled(self, _card=None):
+        self._refresh_generation_summary()
         self._update_generate_button_state()
 
     def _on_auth_toggled(self, selected_card):
@@ -1787,6 +2098,7 @@ class AIMemoryGUI:
             self.card_need_login.set_checked(False)
         else:
             self.card_no_login.set_checked(False)
+        self._refresh_generation_summary()
         self._update_generate_button_state()
 
     # ---------------- 输入锁定 ----------------
@@ -1837,6 +2149,7 @@ class AIMemoryGUI:
             self.card_need_login.set_checked(False)
             self.card_no_login.set_checked(True)
             self.status_var.set("账号内对话链接，将复用已保存的登录状态。")
+            self._refresh_generation_summary()
         self._update_generate_button_state()
 
     # ---------------- 按钮状态 ----------------
@@ -1851,6 +2164,26 @@ class AIMemoryGUI:
             self.card_simple.checked, self.card_detailed.checked
         ])
         has_auth = self.card_no_login.checked or self.card_need_login.checked
+        has_source = bool(self.capsule_entry.get_text().strip())
+        configuration_complete = has_source and has_mode and has_auth
+
+        if hasattr(self, "status_var"):
+            self.status_var.set(
+                "所有配置已完成" if configuration_complete else "配置未完全"
+            )
+        if hasattr(self, "percent_var"):
+            missing_items = []
+            if not has_source:
+                missing_items.append("内容来源")
+            if not has_mode:
+                missing_items.append("生成模式")
+            if not has_auth:
+                missing_items.append("访问方式")
+            self.percent_var.set(
+                "可以开始生成"
+                if configuration_complete
+                else f"还需设置：{'、'.join(missing_items)}"
+            )
         # 按钮始终可点击（URL/文件校验在 _on_start_generate 中拦截）
         self.btn_generate.set_enabled(True)
         if hasattr(self, "_update_send_button_state"):
