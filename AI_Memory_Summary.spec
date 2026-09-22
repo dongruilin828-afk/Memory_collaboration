@@ -62,7 +62,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="AI记忆总结工具",
+    name="Memory_collaboration",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -82,5 +82,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="AI记忆总结工具",
+    name="Memory_collaboration",
 )

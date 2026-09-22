@@ -49,3 +49,4 @@ summary_results/
 
 # 用于 agent
 agents.md
+dist/

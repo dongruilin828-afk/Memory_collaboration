@@ -1859,7 +1859,7 @@ async def _chatgpt_document_card_file_id(
     )
     try:
         return str(await cards.first.evaluate(
-            """(element, targetName) => {
+            r"""(element, targetName) => {
                 const pattern = /(?:^|[^A-Za-z0-9])(file[_-][A-Za-z0-9_-]{12,})/g;
                 const seen = new WeakSet();
                 let visited = 0;

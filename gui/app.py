@@ -12,7 +12,9 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import hashlib
+import math
 import os
 import sys
 import threading
@@ -20,7 +22,9 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(
+    getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)
+).resolve()
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -55,6 +59,30 @@ from gui.service import (
     normalize_markdown_filename,
     requires_authenticated_browser,
 )
+
+
+def _enable_windows_dpi_awareness() -> None:
+    """让 Tk 在 Windows 按显示器 DPI 原生绘制，避免文字被位图放大。"""
+    if sys.platform != "win32":
+        return
+    try:
+        user32 = ctypes.windll.user32
+        try:
+            if user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+                return
+        except (AttributeError, OSError):
+            pass
+        try:
+            if ctypes.windll.shcore.SetProcessDpiAwareness(2) == 0:
+                return
+        except (AttributeError, OSError):
+            pass
+        try:
+            user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
+    except (AttributeError, OSError):
+        pass
 
 
 # ==================== 调色板 ====================
@@ -99,6 +127,9 @@ FONT_HERO = (FONT_FAMILY, 24, "bold")
 FONT_SIDEBAR_TITLE = (FONT_FAMILY, 12, "bold")
 FONT_SIDEBAR_ITEM = (FONT_FAMILY, 10)
 FONT_SIDEBAR_STEP = (FONT_FAMILY, 9, "bold")
+
+SIDEBAR_MIN_WIDTH = 280
+SIDEBAR_MAX_WIDTH = 280
 
 
 # ==================== 输出目标询问与直接总结工具函数 ====================
@@ -621,7 +652,7 @@ class GenerationChoiceCard(tk.Canvas):
     def __init__(
         self, master, title: str, subtitle: str,
         badge_text: str = "", initial_checked: bool = False,
-        on_toggle: callable = None, height: int = 108, **kwargs
+        on_toggle: callable = None, height: int = 122, **kwargs
     ):
         super().__init__(
             master, height=height, bg=COLOR_CARD,
@@ -696,7 +727,7 @@ class GenerationChoiceCard(tk.Canvas):
             font=FONT_H2, anchor="nw",
         )
         self.create_text(
-            18, 51, text=self._subtitle,
+            18, 59, text=self._subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
             font=FONT_SMALL, anchor="nw", width=max(120, width - 66),
         )
@@ -967,6 +998,83 @@ class FlatEntryBox(tk.Canvas):
             )
 
 
+class VectorToolbarButton(tk.Frame):
+    """工具栏按钮：用 Canvas 线性图标替代平台 Emoji。"""
+
+    _TEXT_COLOR = "#4B5563"
+
+    def __init__(self, master, text: str, icon: str, command, **kwargs):
+        bg = kwargs.pop("bg", COLOR_OMNIBOX_SURFACE)
+        super().__init__(master, bg=bg, padx=8, pady=4, cursor="hand2", **kwargs)
+        self._bg = bg
+        self._icon = icon
+        self._command = command
+        self._state = "normal"
+        self._icon_canvas = tk.Canvas(
+            self, width=20, height=20, bg=bg,
+            highlightthickness=0, bd=0,
+        )
+        self._icon_canvas.pack(side=tk.LEFT, padx=(0, 5))
+        self._label = tk.Label(
+            self, text=text, font=(FONT_FAMILY, 9),
+            bg=bg, fg=self._TEXT_COLOR,
+        )
+        self._label.pack(side=tk.LEFT)
+        for widget in (self, self._icon_canvas, self._label):
+            widget.bind("<Button-1>", self._on_click)
+            widget.bind("<Return>", self._on_click)
+            widget.bind("<space>", self._on_click)
+        self._redraw_icon()
+
+    def _on_click(self, _event=None):
+        if self._state == "normal" and self._command:
+            self._command()
+
+    def _redraw_icon(self):
+        self._icon_canvas.delete("all")
+        color = COLOR_TEXT_DISABLED if self._state == "disabled" else self._TEXT_COLOR
+        if self._icon == "file":
+            self._icon_canvas.create_line(
+                11, 3, 7, 3, 4, 6, 4, 14, 7, 17, 11, 17,
+                fill=color, width=2, smooth=True,
+            )
+            self._icon_canvas.create_line(
+                9, 6, 13, 6, 15, 8, 15, 14, 12, 17,
+                fill=color, width=2, smooth=True,
+            )
+        else:
+            self._icon_canvas.create_oval(
+                2, 7, 11, 16, outline=color, width=2,
+            )
+            self._icon_canvas.create_oval(
+                9, 3, 18, 12, outline=color, width=2,
+            )
+            self._icon_canvas.create_line(
+                8, 9, 12, 13, fill=color, width=2,
+            )
+
+    def config(self, cnf=None, **kwargs):
+        options = dict(cnf or {})
+        options.update(kwargs)
+        state = options.pop("state", None)
+        cursor = options.pop("cursor", None)
+        if state is not None:
+            self._state = state
+            self._label.configure(
+                fg=COLOR_TEXT_DISABLED if state == "disabled" else self._TEXT_COLOR
+            )
+            self._redraw_icon()
+        if cursor is not None:
+            tk.Frame.configure(self, cursor=cursor)
+            self._icon_canvas.configure(cursor=cursor)
+            self._label.configure(cursor=cursor)
+        if options:
+            return super().config(**options)
+        return super().config()
+
+    configure = config
+
+
 # ==================== 侧栏毛玻璃导航项 ====================
 
 class GlassNavigationItem(tk.Canvas):
@@ -983,16 +1091,6 @@ class GlassNavigationItem(tk.Canvas):
         self._icon = icon
         self._title = title
         self._description = description
-        icon_asset = {
-            "对话": "chat-outline",
-            "生成": "document-outline",
-            "历史": "history-clock",
-        }.get(title)
-        self._navigation_icon_image = (
-            tk.PhotoImage(file=str(_navigation_icon_path(icon_asset)))
-            if icon_asset
-            else None
-        )
         self._active = False
         self._progress = 0.0
         self._target_progress = 0.0
@@ -1032,6 +1130,47 @@ class GlassNavigationItem(tk.Canvas):
     @staticmethod
     def _mix(start: tuple[int, int, int], end: tuple[int, int, int], amount: float):
         return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
+
+    def _draw_navigation_icon(self, color: str):
+        """在统一的 28px 画布内绘制清晰的线性导航图标。"""
+        cx, cy = 27, 34
+        if self._title == "对话":
+            self.create_oval(cx - 10, cy - 8, cx + 10, cy + 7,
+                             outline=color, width=2, tags="content")
+            self.create_line(cx + 4, cy + 6, cx + 10, cy + 11,
+                             fill=color, width=2, tags="content")
+        elif self._title == "生成":
+            self.create_line(
+                cx - 8, cy - 10, cx + 3, cy - 10, cx + 8, cy - 5,
+                cx + 8, cy + 10, cx - 8, cy + 10, cx - 8, cy - 10,
+                fill=color, width=2, joinstyle=tk.ROUND, tags="content",
+            )
+            self.create_line(cx + 3, cy - 10, cx + 3, cy - 5,
+                             cx + 8, cy - 5, fill=color, width=2,
+                             joinstyle=tk.ROUND, tags="content")
+            for offset in (-3, 2, 7):
+                self.create_line(cx - 4, cy + offset, cx + 4, cy + offset,
+                                 fill=color, width=2, tags="content")
+        elif self._title == "历史":
+            self.create_oval(cx - 9, cy - 9, cx + 9, cy + 9,
+                             outline=color, width=2, tags="content")
+            self.create_line(cx, cy - 5, cx, cy + 1, cx + 4, cy + 4,
+                             fill=color, width=2, joinstyle=tk.ROUND,
+                             tags="content")
+        else:
+            for angle in range(0, 360, 45):
+                radians = math.radians(angle)
+                self.create_line(
+                    cx + round(math.cos(radians) * 9),
+                    cy + round(math.sin(radians) * 9),
+                    cx + round(math.cos(radians) * 13),
+                    cy + round(math.sin(radians) * 13),
+                    fill=color, width=2, tags="content",
+                )
+            self.create_oval(cx - 9, cy - 9, cx + 9, cy + 9,
+                             outline=color, width=2, tags="content")
+            self.create_oval(cx - 3, cy - 3, cx + 3, cy + 3,
+                             outline=color, width=2, tags="content")
 
     def redraw(self):
         self.delete("all")
@@ -1074,14 +1213,7 @@ class GlassNavigationItem(tk.Canvas):
                              fill="#F7F9FC", outline="", tags="card")
 
         icon_color = "#1E293B" if (self._active or self._hovered) else COLOR_TEXT_SECONDARY
-        if self._navigation_icon_image is not None:
-            self.create_image(
-                27, 34, image=self._navigation_icon_image,
-                anchor=tk.CENTER, tags="content",
-            )
-        else:
-            self.create_text(27, 34, text=self._icon, font=(FONT_FAMILY, 14),
-                             fill=icon_color, anchor="center", tags="content")
+        self._draw_navigation_icon(icon_color)
         self.create_text(52, 27, text=self._title, font=(FONT_FAMILY, 10, "bold"),
                          fill="#0F172A", anchor="w", tags="content")
         self.create_text(52, 45, text=self._description, font=(FONT_FAMILY, 8),
@@ -1144,7 +1276,8 @@ class AIMemoryGUI:
         self.root = root
         root.title("AI 记忆总结协同管理工具")
         root.geometry("960x680")
-        root.minsize(820, 560)
+        # 侧栏固定为 280px；该最小宽度确保生成页两列不会压缩到文字溢出。
+        root.minsize(1080, 680)
         root.configure(bg=COLOR_BG_APP)
         self._window_icon = tk.PhotoImage(file=str(_logo_png_path(64)))
         root.iconphoto(True, self._window_icon)
@@ -1167,17 +1300,31 @@ class AIMemoryGUI:
 
     # ---------------- UI 构建 ----------------
 
+    def _sidebar_width_for_window(self, window_width: int) -> int:
+        """根据窗口宽度调整侧栏，但始终保留完整文字所需的最小宽度。"""
+        responsive_width = round(window_width * 0.16)
+        return max(SIDEBAR_MIN_WIDTH, min(SIDEBAR_MAX_WIDTH, responsive_width))
+
+    def _on_root_resize(self, event) -> None:
+        if event.widget is not self.root or not hasattr(self, "_sidebar"):
+            return
+        width = self._sidebar_width_for_window(event.width)
+        if self._sidebar.winfo_width() != width:
+            self._sidebar.configure(width=width)
+
     def _build_ui(self):
         top = tk.Frame(self.root, bg=COLOR_BG_APP)
         top.pack(fill=tk.BOTH, expand=True)
 
         # ===== 左侧任务栏（白底 + 图标导航） =====
         sidebar = tk.Frame(
-            top, bg=COLOR_SIDEBAR, width=200,
+            top, bg=COLOR_SIDEBAR, width=SIDEBAR_MIN_WIDTH,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
         sidebar.pack(side=tk.LEFT, fill=tk.Y)
         sidebar.pack_propagate(False)
+        self._sidebar = sidebar
+        self.root.bind("<Configure>", self._on_root_resize, add="+")
 
         # Logo + 标题
         header = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=20, pady=24)
@@ -1398,23 +1545,17 @@ class AIMemoryGUI:
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_left.pack(side=tk.LEFT)
 
-        self.file_select_button = tk.Button(
-            toolbar_left, text="📎 添加文件",
+        self.file_select_button = VectorToolbarButton(
+            toolbar_left, text="添加文件", icon="file",
             command=self._choose_summary_file,
-            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
-            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
-            relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=8, pady=4
+            bg=COLOR_OMNIBOX_SURFACE,
         )
         self.file_select_button.pack(side=tk.LEFT, padx=(0, 16))
 
-        btn_paste = tk.Button(
-            toolbar_left, text="🔗 粘贴链接",
+        btn_paste = VectorToolbarButton(
+            toolbar_left, text="粘贴链接", icon="link",
             command=self._paste_clipboard_to_entry,
-            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
-            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
-            relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=8, pady=4
+            bg=COLOR_OMNIBOX_SURFACE,
         )
         btn_paste.pack(side=tk.LEFT)
 
@@ -1512,7 +1653,7 @@ class AIMemoryGUI:
         section.pack(fill=tk.BOTH, expand=True, padx=28, pady=(16, 20))
 
         heading = tk.Frame(section, bg=COLOR_BG_APP)
-        heading.pack(fill=tk.X, pady=(0, 14))
+        heading.pack(fill=tk.X, pady=(0, 16))
         heading_copy = tk.Frame(heading, bg=COLOR_BG_APP)
         heading_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
@@ -1523,7 +1664,7 @@ class AIMemoryGUI:
             heading_copy, text="选择输出方式，系统会按你的偏好整理当前对话。",
             font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
             anchor="w",
-        ).pack(fill=tk.X, pady=(4, 0))
+        ).pack(fill=tk.X, pady=(6, 0))
         ready_badge = tk.Label(
             heading, text="  ●  已就绪  ", font=FONT_SMALL_BOLD,
             fg=COLOR_SUCCESS, bg="#F1FAF6", padx=8, pady=6,
@@ -1548,7 +1689,7 @@ class AIMemoryGUI:
         )
         mode_panel.pack(fill=tk.BOTH, expand=True)
         mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
-        mode_header.pack(fill=tk.X, pady=(0, 10))
+        mode_header.pack(fill=tk.X, pady=(0, 14))
         tk.Label(
             mode_header, text="选择生成模式", font=FONT_BODY_BOLD,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
@@ -1563,8 +1704,8 @@ class AIMemoryGUI:
         mode_grid.pack(fill=tk.BOTH, expand=True)
         mode_grid.grid_columnconfigure(0, weight=1, uniform="mode")
         mode_grid.grid_columnconfigure(1, weight=1, uniform="mode")
-        mode_grid.grid_rowconfigure(0, weight=1)
-        mode_grid.grid_rowconfigure(1, weight=1)
+        mode_grid.grid_rowconfigure(0, weight=1, minsize=122)
+        mode_grid.grid_rowconfigure(1, weight=1, minsize=122)
 
         cards = (
             ("card_raw", "仅抓取对话", "保留原始问答，不调用总结 API。", "", False),
@@ -1600,7 +1741,7 @@ class AIMemoryGUI:
         tk.Label(
             auth_copy, text="受限页面可切换为独立浏览器授权",
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
-        ).pack(fill=tk.X, pady=(3, 0))
+        ).pack(fill=tk.X, pady=(6, 0))
         auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=3, pady=3)
         auth_switch.pack(side=tk.RIGHT)
         self.card_no_login = GenerationSegmentOption(
@@ -1632,7 +1773,7 @@ class AIMemoryGUI:
         tk.Label(
             source_box, text="当前对话 / 已选文件", font=FONT_SMALL_BOLD,
             fg=COLOR_TEXT_PRIMARY, bg="#F4F6FA", anchor="w",
-        ).pack(fill=tk.X, pady=(5, 0))
+        ).pack(fill=tk.X, pady=(7, 0))
 
         self.generation_output_var = tk.StringVar(value="1 个 Markdown")
         self.generation_modes_var = tk.StringVar(value="结构化总结")
@@ -1674,7 +1815,7 @@ class AIMemoryGUI:
             font=FONT_TINY, fg=COLOR_TEXT_MUTED,
             bg=COLOR_GENERATION_ACCENT_BG, justify=tk.LEFT,
             wraplength=170, anchor="w",
-        ).pack(fill=tk.X, pady=(6, 0))
+        ).pack(fill=tk.X, pady=(8, 0))
 
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
@@ -1702,7 +1843,7 @@ class AIMemoryGUI:
             status_copy, textvariable=self.percent_var,
             font=FONT_TINY, fg=COLOR_TEXT_MUTED,
             bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
-        ).pack(fill=tk.X, pady=(3, 0))
+        ).pack(fill=tk.X, pady=(6, 0))
         self.btn_generate = FlatButton(
             run_row, text="开始生成总结  →",
             command=self._on_start_generate,
@@ -2149,7 +2290,8 @@ class AIMemoryGUI:
             self.card_need_login.set_checked(False)
             self.card_no_login.set_checked(True)
             self.status_var.set("账号内对话链接，将复用已保存的登录状态。")
-            self._refresh_generation_summary()
+            if hasattr(self, "_refresh_generation_summary"):
+                self._refresh_generation_summary()
         self._update_generate_button_state()
 
     # ---------------- 按钮状态 ----------------
@@ -3211,6 +3353,7 @@ class AIMemoryGUI:
 
 def main() -> None:
     """启动 AI 记忆总结协同管理工具。"""
+    _enable_windows_dpi_awareness()
     root = TkinterDnD.Tk() if _HAS_DND else tk.Tk()
     AIMemoryGUI(root)
     root.mainloop()

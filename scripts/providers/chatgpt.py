@@ -139,7 +139,7 @@ async def collect_html(page):
         """复采当前消息；保留文本和真实图片均不退步的较完整快照。"""
         nonlocal discovery_index
         visible_messages = await page.locator(role_selector).evaluate_all(
-            """elements => elements.map(element => {
+            r"""elements => elements.map(element => {
                 const turn = element.closest(
                     '[data-testid^="conversation-turn-"]'
                 );
