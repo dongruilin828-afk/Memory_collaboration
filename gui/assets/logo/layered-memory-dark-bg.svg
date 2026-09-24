@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Layered Memory Logo - dark-bg</title>
+  <desc id="desc">Three centered rounded diamond layers representing structured memory and knowledge.</desc>
+  <path fill="#D6DEE8" fill-rule="evenodd" clip-rule="evenodd" d="M 512 112 Q 526 112 542 120 L 866 286 Q 892 299 892 320 Q 892 341 866 354 L 542 520 Q 512 536 482 520 L 158 354 Q 132 341 132 320 Q 132 299 158 286 L 482 120 Q 498 112 512 112 Z M 512 222 Q 522 222 534 228 L 708 317 Q 728 327 728 342 Q 728 357 708 367 L 534 456 Q 512 468 490 456 L 316 367 Q 296 357 296 342 Q 296 327 316 317 L 490 228 Q 502 222 512 222 Z"/>
+  <path fill="#D6DEE8" d="M 178 440 L 494 602 Q 512 612 530 602 L 846 440 Q 866 430 880 442 Q 892 452 892 470 L 892 522 Q 892 546 870 558 L 548 724 Q 512 744 476 724 L 154 558 Q 132 546 132 522 L 132 470 Q 132 452 144 442 Q 158 430 178 440 Z"/>
+  <path fill="#D6DEE8" d="M 178 630 L 494 792 Q 512 802 530 792 L 846 630 Q 866 620 880 632 Q 892 642 892 660 L 892 712 Q 892 736 870 748 L 548 914 Q 512 934 476 914 L 154 748 Q 132 736 132 712 L 132 660 Q 132 642 144 632 Q 158 620 178 630 Z"/>
+</svg>

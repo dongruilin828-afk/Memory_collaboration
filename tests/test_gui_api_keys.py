@@ -571,9 +571,11 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                 selected_file_row=SimpleNamespace(
                     pack=lambda **kwargs: shown_rows.append(kwargs)
                 ),
-                file_select_button=SimpleNamespace(
-                    config=lambda **kwargs: button_styles.append(kwargs)
+                _omnibox=SimpleNamespace(
+                    config=lambda **kwargs: button_styles.append(kwargs),
+                    winfo_children=lambda: [],
                 ),
+                _update_send_button_state=lambda: None,
                 _update_generate_button_state=lambda: None,
                 _select_summary_file=lambda path: AIMemoryGUI._select_summary_file(
                     fake_gui, path
@@ -587,7 +589,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                 fake_gui,
                 SimpleNamespace(action="copy"),
             )
-            self.assertEqual(button_styles[-1]["bg"], "#DBEAFE")
+            self.assertEqual(button_styles[-1]["bg"], "#EFF6FF")
 
             action = AIMemoryGUI._on_file_drop(
                 fake_gui,
@@ -596,9 +598,9 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
 
             self.assertEqual(action, "copy")
             self.assertEqual(fake_gui.selected_summary_file, source_path.resolve())
-            self.assertEqual(selected_names, [source_path.name])
-            self.assertEqual(shown_rows, [{"fill": "x", "pady": (2, 0)}])
-            self.assertEqual(button_styles[-1]["bg"], "#EEF2FF")
+            self.assertTrue(selected_names[0].startswith("📄 " + source_path.name + " ·"))
+            self.assertEqual(shown_rows, [{"fill": "x", "pady": (0, 8)}])
+            self.assertEqual(button_styles[-1]["bg"], "#F0F4F9")
 
     def test_direct_button_requires_file_and_summary_mode(self):
         states = []

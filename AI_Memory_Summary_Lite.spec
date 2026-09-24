@@ -19,6 +19,9 @@ release_docs = [
         ".",
     ),
 ]
+ui_assets = [
+    (str(project_root / "gui" / "assets"), "gui/assets"),
+]
 
 hidden_imports = sorted(set(
     playwright_hidden
@@ -34,7 +37,7 @@ a = Analysis(
     [str(project_root / "gui" / "lite_app.py")],
     pathex=[str(project_root)],
     binaries=playwright_binaries + tkdnd_binaries,
-    datas=playwright_datas + tkdnd_datas + release_docs,
+    datas=playwright_datas + tkdnd_datas + release_docs + ui_assets,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
