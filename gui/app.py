@@ -774,19 +774,21 @@ class GenerationSegmentOption(tk.Canvas):
 
     def redraw(self):
         self.delete("all")
-        if self._checked:
+        if self._disabled:
+            background = "#F8F9FB"
+            foreground = COLOR_TEXT_DISABLED
+            outline = COLOR_BORDER
+        elif self._checked:
             background = COLOR_CARD
             foreground = COLOR_TEXT_PRIMARY
             outline = "#E1E4EA"
-        elif self._hover and not self._disabled:
+        elif self._hover:
             background = "#E9EBF1"
             foreground = COLOR_TEXT_PRIMARY
             outline = ""
         else:
             background = "#F1F3F7"
-            foreground = (
-                COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED
-            )
+            foreground = COLOR_TEXT_MUTED
             outline = ""
         _round_rectangle(
             self, 1, 1, self._width - 1, self._height - 1, r=9,
@@ -814,25 +816,29 @@ class GlassCapsulePanel(tk.Canvas):
     _PANEL_RADIUS = 32
 
     def __init__(self, master, bg_parent: str = COLOR_BG_APP, **kwargs):
-        # 选中文件时会额外显示一行文件胶囊，预留高度避免内容被 Canvas 裁切。
-        super().__init__(master, height=172, highlightthickness=0,
-                         bg=bg_parent, **kwargs)
+        super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
         self._bg_parent = bg_parent
         self._dragging = False
         self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=16)
         self._content_window = self.create_window(
             16, 12, window=self.content, anchor="nw"
         )
+        self.content.bind("<Configure>", self._fit_height)
         self.bind("<Configure>", self._on_resize)
+        self._fit_height()
         self.redraw()
 
     def _on_resize(self, event):
-        self.itemconfigure(
-            self._content_window,
-            width=max(1, event.width - 32),
-            height=max(1, event.height - 24),
-        )
+        width = max(1, event.width - 32)
+        current_width = int(float(self.itemcget(self._content_window, "width")))
+        if current_width != width:
+            self.itemconfigure(self._content_window, width=width)
         self.redraw()
+
+    def _fit_height(self, _event=None):
+        height = self.content.winfo_reqheight() + 24
+        if self.winfo_reqheight() != height:
+            self.configure(height=height)
 
     def set_drop_highlight(self, highlighted: bool):
         self._dragging = bool(highlighted)
@@ -1134,6 +1140,15 @@ class HoverTooltip:
 
 # ==================== 主 GUI ====================
 
+GENERATION_SOURCE_LABELS = {
+    "url": "当前对话",
+    "file": "已选文件",
+}
+AUTH_REUSE_LABEL = "复用登录状态"
+AUTH_NOT_REQUIRED_LABEL = "本地文件无需登录"
+GENERATE_BUTTON_LABEL = "开始生成  →"
+
+
 class AIMemoryGUI:
     """AI 记忆总结协同管理工具主界面（极简扁平侧栏版）。
 
@@ -1151,6 +1166,8 @@ class AIMemoryGUI:
 
         self.is_running = False
         self.selected_summary_file: Path | None = None
+        self._generation_url_available = False
+        self._generation_sources_formed = False
         self.credential_store = WindowsCredentialStore()
         self.settings_store = WindowsAppSettingsStore()
         try:
@@ -1366,12 +1383,12 @@ class AIMemoryGUI:
             self.selected_file_row, bg="#EAF2FF",
             padx=10, pady=4,
         )
-        file_capsule.pack(side=tk.LEFT)
-        tk.Label(
+        file_capsule.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        selected_file_name = tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
             font=FONT_SMALL, fg=COLOR_TEXT_PRIMARY, bg="#EAF2FF",
             anchor="w",
-        ).pack(side=tk.LEFT)
+        )
         self.clear_file_button = tk.Button(
             file_capsule, text="✕",
             command=self._clear_summary_file,
@@ -1380,7 +1397,8 @@ class AIMemoryGUI:
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=4, pady=0
         )
-        self.clear_file_button.pack(side=tk.LEFT, padx=(6, 0))
+        self.clear_file_button.pack(side=tk.RIGHT, padx=(6, 0))
+        selected_file_name.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # 自适应文本输入区
         self.capsule_entry = FlatEntryBox(
@@ -1418,18 +1436,9 @@ class AIMemoryGUI:
         )
         btn_paste.pack(side=tk.LEFT)
 
-        # 右下角：直接总结 + 发送按钮
+        # 右下角：发送按钮
         toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_right.pack(side=tk.RIGHT)
-
-        self.btn_direct = FlatButton(
-            toolbar_right, text="📝 直接总结此文件",
-            command=self._on_direct_summary,
-            variant="secondary", width=160, height=32, bg_parent=COLOR_OMNIBOX_SURFACE
-        )
-        # 默认隐藏（仅文件附加时显示）
-        self.btn_direct.pack(side=tk.RIGHT, padx=(4, 0))
-        self.btn_direct.pack_forget()
 
         self.btn_send = tk.Button(
             toolbar_right, text="→",
@@ -1453,18 +1462,16 @@ class AIMemoryGUI:
         spacer.pack(fill=tk.BOTH, expand=True)
 
     def _on_omnibox_send(self):
-        """Omnibox 发送按钮：检测链接或文件，分流到生成页或直接总结。"""
-        url = self.capsule_entry.get_text()
-        has_file = bool(getattr(self, "_selected_summary_file", None))
-        if has_file and not url:
-            self._on_direct_summary()
-        elif url:
+        """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
+        url = self.capsule_entry.get_text().strip()
+        has_file = self.selected_summary_file is not None
+        if url or has_file:
             self._show_page(1)
 
     def _update_send_button_state(self):
         """根据输入内容更新发送按钮激活状态。"""
         url = self.capsule_entry.get_text() if hasattr(self, "capsule_entry") else ""
-        has_file = bool(getattr(self, "_selected_summary_file", None))
+        has_file = getattr(self, "selected_summary_file", None) is not None
         active = bool(url.strip()) or has_file
         if active:
             self.btn_send.config(
@@ -1477,11 +1484,6 @@ class AIMemoryGUI:
                 bg=COLOR_OMNIBOX_SURFACE, fg="#B8C0CB",
                 cursor="arrow",
             )
-        # 文件附加时显示"直接总结"按钮
-        if has_file:
-            self.btn_direct.pack(side=tk.RIGHT, padx=(4, 0))
-        else:
-            self.btn_direct.pack_forget()
 
     def _on_send_hover(self, _event=None):
         """用字符位移模拟无边框箭头按钮的 hover 微动效。"""
@@ -1520,7 +1522,7 @@ class AIMemoryGUI:
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
         ).pack(fill=tk.X)
         tk.Label(
-            heading_copy, text="选择输出方式，系统会按你的偏好整理当前对话。",
+            heading_copy, text="选择内容来源和输出方式，按你的偏好生成记忆总结。",
             font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
             anchor="w",
         ).pack(fill=tk.X, pady=(4, 0))
@@ -1604,7 +1606,7 @@ class AIMemoryGUI:
         auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=3, pady=3)
         auth_switch.pack(side=tk.RIGHT)
         self.card_no_login = GenerationSegmentOption(
-            auth_switch, text="复用当前会话", initial_checked=True,
+            auth_switch, text=AUTH_REUSE_LABEL, initial_checked=True,
             on_toggle=self._on_auth_toggled, width=102,
         )
         self.card_no_login.pack(side=tk.LEFT)
@@ -1629,14 +1631,22 @@ class AIMemoryGUI:
             source_box, text="内容来源", font=FONT_TINY,
             fg=COLOR_TEXT_MUTED, bg="#F4F6FA", anchor="w",
         ).pack(fill=tk.X)
-        tk.Label(
-            source_box, text="当前对话 / 已选文件", font=FONT_SMALL_BOLD,
-            fg=COLOR_TEXT_PRIMARY, bg="#F4F6FA", anchor="w",
-        ).pack(fill=tk.X, pady=(5, 0))
+        source_switch = tk.Frame(source_box, bg="#F4F6FA")
+        source_switch.pack(fill=tk.X, pady=(6, 0), padx=(0, 12))
+        self.card_source_url = GenerationSegmentOption(
+            source_switch, text=GENERATION_SOURCE_LABELS["url"],
+            initial_checked=False, on_toggle=self._on_generation_source_toggled,
+            width=70,
+        )
+        self.card_source_file = GenerationSegmentOption(
+            source_switch, text=GENERATION_SOURCE_LABELS["file"],
+            initial_checked=False, on_toggle=self._on_generation_source_toggled,
+            width=70,
+        )
 
         self.generation_output_var = tk.StringVar(value="1 个 Markdown")
         self.generation_modes_var = tk.StringVar(value="结构化总结")
-        self.generation_auth_var = tk.StringVar(value="复用当前会话")
+        self.generation_auth_var = tk.StringVar(value=AUTH_REUSE_LABEL)
         for label_text, value_var in (
             ("输出文件", self.generation_output_var),
             ("生成模式", self.generation_modes_var),
@@ -1704,7 +1714,7 @@ class AIMemoryGUI:
             bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
         ).pack(fill=tk.X, pady=(3, 0))
         self.btn_generate = FlatButton(
-            run_row, text="开始生成总结  →",
+            run_row, text=GENERATE_BUTTON_LABEL,
             command=self._on_start_generate,
             variant="accent", width=174, height=44,
             bg_parent=COLOR_GENERATION_ACCENT_BG,
@@ -1720,7 +1730,7 @@ class AIMemoryGUI:
             run_panel, text="✓ 生成完成", font=FONT_SMALL_BOLD,
             fg=COLOR_SUCCESS, bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
         )
-        self._refresh_generation_summary()
+        self._refresh_generation_sources()
 
     # ---------------- 历史页 ----------------
 
@@ -1994,7 +2004,11 @@ class AIMemoryGUI:
         except OSError:
             label = f"📄 {self.selected_summary_file.name}"
         self.selected_file_name_var.set(label)
-        self.selected_file_row.pack(fill=tk.X, pady=(0, 8))
+        self.file_select_button.config(text="📎 重新添加")
+        self.selected_file_row.pack(
+            fill=tk.X, pady=(0, 8), before=self.capsule_entry,
+        )
+        self._refresh_generation_sources()
         self._update_send_button_state()
         self._update_generate_button_state()
 
@@ -2051,10 +2065,76 @@ class AIMemoryGUI:
         self.selected_summary_file = None
         self.selected_file_name_var.set("")
         self.selected_file_row.pack_forget()
+        self.file_select_button.config(text="📎 添加文件")
+        self._refresh_generation_sources()
         self._update_send_button_state()
         self._update_generate_button_state()
 
     # ---------------- 模式与登录切换 ----------------
+
+    def _refresh_generation_sources(self):
+        has_url = bool(self.capsule_entry.get_text().strip())
+        has_file = self.selected_summary_file is not None
+        url_became_available = (
+            has_url and not getattr(self, "_generation_url_available", False)
+        )
+        first_dual_source = (
+            has_url and has_file
+            and not getattr(self, "_generation_sources_formed", False)
+        )
+        source = getattr(self, "generation_source", None)
+        if source == "url" and not has_url:
+            source = None
+        elif source == "file" and not has_file:
+            source = None
+        if source is None:
+            source = "url" if has_url else "file" if has_file else None
+        elif first_dual_source and url_became_available and source == "file":
+            source = "url"
+        self.generation_source = source
+        self._generation_url_available = has_url
+        self._generation_sources_formed = (
+            getattr(self, "_generation_sources_formed", False)
+            or has_url and has_file
+        )
+
+        if source == "file" and self.card_raw.checked:
+            self.card_raw.set_checked(False)
+        source_options = (
+            (self.card_source_url, "url", has_url),
+            (self.card_source_file, "file", has_file),
+        )
+        visible_sources = tuple(
+            key for _option, key, available in source_options if available
+        )
+        packed_sources = tuple(
+            key for option, key, _available in source_options
+            if option.winfo_manager() == "pack"
+        )
+        if packed_sources != visible_sources:
+            for option, _key, _available in source_options:
+                option.pack_forget()
+            for option, _key, available in source_options:
+                if available:
+                    option.pack(side=tk.LEFT)
+        for option, key, available in source_options:
+            option.set_checked(source == key)
+            option.set_disabled(self.is_running or not available)
+        self.card_raw.set_disabled(self.is_running or source == "file")
+        for attr in ("card_no_login", "card_need_login"):
+            option = getattr(self, attr, None)
+            if option is not None:
+                option.set_disabled(self.is_running or source == "file")
+        self._refresh_generation_summary()
+
+    def _on_generation_source_toggled(self, selected_option):
+        if self.is_running:
+            return
+        self.generation_source = (
+            "url" if selected_option is self.card_source_url else "file"
+        )
+        self._refresh_generation_sources()
+        self._update_generate_button_state()
 
     def _refresh_generation_summary(self):
         """Keep the generation-page summary aligned with current choices."""
@@ -2085,9 +2165,14 @@ class AIMemoryGUI:
             need_login = getattr(
                 getattr(self, "card_need_login", None), "checked", False
             )
-            self.generation_auth_var.set(
-                "授权登录" if need_login else "复用当前会话"
-            )
+            source = getattr(self, "generation_source", None)
+            if source == "file":
+                auth_label = AUTH_NOT_REQUIRED_LABEL
+            elif source == "url":
+                auth_label = "授权登录" if need_login else AUTH_REUSE_LABEL
+            else:
+                auth_label = "未选择内容"
+            self.generation_auth_var.set(auth_label)
 
     def _on_mode_toggled(self, _card=None):
         self._refresh_generation_summary()
@@ -2104,13 +2189,25 @@ class AIMemoryGUI:
     # ---------------- 输入锁定 ----------------
 
     def _set_inputs_locked(self, locked: bool):
+        source = getattr(self, "generation_source", None)
         self.capsule_entry.set_locked(locked)
-        self.card_raw.set_disabled(locked)
+        self.card_raw.set_disabled(locked or source == "file")
         self.card_normal.set_disabled(locked)
         self.card_simple.set_disabled(locked)
         self.card_detailed.set_disabled(locked)
-        self.card_no_login.set_disabled(locked)
-        self.card_need_login.set_disabled(locked)
+        self.card_no_login.set_disabled(locked or source == "file")
+        self.card_need_login.set_disabled(locked or source == "file")
+        has_url = bool(
+            self.capsule_entry.get_text().strip()
+            if hasattr(self.capsule_entry, "get_text") else False
+        )
+        for attr, available in (
+            ("card_source_url", has_url),
+            ("card_source_file", getattr(self, "selected_summary_file", None) is not None),
+        ):
+            option = getattr(self, attr, None)
+            if option is not None:
+                option.set_disabled(locked or not available)
         self.file_select_button.config(
             state="disabled" if locked else "normal",
             cursor="arrow" if locked else "hand2",
@@ -2148,7 +2245,10 @@ class AIMemoryGUI:
         if is_private and hasattr(self, "card_no_login"):
             self.card_need_login.set_checked(False)
             self.card_no_login.set_checked(True)
-            self.status_var.set("账号内对话链接，将复用已保存的登录状态。")
+            self.status_var.set("账号内对话链接，将复用登录状态。")
+        if hasattr(self, "card_source_url"):
+            self._refresh_generation_sources()
+        else:
             self._refresh_generation_summary()
         self._update_generate_button_state()
 
@@ -2157,14 +2257,26 @@ class AIMemoryGUI:
     def _update_generate_button_state(self):
         if self.is_running:
             self.btn_generate.set_enabled(False)
-            self.btn_direct.set_enabled(False)
             return
         has_mode = any([
             self.card_raw.checked, self.card_normal.checked,
             self.card_simple.checked, self.card_detailed.checked
         ])
-        has_auth = self.card_no_login.checked or self.card_need_login.checked
-        has_source = bool(self.capsule_entry.get_text().strip())
+        source = getattr(self, "generation_source", None)
+        has_url = bool(self.capsule_entry.get_text().strip())
+        has_file = getattr(self, "selected_summary_file", None) is not None
+        has_source = (source == "url" and has_url) or (
+            source == "file" and has_file
+        )
+        has_auth = source == "file" or (
+            self.card_no_login.checked or self.card_need_login.checked
+        )
+        if source == "file":
+            has_mode = any([
+                self.card_normal.checked,
+                self.card_simple.checked,
+                self.card_detailed.checked,
+            ])
         configuration_complete = has_source and has_mode and has_auth
 
         if hasattr(self, "status_var"):
@@ -2177,26 +2289,17 @@ class AIMemoryGUI:
                 missing_items.append("内容来源")
             if not has_mode:
                 missing_items.append("生成模式")
-            if not has_auth:
+            if source == "url" and not has_auth:
                 missing_items.append("访问方式")
             self.percent_var.set(
                 "可以开始生成"
                 if configuration_complete
                 else f"还需设置：{'、'.join(missing_items)}"
             )
-        # 按钮始终可点击（URL/文件校验在 _on_start_generate 中拦截）
-        self.btn_generate.set_enabled(True)
+        self.btn_generate.set_enabled(configuration_complete)
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
 
-        has_summary_mode = any([
-            self.card_normal.checked,
-            self.card_simple.checked,
-            self.card_detailed.checked
-        ])
-        self.btn_direct.set_enabled(bool(
-            self.selected_summary_file is not None and has_summary_mode
-        ))
 
     # ---------------- 完成徽章 ----------------
 
@@ -2210,6 +2313,9 @@ class AIMemoryGUI:
     # ---------------- 开始生成 / 直接总结 ----------------
 
     def _on_start_generate(self):
+        if getattr(self, "generation_source", None) == "file":
+            self._on_direct_summary()
+            return
         url = self.capsule_entry.get_text()
         if not url:
             messagebox.showwarning("提示", "请输入有效的 AI 分享链接。")
@@ -2828,8 +2934,8 @@ class AIMemoryGUI:
             from datetime import datetime as _dt
             history_record = {
                 "title": (
-                    Path(self._selected_summary_file).name
-                    if direct_summary and self._selected_summary_file
+                    source_path.name
+                    if direct_summary and source_path is not None
                     else (source_name or "链接总结")
                 ),
                 "timestamp": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
