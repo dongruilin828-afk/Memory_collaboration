@@ -1,8 +1,19 @@
 # AI 记忆协同管理工具
 
-本项目从 ChatGPT、DeepSeek 和豆包分享页提取完整对话，并可选择调用
-Gemini API、SiliconFlow 或 DeepSeek 兼容接口，对文字、图片和可用文档进行多模态
-分层总结。
+本项目支持从 ChatGPT、Codex、DeepSeek、豆包、Gemini、Kimi、通义千问和 Grok 的
+公开分享页或私有会话页提取完整对话，并可选择调用 Gemini API、SiliconFlow 或
+DeepSeek 兼容接口，对文字、图片和可用文档进行多模态分层总结。
+
+当前支持的对话平台：
+
+- ChatGPT：`chatgpt.com` / `chat.openai.com`
+- Codex：`chatgpt.com/s/cx_<id>`（公开分享）/ `chatgpt.com/codex/cloud/tasks/task_<id>`（私有任务）
+- DeepSeek：`chat.deepseek.com`
+- 豆包：`doubao.com`
+- Gemini：`gemini.google.com`
+- Kimi：`kimi.com` / `kimi.moonshot.cn`
+- 通义千问：`qianwen.com` / `qianwen.my.cn`
+- Grok：`grok.com`
 
 ## 安装
 
@@ -65,11 +76,15 @@ Chrome；两者都不可用时提示用户安装浏览器或下载全量版。�
 `release\lite-dist\AI记忆总结工具_轻量版` 文件夹，不能只发送 EXE。
 
 
-在 GUI 中可粘贴公开分享链接，也可粘贴 ChatGPT `/c/` 或 DeepSeek
-`/a/chat/s/` 私有会话地址。选择“不登录”时，ChatGPT 私有会话直接使用始终
-最小化的浏览器，其他平台先在后台无头复用登录态；只有确认当前登录态无法
-读取会话时，才恢复浏览器窗口要求登录。
-选择“授权登录”时则直接显示浏览器，并在确认后重新打开原始会话。
+在 GUI 中可粘贴公开分享链接（包括 Codex `/s/cx_<id>`、Gemini `/share/`、
+Kimi `/share/<id>`、通义千问 `/share/chat/<32位ID>` 和 Grok `/share/<id>` 分享页；Kimi 链接可带
+`/en/`、`/zh/` 语言段或 `?ra=1`、`?sharetype=link` 参数），也可粘贴
+ChatGPT `/c/`、Codex `/codex/cloud/tasks/task_<id>`、DeepSeek `/a/chat/s/`、Gemini `/app/<id>`、
+Kimi `/chat/<id>`、通义千问 `/chat/<session_id>` 或 Grok `/c/<uuid>` 私有会话地址。选择“不登录”时，
+程序先在后台复用已保存的登录状态。无论输入私有链接还是分享链接，如果读取会话
+或下载图片必须重新登录，都会先显示统一的“需要登录”确认框；选择“是”后才打开
+浏览器，选择“否”则不会打开浏览器。选择“授权登录”时则直接显示浏览器，并在
+确认后重新打开原始会话。
 勾选一个或多个模式，并选择保存位置和 Markdown 文件名。抓取到的图片与当前账号
 有权下载的文档，会分别放入 Markdown 同目录下的专属 `_images` 与 `_files`
 文件夹，并通过相对路径引用；分享或移动结果时，应把 Markdown 与这些同名资源

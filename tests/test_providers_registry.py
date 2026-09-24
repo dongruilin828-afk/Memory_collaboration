@@ -1,0 +1,158 @@
+"""适配器注册表的 host 路由与抓取前等待逻辑测试。"""
+import asyncio
+import unittest
+
+from bs4 import BeautifulSoup
+
+from scripts.parser import _wait_for_conversation_content
+from scripts.providers import (
+    PROVIDERS,
+    WAIT_SELECTOR,
+    chatgpt,
+    deepseek,
+    doubao,
+    gemini,
+    kimi,
+    qianwen,
+    grok,
+    parse_messages,
+    provider_for_host,
+)
+
+
+class ProviderForHostTests(unittest.TestCase):
+    def test_known_hosts_map_to_expected_provider(self):
+        cases = {
+            "chatgpt.com": chatgpt,
+            "chat.openai.com": chatgpt,
+            "chat.deepseek.com": deepseek,
+            "doubao.com": doubao,
+            "www.doubao.com": doubao,
+            "gemini.google.com": gemini,
+            "share.gemini.google": gemini,
+            "kimi.com": kimi,
+            "www.kimi.com": kimi,
+            "kimi.moonshot.cn": kimi,
+            "qianwen.com": qianwen,
+            "www.qianwen.com": qianwen,
+            "qianwen.my.cn": qianwen,
+            "grok.com": grok,
+            "www.grok.com": grok,
+        }
+        for host, expected in cases.items():
+            with self.subTest(host=host):
+                self.assertIs(provider_for_host(host), expected)
+
+    def test_unknown_host_returns_none(self):
+        self.assertIsNone(provider_for_host("example.com"))
+        # 近似域名（多一段）不得误命中。
+        self.assertIsNone(provider_for_host("share.gemini.google.com"))
+        self.assertIsNone(provider_for_host(""))
+        self.assertIsNone(provider_for_host(None))
+
+    def test_host_normalized_case_and_port(self):
+        self.assertIs(provider_for_host("GEMINI.GOOGLE.COM"), gemini)
+        self.assertIs(provider_for_host("gemini.google.com:443"), gemini)
+        self.assertIs(provider_for_host("Chat.DeepSeek.com:8443"), deepseek)
+
+    def test_declared_provider_hosts_are_distinct(self):
+        seen = {}
+        for provider in PROVIDERS:
+            for host in getattr(provider, "HOSTS", ()):
+                self.assertNotIn(host, seen, f"HOSTS 冲突: {host}")
+                seen[host] = provider
+
+
+class ParseMessagesIsolationTests(unittest.TestCase):
+    def test_failed_provider_probe_cannot_mutate_later_provider_dom(self):
+        html = """
+        <user-query data-gemini-role="user">
+          <user-query-file-preview>
+            <button aria-label="以灯箱形式显示上传的图片">
+              <img src="https://lh3.googleusercontent.com/example" alt="上传图片">
+            </button>
+          </user-query-file-preview>
+        </user-query>
+        <message-content data-gemini-role="assistant"><p>回答</p></message-content>
+        """
+        provider, messages = parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {"https://lh3.googleusercontent.com/example": "./images/example.png"},
+        )
+        self.assertIs(provider, gemini)
+        self.assertEqual([item["role"] for item in messages], ["User", "AI"])
+        self.assertIn("./images/example.png", messages[0]["content"])
+
+
+class WaitForConversationContentTests(unittest.TestCase):
+    """用伪页面对象验证等待目标选择与降级路径（不启动浏览器）。"""
+
+    @staticmethod
+    def _run(coro):
+        return asyncio.run(coro)
+
+    def test_known_host_waits_on_provider_selector(self):
+        calls = []
+
+        class FakePage:
+            url = "https://gemini.google.com/share/abc?skid=x"
+
+            async def wait_for_selector(self, selector, state=None, timeout=None):
+                calls.append((selector, state, timeout))
+
+        self._run(_wait_for_conversation_content(FakePage()))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], gemini.WAIT_SELECTOR)
+        self.assertEqual(calls[0][1], "attached")
+
+    def test_short_share_domain_locks_gemini_before_redirect(self):
+        calls = []
+
+        class FakePage:
+            url = "https://share.gemini.google/qER3ntHn8kOP"
+
+            async def wait_for_selector(self, selector, state=None, timeout=None):
+                calls.append(selector)
+
+        self._run(_wait_for_conversation_content(FakePage()))
+        self.assertEqual(calls, [gemini.WAIT_SELECTOR])
+
+    def test_unknown_host_falls_back_to_combined_selector(self):
+        calls = []
+
+        class FakePage:
+            url = "https://example.com/chat/123"
+
+            async def wait_for_selector(self, selector, state=None, timeout=None):
+                calls.append(selector)
+
+        self._run(_wait_for_conversation_content(FakePage()))
+        self.assertEqual(calls, [WAIT_SELECTOR])
+
+    def test_provider_timeout_then_combined_fallback(self):
+        calls = []
+
+        class FakePage:
+            url = "https://gemini.google.com/share/abc"
+
+            async def wait_for_selector(self, selector, state=None, timeout=None):
+                calls.append(selector)
+                if selector == gemini.WAIT_SELECTOR:
+                    raise TimeoutError("timeout")
+
+        self._run(_wait_for_conversation_content(FakePage()))
+        self.assertEqual(calls, [gemini.WAIT_SELECTOR, WAIT_SELECTOR])
+
+    def test_all_timeouts_do_not_raise(self):
+        class FakePage:
+            url = "https://example.com/x"
+
+            async def wait_for_selector(self, selector, state=None, timeout=None):
+                raise TimeoutError("timeout")
+
+        # 两次等待均超时也不应抛出异常中断抓取。
+        self._run(_wait_for_conversation_content(FakePage()))
+
+
+if __name__ == "__main__":
+    unittest.main()

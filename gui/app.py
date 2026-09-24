@@ -40,6 +40,7 @@ from gui.service import (
     MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
     build_image_asset_directory,
+    build_output_paths,
     default_output_filename,
     fetch_chat_pipeline,
     generate_output_bundle,
@@ -2315,6 +2316,23 @@ class AIMemoryGUI:
             daemon=True,
         ).start()
 
+    def _confirm_login_required(self) -> bool:
+        """在打开浏览器前征求用户同意。"""
+        answered = threading.Event()
+        result = {"confirmed": False}
+
+        def ask():
+            result["confirmed"] = messagebox.askyesno(
+                "需要登录",
+                "该资源需要登录后才能下载。是否打开浏览器登录后重试？",
+                parent=self.root,
+            )
+            answered.set()
+
+        self.root.after(0, ask)
+        answered.wait()
+        return result["confirmed"]
+
     def _show_login_dialog(self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event):
         """弹出登录提示对话框"""
         dialog = tk.Toplevel(self.root)
@@ -2689,13 +2707,17 @@ class AIMemoryGUI:
                 )
             else:
                 update_progress(0.15, "正在加载分享页并解析动态列表...")
+                output_paths = build_output_paths(
+                    save_dir, modes, output_filename
+                )
+                asset_owner = output_paths["asset_markdown"].name
                 image_output_dir = build_image_asset_directory(
                     save_dir,
-                    output_filename,
+                    asset_owner,
                 )
                 document_output_dir = build_document_asset_directory(
                     save_dir,
-                    output_filename,
+                    asset_owner,
                 )
                 fetch_res = loop.run_until_complete(
                     fetch_chat_pipeline(
@@ -2709,6 +2731,9 @@ class AIMemoryGUI:
                                     loop, login_event
                                 ),
                             )
+                        ),
+                        login_confirmation_callback=(
+                            self._confirm_login_required
                         ),
                         logger=lambda m: update_progress(0.28, m),
                         image_output_dir=image_output_dir,
@@ -2796,7 +2821,7 @@ class AIMemoryGUI:
             generation_seconds = (
                 time.perf_counter() - generation_started - selection_wait_seconds
             )
-            saved_files = [path.name for path in bundle.saved_files]
+            saved_files = [str(path.resolve()) for path in bundle.saved_files]
             processing = (
                 (bundle.summary_result or {}).get("processing", {})
                 if isinstance(bundle.summary_result, dict)

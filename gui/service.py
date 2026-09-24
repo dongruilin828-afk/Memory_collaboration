@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import html as html_lib
 import ipaddress
@@ -38,7 +39,13 @@ from scripts.project_paths import (
     IMAGES_DIR,
     PROJECT_ROOT,
 )
-from scripts.providers import WAIT_SELECTOR, collect_virtualized_html, parse_messages
+from scripts.providers import (
+    WAIT_SELECTOR,
+    codex,
+    collect_virtualized_html,
+    parse_messages,
+    provider_for_url,
+)
 
 
 SAVE_DEBUG_SNAPSHOT = os.getenv("AI_MEMORY_SAVE_DEBUG_HTML", "").strip() == "1"
@@ -54,6 +61,33 @@ PRIVATE_CONVERSATION_PATTERNS = (
     re.compile(r"^/c/[0-9a-f-]+/?$", re.IGNORECASE),
     re.compile(r"^/a/chat/s/[0-9a-f-]+/?$", re.IGNORECASE),
 )
+# Gemini：gemini.google.com（短链 share.gemini.google 跳转而来）。
+# 公开分享 /share/<id> 无需登录；账号内会话 /app/<id> 需登录。
+# 裸 /app（新对话）与 /app?q=（预填提问）不是历史会话。
+GEMINI_HOSTS = {"gemini.google.com", "share.gemini.google"}
+GEMINI_PRIVATE_CONVERSATION_PATTERN = re.compile(
+    r"^/app/[0-9A-Za-z_-]{8,}/?$"
+)
+# Kimi：www.kimi.com / kimi.com（旧域名 kimi.moonshot.cn 跳转而来）。
+# 公开分享 /share/[<lang>/]<id> 无需登录；账号内会话 /chat/<id> 需登录
+# （未登录访问会重定向首页）。裸 /chat、/chat/history（7 字符，短于
+# {8,}）不是历史会话。
+KIMI_HOSTS = {"kimi.com", "www.kimi.com", "kimi.moonshot.cn"}
+KIMI_PRIVATE_CONVERSATION_PATTERN = re.compile(
+    r"^/chat/[0-9A-Za-z-]{8,}/?$"
+)
+# 千问：qianwen.com / qianwen.my.cn（原 tongyi.aliyun.com 301 跳转）。
+# 公开分享 /share/chat/<32hex> 无需登录；私有会话 /chat 需登录。
+QIANWEN_HOSTS = {"qianwen.com", "www.qianwen.com", "qianwen.my.cn"}
+QIANWEN_PRIVATE_CONVERSATION_PATTERN = re.compile(
+    r"^/chat(?:[/?]|$)"
+)
+# 豆包：公开分享 /thread/<id> 无需登录；账号内会话 /chat/<id> 需登录。
+DOUBAO_HOSTS = {"doubao.com", "www.doubao.com"}
+DOUBAO_PRIVATE_CONVERSATION_PATTERN = re.compile(r"^/chat/\d{8,}/?$")
+# Grok：grok.com。公开分享 /share/<id> 无需登录；私有会话 /c/<uuid> 需登录。
+GROK_HOSTS = {"grok.com", "www.grok.com"}
+GROK_PRIVATE_CONVERSATION_PATTERN = re.compile(r"^/c/[0-9a-f-]{8,}")
 DOCUMENT_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     ".txt", ".csv", ".md", ".rtf",
@@ -77,6 +111,9 @@ DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
 DOUBAO_AI_DOCUMENT_MAX_COUNT = 12
 CHATGPT_CARD_REFERENCE_PREFIX = "chatgpt-card:"
 DEEPSEEK_CARD_REFERENCE_PREFIX = "deepseek-card:"
+GEMINI_CARD_REFERENCE_PREFIX = "gemini-card:"
+KIMI_CARD_REFERENCE_PREFIX = "kimi-card:"
+GROK_CARD_REFERENCE_PREFIX = "grok-card:"
 CHATGPT_ESCAPED_QUOTE = re.escape(chr(92) + '"')
 CHATGPT_EMBEDDED_DOCUMENT_PATTERNS = (
     re.compile(
@@ -143,7 +180,8 @@ def _collect_response_assets(
     )
     for item in _iter_json_mappings(payload):
         filename = str(
-            item.get("file_name") or item.get("name") or ""
+            item.get("file_name") or item.get("fileName")
+            or item.get("filename") or item.get("name") or ""
         ).strip()
         mime_type = str(item.get("mime_type") or "").lower()
         suffix = Path(filename).suffix.lower()
@@ -181,13 +219,44 @@ def _collect_response_assets(
                     _safe_document_filename(filename, suffix),
                 ))
 
+        if host in GROK_HOSTS and filename:
+            key = str(item.get("key") or item.get("fileUri") or "").strip()
+            mime_type = str(
+                item.get("mimeType") or item.get("fileMimeType") or mime_type
+            ).lower()
+            if key.startswith("users/"):
+                asset_url = f"https://assets.grok.com/{key}"
+                if suffix in DOCUMENT_EXTENSIONS:
+                    document_candidates.append(DocumentCandidate(
+                        key,
+                        asset_url,
+                        _safe_document_filename(filename, suffix),
+                    ))
+                elif mime_type.startswith("image/"):
+                    image_references.add(asset_url)
+
+        if host in KIMI_HOSTS and filename:
+            asset_url = str(
+                item.get("url") or item.get("signUrl")
+                or item.get("thumbnailUrl") or ""
+            ).strip()
+            if asset_url.startswith(("http://", "https://")):
+                if suffix in DOCUMENT_EXTENSIONS:
+                    document_candidates.append(DocumentCandidate(
+                        asset_url,
+                        asset_url,
+                        _safe_document_filename(filename, suffix),
+                    ))
+                elif suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}:
+                    image_references.add(asset_url)
+
         if host in {"chatgpt.com", "chat.openai.com"} and filename:
             reference_ids = []
             for key in ("id", "file_id", "library_file_id"):
                 reference = str(item.get(key) or "").strip()
                 if reference.startswith(("file_", "file-")):
                     reference_ids.append(reference)
-            if suffix in DOCUMENT_EXTENSIONS:
+            if suffix and not mime_type.startswith("image/"):
                 for reference in dict.fromkeys(reference_ids):
                     document_candidates.append(DocumentCandidate(
                         reference,
@@ -216,6 +285,140 @@ async def _capture_response_assets(
         page_url,
         document_candidates,
         image_references,
+    )
+
+
+def _rewrite_codex_local_links(
+    text: str,
+    file_map: Optional[Mapping[str, str]] = None,
+) -> str:
+    normalized_map = {
+        path.replace("\\", "/").lower(): local
+        for path, local in (file_map or {}).items()
+    }
+
+    def replace(match: re.Match[str]) -> str:
+        label, target = match.groups()
+        normalized_target = re.sub(
+            r":\d+(?::\d+)?$", "", target.replace("\\", "/")
+        ).lower()
+        local = next(
+            (
+                value for path, value in normalized_map.items()
+                if normalized_target.endswith(path)
+            ),
+            None,
+        )
+        return f"[{label}]({local})" if local else label
+
+    text = re.sub(
+        r"\[([^\]]+)\]\(([A-Za-z]:\\[^)]+)\)",
+        replace,
+        text,
+    )
+    for path, local in normalized_map.items():
+        text = re.sub(
+            rf"`({re.escape(path)})(?::\d+(?::\d+)?)?`",
+            lambda match, href=local: f"[{match.group(1)}]({href})",
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
+
+
+def _codex_payload_messages(payload: Any) -> list[dict[str, str]]:
+    messages: list[dict[str, str]] = []
+    if not isinstance(payload, Mapping):
+        return messages
+    for turn in payload.get("turns") or ():
+        items = turn.get("items") or () if isinstance(turn, Mapping) else ()
+        users = []
+        agents = []
+        final_agents = []
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            if item.get("type") == "userMessage":
+                text = "\n".join(
+                    str(part.get("text") or "").strip()
+                    for part in item.get("content") or ()
+                    if isinstance(part, Mapping) and part.get("text")
+                ).strip()
+                if text:
+                    users.append(text)
+            elif item.get("type") == "agentMessage":
+                text = str(item.get("text") or "").strip()
+                if text:
+                    agents.append(text)
+                    if not item.get("phase"):
+                        final_agents.append(text)
+        if users:
+            messages.append({"role": "User", "content": "\n\n".join(users)})
+        selected_agents = final_agents or agents
+        if selected_agents:
+            messages.append({"role": "AI", "content": "\n\n".join(selected_agents)})
+    return messages
+
+
+async def _capture_codex_share_data(
+    response: Any,
+    changes: list[Mapping[str, str]],
+    messages: list[dict[str, str]],
+    page_url: str,
+    document_candidates: list[DocumentCandidate],
+    image_references: set[str],
+) -> None:
+    try:
+        payload = await response.json()
+    except Exception:
+        return
+    messages[:] = _codex_payload_messages(payload)
+    _collect_response_assets(
+        payload, page_url, document_candidates, image_references
+    )
+    for item in _iter_json_mappings(payload):
+        if item.get("type") != "fileChange":
+            continue
+        for change in item.get("changes") or ():
+            if not isinstance(change, Mapping):
+                continue
+            path = str(change.get("path") or "").strip()
+            diff = str(change.get("diff") or "").strip()
+            if path and diff:
+                changes.append({"path": path, "diff": diff})
+
+
+def _save_codex_file_changes(
+    changes: list[Mapping[str, str]],
+    documents_dir: Path,
+    document_reference_prefix: str,
+) -> dict[str, str]:
+    """Codex 分享只提供变更 diff；按原扩展名保存可直接打开的变更内容。"""
+    resolved: dict[str, str] = {}
+    for change in changes:
+        display_path = str(change["path"]).replace("\\", "/").strip()
+        diff = str(change["diff"]).strip()
+        safe_name = re.sub(
+            r'[^0-9A-Za-z._\-\u4e00-\u9fff]+', "__", display_path
+        ).strip(" ._") or "changed_file"
+        target = documents_dir / safe_name[:170]
+        body = f"文件：{display_path}\n注意：Codex 分享仅提供变更 diff，并非完整文件。\n\n{diff}\n"
+        if target.exists() and target.read_text(encoding="utf-8") != body:
+            digest = hashlib.sha256(display_path.encode("utf-8")).hexdigest()[:8]
+            target = target.with_name(f"{target.stem}_{digest}{target.suffix}")
+        documents_dir.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        resolved[display_path] = (
+            f"{document_reference_prefix}/{target.name}"
+        )
+    return resolved
+
+
+def _is_codex_share_data_response(response_url: str) -> bool:
+    parsed = urlparse(str(response_url or ""))
+    host = parsed.netloc.lower().split(":", 1)[0]
+    return host.endswith(".oaiusercontent.com") and bool(
+        re.match(r"^/files/[^/]+/raw$", parsed.path)
     )
 
 
@@ -285,6 +488,10 @@ def _is_asset_metadata_response(response_url: str) -> bool:
             token in path
             for token in ("/im/chain/single", "/im/chain/batch_single")
         )
+    if host in GROK_HOSTS:
+        return path.endswith("/load-responses")
+    if host in KIMI_HOSTS:
+        return path.endswith(("/getchatshare", "/getoutputfiletreebyshare"))
     return False
 
 
@@ -297,19 +504,64 @@ async def _drain_response_tasks(tasks: set[asyncio.Task]) -> None:
 async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
     host = urlparse(page_url).netloc.lower().split(":", 1)[0]
     if host in {"chatgpt.com", "chat.openai.com"}:
-        selector = "[data-message-author-role]"
+        selector = (
+            codex.WAIT_SELECTOR
+            if codex.is_codex_path(urlparse(page_url).path)
+            else "[data-message-author-role]"
+        )
     elif host == "chat.deepseek.com":
         selector = "[data-virtual-list-item-key] .ds-message"
     elif host in {"doubao.com", "www.doubao.com"}:
-        selector = (
-            ".message-item, "
-            "div[class*='message-list-'] div.my-0.w-full.mx-auto "
-            "div.flex.flex-row.w-full"
-        )
+        selector = "div[class*='message-list-'] [data-message-id]"
+    elif host in GEMINI_HOSTS:
+        selector = "user-query, message-content, model-response"
+    elif host in KIMI_HOSTS:
+        # 不能用联合选择器：Kimi 首页营销壳含 .message-item，
+        # 会误中豆包选择器，把未登录重定向误判成会话已就绪。
+        selector = ".segment-user, .segment-assistant"
+    elif host in QIANWEN_HOSTS:
+        selector = ".question-text-card, .chat-answers-card-wrap"
+    elif host in GROK_HOSTS:
+        selector = ".message-bubble[role='article']"
     else:
         selector = WAIT_SELECTOR
+
+    # 私有会话未登录会被重定向到首页/登录页：URL 一旦离开原会话路径，
+    # 立即判定未就绪，不空等选择器超时。反之 URL 仍在会话页时，无头
+    # 冷启动 hydration 可能很慢（Gemini 实测约 25 秒、Grok 约 40 秒），
+    # 等待过短会把"已登录但渲染慢"误判成需要重新登录。
+    timeout_ms = 45000 if host in GROK_HOSTS else (30000 if host in GEMINI_HOSTS else 10000)
+    requested = urlparse(page_url)
+    current = urlparse(getattr(page, "url", page_url))
+    current_host = current.netloc.lower().split(":", 1)[0]
+    private_checks = (
+        ({"chatgpt.com", "chat.openai.com"}, codex.PRIVATE_PATH_PATTERN),
+        (DOUBAO_HOSTS, DOUBAO_PRIVATE_CONVERSATION_PATTERN),
+        (GEMINI_HOSTS, GEMINI_PRIVATE_CONVERSATION_PATTERN),
+        (KIMI_HOSTS, KIMI_PRIVATE_CONVERSATION_PATTERN),
+        (QIANWEN_HOSTS, QIANWEN_PRIVATE_CONVERSATION_PATTERN),
+        (GROK_HOSTS, GROK_PRIVATE_CONVERSATION_PATTERN),
+    )
+    for hosts, pattern in private_checks:
+        if host in hosts and pattern.match(requested.path):
+            timeout_ms = 30000 if hosts is GEMINI_HOSTS else 10000
+            if hosts is GROK_HOSTS:
+                timeout_ms = 45000
+            if current_host not in hosts or not pattern.match(current.path):
+                return False
+            break
+
     try:
-        await page.wait_for_selector(selector, state="attached", timeout=10000)
+        await page.wait_for_selector(
+            selector, state="attached", timeout=timeout_ms
+        )
+        current = urlparse(getattr(page, "url", page_url))
+        current_host = current.netloc.lower().split(":", 1)[0]
+        for hosts, pattern in private_checks:
+            if host in hosts and pattern.match(requested.path):
+                if current_host not in hosts or not pattern.match(current.path):
+                    return False
+                break
         return await page.locator(selector).count() > 0
     except Exception:
         return False
@@ -348,9 +600,22 @@ def requires_authenticated_browser(url: str) -> bool:
     parsed = urlparse(str(url or "").strip())
     host = parsed.netloc.lower().split(":", 1)[0]
     if host in {"chatgpt.com", "chat.openai.com"}:
-        return bool(PRIVATE_CONVERSATION_PATTERNS[0].match(parsed.path))
+        return bool(
+            PRIVATE_CONVERSATION_PATTERNS[0].match(parsed.path)
+            or codex.PRIVATE_PATH_PATTERN.match(parsed.path)
+        )
     if host == "chat.deepseek.com":
         return bool(PRIVATE_CONVERSATION_PATTERNS[1].match(parsed.path))
+    if host in DOUBAO_HOSTS:
+        return bool(DOUBAO_PRIVATE_CONVERSATION_PATTERN.match(parsed.path))
+    if host in GEMINI_HOSTS:
+        return bool(GEMINI_PRIVATE_CONVERSATION_PATTERN.match(parsed.path))
+    if host in KIMI_HOSTS:
+        return bool(KIMI_PRIVATE_CONVERSATION_PATTERN.match(parsed.path))
+    if host in QIANWEN_HOSTS:
+        return bool(QIANWEN_PRIVATE_CONVERSATION_PATTERN.match(parsed.path))
+    if host in GROK_HOSTS:
+        return bool(GROK_PRIVATE_CONVERSATION_PATTERN.match(parsed.path))
     return False
 
 
@@ -385,21 +650,27 @@ async def launch_browser_context(
     last_error: Optional[BaseException] = None
     for index, channel in enumerate(channels):
         try:
+            launch_options = {
+                "headless": headless,
+                "channel": channel,
+                "ignore_default_args": ["--enable-automation"],
+                "args": [
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-first-run",
+                    "--no-service-autorun",
+                    *(
+                        ["--start-minimized", "--window-position=-32000,-32000"]
+                        if start_minimized else []
+                    ),
+                ],
+            }
             context = await playwright.chromium.launch_persistent_context(
                 user_data_dir=str(
                     _browser_profile_directory(channel, profile_root)
                 ),
-                headless=headless,
-                channel=channel,
                 viewport=viewport,
                 no_viewport=no_viewport,
-                ignore_default_args=["--enable-automation"],
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-first-run",
-                    "--no-service-autorun",
-                    *(["--start-minimized"] if start_minimized else []),
-                ],
+                **launch_options,
             )
             if logger:
                 logger(f"正在使用 {BROWSER_CHANNEL_LABELS[channel]}。")
@@ -429,8 +700,20 @@ async def _set_browser_window_state(page: Any, state: str) -> None:
     try:
         session = await page.context.new_cdp_session(page)
         window = await session.send("Browser.getWindowForTarget")
+        window_id = window["windowId"]
+        if state == "maximized":
+            await session.send("Browser.setWindowBounds", {
+                "windowId": window_id,
+                "bounds": {
+                    "windowState": "normal",
+                    "left": 0,
+                    "top": 0,
+                    "width": 1200,
+                    "height": 800,
+                },
+            })
         await session.send("Browser.setWindowBounds", {
-            "windowId": window["windowId"],
+            "windowId": window_id,
             "bounds": {"windowState": state},
         })
     except Exception:
@@ -541,16 +824,20 @@ def build_document_asset_directory(
 
 
 
+def build_image_asset_prefix(asset_dir: Path) -> str:
+    """构造不受编辑器工作目录影响的本地图片 URI。"""
+    return Path(asset_dir).resolve().as_uri()
+
+
 def build_markdown_asset_prefix(
     asset_dir: Path,
     markdown_dir: Path,
 ) -> str:
-    """构造相对于 Markdown 所在目录、可安全包含中文和空格的 URL 路径。"""
+    """构造相对于 Markdown 所在目录的本地路径。"""
     relative_dir = Path(
         os.path.relpath(Path(asset_dir).resolve(), Path(markdown_dir).resolve())
     ).as_posix()
-    encoded_dir = quote(relative_dir, safe="/-_.~")
-    return encoded_dir if encoded_dir.startswith(".") else f"./{encoded_dir}"
+    return relative_dir if relative_dir.startswith(".") else f"./{relative_dir}"
 
 
 def build_output_paths(
@@ -588,6 +875,7 @@ def build_output_paths(
         return f"{stem}{suffix}.json"
 
     return {
+        "asset_markdown": save_dir / markdown_names[enabled_modes[0]],
         "raw_markdown": save_dir / markdown_names["raw"],
         "normal_json": save_dir / json_name(
             "normal", "AI_memory_result.json"
@@ -814,7 +1102,11 @@ async def _authenticated_page_get(page: Any, url: str, timeout: int):
         and page_origin.netloc.lower() == target_origin.netloc.lower()
         and page_origin.scheme in {"http", "https"}
     )
-    if not same_origin:
+    if (
+        not same_origin
+        or target_origin.netloc.lower() == "www.kimi.com"
+        and target_origin.path.startswith("/apiv2-files/sign-obj/")
+    ) and target_origin.netloc.lower() != "assets.grok.com":
         return await page.request.get(url, timeout=timeout)
 
     async def fetch_from_page(
@@ -959,9 +1251,9 @@ async def _chatgpt_message_asset_groups(
             """() => {
                 const root = window.__reactRouterDataRouter?.state?.loaderData;
                 const seen = new WeakSet();
-                let linear = null;
+                let conversation = null;
                 function find(value) {
-                    if (linear || !value || typeof value !== "object"
+                    if (conversation || !value || typeof value !== "object"
                         || seen.has(value)) return;
                     seen.add(value);
                     if (Array.isArray(value)) {
@@ -969,13 +1261,26 @@ async def _chatgpt_message_asset_groups(
                         return;
                     }
                     if (Array.isArray(value.linear_conversation)) {
-                        linear = value.linear_conversation;
+                        conversation = value.linear_conversation;
                         return;
+                    }
+                    if (value.mapping && typeof value.mapping === "object") {
+                        const nodes = Object.values(value.mapping);
+                        if (nodes.some(item => item?.message)) {
+                            const branch = [];
+                            let node = value.mapping[value.current_node];
+                            while (node) {
+                                branch.push(node);
+                                node = value.mapping[node.parent];
+                            }
+                            conversation = branch.length ? branch.reverse() : nodes;
+                            return;
+                        }
                     }
                     for (const item of Object.values(value)) find(item);
                 }
                 find(root);
-                return (linear || [])
+                return (conversation || [])
                     .filter(item => item?.message?.author?.role === "user")
                     .map(item => {
                         const message = item.message;
@@ -1130,6 +1435,7 @@ async def _download_image_candidates(
     image_reference_prefix: str,
     concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
     warning_collector: Optional[list[str]] = None,
+    authentication_required: Optional[list[bool]] = None,
 ) -> dict[str, str]:
     """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
@@ -1151,7 +1457,44 @@ async def _download_image_candidates(
     async def download(
         src: str,
     ) -> tuple[str, Optional[bytes], Optional[str]]:
+        if src.startswith("data:image/") and "," in src:
+            import base64
+            try:
+                body = base64.b64decode(src.split(",", 1)[1])
+                if _is_supported_image_body(body):
+                    return src, body, None
+                return src, None, "not_an_image"
+            except (ValueError, TypeError):
+                return src, None, "invalid_data_url"
         failure_reason: Optional[str] = None
+        parsed_source = urlparse(src)
+        if (
+            parsed_source.netloc.lower() == "lh3.googleusercontent.com"
+            and parsed_source.path.startswith("/gg/")
+        ):
+            images = page.locator("img")
+            for index in range(await images.count()):
+                image = images.nth(index)
+                current = await image.get_attribute("src") or await image.get_attribute("data-src")
+                if current != src:
+                    continue
+                await image.scroll_into_view_if_needed(
+                    timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                )
+                await image.evaluate(
+                    """img => img.complete && img.naturalWidth
+                        ? true
+                        : new Promise(resolve => {
+                            img.addEventListener('load', () => resolve(true), {once: true});
+                            img.addEventListener('error', () => resolve(false), {once: true});
+                            setTimeout(() => resolve(false), 10000);
+                        })"""
+                )
+                dimensions = await image.evaluate(
+                    "img => [img.naturalWidth, img.naturalHeight]"
+                )
+                if all(dimensions):
+                    break
         for _attempt in range(GUI_IMAGE_DOWNLOAD_ATTEMPTS):
             try:
                 async with semaphore:
@@ -1167,17 +1510,58 @@ async def _download_image_candidates(
                             payload = await response.json()
                             download_url = _document_download_url_from_payload(payload)
                             if not download_url:
-                                failure_reason = "not_an_image"
-                                continue
+                                parsed = urlparse(src)
+                                if (
+                                    payload.get("error_code") == "safety_check_failed"
+                                    and parsed.netloc.lower().split(":", 1)[0]
+                                    in {"chatgpt.com", "chat.openai.com"}
+                                    and parsed.path.startswith(
+                                        "/backend-api/files/download/"
+                                    )
+                                ):
+                                    download_url = parsed._replace(
+                                        query=(
+                                            "post_id=&inline=false&"
+                                            "download_intent=false"
+                                        )
+                                    ).geturl()
+                                else:
+                                    failure_reason = "not_an_image"
+                                    continue
                             response = await _authenticated_page_get(
                                 page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                             )
                             if not response.ok:
                                 status = getattr(response, "status", None)
+                                if (
+                                    status in {401, 403}
+                                    and authentication_required is not None
+                                ):
+                                    authentication_required[:] = [True]
+                                    return src, None, f"http_{status}"
                                 failure_reason = (
                                     f"http_{status}" if status else "http_error"
                                 )
                                 continue
+                            retry_type = dict(
+                                getattr(response, "headers", {}) or {}
+                            ).get("content-type", "").split(";", 1)[0].lower()
+                            if retry_type == "application/json":
+                                download_url = _document_download_url_from_payload(
+                                    await response.json()
+                                )
+                                if not download_url:
+                                    failure_reason = "not_an_image"
+                                    continue
+                                response = await _authenticated_page_get(
+                                    page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                                )
+                                if not response.ok:
+                                    status = getattr(response, "status", None)
+                                    failure_reason = (
+                                        f"http_{status}" if status else "http_error"
+                                    )
+                                    continue
                         body = await response.body()
                         if _is_supported_image_body(body):
                             return src, body, None
@@ -1189,7 +1573,93 @@ async def _download_image_candidates(
                         )
             except Exception as error:
                 failure_reason = type(error).__name__
-                continue
+            try:
+                data_url = await page.evaluate(
+                    """async (url) => {
+                        const response = await fetch(url, {credentials: 'include'});
+                        if (!response.ok) return null;
+                        const bytes = new Uint8Array(await response.arrayBuffer());
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i += 0x8000) {
+                            binary += String.fromCharCode.apply(
+                                null, bytes.subarray(i, i + 0x8000)
+                            );
+                        }
+                        return 'data:;base64,' + btoa(binary);
+                    }""",
+                    src,
+                )
+                if data_url and "," in data_url:
+                    import base64
+                    body = base64.b64decode(data_url.split(",", 1)[1])
+                    if _is_supported_image_body(body):
+                        return src, body, None
+                    failure_reason = "not_an_image"
+            except Exception as fallback_error:
+                failure_reason = type(fallback_error).__name__
+            continue
+        try:
+            is_gemini_upload = parsed_source.netloc.lower() == "lh3.googleusercontent.com"
+            images = page.locator("img")
+            for index in range(await images.count()):
+                image = images.nth(index)
+                sources = await image.evaluate(
+                    "img => [img.src, img.currentSrc, img.getAttribute('data-src')]"
+                )
+                if src not in sources:
+                    continue
+                dimensions = await image.evaluate(
+                    "img => [img.naturalWidth, img.naturalHeight]"
+                )
+                if not all(dimensions):
+                    continue
+                if is_gemini_upload:
+                    wrapper_id = await image.evaluate(
+                        """img => new Promise(resolve => {
+                            const wrapper = document.createElement('div');
+                            wrapper.id = `trae-gemini-full-image-${Date.now()}`;
+                            wrapper.style.cssText = `
+                                position: fixed; left: 0; top: 0;
+                                z-index: 2147483647; display: block;
+                                width: ${img.naturalWidth}px;
+                                height: ${img.naturalHeight}px;
+                                background: #000;`;
+                            const clone = img.cloneNode(false);
+                            clone.removeAttribute('class');
+                            clone.removeAttribute('srcset');
+                            clone.removeAttribute('sizes');
+                            clone.style.cssText = `
+                                display: block; width: 100%; height: 100%;
+                                max-width: none; max-height: none;
+                                object-fit: fill; border-radius: 0;
+                                clip-path: none; transform: none;
+                                filter: none; opacity: 1;`;
+                            wrapper.appendChild(clone);
+                            document.body.appendChild(wrapper);
+                            if (clone.complete && clone.naturalWidth) {
+                                resolve(wrapper.id);
+                            } else {
+                                clone.onload = () => resolve(wrapper.id);
+                                clone.onerror = () => resolve(wrapper.id);
+                                setTimeout(() => resolve(wrapper.id), 5000);
+                            }
+                        })"""
+                    )
+                    wrapper = page.locator(f"#{wrapper_id}")
+                    try:
+                        body = await wrapper.screenshot(
+                            type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                        )
+                    finally:
+                        await wrapper.evaluate("node => node.remove()")
+                else:
+                    body = await image.screenshot(
+                        type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                    )
+                if _is_supported_image_body(body):
+                    return src, body, None
+        except Exception as screenshot_error:
+            failure_reason = type(screenshot_error).__name__
         return src, None, failure_reason or "unknown_error"
 
     download_results = await asyncio.gather(*(
@@ -1231,11 +1701,16 @@ async def _download_image_candidates(
         (images_dir / filename).write_bytes(body)
         resolved_references[src] = f"{image_reference_prefix}/{filename}"
         img_index += 1
-    return {
+    result = {
         src: resolved_references[src]
         for src in ordered_sources
         if src in resolved_references
     }
+    for src, local_reference in list(result.items()):
+        filename = Path(parse_qs(urlparse(src).query).get("filename", [""])[0]).name
+        if filename:
+            result[filename.lower()] = local_reference
+    return result
 
 
 def _document_filename_from_text(value: str) -> str:
@@ -1383,9 +1858,17 @@ def _extract_doubao_embedded_document_candidates(
             if key in seen or not _is_safe_doubao_file_uri(uri):
                 continue
             seen.add(key)
+            block = decoded[match.start():match.start() + 2500]
+            url_match = re.search(
+                r'"url"\s*:\s*"(?P<url>https?://[^"\r\n]+)"',
+                block,
+                re.IGNORECASE,
+            )
+            signed_url = url_match.group("url") if url_match else ""
             candidates.append(DocumentCandidate(
                 uri,
-                f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
+                signed_url if _is_safe_document_url(signed_url)
+                else f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
                 filename,
             ))
     return candidates
@@ -1573,6 +2056,142 @@ def _extract_deepseek_document_card_candidates(
     return candidates
 
 
+def _kimi_private_conversation_url(html: str) -> str:
+    """从 Kimi 分享页恢复同账号可访问的原始会话地址。"""
+    match = re.search(
+        r'"chat"\s*:\s*\{[^{}]*"id"\s*:\s*"([^"]+)"'
+        r'|href="/chat/([0-9A-Za-z-]{8,})[^\"]*"',
+        html or "",
+    )
+    conversation_id = next((value for value in match.groups() if value), "") if match else ""
+    return f"https://www.kimi.com/chat/{conversation_id}" if conversation_id else ""
+
+
+def _extract_kimi_document_card_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """从 Kimi 私有会话文件卡片建立点击下载候选。"""
+    if urlparse(base_url).netloc.lower().split(":", 1)[0] not in KIMI_HOSTS:
+        return []
+    candidates = []
+    seen_names = set()
+    soup = BeautifulSoup(html or "", "html.parser")
+    for card in soup.select(".attachment-list-file"):
+        name_node = card.select_one(".file-card-info-name, .file-card-name")
+        ext_node = card.select_one(".file-ext")
+        icon = card.select_one(".file-card-icon")
+        name = name_node.get_text(strip=True) if name_node else ""
+        ext = (
+            ext_node.get_text(strip=True) if ext_node
+            else str(icon.get("alt") or "") if icon else ""
+        ).lower()
+        if not ext:
+            ext = next((
+                text.lower()
+                for text in card.stripped_strings
+                if re.fullmatch(r"[A-Z0-9]{1,8}", text)
+            ), "")
+        filename = name if not ext or name.lower().endswith(f".{ext}") else f"{name}.{ext}"
+        filename = _safe_document_filename(filename)
+        lowered = filename.lower()
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS or lowered in seen_names:
+            continue
+        seen_names.add(lowered)
+        candidates.append(DocumentCandidate(
+            f"{KIMI_CARD_REFERENCE_PREFIX}{lowered}",
+            str(base_url),
+            filename,
+        ))
+    return candidates
+
+
+def _gemini_private_conversation_url(html: str) -> str:
+    """从 Gemini 分享页文件卡片元数据恢复账号内原始会话地址。"""
+    soup = BeautifulSoup(html or "", "html.parser")
+    for button in soup.select("user-query-file-preview button[jslog]"):
+        match = re.search(r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)", str(button.get("jslog") or ""))
+        if not match:
+            continue
+        try:
+            metadata = base64.b64decode(match.group(1) + "===").decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            continue
+        conversation = re.search(r'c_([0-9A-Za-z_-]{8,})', metadata)
+        if conversation:
+            return f"https://gemini.google.com/app/{conversation.group(1)}"
+    return ""
+
+
+def _extract_gemini_document_card_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """从 Gemini 会话文件卡片建立点击下载候选。"""
+    if urlparse(base_url).netloc.lower().split(":", 1)[0] not in GEMINI_HOSTS:
+        return []
+    candidates = []
+    seen_names = set()
+    soup = BeautifulSoup(html or "", "html.parser")
+    for card in soup.find_all("user-query-file-preview"):
+        button = card.find("button")
+        name_node = card.select_one(".filename-label, [data-test-id='filename-label']")
+        ext_node = card.select_one(".extension-label, [data-test-id='extension-label']")
+        name = name_node.get_text(strip=True) if name_node else ""
+        ext = ext_node.get_text(strip=True).lower() if ext_node else ""
+        filename = str(button.get("aria-label") or "").strip() if button else ""
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS and name:
+            if not ext:
+                icon = card.find("img")
+                icon_text = " ".join((
+                    str(icon.get("alt") or "") if icon else "",
+                    unquote(str(icon.get("src") or "")) if icon else "",
+                )).lower()
+                ext = next((
+                    suffix.lstrip(".")
+                    for mime, suffix in DOCUMENT_MIME_EXTENSIONS.items()
+                    if mime in icon_text
+                ), "")
+            filename = name if not ext or name.lower().endswith(f".{ext}") else f"{name}.{ext}"
+        filename = _safe_document_filename(filename)
+        lowered = filename.lower()
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS or lowered in seen_names:
+            continue
+        seen_names.add(lowered)
+        candidates.append(DocumentCandidate(
+            f"{GEMINI_CARD_REFERENCE_PREFIX}{lowered}",
+            str(base_url),
+            filename,
+        ))
+    return candidates
+
+
+def _extract_grok_document_card_candidates(
+    html: str,
+    base_url: str,
+) -> list[DocumentCandidate]:
+    """从 Grok 附件按钮建立点击下载候选。"""
+    if urlparse(base_url).netloc.lower().split(":", 1)[0] not in GROK_HOSTS:
+        return []
+    candidates = []
+    seen_names = set()
+    soup = BeautifulSoup(html or "", "html.parser")
+    for button in soup.select('button[aria-label="打开附件"]'):
+        if button.find("img"):
+            continue
+        filename = _safe_document_filename(button.get_text(" ", strip=True))
+        lowered = filename.lower()
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS or lowered in seen_names:
+            continue
+        seen_names.add(lowered)
+        candidates.append(DocumentCandidate(
+            f"{GROK_CARD_REFERENCE_PREFIX}{lowered}",
+            str(base_url),
+            filename,
+        ))
+    return candidates
+
+
 def _extract_document_candidates(
     html: str,
     base_url: str,
@@ -1586,6 +2205,8 @@ def _extract_document_candidates(
         "data-file-url", "data-resource-url",
     )
     for element in soup.find_all(True):
+        if element.name in {"link", "script", "style"}:
+            continue
         label = " ".join(element.get_text(" ", strip=True).split())
         declared_name = str(element.get("download") or "").strip()
         for attribute in url_attributes:
@@ -1929,9 +2550,11 @@ async def _chatgpt_document_card_file_id(
 
 
 def _deepseek_document_card_locator(page: Any, filename: str):
-    return page.get_by_text(filename, exact=True).locator(
-        "xpath=ancestor::*[@tabindex='0'][1]"
-    )
+    return page.locator("[data-virtual-list-item-key] .ds-message").filter(
+        has=page.get_by_text(filename, exact=True)
+    ).locator("div").filter(has=page.get_by_text(filename, exact=True)).filter(
+        has=page.get_by_text(re.compile(r"^(?:PDF|DOCX?|XLSX?|PPTX?|TXT|CSV|MD|RTF)\s"))
+    ).first
 
 
 async def _scroll_to_deepseek_file_card(
@@ -2008,18 +2631,41 @@ async def _deepseek_document_card_get(
         return None
     if not await _scroll_to_deepseek_file_card(page, candidate.filename):
         return None
-    cards = _deepseek_document_card_locator(page, candidate.filename)
+    name = page.locator("[data-virtual-list-item-key] .ds-message").filter(
+        has=page.get_by_text(candidate.filename, exact=True)
+    ).get_by_text(candidate.filename, exact=True).first
     try:
-        async with page.expect_response(
-            lambda response: (
-                urlparse(response.url).netloc.lower().split(":", 1)[0]
-                == "files.deepseeksvc.com"
-                and urlparse(response.url).path == "/api/file"
-            ),
-            timeout=min(timeout, 15000),
-        ) as response_info:
-            await cards.first.click(force=True, timeout=5000)
-        return await response_info.value
+        signed_path = await name.evaluate(
+            """element => {
+                const seen = new WeakSet();
+                const find = value => {
+                    if (!value || typeof value !== 'object' || seen.has(value)) return '';
+                    seen.add(value);
+                    if (typeof value.signedPath === 'string') return value.signedPath;
+                    for (const child of Object.values(value)) {
+                        const found = find(child);
+                        if (found) return found;
+                    }
+                    return '';
+                };
+                for (let node = element; node; node = node.parentElement) {
+                    for (const key of Object.keys(node)) {
+                        if (key.startsWith('__reactProps')) {
+                            const found = find(node[key]);
+                            if (found) return found;
+                        }
+                    }
+                }
+                return '';
+            }"""
+        )
+        if not signed_path:
+            return None
+        download_url = "https://files.deepseeksvc.com/api/" + signed_path.lstrip("/")
+        separator = "&" if "?" in download_url else "?"
+        if not re.search(r"(?:[?&])ty=", download_url):
+            download_url = f"{download_url}{separator}ty=r"
+        return await _authenticated_page_get(page, download_url, timeout)
     except Exception:
         return None
 
@@ -2224,8 +2870,7 @@ async def _save_doubao_ai_documents(
             if not target.exists():
                 target.write_bytes(payload)
             local_reference = (
-                f"{document_reference_prefix}/"
-                f"{quote(target.name, safe='-_.~')}"
+                f"{document_reference_prefix}/{target.name}"
             )
             for key in {
                 title.lower(),
@@ -2263,6 +2908,130 @@ async def _save_doubao_ai_documents(
     return resolved, len(titles)
 
 
+async def _kimi_document_card_download(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+) -> tuple[bytes, dict[str, str]]:
+    """点击 Kimi 文件卡片，取回预览器请求的原文件。"""
+    cards = page.locator(".attachment-list-file")
+    card = cards.filter(has_text=Path(candidate.filename).stem).first
+
+    def is_file_response(response: Any) -> bool:
+        parsed = urlparse(response.url)
+        return (
+            parsed.path.startswith("/apiv2-files/sign-obj/")
+            and parse_qs(parsed.query).get("t") == ["o"]
+        ) or (
+            parsed.netloc.lower() == "view.officeapps.live.com"
+            and "/apiv2-files/sign-obj/" in unquote(response.url)
+        )
+
+    async with page.expect_response(is_file_response, timeout=timeout) as response_info:
+        await card.click(timeout=timeout)
+    captured_response = await response_info.value
+    signed_url = captured_response.url
+    if urlparse(signed_url).netloc.lower() == "view.officeapps.live.com":
+        signed_url = parse_qs(urlparse(signed_url).query).get("src", [""])[0]
+    response = await page.request.get(signed_url, timeout=timeout)
+    try:
+        if not response.ok:
+            raise RuntimeError(f"Kimi file HTTP {response.status}")
+        headers = dict(response.headers or {})
+        headers["content-disposition"] = (
+            "attachment; filename*=UTF-8''"
+            f"{quote(candidate.filename, safe='')}"
+        )
+        return await response.body(), headers
+    finally:
+        await page.keyboard.press("Escape")
+
+
+async def _grok_document_card_download(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+) -> tuple[bytes, dict[str, str]]:
+    """点击 Grok 文件卡片，取回原文件响应或浏览器下载。"""
+    card = page.locator('button[aria-label="打开附件"]').filter(
+        has_text=candidate.filename
+    ).first
+    loop = asyncio.get_running_loop()
+    result_future = loop.create_future()
+
+    def capture_response(response: Any) -> None:
+        parsed = urlparse(response.url)
+        if (
+            not result_future.done()
+            and parsed.netloc.lower() == "assets.grok.com"
+            and parsed.path.endswith("/content")
+        ):
+            result_future.set_result(response)
+
+    def capture_download(download: Any) -> None:
+        if not result_future.done():
+            result_future.set_result(download)
+
+    page.on("response", capture_response)
+    page.on("download", capture_download)
+    try:
+        await card.click(timeout=timeout)
+        result = await asyncio.wait_for(result_future, timeout / 1000)
+        download_path = getattr(result, "path", None)
+        if download_path:
+            body = Path(await download_path()).read_bytes()
+        else:
+            body = await result.body()
+        headers = dict(getattr(result, "headers", {}) or {})
+        headers["content-disposition"] = (
+            "attachment; filename*=UTF-8''"
+            f"{quote(candidate.filename, safe='')}"
+        )
+        return body, headers
+    finally:
+        page.remove_listener("response", capture_response)
+        page.remove_listener("download", capture_download)
+        await page.keyboard.press("Escape")
+
+
+async def _gemini_document_card_download(
+    page: Any,
+    candidate: DocumentCandidate,
+    timeout: int,
+) -> tuple[bytes, dict[str, str]]:
+    """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
+    cards = page.locator("user-query-file-preview")
+    card = cards.filter(has_text=Path(candidate.filename).stem).first
+    if await card.count() == 0:
+        card = cards.locator(
+            f'button[aria-label="{candidate.filename}"]'
+        ).first
+    await card.locator("button").first.click(timeout=timeout)
+    if Path(candidate.filename).suffix.lower() in {".doc", ".docx"}:
+        await page.wait_for_timeout(3000)
+    download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
+    try:
+        await download_button.wait_for(state="visible", timeout=timeout)
+        async with page.expect_download(timeout=timeout) as download_info:
+            await download_button.click()
+        download = await download_info.value
+        path = await download.path()
+        body = Path(path).read_bytes()
+        return body, {
+            "content-disposition": (
+                f'attachment; filename="{download.suggested_filename}"'
+            )
+        }
+    finally:
+        dialog = page.locator('[role="dialog"]').first
+        close_button = dialog.locator('[aria-label="关闭"]').first
+        if await close_button.count():
+            await close_button.click()
+            await dialog.wait_for(state="hidden", timeout=timeout)
+        else:
+            await page.keyboard.press("Escape")
+
+
 async def _download_document_candidates(
     page: Any,
     candidates: list[DocumentCandidate],
@@ -2293,12 +3062,27 @@ async def _download_document_candidates(
         candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
         for candidate in ordered
     )
+    has_gemini_card_candidates = any(
+        candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
+        for candidate in ordered
+    )
+    has_kimi_card_candidates = any(
+        candidate.reference.startswith(KIMI_CARD_REFERENCE_PREFIX)
+        for candidate in ordered
+    )
+    has_grok_card_candidates = any(
+        candidate.reference.startswith(GROK_CARD_REFERENCE_PREFIX)
+        for candidate in ordered
+    )
     effective_concurrency = (
         1
         if (
             has_chatgpt_candidates
             or has_doubao_candidates
             or has_deepseek_card_candidates
+            or has_gemini_card_candidates
+            or has_kimi_card_candidates
+            or has_grok_card_candidates
         )
         else max(1, min(int(concurrency), 4))
     )
@@ -2339,6 +3123,15 @@ async def _download_document_candidates(
                         DEEPSEEK_CARD_REFERENCE_PREFIX
                     )
                 )
+                is_gemini_card_candidate = (
+                    candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
+                )
+                is_kimi_card_candidate = (
+                    candidate.reference.startswith(KIMI_CARD_REFERENCE_PREFIX)
+                )
+                is_grok_card_candidate = (
+                    candidate.reference.startswith(GROK_CARD_REFERENCE_PREFIX)
+                )
                 is_chatgpt_direct_candidate = (
                     candidate_host in {"chatgpt.com", "chat.openai.com"}
                     and bool(re.match(
@@ -2354,6 +3147,28 @@ async def _download_document_candidates(
                     response = await _deepseek_document_card_get(
                         page, candidate, 20000
                     )
+                elif is_gemini_card_candidate:
+                    for attempt in range(2):
+                        try:
+                            body, headers = await _gemini_document_card_download(
+                                page, candidate, 60000
+                            )
+                            return candidate, body, headers, None
+                        except Exception:
+                            if attempt:
+                                raise
+                            await page.keyboard.press("Escape")
+                            await page.wait_for_timeout(1000)
+                elif is_kimi_card_candidate:
+                    body, headers = await _kimi_document_card_download(
+                        page, candidate, 60000
+                    )
+                    return candidate, body, headers, None
+                elif is_grok_card_candidate:
+                    body, headers = await _grok_document_card_download(
+                        page, candidate, 30000
+                    )
+                    return candidate, body, headers, None
                 elif is_chatgpt_direct_candidate:
                     response = await _authenticated_page_get(
                         page, candidate.url, 20000
@@ -2413,6 +3228,14 @@ async def _download_document_candidates(
                 except Exception:
                     return candidate, None, headers, "not_a_document"
                 download_url = _document_download_url_from_payload(payload)
+                if (
+                    not download_url
+                    and payload.get("error_code") == "safety_check_failed"
+                    and is_chatgpt_direct_candidate
+                ):
+                    download_url = parsed_candidate._replace(
+                        query="post_id=&inline=false&download_intent=false"
+                    ).geturl()
                 if not download_url:
                     return candidate, None, headers, "not_a_document"
                 response = await _authenticated_page_get(
@@ -2440,6 +3263,8 @@ async def _download_document_candidates(
         has_chatgpt_candidates
         or has_doubao_candidates
         or has_deepseek_card_candidates
+        or has_gemini_card_candidates
+        or has_kimi_card_candidates
     ):
         results = []
         downloaded_names: set[str] = set()
@@ -2503,8 +3328,7 @@ async def _download_document_candidates(
         if not target.exists():
             target.write_bytes(body)
         local_reference = (
-            f"{document_reference_prefix}/"
-            f"{quote(target.name, safe='-_.~')}"
+            f"{document_reference_prefix}/{target.name}"
         )
         for key in {
             candidate.reference,
@@ -2544,11 +3368,26 @@ async def _close_browser_context_safely(
                 pass
 
 
+def _parse_page_messages(url: str, soup: BeautifulSoup, asset_map: Mapping[str, str]):
+    """已知平台链接绝不降级成页面壳文本。"""
+    provider, messages = parse_messages(soup, asset_map)
+    parsed_url = urlparse(url)
+    if codex.is_codex_path(parsed_url.path):
+        return (provider, messages) if provider is codex else (None, None)
+    if (parsed_url.hostname or "").lower() in DOUBAO_HOSTS:
+        return (provider, messages) if provider is not None else (None, None)
+    return (provider, messages) if provider is not None else (
+        None,
+        parse_fallback_messages_gui(soup),
+    )
+
+
 async def fetch_chat_pipeline(
     url: str,
     need_login: bool = False,
     login_ready_event: Optional[asyncio.Event] = None,
     login_required_callback: Optional[Callable[[], None]] = None,
+    login_confirmation_callback: Optional[Callable[[], bool]] = None,
     logger: Optional[Callable[[str], None]] = None,
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
@@ -2568,12 +3407,12 @@ async def fetch_chat_pipeline(
         image_reference_prefix = "./images"
     else:
         resolved_images_dir = Path(image_output_dir).resolve()
-        reference_base = Path(
+        image_base = Path(
             image_reference_base or resolved_images_dir.parent
         ).resolve()
         image_reference_prefix = build_markdown_asset_prefix(
             resolved_images_dir,
-            reference_base,
+            image_base,
         )
     if document_output_dir is None:
         resolved_documents_dir = Path(PROJECT_ROOT, "attachments").resolve()
@@ -2588,15 +3427,24 @@ async def fetch_chat_pipeline(
             document_base,
         )
     requires_login_probe = requires_authenticated_browser(url)
+    requested_path = urlparse(url).path
+    codex_request = codex.is_codex_path(requested_path)
+    # Codex 公有页在无头 Chromium 中可能落入 Cloudflare 验证页，也要先探测
+    # 真实消息节点，失败后复用现有的有头浏览器回退链。
+    requires_content_probe = requires_login_probe or codex_request
     requested_host = urlparse(url).netloc.lower().split(":", 1)[0]
-    chatgpt_minimized = (
+    doubao_public_thread = (
+        requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
+    )
+    allow_interactive_login = need_login
+    chatgpt_no_login = (
         not need_login
         and requires_login_probe
         and requested_host in {"chatgpt.com", "chat.openai.com"}
     )
-    headless = not need_login and not chatgpt_minimized
+    headless = not need_login
 
-    viewport_config = None if need_login or chatgpt_minimized else {
+    viewport_config = None if need_login else {
         "width": 1920,
         "height": 10800
     }
@@ -2604,10 +3452,8 @@ async def fetch_chat_pipeline(
     if logger:
         if need_login:
             logger("正在启动浏览器供您登录或读取已保存的登录状态...")
-        elif chatgpt_minimized:
-            logger("正在最小化浏览器中读取已保存的 ChatGPT 登录状态...")
-        elif requires_login_probe:
-            logger("正在后台读取已保存的 AI 登录状态...")
+        elif requires_content_probe:
+            logger("正在后台检查 AI 对话内容...")
         else:
             logger("正在启动无头浏览器加载分享页...")
 
@@ -2617,14 +3463,26 @@ async def fetch_chat_pipeline(
                 playwright,
                 headless=headless,
                 viewport=viewport_config,
-                no_viewport=need_login or chatgpt_minimized,
-                start_minimized=chatgpt_minimized,
+                no_viewport=need_login,
+                start_minimized=False,
                 logger=logger,
-                profile_root=browser_profile_root,
+                profile_root=(
+                    Path(browser_profile_root or BROWSER_USER_DATA_DIR)
+                    / "public"
+                    if doubao_public_thread else browser_profile_root
+                ),
             )
             page = context.pages[0] if context.pages else await context.new_page()
-            if chatgpt_minimized:
-                await _set_browser_window_state(page, "minimized")
+            if doubao_public_thread:
+                session = await context.new_cdp_session(page)
+                await session.send("Storage.clearDataForOrigin", {
+                    "origin": "https://www.doubao.com",
+                    "storageTypes": "all",
+                })
+                await session.detach()
+                await context.clear_cookies()
+            if need_login:
+                await _set_browser_window_state(page, "maximized")
             response_document_candidates: list[DocumentCandidate] = []
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
@@ -2632,12 +3490,47 @@ async def fetch_chat_pipeline(
                 str, tuple[bytes, dict[str, str]]
             ] = {}
             authorized_content_responses: set[str] = set()
+            codex_file_changes: list[Mapping[str, str]] = []
+            codex_payload_messages: list[dict[str, str]] = []
             chatgpt_assets_rehydrated = False
             pre_rehydrate_chat_html: Optional[str] = None
 
+            async def capture_doubao_share_document(response: Any) -> None:
+                try:
+                    body = await response.text()
+                except Exception:
+                    return
+                response_document_candidates.extend(
+                    _extract_doubao_embedded_document_candidates(
+                        body,
+                        "https://www.doubao.com",
+                    )
+                )
+
             def capture_response_assets(response: Any) -> None:
                 task = None
-                if _is_asset_metadata_response(response.url):
+                response_url = urlparse(response.url)
+                if (
+                    doubao_public_thread
+                    and response.status == 200
+                    and response_url.hostname in DOUBAO_HOSTS
+                    and response_url.path == requested_path
+                ):
+                    task = asyncio.create_task(
+                        capture_doubao_share_document(response)
+                    )
+                elif codex_request and _is_codex_share_data_response(response.url):
+                    if response.status == 200:
+                        authorized_content_responses.add(response.url)
+                    task = asyncio.create_task(_capture_codex_share_data(
+                        response,
+                        codex_file_changes,
+                        codex_payload_messages,
+                        url,
+                        response_document_candidates,
+                        response_image_references,
+                    ))
+                elif _is_asset_metadata_response(response.url):
                     if response.status == 200:
                         authorized_content_responses.add(response.url)
                     task = asyncio.create_task(_capture_response_assets(
@@ -2664,20 +3557,54 @@ async def fetch_chat_pipeline(
                     logger(f"正在加载 {host} 分享页...")
                 await goto_with_retry_gui(page, url, logger=logger)
 
-                if need_login or requires_login_probe:
+                if need_login or requires_content_probe:
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
                     content_ready = (
                         await _page_has_conversation_content(page, url)
-                        or bool(authorized_content_responses)
+                        or (codex_request and bool(authorized_content_responses))
                     )
                     if content_ready:
-                        if requested_host in {"chatgpt.com", "chat.openai.com"}:
+                        if need_login and requested_host in {
+                            "chatgpt.com", "chat.openai.com"
+                        }:
                             await _set_browser_window_state(page, "minimized")
                         if logger:
-                            logger("已复用此前保存的登录状态，无需重复授权。")
+                            logger(
+                                "已读取 Codex 对话内容。"
+                                if codex_request
+                                else "已复用此前保存的登录状态，无需重复授权。"
+                            )
                     else:
-                        if not need_login and not chatgpt_minimized:
+                        if chatgpt_no_login:
+                            if (
+                                login_confirmation_callback is None
+                                or not login_confirmation_callback()
+                            ):
+                                raise RuntimeError(
+                                    "该 ChatGPT 私有会话需要授权登录；"
+                                    "已取消打开登录浏览器。"
+                                )
+                            allow_interactive_login = True
+                            chatgpt_no_login = False
+                            need_login = True
+                            await _close_browser_context_safely(
+                                context, fetch_warnings, logger
+                            )
+                            context, _browser_channel = await launch_browser_context(
+                                playwright,
+                                headless=False,
+                                viewport=None,
+                                no_viewport=True,
+                                start_minimized=False,
+                                logger=logger,
+                                profile_root=browser_profile_root,
+                            )
+                            page = context.pages[0] if context.pages else await context.new_page()
+                            await _set_browser_window_state(page, "maximized")
+                            page.on("response", capture_response_assets)
+                            await goto_with_retry_gui(page, url, logger=logger)
+                        elif not need_login:
                             if logger:
                                 logger(
                                     "该平台无法在无界面模式读取会话，"
@@ -2709,7 +3636,7 @@ async def fetch_chat_pipeline(
                             await _drain_response_tasks(response_tasks)
                             content_ready = (
                                 await _page_has_conversation_content(page, url)
-                                or bool(authorized_content_responses)
+                                or (codex_request and bool(authorized_content_responses))
                             )
                             if content_ready:
                                 if logger:
@@ -2718,12 +3645,34 @@ async def fetch_chat_pipeline(
                                         "无需重复授权。"
                                     )
                             else:
+                                if not allow_interactive_login:
+                                    if (
+                                        login_confirmation_callback is None
+                                        or not login_confirmation_callback()
+                                    ):
+                                        raise RuntimeError(
+                                            "当前页面需要授权登录；已取消打开登录浏览器。"
+                                        )
+                                    allow_interactive_login = True
                                 need_login = True
-                                await _set_browser_window_state(page, "normal")
+                                await _set_browser_window_state(page, "maximized")
                         elif not need_login:
+                            if not allow_interactive_login:
+                                if (
+                                    login_confirmation_callback is None
+                                    or not login_confirmation_callback()
+                                ):
+                                    raise RuntimeError(
+                                        "当前页面需要授权登录；已取消打开登录浏览器。"
+                                    )
+                                allow_interactive_login = True
                             need_login = True
-                            await _set_browser_window_state(page, "normal")
-                        if not content_ready:
+                            await _set_browser_window_state(page, "maximized")
+                        if (
+                            not content_ready
+                            and not chatgpt_no_login
+                            and allow_interactive_login
+                        ):
                             if logger:
                                 logger(
                                     "当前登录状态无法读取该会话，请在浏览器中登录后"
@@ -2757,6 +3706,8 @@ async def fetch_chat_pipeline(
                                 )
 
                 await page.wait_for_timeout(1000)
+                if requested_host in GEMINI_HOSTS:
+                    await _page_has_conversation_content(page, url)
                 await _drain_response_tasks(response_tasks)
                 current_host = urlparse(url).netloc.lower().split(":", 1)[0]
                 if current_host in {"chatgpt.com", "chat.openai.com"}:
@@ -2791,16 +3742,32 @@ async def fetch_chat_pipeline(
                     await page.wait_for_timeout(2500)
                     await _drain_response_tasks(response_tasks)
 
+                page_provider = provider_for_url(page.url)
+                wait_selector = (
+                    page_provider.WAIT_SELECTOR if page_provider else WAIT_SELECTOR
+                )
                 if logger:
-                    logger("正在等待动态内容渲染...")
+                    logger(
+                        f"正在等待 {page_provider.DISPLAY_NAME} 对话内容渲染..."
+                        if page_provider else "正在等待动态内容渲染..."
+                    )
                 try:
                     await page.wait_for_selector(
-                        WAIT_SELECTOR,
+                        wait_selector,
                         state="attached",
-                        timeout=15000
+                        timeout=30000 if page_provider else 15000,
                     )
                 except Exception:
-                    if logger:
+                    if doubao_public_thread:
+                        if logger:
+                            logger("豆包公有页首次渲染失败，正在重新加载...")
+                        await goto_with_retry_gui(page, url, logger=logger)
+                        await page.wait_for_selector(
+                            wait_selector,
+                            state="attached",
+                            timeout=30000,
+                        )
+                    elif logger:
                         logger("等待动态节点超时，可能网页结构有所变化或需登录访问。")
                 await page.wait_for_timeout(2000)
 
@@ -2851,6 +3818,49 @@ async def fetch_chat_pipeline(
                 html = await collect_virtualized_html(page)
                 if html is None:
                     html = page_snapshot_html
+                kimi_private_url = _kimi_private_conversation_url(page_snapshot_html)
+                if requested_host in KIMI_HOSTS and kimi_private_url:
+                    await goto_with_retry_gui(page, kimi_private_url, logger=logger)
+                    kimi_ready = await _page_has_conversation_content(
+                        page, kimi_private_url
+                    )
+                    if (
+                        not kimi_ready
+                        and login_confirmation_callback is not None
+                        and login_confirmation_callback()
+                    ):
+                        allow_interactive_login = True
+                        await _close_browser_context_safely(
+                            context, fetch_warnings, logger
+                        )
+                        context, _browser_channel = await launch_browser_context(
+                            playwright,
+                            headless=False,
+                            viewport=None,
+                            no_viewport=True,
+                            start_minimized=False,
+                            logger=logger,
+                            profile_root=browser_profile_root,
+                        )
+                        page = context.pages[0] if context.pages else await context.new_page()
+                        await _set_browser_window_state(page, "maximized")
+                        page.on("response", capture_response_assets)
+                        await goto_with_retry_gui(page, kimi_private_url, logger=logger)
+                        if login_required_callback is not None:
+                            if login_ready_event is not None:
+                                login_ready_event.clear()
+                            login_required_callback()
+                        if login_ready_event is not None:
+                            login_wait_started = time.perf_counter()
+                            await login_ready_event.wait()
+                            user_wait_seconds += time.perf_counter() - login_wait_started
+                        await goto_with_retry_gui(page, kimi_private_url, logger=logger)
+                        kimi_ready = await _page_has_conversation_content(
+                            page, kimi_private_url
+                        )
+                    if kimi_ready:
+                        page_snapshot_html = await page.content()
+                        html = await collect_virtualized_html(page) or page_snapshot_html
                 if (
                     pre_rehydrate_chat_html
                     and pre_rehydrate_chat_html.count("data-message-author-role")
@@ -2872,7 +3882,7 @@ async def fetch_chat_pipeline(
                         ),
                     )
                 soup_pre = BeautifulSoup(html, "html.parser")
-                image_candidates: list[str] = []
+                image_candidates: list[str] = list(response_image_references)
                 if logger:
                     logger("正在检查并下载页面中的图片资产...")
 
@@ -2889,36 +3899,162 @@ async def fetch_chat_pipeline(
                         alt = str(img.get("alt") or "").strip().lower()
                         if not (
                             src
-                            and src.startswith("http")
-                            and not src.startswith("data:image/svg")
+                            and (
+                                src.startswith("http")
+                                or src.startswith("data:image/png;base64,")
+                            )
                         ):
                             continue
                         if (
+                            current_host in GROK_HOSTS
+                            and src.endswith("/preview-image")
+                        ):
+                            src = src.rsplit("/", 1)[0] + "/content"
+                        if (
                             alt == "asset cover"
                             or "doc-canvas-card-fallback" in src.lower()
+                            or "drive-thirdparty.googleusercontent.com" in src.lower()
                         ):
                             continue
                         image_candidates.append(src)
 
                 download_started = time.perf_counter()
+                image_warnings: list[str] = []
+                image_authentication_required: list[bool] = []
                 image_map = await _download_image_candidates(
                     page,
                     image_candidates,
                     resolved_images_dir,
                     image_reference_prefix,
                     image_download_concurrency,
-                    fetch_warnings,
+                    image_warnings,
+                    image_authentication_required,
                 )
+                if (
+                    image_authentication_required
+                    and login_required_callback is not None
+                    and login_ready_event is not None
+                    and login_confirmation_callback is not None
+                    and login_confirmation_callback()
+                ):
+                    allow_interactive_login = True
+                    if logger:
+                        logger(
+                            "已确认登录，正在打开浏览器；登录后请点击"
+                            "【登录完毕】..."
+                        )
+                    await _close_browser_context_safely(
+                        context, fetch_warnings, logger
+                    )
+                    context, _browser_channel = await launch_browser_context(
+                        playwright,
+                        headless=False,
+                        viewport=None,
+                        no_viewport=True,
+                        start_minimized=False,
+                        logger=logger,
+                        profile_root=browser_profile_root,
+                    )
+                    page = (
+                        context.pages[0]
+                        if context.pages
+                        else await context.new_page()
+                    )
+                    await _set_browser_window_state(page, "maximized")
+                    page.on("response", capture_response_assets)
+                    await goto_with_retry_gui(page, url, logger=logger)
+                    login_ready_event.clear()
+                    login_required_callback()
+                    login_wait_started = time.perf_counter()
+                    await login_ready_event.wait()
+                    user_wait_seconds += time.perf_counter() - login_wait_started
+                    await goto_with_retry_gui(page, url, logger=logger)
+                    await page.wait_for_timeout(1800)
+                    image_warnings.clear()
+                    image_map = await _download_image_candidates(
+                        page,
+                        image_candidates,
+                        resolved_images_dir,
+                        image_reference_prefix,
+                        image_download_concurrency,
+                        image_warnings,
+                    )
+                    await _set_browser_window_state(page, "minimized")
+                fetch_warnings.extend(image_warnings)
                 if logger:
                     usable_sources = _ordered_image_sources(image_candidates)
                     logger(
                         f"图片资产处理完成：发现 {len(image_candidates)} 个引用，"
                         f"去重并过滤装饰图后 {len(usable_sources)} 个，"
-                        f"成功下载或复用 {len(image_map)} 个，耗时 "
+                        f"成功下载或复用 {len(set(image_map.values()))} 个，耗时 "
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
+                gemini_document_candidates: list[DocumentCandidate] = []
+                gemini_private_url = _gemini_private_conversation_url(
+                    page_snapshot_html + chr(10) + html
+                )
+                if gemini_private_url:
+                    if logger:
+                        logger("发现 Gemini 原始附件，正在检查账号访问权限...")
+                    await goto_with_retry_gui(page, gemini_private_url, logger=logger)
+                    gemini_ready = await _page_has_conversation_content(
+                        page, gemini_private_url
+                    )
+                    if (
+                        not gemini_ready
+                        and login_confirmation_callback is not None
+                        and login_confirmation_callback()
+                    ):
+                        allow_interactive_login = True
+                        await _close_browser_context_safely(
+                            context, fetch_warnings, logger
+                        )
+                        context, _browser_channel = await launch_browser_context(
+                            playwright,
+                            headless=False,
+                            viewport=None,
+                            no_viewport=True,
+                            start_minimized=False,
+                            logger=logger,
+                            profile_root=browser_profile_root,
+                        )
+                        page = (
+                            context.pages[0]
+                            if context.pages
+                            else await context.new_page()
+                        )
+                        await _set_browser_window_state(page, "maximized")
+                        page.on("response", capture_response_assets)
+                        await goto_with_retry_gui(
+                            page, gemini_private_url, logger=logger
+                        )
+                        if login_required_callback is not None:
+                            if login_ready_event is not None:
+                                login_ready_event.clear()
+                            login_required_callback()
+                        if login_ready_event is not None:
+                            login_wait_started = time.perf_counter()
+                            await login_ready_event.wait()
+                            user_wait_seconds += (
+                                time.perf_counter() - login_wait_started
+                            )
+                        await goto_with_retry_gui(
+                            page, gemini_private_url, logger=logger
+                        )
+                        gemini_ready = await _page_has_conversation_content(
+                            page, gemini_private_url
+                        )
+                    if gemini_ready:
+                        private_html = await page.content()
+                        gemini_document_candidates = (
+                            _extract_gemini_document_card_candidates(
+                                private_html, gemini_private_url
+                            )
+                        )
+                    elif logger:
+                        logger("未获得 Gemini 原始会话访问权限，附件保持不可下载提示。")
                 document_candidates = list(dict.fromkeys([
                     *(
                         candidate
@@ -2926,6 +4062,7 @@ async def fetch_chat_pipeline(
                         for candidate in group
                     ),
                     *response_document_candidates,
+                    *gemini_document_candidates,
                     *_extract_document_candidates(
                         page_snapshot_html + chr(10) + html,
                         page.url,
@@ -2933,6 +4070,15 @@ async def fetch_chat_pipeline(
                 ]))
                 document_candidates.extend(
                     _extract_chatgpt_document_card_candidates(html, page.url)
+                )
+                document_candidates.extend(
+                    _extract_gemini_document_card_candidates(html, page.url)
+                )
+                document_candidates.extend(
+                    _extract_kimi_document_card_candidates(html, page.url)
+                )
+                document_candidates.extend(
+                    _extract_grok_document_card_candidates(html, page.url)
                 )
                 document_candidates = list(dict.fromkeys(document_candidates))
                 existing_document_names = {
@@ -2956,6 +4102,12 @@ async def fetch_chat_pipeline(
                     conversation_url=url,
                     captured_documents=captured_document_responses,
                 )
+                codex_change_map = _save_codex_file_changes(
+                    list({change["path"]: change for change in codex_file_changes}.values()),
+                    resolved_documents_dir,
+                    document_reference_prefix,
+                )
+                document_map.update(codex_change_map)
                 doubao_ai_document_count = 0
                 if current_host in {"doubao.com", "www.doubao.com"}:
                     ai_document_map, doubao_ai_document_count = (
@@ -3041,12 +4193,56 @@ async def fetch_chat_pipeline(
                 )
                 soup = BeautifulSoup(html, "html.parser")
                 parser_asset_map = {**image_map, **document_map}
-                provider, parsed_messages = parse_messages(
-                    soup, parser_asset_map
+                if _chatgpt_shared_conversation_id(url):
+                    for candidate in document_candidates:
+                        if candidate.filename.lower() in parser_asset_map:
+                            continue
+                        parsed_candidate = urlparse(candidate.url)
+                        if (
+                            parsed_candidate.netloc.lower().split(":", 1)[0]
+                            in {"chatgpt.com", "chat.openai.com"}
+                            and re.match(
+                                r"^/backend-api/files/download/[^/]+$",
+                                parsed_candidate.path,
+                            )
+                        ):
+                            parser_asset_map[candidate.filename.lower()] = candidate.url
+                provider, parsed_messages = _parse_page_messages(
+                    url, soup, parser_asset_map
                 )
+                if codex_request and codex_payload_messages:
+                    parsed_messages = codex_payload_messages
+                    provider = codex
+                if parsed_messages and codex_request:
+                    for message in parsed_messages:
+                        message["content"] = _rewrite_codex_local_links(
+                            message["content"], codex_change_map
+                        )
+                if parsed_messages and codex_change_map:
+                    links = "\n".join(
+                        f"- [{path}]({local_reference})"
+                        for path, local_reference in codex_change_map.items()
+                    )
+                    target_message = next(
+                        (
+                            message for message in reversed(parsed_messages)
+                            if message.get("role") == "AI"
+                        ),
+                        parsed_messages[-1],
+                    )
+                    target_message["content"] = (
+                        f"{target_message['content']}\n\n"
+                        f"### Codex 修改文件（变更内容）\n\n{links}"
+                    )
                 if provider is not None:
                     if logger:
                         logger(f"检测到 {provider.DISPLAY_NAME} 对话格式，使用专用解析器。")
+                elif codex_request:
+                    if logger:
+                        logger("Codex 页面未出现真实消息节点，拒绝解析验证页。")
+                elif requested_host in DOUBAO_HOSTS:
+                    if logger:
+                        logger("豆包页面未出现真实消息节点，拒绝解析页面壳。")
                 else:
                     if logger:
                         logger("未识别出平台标志性类名，使用降级解析。")
@@ -3114,17 +4310,18 @@ def generate_raw_markdown(messages: list[dict[str, str]], target_path: Path) -> 
     with open(target_path, "w", encoding="utf-8") as file:
         file.write("# AI 对话记忆导出\n\n")
         for item in messages:
+            content = item["content"]
             if item["role"] == "User":
                 file.write(
                     '\n<hr style="border: 0; border-top: 5px solid #2563EB; '
                     'margin: 48px 0 24px 0;">\n\n'
-                    f"## 🔵 👤 用户提问\n\n{item['content']}\n\n"
+                    f"## 🔵 👤 用户提问\n\n{content}\n\n"
                 )
             else:
                 file.write(
                     '\n<hr style="border: 0; border-top: 5px solid #9333EA; '
                     'margin: 48px 0 24px 0;">\n\n'
-                    f"## 🟣 🤖 AI 回答\n\n{item['content']}\n\n"
+                    f"## 🟣 🤖 AI 回答\n\n{content}\n\n"
                 )
     return target_path
 
