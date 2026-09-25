@@ -662,7 +662,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertNotIn(keys["gemini"], progress_text)
         self.assertNotIn(keys["siliconflow"], progress_text)
 
-    def test_generation_lock_keeps_settings_button_enabled(self):
+    def test_generation_lock_keeps_input_draft_editable(self):
         locked_values = []
         disabled_values = []
         button_configs = []
@@ -689,16 +689,71 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
 
         AIMemoryGUI._set_inputs_locked(fake_gui, True)
 
-        self.assertEqual(locked_values, [True])
+        self.assertEqual(locked_values, [])
         self.assertEqual(disabled_values, [True] * 6)
-        self.assertEqual(
-            file_button_configs,
-            [{"state": "disabled", "cursor": "arrow"}] * 2,
-        )
+        self.assertEqual(file_button_configs, [])
         self.assertEqual(
             button_configs,
             [{"state": "normal", "cursor": "hand2"}],
         )
+
+    def test_running_task_keeps_url_edits_out_of_progress_status(self):
+        updates = []
+        statuses = []
+        fake_gui = SimpleNamespace(
+            is_running=True,
+            capsule_entry=SimpleNamespace(get_text=lambda: "https://example.com/next"),
+            _update_send_button_state=lambda: updates.append("send"),
+            status_var=SimpleNamespace(set=statuses.append),
+            _refresh_generation_sources=lambda: updates.append("sources"),
+            _refresh_generation_summary=lambda: updates.append("summary"),
+            _update_generate_button_state=lambda: updates.append("generation"),
+        )
+
+        AIMemoryGUI._on_url_changed(fake_gui)
+        AIMemoryGUI._refresh_generation_sources(fake_gui)
+
+        self.assertEqual(updates, ["send"])
+        self.assertEqual(statuses, [])
+
+    def test_start_captures_url_and_modes_and_ignores_duplicate_start(self):
+        url = ["https://example.com/start"]
+        fake_gui, _opened = self._fake_gui(raw=True)
+        fake_gui.capsule_entry = SimpleNamespace(get_text=lambda: url[0])
+        fake_gui.root = object()
+        fake_gui._run_generation_task = lambda *_args: None
+        fake_gui._set_inputs_locked = lambda _locked: None
+        fake_gui._update_generate_button_state = lambda: None
+        fake_gui.done_badge = SimpleNamespace(pack_forget=lambda: None)
+        fake_gui.progress_bar = SimpleNamespace(
+            reset=lambda: None, set_progress=lambda _value: None,
+        )
+        fake_gui.status_var = SimpleNamespace(set=lambda _value: None)
+        fake_gui.percent_var = SimpleNamespace(set=lambda _value: None)
+        captured = {}
+
+        class FakeThread:
+            def __init__(self, *, target, args, daemon):
+                captured["args"] = args
+
+            def start(self):
+                captured["started"] = True
+
+        with patch(
+            "gui.app._prompt_output_target",
+            return_value=(Path("output"), "result.md"),
+        ) as prompt, patch("gui.app.threading.Thread", FakeThread):
+            AIMemoryGUI._on_start_generate(fake_gui)
+            url[0] = "https://example.com/edited"
+            fake_gui.card_raw.checked = False
+            AIMemoryGUI._on_start_generate(fake_gui)
+
+        self.assertEqual(captured["args"][0], "https://example.com/start")
+        self.assertEqual(captured["args"][2], {
+            "raw": True, "normal": False, "simple": False, "detailed": False,
+        })
+        self.assertTrue(captured["started"])
+        prompt.assert_called_once()
 
     def test_direct_summary_uses_file_modes_and_ignores_raw_and_login(self):
         captured = {}
@@ -716,15 +771,40 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             def start(self):
                 captured["started"] = True
 
+        class FakeRoot:
+            @staticmethod
+            def after(_delay, callback):
+                callback()
+
+        def fake_generate_output_bundle(**kwargs):
+            captured["worker_messages"] = kwargs["messages"]
+            captured["worker_source_name"] = kwargs["source_name"]
+            captured["worker_source_dir"] = kwargs["source_dir"]
+            output_path = Path(kwargs["save_dir"]) / kwargs["output_filename"]
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                "\n".join(message["content"] for message in kwargs["messages"]),
+                encoding="utf-8",
+            )
+            captured["output_path"] = output_path
+            captured["output_content"] = output_path.read_text(encoding="utf-8")
+            return SimpleNamespace(saved_files=[output_path], summary_result=None)
+
         with tempfile.TemporaryDirectory() as temp:
             source_path = Path(temp) / "原始对话.md"
             source_path.write_text(
-                "## 🔵 👤 用户提问\n\n问题\n\n"
-                "## 🟣 🤖 AI 回答\n\n回答\n",
+                "## 🔵 👤 用户提问\n\n原始问题内容\n\n"
+                "## 🟣 🤖 AI 回答\n\n原始回答内容\n",
+                encoding="utf-8",
+            )
+            replacement_path = Path(temp) / "运行中替换.md"
+            replacement_path.write_text(
+                "## 🔵 👤 用户提问\n\n替换文件内容\n",
                 encoding="utf-8",
             )
             fake_gui = SimpleNamespace(
                 selected_summary_file=source_path,
+                is_running=False,
                 card_raw=SimpleNamespace(checked=True),
                 card_normal=SimpleNamespace(checked=True),
                 card_simple=SimpleNamespace(checked=False),
@@ -735,24 +815,44 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                     runtime_data_dir=Path(temp) / "runtime",
                     default_results_dir=Path(temp) / "results",
                 ),
-                root=object(),
+                root=FakeRoot(),
+                selected_file_name_var=SimpleNamespace(set=lambda _value: None),
+                selected_file_row=SimpleNamespace(pack=lambda **_kwargs: None),
+                file_select_button=SimpleNamespace(config=lambda **_kwargs: None),
+                capsule_entry=object(),
                 done_badge=SimpleNamespace(pack_forget=lambda: None),
                 _set_inputs_locked=lambda _locked: None,
                 _update_generate_button_state=lambda: None,
+                _update_send_button_state=lambda: None,
+                _refresh_generation_sources=lambda: None,
                 progress_bar=SimpleNamespace(
                     reset=lambda: None,
                     set_progress=lambda _value: None,
                 ),
                 status_var=SimpleNamespace(set=lambda _value: None),
                 percent_var=SimpleNamespace(set=lambda _value: None),
-                _run_generation_task=lambda *_args: None,
+                _run_generation_task=lambda *args: AIMemoryGUI._run_generation_task(
+                    fake_gui, *args,
+                ),
+                _show_completed_badge=lambda _duration: None,
+                _add_history_record=lambda record: captured.setdefault(
+                    "history", [],
+                ).append(record),
+                _on_task_finished=lambda: None,
             )
 
             with patch(
                 "gui.app._prompt_output_target",
                 return_value=(Path(temp), "原始对话_summary.md"),
-            ) as prompt, patch("gui.app.threading.Thread", FakeThread):
+            ) as prompt, patch("gui.app.threading.Thread", FakeThread), patch(
+                "gui.app.generate_output_bundle",
+                side_effect=fake_generate_output_bundle,
+            ):
                 AIMemoryGUI._on_direct_summary(fake_gui)
+                AIMemoryGUI._select_summary_file(
+                    fake_gui, replacement_path,
+                )
+                captured["target"](*captured["args"])
 
         args = captured["args"]
         self.assertEqual(args[0:2], ("", False))
@@ -761,6 +861,25 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             {"raw": False, "normal": True, "simple": False, "detailed": False},
         )
         self.assertEqual(args[-1], source_path.resolve())
+        self.assertEqual(
+            fake_gui.selected_summary_file,
+            replacement_path.resolve(),
+        )
+        self.assertEqual(captured["worker_source_name"], source_path.name)
+        self.assertEqual(captured["worker_source_dir"], source_path.parent)
+        self.assertEqual(
+            [message["content"] for message in captured["worker_messages"]],
+            ["原始问题内容", "原始回答内容"],
+        )
+        output_path = Path(temp) / "原始对话_summary.md"
+        self.assertEqual(captured["output_path"], output_path)
+        self.assertEqual(
+            captured["output_content"],
+            "原始问题内容\n原始回答内容",
+        )
+        self.assertNotIn("替换文件内容", captured["output_content"])
+        self.assertEqual(captured["history"][0]["saved_files"], [output_path.name])
+        self.assertEqual(captured["history"][0]["title"], source_path.name)
         self.assertTrue(captured["started"])
         self.assertEqual(
             prompt.call_args.kwargs["suggested_name"],

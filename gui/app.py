@@ -103,6 +103,14 @@ FONT_SIDEBAR_STEP = (FONT_FAMILY, 9, "bold")
 
 # ==================== 输出目标询问与直接总结工具函数 ====================
 
+
+def _scaled_font_size(font: tkfont.Font, scale: float, low: int, high: int) -> int:
+    base = getattr(font, "_responsive_base_size", None)
+    if base is None:
+        base = abs(int(font.actual("size")))
+        font._responsive_base_size = base
+    return max(low, min(high, round(base * scale)))
+
 def _prompt_output_target(
     parent: tk.Misc,
     modes: dict[str, bool],
@@ -339,13 +347,27 @@ class FlatButton(tk.Canvas):
         self._text = text
         self._command = command
         self._variant = variant
+        self._base_width = width
+        self._base_height = height
         self._width = width
         self._height = height
+        self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
         self._enabled = True
         self._hover = False
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
+        self.redraw()
+
+    def set_responsive_scale(self, scale: float):
+        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
+        self._width = max(
+            round(self._base_width * scale), self._font.measure(self._text) + 32,
+        )
+        self._height = max(
+            round(self._base_height * scale), self._font.metrics("linespace") + 16,
+        )
+        self.configure(width=self._width, height=self._height)
         self.redraw()
 
     def set_enabled(self, enabled: bool):
@@ -395,7 +417,7 @@ class FlatButton(tk.Canvas):
         )
         self.create_text(
             w // 2, h // 2, text=self._text,
-            fill=fg, font=FONT_BODY_BOLD
+            fill=fg, font=self._font
         )
 
 
@@ -621,10 +643,11 @@ class GenerationChoiceCard(tk.Canvas):
     def __init__(
         self, master, title: str, subtitle: str,
         badge_text: str = "", initial_checked: bool = False,
-        on_toggle: callable = None, height: int = 108, **kwargs
+        on_toggle: callable = None, width: int = 200,
+        height: int = 108, **kwargs
     ):
         super().__init__(
-            master, height=height, bg=COLOR_CARD,
+            master, width=width, height=height, bg=COLOR_CARD,
             highlightthickness=0, cursor="hand2", **kwargs
         )
         self._title = title
@@ -635,11 +658,30 @@ class GenerationChoiceCard(tk.Canvas):
         self._disabled = False
         self._hover = False
         self._on_toggle = on_toggle
+        self._base_width = width
+        self._base_height = height
+        self._title_font = tkfont.Font(master=self, font=FONT_H2)
+        self._subtitle_font = tkfont.Font(master=self, font=FONT_SMALL)
+        self._badge_font = tkfont.Font(master=self, font=FONT_TINY)
         self._height = height
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
+
+    def set_responsive_scale(self, scale: float):
+        self._title_font.configure(
+            size=_scaled_font_size(self._title_font, scale, 12, 16),
+        )
+        self._subtitle_font.configure(
+            size=_scaled_font_size(self._subtitle_font, scale, 8, 10),
+        )
+        self._badge_font.configure(
+            size=_scaled_font_size(self._badge_font, scale, 8, 10),
+        )
+        self._height = max(96, min(132, round(self._base_height * scale)))
+        self.configure(height=self._height)
+        self.redraw()
 
     def set_disabled(self, disabled: bool):
         self._disabled = bool(disabled)
@@ -668,7 +710,7 @@ class GenerationChoiceCard(tk.Canvas):
 
     def redraw(self):
         self.delete("all")
-        width = max(self.winfo_width(), 180)
+        width = max(self.winfo_width(), self._base_width)
         height = self._height
         if self._disabled:
             background = "#F8F9FB"
@@ -693,12 +735,12 @@ class GenerationChoiceCard(tk.Canvas):
         )
         self.create_text(
             18, 18, text=self._title, fill=title_color,
-            font=FONT_H2, anchor="nw",
+            font=self._title_font, anchor="nw",
         )
         self.create_text(
             18, 51, text=self._subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
-            font=FONT_SMALL, anchor="nw", width=max(120, width - 66),
+            font=self._subtitle_font, anchor="nw",
         )
         if self._badge:
             badge_width = 42
@@ -710,7 +752,7 @@ class GenerationChoiceCard(tk.Canvas):
             self.create_text(
                 width - badge_width / 2 - 13, 23,
                 text=self._badge, fill="#6548D8",
-                font=FONT_TINY,
+                font=self._badge_font,
             )
         indicator_x = width - 29
         _round_rectangle(
@@ -722,7 +764,7 @@ class GenerationChoiceCard(tk.Canvas):
         if self._checked:
             self.create_text(
                 indicator_x + 8, height - 21, text="✓",
-                fill="#FFFFFF", font=FONT_TINY,
+                fill="#FFFFFF", font=self._badge_font,
             )
 
 
@@ -744,11 +786,24 @@ class GenerationSegmentOption(tk.Canvas):
         self._disabled = False
         self._hover = False
         self._on_toggle = on_toggle
-        self._width = width
+        self._base_width = width
+        self._regular_font = tkfont.Font(master=self, font=FONT_SMALL)
+        self._bold_font = tkfont.Font(master=self, font=FONT_SMALL_BOLD)
+        self._width = max(width, self._bold_font.measure(text) + 24)
         self._height = height
+        self.configure(width=self._width)
         self.bind("<Enter>", lambda _event: self._set_hover(True))
         self.bind("<Leave>", lambda _event: self._set_hover(False))
         self.bind("<Button-1>", self._on_click)
+        self.redraw()
+
+    def set_responsive_scale(self, scale: float):
+        for font in (self._regular_font, self._bold_font):
+            font.configure(size=_scaled_font_size(font, scale, 8, 10))
+        self._width = max(
+            self._base_width, self._bold_font.measure(self._text) + 24,
+        )
+        self.configure(width=self._width)
         self.redraw()
 
     def _set_hover(self, value: bool):
@@ -797,7 +852,7 @@ class GenerationSegmentOption(tk.Canvas):
         self.create_text(
             self._width // 2, self._height // 2,
             text=self._text, fill=foreground,
-            font=FONT_SMALL_BOLD if self._checked else FONT_SMALL,
+            font=self._bold_font if self._checked else self._regular_font,
         )
 
 
@@ -882,6 +937,9 @@ class FlatEntryBox(tk.Canvas):
         self._locked = False
         self._focused = False
         self._placeholder = placeholder
+        self._placeholder_font = tkfont.Font(
+            master=self, font=(FONT_FAMILY, 10),
+        )
 
         inner = tk.Frame(self, bg="#FFFFFF", padx=14, pady=10)
         self.window_id = self.create_window(0, 0, window=inner, anchor="nw")
@@ -899,6 +957,12 @@ class FlatEntryBox(tk.Canvas):
         self.entry.bind("<<Paste>>", lambda _e: self.after(10, self._paste_clipboard))
         self.bind("<Configure>", self._on_resize)
         self.var.trace_add("write", self._on_var_change)
+        self.redraw()
+
+    def set_responsive_scale(self, scale: float):
+        self._placeholder_font.configure(
+            size=_scaled_font_size(self._placeholder_font, scale, 9, 11),
+        )
         self.redraw()
 
     def _on_resize(self, event):
@@ -968,7 +1032,7 @@ class FlatEntryBox(tk.Canvas):
         ):
             self.create_text(
                 18, 24, text=self._placeholder,
-                font=(FONT_FAMILY, 10), fill="#9CA3AF",
+                font=self._placeholder_font, fill="#9CA3AF",
                 anchor="w", tags="placeholder",
             )
 
@@ -1004,15 +1068,30 @@ class GlassNavigationItem(tk.Canvas):
         self._target_progress = 0.0
         self._animation_id = None
         self._hovered = False
+        self._title_font = tkfont.Font(master=self, font=FONT_SIDEBAR_ITEM)
+        self._description_font = tkfont.Font(master=self, font=FONT_TINY)
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.redraw()
 
+    def set_responsive_scale(self, scale: float):
+        self._title_font.configure(
+            size=_scaled_font_size(self._title_font, scale, 9, 11),
+        )
+        self._description_font.configure(
+            size=_scaled_font_size(self._description_font, scale, 8, 10),
+        )
+        self.redraw()
+
     def set_active(self, active: bool):
         """绑定页面 active 状态，并以约 250ms 的缓动完成状态切换。"""
-        self._active = bool(active)
-        self._target_progress = 1.0 if self._active else 0.0
+        active = bool(active)
+        target = 1.0 if active else 0.0
+        if self._active == active and self._target_progress == target:
+            return
+        self._active = active
+        self._target_progress = target
         if self._animation_id is None:
             self._animate()
 
@@ -1088,9 +1167,9 @@ class GlassNavigationItem(tk.Canvas):
         else:
             self.create_text(27, 34, text=self._icon, font=(FONT_FAMILY, 14),
                              fill=icon_color, anchor="center", tags="content")
-        self.create_text(52, 27, text=self._title, font=(FONT_FAMILY, 10, "bold"),
+        self.create_text(52, 27, text=self._title, font=self._title_font,
                          fill="#0F172A", anchor="w", tags="content")
-        self.create_text(52, 45, text=self._description, font=(FONT_FAMILY, 8),
+        self.create_text(52, 45, text=self._description, font=self._description_font,
                          fill="#475569", anchor="w", tags="content")
 
 
@@ -1116,15 +1195,24 @@ class HoverTooltip:
     def _show(self):
         if self._tip or not self._widget.winfo_exists():
             return
-        x = self._widget.winfo_rootx() + 16
-        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 6
+        screen_width = self._widget.winfo_screenwidth()
+        screen_height = self._widget.winfo_screenheight()
         self._tip = tk.Toplevel(self._widget)
         self._tip.wm_overrideredirect(True)
-        self._tip.geometry(f"+{x}+{y}")
         tk.Label(
             self._tip, text=self._text, bg="#0A0A0A", fg="#FFFFFF",
-            font=FONT_TINY, padx=8, pady=4
+            font=FONT_TINY, padx=8, pady=4,
+            wraplength=max(240, screen_width - 32), justify=tk.LEFT,
         ).pack()
+        self._tip.update_idletasks()
+        x = min(
+            max(8, self._widget.winfo_rootx() + 16),
+            screen_width - self._tip.winfo_width() - 8,
+        )
+        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 6
+        if y + self._tip.winfo_height() > screen_height:
+            y = max(8, self._widget.winfo_rooty() - self._tip.winfo_height() - 6)
+        self._tip.geometry(f"+{x}+{y}")
 
     def _hide(self, _event=None):
         if self._after_id:
@@ -1157,8 +1245,19 @@ class AIMemoryGUI:
 
     def __init__(self, root: tk.Tk):
         self.root = root
+        self._responsive_after_id = None
+        self._responsive_scale = 1.0
+        self._scrollregion_after_id = None
+        self._minimum_layout_after_id = None
+        self._scrollregion = None
+        self._gradient_item_id = None
+        self._content_max_width = 1280
+        self._responsive_layout_initialized = False
+        self.layout_requires_wider_screen = False
+        self._cancel_api_reorder_animation = None
+        self._notice_after_id = None
         root.title("AI 记忆总结协同管理工具")
-        root.geometry("960x680")
+        root.geometry("1040x680")
         root.minsize(820, 560)
         root.configure(bg=COLOR_BG_APP)
         self._window_icon = tk.PhotoImage(file=str(_logo_png_path(64)))
@@ -1190,33 +1289,37 @@ class AIMemoryGUI:
 
         # ===== 左侧任务栏（白底 + 图标导航） =====
         sidebar = tk.Frame(
-            top, bg=COLOR_SIDEBAR, width=200,
+            top, bg=COLOR_SIDEBAR, width=1,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
+        self.sidebar = sidebar
         sidebar.pack(side=tk.LEFT, fill=tk.Y)
         sidebar.pack_propagate(False)
 
         # Logo + 标题
-        header = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=20, pady=24)
+        header = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=12, pady=24)
         header.pack(fill=tk.X)
+        self._sidebar_header = header
         logo_row = tk.Frame(header, bg=COLOR_SIDEBAR)
         logo_row.pack(fill=tk.X)
         # 使用统一的灰色堆叠层图标，替换旧的黑色方块标识。
         StackedLayersIcon(
             logo_row, width=40, height=40, bg=COLOR_SIDEBAR,
         ).pack(side=tk.LEFT)
-        tk.Label(
+        self.sidebar_title_label = tk.Label(
             logo_row, text="AI 记忆协同管理", font=FONT_SIDEBAR_TITLE,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_SIDEBAR, anchor="w",
-        ).pack(side=tk.LEFT, padx=(4, 0))
+        )
+        self.sidebar_title_label.pack(side=tk.LEFT, padx=(4, 0))
 
         tk.Frame(
             sidebar, bg=COLOR_SIDEBAR_DIVIDER, height=1
-        ).pack(fill=tk.X, padx=20, pady=(16, 10))
+        ).pack(fill=tk.X, padx=12, pady=(16, 10))
 
         # 步骤导航（图标 + 标题 + 副标题）
-        nav = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=10, pady=4)
+        nav = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=8, pady=4)
         nav.pack(fill=tk.BOTH, expand=True)
+        self._sidebar_navigation = nav
 
         self._nav_steps = [
             ("💬", "对话", "链接 + 文件合一输入"),
@@ -1237,8 +1340,9 @@ class AIMemoryGUI:
         self.api_key_button = self._nav_items[-1]
 
         # 底部：版本信息（设置已并入侧栏导航项）
-        footer = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=16, pady=12)
+        footer = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=12, pady=12)
         footer.pack(side=tk.BOTTOM, fill=tk.X)
+        self._sidebar_footer = footer
         tk.Frame(
             footer, bg=COLOR_SIDEBAR_DIVIDER, height=1
         ).pack(fill=tk.X, pady=(0, 10))
@@ -1286,11 +1390,161 @@ class AIMemoryGUI:
         self._build_settings_section()     # 设置页（内嵌）
 
         self._show_page(0)
+        self.root.bind("<Configure>", self._on_root_configure, add="+")
+        self.root.bind("<Destroy>", self._cancel_pending_ui_callbacks, add="+")
+        self.root.after_idle(self._initialize_responsive_layout)
+
+    def _cancel_pending_ui_callbacks(self, event):
+        if event.widget is not self.root:
+            return
+        pending = [
+            self._responsive_after_id, self._scrollregion_after_id,
+            self._minimum_layout_after_id, self._notice_after_id,
+        ]
+        if self.page_frames:
+            animation = getattr(self.page_frames[3], "api_animation", {})
+            pending.append(animation.get("after_id"))
+        pending.extend(item._animation_id for item in self._nav_items)
+        for after_id in pending:
+            if after_id is not None:
+                try:
+                    self.root.after_cancel(after_id)
+                except tk.TclError:
+                    pass
+
+    def _initialize_responsive_layout(self):
+        if not self.root.winfo_exists():
+            return
+        self._apply_responsive_scale(force=True)
+
+    def _update_sidebar_width(self):
+        title_width = self._sidebar_header.winfo_reqwidth()
+        footer_width = self._sidebar_footer.winfo_reqwidth()
+        nav_right = max(
+            (
+                (item.bbox("content") or (0, 0, 0, 0))[2]
+                for item in self._nav_items
+            ),
+            default=0,
+        )
+        nav_width = nav_right + 2 * int(self._sidebar_navigation.cget("padx")) + 2
+        self.sidebar.configure(width=max(210, title_width, footer_width, nav_width))
+
+    def _schedule_responsive_minimums(self):
+        if self._minimum_layout_after_id is None:
+            self._minimum_layout_after_id = self.root.after_idle(
+                self._refresh_responsive_minimums,
+            )
+
+    def _refresh_responsive_minimums(self):
+        self._minimum_layout_after_id = None
+        if not self.root.winfo_exists():
+            return
+
+        left_width = max(
+            self._generation_mode_panel.winfo_reqwidth(),
+            self._generation_auth_panel.winfo_reqwidth(),
+        )
+        right_width = max(
+            self._generation_task_panel.winfo_reqwidth(),
+            self._generation_tip_panel.winfo_reqwidth(),
+        )
+        self._generation_workspace.grid_columnconfigure(
+            0, weight=1, minsize=left_width,
+        )
+        self._generation_workspace.grid_columnconfigure(
+            1, weight=0, minsize=right_width,
+        )
+        self._generation_right_column.configure(width=right_width)
+        self._update_sidebar_width()
+        self.root.update_idletasks()
+
+        required_content_width = self._generation_section.winfo_reqwidth() + 104
+        self._content_max_width = max(1280, required_content_width)
+        chrome_width = self.custom_scrollbar.winfo_reqwidth() + 4
+        min_width = max(
+            880,
+            self.sidebar.winfo_width() + chrome_width
+            + required_content_width + 16,
+        )
+        screen_width = self.root.winfo_screenwidth()
+        available_width = max(1, screen_width - 32)
+        self.layout_requires_wider_screen = min_width > available_width
+        self.minimum_window_width = min_width
+        self.root.minsize(min_width, 560)
+
+        current_width = self.root.winfo_width()
+        if not self._responsive_layout_initialized:
+            target_width = max(current_width, min_width + 48)
+            if min_width <= available_width:
+                target_width = min(target_width, available_width)
+            target_height = max(680, self.root.winfo_height())
+            self.root.geometry(f"{target_width}x{target_height}")
+            self._responsive_layout_initialized = True
+        elif current_width < min_width:
+            self.root.geometry(
+                f"{min_width}x{max(560, self.root.winfo_height())}",
+            )
+        self._schedule_scrollregion()
+
+    def _on_root_configure(self, event):
+        if event.widget is not self.root:
+            return
+        if self._responsive_after_id is not None:
+            self.root.after_cancel(self._responsive_after_id)
+        self._responsive_after_id = self.root.after(40, self._apply_responsive_scale)
+
+    def _apply_responsive_scale(self, force=False):
+        self._responsive_after_id = None
+        width = self.root.winfo_width()
+        if width <= 1:
+            return
+        scale = max(0.82, min(1.15, width / 1040))
+        if abs(scale - self._responsive_scale) < 0.01 and not force:
+            self._schedule_responsive_minimums()
+            return
+        self._responsive_scale = scale
+
+        def visit(widget):
+            if widget is not self.sidebar_title_label:
+                resize = getattr(widget, "set_responsive_scale", None)
+                if resize:
+                    resize(scale)
+                else:
+                    try:
+                        font = getattr(widget, "_responsive_font", None)
+                        if font is None:
+                            font_spec = widget.cget("font")
+                            if not font_spec:
+                                raise tk.TclError
+                            font = tkfont.Font(master=widget, font=font_spec)
+                            widget._responsive_font = font
+                            widget._responsive_base_font_size = abs(
+                                int(font.actual("size"))
+                            )
+                        minimum = getattr(widget, "_responsive_min_font_size", 7)
+                        maximum = getattr(widget, "_responsive_max_font_size", 22)
+                        font.configure(size=max(
+                            minimum,
+                            min(maximum, round(widget._responsive_base_font_size * scale)),
+                        ))
+                        widget.configure(font=font)
+                    except (tk.TclError, TypeError, ValueError):
+                        pass
+            for child in widget.winfo_children():
+                visit(child)
+
+        visit(self.root)
+        self._update_sidebar_width()
+        self._schedule_responsive_minimums()
+        self._schedule_scrollregion()
 
     def _show_page(self, idx: int):
         """切换分层页面：隐藏全部，仅显示指定页；同步侧栏高亮。"""
         if not (0 <= idx < len(self.page_frames)):
             return
+        if self._current_page == 3 and idx != 3 and self._cancel_api_reorder_animation:
+            self._cancel_api_reorder_animation()
         self._current_page = idx
         for i, page in enumerate(self.page_frames):
             if i == idx:
@@ -1300,44 +1554,40 @@ class AIMemoryGUI:
                 page.pack_forget()
         for i, item in enumerate(self._nav_items):
             item.set_active(i == idx)
-        self.bg_canvas.update_idletasks()
-        self._on_canvas_configure(None)
-        # 强制更新 scrollregion 确保滚动生效
-        bb = self.bg_canvas.bbox("all")
-        if bb:
-            self.bg_canvas.configure(scrollregion=bb)
-        # 延迟再更新一次，确保内容完全布局后 scrollregion 正确
-        self.bg_canvas.after(50, self._refresh_scrollregion)
-        # 为新显示的页面子控件绑定滚轮（递归）
-        self._bind_wheel_recursive(self.page_frames[idx])
+        self.bg_canvas.yview_moveto(0)
+        self._schedule_scrollregion()
 
     def _refresh_scrollregion(self):
-        """延迟回调：内容布局完成后重新计算 scrollregion。"""
-        self.bg_canvas.update_idletasks()
+        self._scrollregion_after_id = None
+        canvas_width = self.bg_canvas.winfo_width()
+        content_width = min(canvas_width, self._content_max_width)
+        content_height = max(
+            self.bg_canvas.winfo_height(), self.main_content.winfo_reqheight(),
+        )
+        current_height = int(float(self.bg_canvas.itemcget(
+            self.canvas_window_id, "height",
+        )))
+        current_width = int(float(self.bg_canvas.itemcget(
+            self.canvas_window_id, "width",
+        )))
+        if current_width != content_width or current_height != content_height:
+            self.bg_canvas.coords(
+                self.canvas_window_id, max(0, (canvas_width - content_width) // 2), 0,
+            )
+            self.bg_canvas.itemconfig(
+                self.canvas_window_id,
+                width=content_width, height=content_height,
+            )
         bb = self.bg_canvas.bbox("all")
-        if bb:
+        if bb and bb != self._scrollregion:
+            self._scrollregion = bb
             self.bg_canvas.configure(scrollregion=bb)
 
-    def _bind_wheel_recursive(self, widget):
-        """递归为控件及其所有子控件绑定滚轮事件。"""
-        def on_wheel(event):
-            try:
-                raw = event.delta
-                if raw == 0:
-                    return
-                px = max(1, min(40, abs(raw) // 4))
-                direction = px if raw < 0 else -px
-                self._smooth_scroll(direction)
-                return "break"
-            except tk.TclError:
-                pass
-
-        try:
-            widget.bind("<MouseWheel>", on_wheel)
-        except tk.TclError:
-            pass
-        for child in widget.winfo_children():
-            self._bind_wheel_recursive(child)
+    def _schedule_scrollregion(self):
+        if self._scrollregion_after_id is None:
+            self._scrollregion_after_id = self.root.after(
+                16, self._refresh_scrollregion,
+            )
 
     # ---------------- 对话页：统一 Omnibox ----------------
 
@@ -1363,10 +1613,13 @@ class AIMemoryGUI:
             welcome, text="AI 记忆协同管理", font=FONT_HERO,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP,
         ).pack(pady=(12, 4))
-        tk.Label(
+        self.home_subtitle_label = tk.Label(
             welcome, text="让对话更连续，让知识可复用",
-            font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
-        ).pack()
+            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
+        )
+        self.home_subtitle_label._responsive_min_font_size = 11
+        self.home_subtitle_label._responsive_max_font_size = 13
+        self.home_subtitle_label.pack()
 
         # ===== 统一 Omnibox 卡片（居中，最大宽度 ~720px） =====
         omnibox = GlassCapsulePanel(center, bg_parent=COLOR_BG_APP)
@@ -1386,17 +1639,23 @@ class AIMemoryGUI:
         file_capsule.pack(side=tk.LEFT, fill=tk.X, expand=True)
         selected_file_name = tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
-            font=FONT_SMALL, fg=COLOR_TEXT_PRIMARY, bg="#EAF2FF",
-            anchor="w",
+            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_PRIMARY, bg="#EAF2FF",
+            anchor="w", width=56,
         )
+        selected_file_name._responsive_min_font_size = 11
+        selected_file_name._responsive_max_font_size = 13
+        self.selected_file_label = selected_file_name
+        self._selected_file_tooltip = HoverTooltip(selected_file_name, "")
         self.clear_file_button = tk.Button(
             file_capsule, text="✕",
             command=self._clear_summary_file,
-            font=FONT_SMALL_BOLD, bg="#EAF2FF", fg=COLOR_DANGER,
+            font=(FONT_FAMILY, 11, "bold"), bg="#EAF2FF", fg=COLOR_DANGER,
             activebackground="#EAF2FF", activeforeground=COLOR_DANGER,
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=4, pady=0
         )
+        self.clear_file_button._responsive_min_font_size = 10
+        self.clear_file_button._responsive_max_font_size = 12
         self.clear_file_button.pack(side=tk.RIGHT, padx=(6, 0))
         selected_file_name.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
@@ -1419,22 +1678,26 @@ class AIMemoryGUI:
         self.file_select_button = tk.Button(
             toolbar_left, text="📎 添加文件",
             command=self._choose_summary_file,
-            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
+            font=(FONT_FAMILY, 12), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
+        self.file_select_button._responsive_min_font_size = 11
+        self.file_select_button._responsive_max_font_size = 13
         self.file_select_button.pack(side=tk.LEFT, padx=(0, 16))
 
-        btn_paste = tk.Button(
+        self.paste_link_button = tk.Button(
             toolbar_left, text="🔗 粘贴链接",
             command=self._paste_clipboard_to_entry,
-            font=(FONT_FAMILY, 9), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
+            font=(FONT_FAMILY, 12), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=8, pady=4
         )
-        btn_paste.pack(side=tk.LEFT)
+        self.paste_link_button._responsive_min_font_size = 11
+        self.paste_link_button._responsive_max_font_size = 13
+        self.paste_link_button.pack(side=tk.LEFT)
 
         # 右下角：发送按钮
         toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
@@ -1443,12 +1706,14 @@ class AIMemoryGUI:
         self.btn_send = tk.Button(
             toolbar_right, text="→",
             command=self._on_omnibox_send,
-            font=(FONT_FAMILY, 15, "bold"), bg=COLOR_OMNIBOX_SURFACE,
+            font=(FONT_FAMILY, 18, "bold"), bg=COLOR_OMNIBOX_SURFACE,
             fg="#FFFFFF",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_ACCENT_BLUE,
             relief=tk.FLAT, bd=0, cursor="arrow",
             width=3, pady=2, highlightthickness=0,
         )
+        self.btn_send._responsive_min_font_size = 17
+        self.btn_send._responsive_max_font_size = 21
         self.btn_send.pack(side=tk.RIGHT)
         self.btn_send.bind("<Enter>", self._on_send_hover)
         self.btn_send.bind("<Leave>", self._on_send_leave)
@@ -1512,6 +1777,7 @@ class AIMemoryGUI:
 
         section = tk.Frame(page, bg=COLOR_BG_APP)
         section.pack(fill=tk.BOTH, expand=True, padx=28, pady=(16, 20))
+        self._generation_section = section
 
         heading = tk.Frame(section, bg=COLOR_BG_APP)
         heading.pack(fill=tk.X, pady=(0, 14))
@@ -1521,11 +1787,6 @@ class AIMemoryGUI:
             heading_copy, text="生成记忆总结", font=(FONT_FAMILY, 20, "bold"),
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
         ).pack(fill=tk.X)
-        tk.Label(
-            heading_copy, text="选择内容来源和输出方式，按你的偏好生成记忆总结。",
-            font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
-            anchor="w",
-        ).pack(fill=tk.X, pady=(4, 0))
         ready_badge = tk.Label(
             heading, text="  ●  已就绪  ", font=FONT_SMALL_BOLD,
             fg=COLOR_SUCCESS, bg="#F1FAF6", padx=8, pady=6,
@@ -1534,20 +1795,25 @@ class AIMemoryGUI:
 
         workspace = tk.Frame(section, bg=COLOR_BG_APP)
         workspace.pack(fill=tk.BOTH, expand=True)
-        workspace.grid_columnconfigure(0, weight=1, minsize=390)
-        workspace.grid_columnconfigure(1, weight=0, minsize=210)
+        self._generation_workspace = workspace
+        card_width = 184
+        workspace.grid_columnconfigure(0, weight=1, minsize=0)
+        workspace.grid_columnconfigure(1, weight=0, minsize=0)
         workspace.grid_rowconfigure(0, weight=1)
 
         left_column = tk.Frame(workspace, bg=COLOR_BG_APP)
         left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
+        self._generation_left_column = left_column
         right_column = tk.Frame(workspace, bg=COLOR_BG_APP, width=210)
         right_column.grid(row=0, column=1, sticky="nsew")
         right_column.grid_propagate(False)
+        self._generation_right_column = right_column
 
         mode_panel = tk.Frame(
-            left_column, bg=COLOR_CARD, padx=16, pady=14,
+            left_column, bg=COLOR_CARD, padx=12, pady=12,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
+        self._generation_mode_panel = mode_panel
         mode_panel.pack(fill=tk.BOTH, expand=True)
         mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
         mode_header.pack(fill=tk.X, pady=(0, 10))
@@ -1569,10 +1835,10 @@ class AIMemoryGUI:
         mode_grid.grid_rowconfigure(1, weight=1)
 
         cards = (
-            ("card_raw", "仅抓取对话", "保留原始问答，不调用总结 API。", "", False),
-            ("card_normal", "结构化总结", "整理为清晰的多级结构，支持自定义大纲。", "推荐", True),
-            ("card_simple", "高保真总览", "紧凑还原重点，减少信息压缩损失。", "", False),
-            ("card_detailed", "细节要点", "提取事实、数据、行动项与重要引用。", "", False),
+            ("card_raw", "仅抓取对话", "保留原始问答，不调用 API。", "", False),
+            ("card_normal", "结构化总结", "分层整理，支持自定义。", "推荐", True),
+            ("card_simple", "高保真总览", "紧凑还原重点。", "", False),
+            ("card_detailed", "细节要点", "提取事实、数据和行动。", "", False),
         )
         for index, card_data in enumerate(cards):
             attr, title, subtitle, badge, checked = card_data
@@ -1580,18 +1846,20 @@ class AIMemoryGUI:
                 mode_grid, title=title, subtitle=subtitle,
                 badge_text=badge,
                 initial_checked=checked, on_toggle=self._on_mode_toggled,
+                width=card_width, height=100,
             )
             card.grid(
                 row=index // 2, column=index % 2, sticky="nsew",
-                padx=(0, 5) if index % 2 == 0 else (5, 0),
-                pady=(0, 5) if index < 2 else (5, 0),
+                padx=(0, 4) if index % 2 == 0 else (4, 0),
+                pady=(0, 4) if index < 2 else (4, 0),
             )
             setattr(self, attr, card)
 
         auth_panel = tk.Frame(
-            left_column, bg=COLOR_CARD, padx=16, pady=12,
+            left_column, bg=COLOR_CARD, padx=12, pady=10,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
+        self._generation_auth_panel = auth_panel
         auth_panel.pack(fill=tk.X, pady=(12, 0))
         auth_copy = tk.Frame(auth_panel, bg=COLOR_CARD)
         auth_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -1603,16 +1871,16 @@ class AIMemoryGUI:
             auth_copy, text="受限页面可切换为独立浏览器授权",
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
         ).pack(fill=tk.X, pady=(3, 0))
-        auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=3, pady=3)
+        auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=2, pady=3)
         auth_switch.pack(side=tk.RIGHT)
         self.card_no_login = GenerationSegmentOption(
             auth_switch, text=AUTH_REUSE_LABEL, initial_checked=True,
-            on_toggle=self._on_auth_toggled, width=102,
+            on_toggle=self._on_auth_toggled, width=94,
         )
         self.card_no_login.pack(side=tk.LEFT)
         self.card_need_login = GenerationSegmentOption(
             auth_switch, text="授权登录", initial_checked=False,
-            on_toggle=self._on_auth_toggled, width=102,
+            on_toggle=self._on_auth_toggled, width=94,
         )
         self.card_need_login.pack(side=tk.LEFT)
 
@@ -1621,6 +1889,7 @@ class AIMemoryGUI:
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
         task_panel.pack(fill=tk.X)
+        self._generation_task_panel = task_panel
         tk.Label(
             task_panel, text="本次任务", font=FONT_BODY_BOLD,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w",
@@ -1674,25 +1943,30 @@ class AIMemoryGUI:
             highlightbackground="#E4DDFE",
         )
         tip_panel.pack(fill=tk.X, pady=(12, 0))
+        self._generation_tip_panel = tip_panel
         tk.Label(
             tip_panel, text="✦  更好的总结效果", font=FONT_SMALL_BOLD,
             fg="#6047C8", bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
         ).pack(fill=tk.X)
-        tk.Label(
+        tip_copy = tk.Label(
             tip_panel,
-            text="结构化总结适合归档；高保真总览适合快速回顾。",
+            text="归档选结构化，总览选高保真。",
             font=FONT_TINY, fg=COLOR_TEXT_MUTED,
-            bg=COLOR_GENERATION_ACCENT_BG, justify=tk.LEFT,
-            wraplength=170, anchor="w",
-        ).pack(fill=tk.X, pady=(6, 0))
+            bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
+        )
+        self._generation_tip_copy = tip_copy
+        tip_copy.pack(fill=tk.X, pady=(6, 0))
+        HoverTooltip(tip_copy, "结构化总结适合归档；高保真总览适合快速回顾。")
 
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
             highlightthickness=1, highlightbackground="#DED7FA",
         )
         run_panel.pack(fill=tk.X, pady=(14, 0))
+        self._generation_run_panel = run_panel
         run_row = tk.Frame(run_panel, bg=COLOR_GENERATION_ACCENT_BG)
         run_row.pack(fill=tk.X)
+        self._generation_run_row = run_row
         run_icon = tk.Label(
             run_row, text="↗", font=(FONT_FAMILY, 14, "bold"),
             fg="#FFFFFF", bg=COLOR_GENERATION_ACCENT,
@@ -1701,12 +1975,14 @@ class AIMemoryGUI:
         run_icon.pack(side=tk.LEFT, padx=(0, 10))
         status_copy = tk.Frame(run_row, bg=COLOR_GENERATION_ACCENT_BG)
         status_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._generation_status_copy = status_copy
         self.status_var = tk.StringVar(value="所有配置已完成")
-        tk.Label(
+        self.status_label = tk.Label(
             status_copy, textvariable=self.status_var,
             font=FONT_SMALL_BOLD, fg=COLOR_TEXT_PRIMARY,
             bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
-        ).pack(fill=tk.X)
+        )
+        self.status_label.pack(fill=tk.X)
         self.percent_var = tk.StringVar(value="")
         tk.Label(
             status_copy, textvariable=self.percent_var,
@@ -1787,10 +2063,12 @@ class AIMemoryGUI:
                 justify="center",
             )
             self.history_empty_label.pack(pady=(60, 0))
+            self._apply_responsive_scale(force=True)
             return
 
         for record in self.history_records:
             self._build_history_card(self.history_list_frame, record)
+        self._apply_responsive_scale(force=True)
 
     def _build_history_card(self, parent: tk.Frame, record: dict):
         """构建单条历史任务卡片。"""
@@ -1809,11 +2087,13 @@ class AIMemoryGUI:
             header, text=status_icon, font=FONT_BODY_BOLD,
             fg=status_color, bg=COLOR_CARD,
         ).pack(side=tk.LEFT, padx=(0, 8))
-        tk.Label(
+        title_label = tk.Label(
             header, text=record.get("title", "未命名任务"),
             font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
-            anchor="w",
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            anchor="w", width=58,
+        )
+        title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        HoverTooltip(title_label, str(record.get("title", "未命名任务")))
         tk.Label(
             header, text=record.get("timestamp", ""),
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
@@ -1853,15 +2133,17 @@ class AIMemoryGUI:
         if files:
             files_row = tk.Frame(card, bg=COLOR_CARD)
             files_row.pack(fill=tk.X, pady=(10, 0))
-            tk.Label(
+            file_label = tk.Label(
                 files_row, text="📁 " + "、".join(files),
                 font=FONT_TINY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_CARD,
-                anchor="w", wraplength=500, justify="left",
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+                anchor="w", width=72,
+            )
+            file_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            HoverTooltip(file_label, "、".join(map(str, files)))
 
             output_dir = record.get("output_dir")
             if output_dir:
-                tk.Button(
+                open_button = tk.Button(
                     files_row, text="📂 打开文件夹",
                     command=lambda d=output_dir: self._open_in_explorer(d),
                     font=FONT_TINY, bg=COLOR_CARD, fg=COLOR_TEXT_SECONDARY,
@@ -1870,7 +2152,9 @@ class AIMemoryGUI:
                     relief=tk.FLAT, bd=0, cursor="hand2",
                     highlightthickness=1, highlightbackground=COLOR_BORDER,
                     padx=10, pady=4,
-                ).pack(side=tk.RIGHT)
+                )
+                open_button.pack(side=tk.RIGHT)
+                HoverTooltip(open_button, str(output_dir))
 
     def _open_in_explorer(self, dir_path: str):
         """在系统文件管理器中打开目录。"""
@@ -1889,41 +2173,29 @@ class AIMemoryGUI:
 
     def _draw_vibrant_gradient(self, w: int, h: int):
         """保留契约：极简风使用纯色底，不绘制多段渐变。"""
-        self.bg_canvas.delete("gradient_bg")
-        self.bg_canvas.create_rectangle(
-            0, 0, w, h, fill=COLOR_BG_APP, outline="", tags="gradient_bg"
-        )
-        self.bg_canvas.tag_lower("gradient_bg")
+        if self._gradient_item_id is None:
+            self._gradient_item_id = self.bg_canvas.create_rectangle(
+                0, 0, w, h, fill=COLOR_BG_APP, outline="", tags="gradient_bg",
+            )
+            self.bg_canvas.tag_lower(self._gradient_item_id)
+        else:
+            self.bg_canvas.coords(self._gradient_item_id, 0, 0, w, h)
 
     def _on_canvas_configure(self, event):
-        if event is None:
-            self.bg_canvas.update_idletasks()
-            w = self.bg_canvas.winfo_width()
-            h = self.bg_canvas.winfo_height()
-        else:
-            w = event.width
-            h = event.height
-        if self._current_page == 0:
-            content_height = max(h, self.main_content.winfo_reqheight())
-            self.bg_canvas.itemconfig(
-                self.canvas_window_id,
-                width=w,
-                height=content_height,
-            )
-        else:
-            self.bg_canvas.itemconfig(
-                self.canvas_window_id,
-                width=w,
-                height=0,
-            )
+        w = event.width if event else self.bg_canvas.winfo_width()
+        h = event.height if event else self.bg_canvas.winfo_height()
+        content_width = min(w, self._content_max_width)
+        x = max(0, (w - content_width) // 2)
+        content_height = max(h, self.main_content.winfo_reqheight())
+        self.bg_canvas.coords(self.canvas_window_id, x, 0)
+        self.bg_canvas.itemconfig(
+            self.canvas_window_id, width=content_width, height=content_height,
+        )
         self._draw_vibrant_gradient(w, h)
+        self._schedule_scrollregion()
 
     def _on_content_configure(self, _event):
-        """内容尺寸变化时，用 bbox('all') 精确更新 scrollregion。"""
-        self.bg_canvas.update_idletasks()
-        bb = self.bg_canvas.bbox("all")
-        if bb:
-            self.bg_canvas.configure(scrollregion=bb)
+        self._schedule_scrollregion()
 
     def _bind_mousewheel(self):
         """绑定滚轮 + 触控板双指滚动，yview_moveto 实现像素级丝滑（兼容 Tk 8.6）。"""
@@ -1935,6 +2207,7 @@ class AIMemoryGUI:
                 px = max(1, min(40, abs(raw) // 4))
                 direction = px if raw < 0 else -px
                 self._smooth_scroll(direction)
+                return "break"
             except tk.TclError:
                 pass
 
@@ -1944,26 +2217,19 @@ class AIMemoryGUI:
                 if delta == 0:
                     return
                 self._smooth_scroll(-delta)
+                return "break"
             except tk.TclError:
                 pass
 
-        self.bg_canvas.bind("<MouseWheel>", on_wheel)
         self.root.bind_all("<MouseWheel>", on_wheel, add="+")
         try:
-            self.bg_canvas.bind("<PixelScroll>", on_pixelscroll)
             self.root.bind_all("<PixelScroll>", on_pixelscroll, add="+")
         except tk.TclError:
             pass
-        for child in self.bg_canvas.winfo_children():
-            try:
-                child.bind("<MouseWheel>", on_wheel)
-            except tk.TclError:
-                pass
 
     def _smooth_scroll(self, delta_px: int):
         """像素级平滑滚动：通过 yview_moveto 精确设置视口位置（兼容 Tk 8.6）。"""
-        self.bg_canvas.update_idletasks()
-        bb = self.bg_canvas.bbox("all")
+        bb = self._scrollregion or self.bg_canvas.bbox("all")
         if not bb:
             return
         total_h = bb[3] - bb[1]
@@ -2004,6 +2270,9 @@ class AIMemoryGUI:
         except OSError:
             label = f"📄 {self.selected_summary_file.name}"
         self.selected_file_name_var.set(label)
+        tooltip = getattr(self, "_selected_file_tooltip", None)
+        if tooltip:
+            tooltip._text = str(self.selected_summary_file)
         self.file_select_button.config(text="📎 重新添加")
         self.selected_file_row.pack(
             fill=tk.X, pady=(0, 8), before=self.capsule_entry,
@@ -2064,6 +2333,9 @@ class AIMemoryGUI:
     def _clear_summary_file(self):
         self.selected_summary_file = None
         self.selected_file_name_var.set("")
+        tooltip = getattr(self, "_selected_file_tooltip", None)
+        if tooltip:
+            tooltip._text = ""
         self.selected_file_row.pack_forget()
         self.file_select_button.config(text="📎 添加文件")
         self._refresh_generation_sources()
@@ -2073,6 +2345,8 @@ class AIMemoryGUI:
     # ---------------- 模式与登录切换 ----------------
 
     def _refresh_generation_sources(self):
+        if getattr(self, "is_running", False):
+            return
         has_url = bool(self.capsule_entry.get_text().strip())
         has_file = self.selected_summary_file is not None
         url_became_available = (
@@ -2128,7 +2402,7 @@ class AIMemoryGUI:
         self._refresh_generation_summary()
 
     def _on_generation_source_toggled(self, selected_option):
-        if self.is_running:
+        if getattr(self, "is_running", False):
             return
         self.generation_source = (
             "url" if selected_option is self.card_source_url else "file"
@@ -2190,7 +2464,6 @@ class AIMemoryGUI:
 
     def _set_inputs_locked(self, locked: bool):
         source = getattr(self, "generation_source", None)
-        self.capsule_entry.set_locked(locked)
         self.card_raw.set_disabled(locked or source == "file")
         self.card_normal.set_disabled(locked)
         self.card_simple.set_disabled(locked)
@@ -2208,14 +2481,6 @@ class AIMemoryGUI:
             option = getattr(self, attr, None)
             if option is not None:
                 option.set_disabled(locked or not available)
-        self.file_select_button.config(
-            state="disabled" if locked else "normal",
-            cursor="arrow" if locked else "hand2",
-        )
-        self.clear_file_button.config(
-            state="disabled" if locked else "normal",
-            cursor="arrow" if locked else "hand2",
-        )
         # 设置按钮始终可用（测试契约 test_generation_lock_keeps_settings_button_enabled）
         try:
             self.api_key_button.config(state="normal", cursor="hand2")
@@ -2229,6 +2494,8 @@ class AIMemoryGUI:
         """URL 变更：发送按钮状态 + 私有链接检测 + 登录策略自动调整。"""
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
+        if getattr(self, "is_running", False):
+            return
         url = self.capsule_entry.get_text()
         try:
             host = urlparse(url).netloc.lower()
@@ -2255,7 +2522,7 @@ class AIMemoryGUI:
     # ---------------- 按钮状态 ----------------
 
     def _update_generate_button_state(self):
-        if self.is_running:
+        if getattr(self, "is_running", False):
             self.btn_generate.set_enabled(False)
             return
         has_mode = any([
@@ -2313,6 +2580,8 @@ class AIMemoryGUI:
     # ---------------- 开始生成 / 直接总结 ----------------
 
     def _on_start_generate(self):
+        if getattr(self, "is_running", False):
+            return
         if getattr(self, "generation_source", None) == "file":
             self._on_direct_summary()
             return
@@ -2397,6 +2666,8 @@ class AIMemoryGUI:
         thread.start()
 
     def _on_direct_summary(self):
+        if getattr(self, "is_running", False):
+            return
         source_path = getattr(self, "selected_summary_file", None)
         if source_path is None:
             messagebox.showwarning("提示", "请先选取要直接总结的对话文件。")
@@ -2587,19 +2858,24 @@ class AIMemoryGUI:
             row.pack(fill=tk.X, pady=4)
             variable = tk.BooleanVar(master=dialog, value=False)
             variables[topic_id] = variable
-            tk.Checkbutton(
+            title_button = tk.Checkbutton(
                 row, text=f"{index}. {topic['title']}",
                 variable=variable,
                 font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
                 activebackground=COLOR_CARD, selectcolor=COLOR_ACCENT_BG,
-                cursor="hand2", anchor="w"
-            ).pack(fill=tk.X)
-            tk.Label(
+                cursor="hand2", anchor="w", width=64,
+            )
+            title_button.pack(fill=tk.X)
+            HoverTooltip(title_button, str(topic["title"]))
+            summary_text = str(topic.get("summary") or "该主题暂无摘要。")
+            summary_label = tk.Label(
                 row,
-                text=str(topic.get("summary") or "该主题暂无摘要。")[:180],
+                text=summary_text,
                 font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
-                anchor="w", justify=tk.LEFT, wraplength=500
-            ).pack(fill=tk.X, padx=(24, 0), pady=(1, 0))
+                anchor="w", justify=tk.LEFT, width=72,
+            )
+            summary_label.pack(fill=tk.X, padx=(24, 0), pady=(1, 0))
+            HoverTooltip(summary_label, summary_text)
 
         tk.Label(
             content,
@@ -2983,6 +3259,7 @@ class AIMemoryGUI:
     def _on_task_finished(self):
         self.is_running = False
         self._set_inputs_locked(False)
+        self._refresh_generation_sources()
         self._update_generate_button_state()
 
     # ---------------- 设置弹窗（保留旧版 API KEY 兼容入口） ----------------
@@ -3056,9 +3333,21 @@ class AIMemoryGUI:
         notice_label.pack(anchor="w")
 
         def show_notice(message: str, duration_ms: int = 3500):
+            if self._notice_after_id is not None:
+                try:
+                    self.root.after_cancel(self._notice_after_id)
+                except tk.TclError:
+                    pass
+                self._notice_after_id = None
             notice_var.set(message)
             if duration_ms > 0:
-                self.root.after(duration_ms, lambda: notice_var.set(""))
+                def clear_notice():
+                    self._notice_after_id = None
+                    notice_var.set("")
+
+                self._notice_after_id = self.root.after(
+                    duration_ms, clear_notice,
+                )
 
         page.show_notice = show_notice
 
@@ -3080,99 +3369,246 @@ class AIMemoryGUI:
 
         api_rows_frame = tk.Frame(api_page, bg=COLOR_CARD)
         api_rows_frame.pack(fill=tk.X, pady=(0, 8))
+        api_rows_frame.pack_propagate(False)
 
         api_key_vars: dict[str, tk.StringVar] = {}
-        api_row_refs: list[tk.Frame] = []
-        drag_state = {"active": False, "src": -1, "tgt": -1}
+        api_row_refs: dict[str, tk.Frame] = {}
+        drag_state = {
+            "active": False, "src": None, "tgt": None,
+            "start_order": None, "preview_order": None,
+            "start_y": None, "start_x": None, "offset_y": 0,
+            "inside": False, "moved": False,
+        }
+        animation = {"after_id": None, "token": 0}
+        row_height, row_gap = 34, 8
 
-        def _render_api_rows():
-            for row in api_row_refs:
-                row.destroy()
-            api_row_refs.clear()
-            api_key_vars.clear()
+        def _layout_api_rows(animate=False, order=None, dragged=None):
+            if animation["after_id"] is not None:
+                try:
+                    self.root.after_cancel(animation["after_id"])
+                except tk.TclError:
+                    pass
+                animation["after_id"] = None
+            animation["token"] += 1
+            token = animation["token"]
+            row_order = ordered_providers if order is None else order
+            starts = {
+                provider: api_row_refs[provider].winfo_y()
+                for provider in row_order
+            }
+            step = row_height + row_gap
+            api_rows_frame.configure(
+                height=max(1, len(row_order) * step - row_gap),
+            )
 
-            for idx, provider in enumerate(ordered_providers):
-                row = tk.Frame(api_rows_frame, bg=COLOR_CARD)
-                row.pack(fill=tk.X, pady=3)
-                api_row_refs.append(row)
+            def place(progress):
+                eased = 1 - (1 - progress) ** 3
+                for index, provider in enumerate(row_order):
+                    if provider == dragged:
+                        continue
+                    target_y = index * step
+                    start_y = starts[provider]
+                    y = round(start_y + (target_y - start_y) * eased)
+                    api_row_refs[provider].place(
+                        x=0, y=y, relwidth=1, height=row_height,
+                    )
 
-                handle = tk.Label(
-                    row, text="\u2630", font=FONT_BODY,
-                    fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, cursor="hand2",
-                    padx=8,
-                )
-                handle.pack(side=tk.LEFT)
-                handle.bind(
-                    "<ButtonPress-1>",
-                    lambda event, i=idx: _drag_start(event, i),
-                )
-                handle.bind(
-                    "<B1-Motion>", lambda event: _drag_motion(event)
-                )
-                handle.bind(
-                    "<ButtonRelease-1>",
-                    lambda event: _drag_end(event),
-                )
-                HoverTooltip(handle, "拖动以调整兜底顺序")
+            if not animate or all(
+                starts[provider] == index * step
+                for index, provider in enumerate(row_order)
+                if provider != dragged
+            ):
+                place(1)
+                return
 
-                tk.Label(
-                    row, text=providers[provider],
-                    font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY,
-                    bg=COLOR_CARD, width=14, anchor="w",
-                ).pack(side=tk.LEFT, padx=(0, 6))
+            started = time.perf_counter()
 
-                entry_var = tk.StringVar(
-                    value=existing_keys.get(provider, "")
-                )
-                entry = tk.Entry(
-                    row, textvariable=entry_var, show="*",
-                    font=FONT_BODY, fg=COLOR_TEXT_PRIMARY,
-                    bg=COLOR_BG_APP, relief=tk.FLAT, width=24,
-                    insertbackground=COLOR_TEXT_PRIMARY,
-                    highlightthickness=1,
-                    highlightbackground=COLOR_BORDER,
-                    highlightcolor=COLOR_BORDER_FOCUS,
-                )
-                entry.pack(
-                    side=tk.LEFT, fill=tk.X, expand=True,
-                    ipady=4, padx=2,
-                )
-                api_key_vars[provider] = entry_var
+            def tick():
+                if token != animation["token"]:
+                    return
+                progress = min(1, (time.perf_counter() - started) / 0.16)
+                place(progress)
+                if progress < 1:
+                    animation["after_id"] = self.root.after(16, tick)
+                else:
+                    animation["after_id"] = None
 
-        def _drag_start(_event, idx):
+            tick()
+
+        def _reset_drag_state():
+            drag_state.update({
+                "active": False, "src": None, "tgt": None,
+                "start_order": None, "preview_order": None,
+                "start_y": None, "start_x": None, "offset_y": 0,
+                "inside": False, "moved": False,
+            })
+
+        def _cancel_api_drag(animate=False):
+            if not drag_state["active"] and animation["after_id"] is None:
+                return
+            _reset_drag_state()
+            _layout_api_rows(animate=animate)
+
+        def _cancel_api_reorder_animation():
+            _cancel_api_drag(animate=False)
+
+        self._cancel_api_reorder_animation = _cancel_api_reorder_animation
+
+        for provider in providers:
+            row = tk.Frame(api_rows_frame, bg=COLOR_CARD)
+            api_row_refs[provider] = row
+
+            handle = tk.Label(
+                row, text="\u2630", font=FONT_BODY,
+                fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, cursor="hand2",
+                padx=8,
+            )
+            handle.pack(side=tk.LEFT)
+            handle.bind(
+                "<ButtonPress-1>",
+                lambda event, key=provider: _drag_start(event, key),
+            )
+            handle.bind("<B1-Motion>", lambda event: _drag_motion(event))
+            handle.bind("<ButtonRelease-1>", lambda event: _drag_end(event))
+            HoverTooltip(handle, "拖动以调整兜底顺序")
+
+            tk.Label(
+                row, text=providers[provider],
+                font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY,
+                bg=COLOR_CARD, width=14, anchor="w",
+            ).pack(side=tk.LEFT, padx=(0, 6))
+
+            entry_var = tk.StringVar(value=existing_keys.get(provider, ""))
+            tk.Entry(
+                row, textvariable=entry_var, show="*",
+                font=FONT_BODY, fg=COLOR_TEXT_PRIMARY,
+                bg=COLOR_BG_APP, relief=tk.FLAT, width=24,
+                insertbackground=COLOR_TEXT_PRIMARY,
+                highlightthickness=1,
+                highlightbackground=COLOR_BORDER,
+                highlightcolor=COLOR_BORDER_FOCUS,
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=2)
+            api_key_vars[provider] = entry_var
+
+        def _drag_start(_event, provider):
+            if provider not in ordered_providers:
+                return
+            _layout_api_rows()
+            row = api_row_refs[provider]
+            pointer_y = getattr(_event, "y_root", row.winfo_rooty() + row_height // 2)
+            pointer_x = getattr(_event, "x_root", row.winfo_rootx() + 12)
             drag_state["active"] = True
-            drag_state["src"] = idx
-            drag_state["tgt"] = idx
+            drag_state["src"] = provider
+            drag_state["tgt"] = provider
+            drag_state["start_order"] = list(ordered_providers)
+            drag_state["preview_order"] = list(ordered_providers)
+            drag_state["start_y"] = pointer_y
+            drag_state["start_x"] = pointer_x
+            drag_state["offset_y"] = max(
+                0, min(row_height, pointer_y - row.winfo_rooty()),
+            )
+            drag_state["inside"] = True
+            drag_state["moved"] = False
+            row.lift()
 
         def _drag_motion(event):
             if not drag_state["active"]:
                 return
-            mouse_y = event.y_root
-            for idx, row in enumerate(api_row_refs):
-                top = row.winfo_rooty()
-                bottom = top + row.winfo_reqheight()
-                if top <= mouse_y <= bottom:
-                    drag_state["tgt"] = idx
-                    return
+            src = drag_state["src"]
+            pointer_y = event.y_root
+            pointer_x = getattr(
+                event, "x_root",
+                api_rows_frame.winfo_rootx() + api_rows_frame.winfo_width() // 2,
+            )
+            if (
+                abs(pointer_y - drag_state["start_y"]) >= 4
+                or abs(pointer_x - drag_state["start_x"]) >= 4
+            ):
+                drag_state["moved"] = True
 
-        def _drag_end(_event):
+            list_top = api_rows_frame.winfo_rooty()
+            list_left = api_rows_frame.winfo_rootx()
+            list_bottom = list_top + api_rows_frame.winfo_height()
+            list_right = list_left + api_rows_frame.winfo_width()
+            list_height = len(ordered_providers) * (row_height + row_gap) - row_gap
+            row = api_row_refs[src]
+            dragged_top = max(
+                0,
+                min(
+                    list_height - row_height,
+                    pointer_y - list_top - drag_state["offset_y"],
+                ),
+            )
+            row.place(x=0, y=dragged_top, relwidth=1, height=row_height)
+            row.lift()
+
+            inside = (
+                list_left <= pointer_x <= list_right
+                and list_top <= pointer_y <= list_bottom
+            )
+            drag_state["inside"] = inside
+            start_order = drag_state["start_order"]
+            if inside:
+                others = [provider for provider in start_order if provider != src]
+                pointer_offset = dragged_top + row_height / 2
+                slot = sum(
+                    pointer_offset >= index * (row_height + row_gap) + row_height / 2
+                    for index, provider in enumerate(start_order)
+                    if provider != src
+                )
+                preview = others[:slot] + [src] + others[slot:]
+                drag_state["tgt"] = (
+                    preview[min(slot + 1, len(preview) - 1)]
+                    if slot < len(others) else preview[-1]
+                )
+            else:
+                preview = list(start_order)
+                drag_state["tgt"] = None
+
+            if preview != drag_state["preview_order"]:
+                drag_state["preview_order"] = preview
+                _layout_api_rows(
+                    animate=True, order=preview, dragged=src,
+                )
+                row.lift()
+
+        def _drag_end(event):
             if not drag_state["active"]:
                 return
+            if event is not None:
+                _drag_motion(event)
             src = drag_state["src"]
-            tgt = drag_state["tgt"]
-            if (
-                0 <= src < len(ordered_providers)
-                and 0 <= tgt < len(ordered_providers)
-                and src != tgt
-            ):
-                item = ordered_providers.pop(src)
-                ordered_providers.insert(tgt, item)
-                _render_api_rows()
-            drag_state["active"] = False
-            drag_state["src"] = -1
-            drag_state["tgt"] = -1
+            start_order = drag_state["start_order"]
+            preview_order = drag_state["preview_order"]
+            commit = (
+                drag_state["inside"] and drag_state["moved"]
+                and preview_order != start_order
+            )
+            if commit:
+                ordered_providers[:] = preview_order
+            _reset_drag_state()
+            _layout_api_rows(animate=True)
+
+        page.api_row_refs = api_row_refs
+        page.api_key_vars = api_key_vars
+        page.ordered_providers = ordered_providers
+        page.api_rows_frame = api_rows_frame
+        page.api_animation = animation
+        page._drag_start = _drag_start
+        page._drag_motion = _drag_motion
+        page._drag_end = _drag_end
+        page._layout_api_rows = _layout_api_rows
+        page._drag_state = drag_state
+        _layout_api_rows()
+
+        def _on_settings_tab_changed(_event=None):
+            if notebook.select() != str(api_page):
+                _cancel_api_reorder_animation()
+
+        notebook.bind("<<NotebookTabChanged>>", _on_settings_tab_changed, add="+")
 
         def _save_api_keys():
+            _cancel_api_drag(animate=False)
             keys = {
                 provider: var.get() for provider, var in api_key_vars.items()
             }
@@ -3190,11 +3626,10 @@ class AIMemoryGUI:
             relief=tk.FLAT, padx=18, pady=8, cursor="hand2",
         )
         save_button.pack(side=tk.RIGHT, pady=(8, 0))
+        page.api_save_button = save_button
 
         if key_load_error:
             show_notice(key_load_error, 5000)
-
-        _render_api_rows()
 
         # ----- 数据保存位置页 -----
         runtime_var = tk.StringVar(
@@ -3241,7 +3676,7 @@ class AIMemoryGUI:
             except Exception:
                 show_notice("保存失败，请检查目录权限", 4000)
 
-        def _make_dir_row(parent, label, var, title, with_reset=False):
+        def _make_dir_row(parent, label, var, title):
             row = tk.Frame(parent, bg=COLOR_CARD)
             row.pack(fill=tk.X, pady=6)
             tk.Label(
@@ -3260,6 +3695,12 @@ class AIMemoryGUI:
             entry.pack(
                 side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=4,
             )
+            path_tooltip = HoverTooltip(entry, var.get())
+            var.trace_add(
+                "write", lambda *_args, tip=path_tooltip, value=var: setattr(
+                    tip, "_text", value.get(),
+                ),
+            )
             tk.Button(
                 row, text="浏览", cursor="hand2",
                 command=lambda: _pick_dir(var, title),
@@ -3268,17 +3709,6 @@ class AIMemoryGUI:
                 activebackground=COLOR_BORDER,
                 padx=10, pady=4,
             ).pack(side=tk.LEFT, padx=2)
-            if with_reset:
-                tk.Button(
-                    row, text="恢复默认", cursor="hand2",
-                    command=lambda: var.set(
-                        str(default_app_settings().runtime_data_dir)
-                    ),
-                    font=FONT_SMALL, relief=tk.FLAT,
-                    bg=COLOR_HOVER, fg=COLOR_TEXT_PRIMARY,
-                    activebackground=COLOR_BORDER,
-                    padx=10, pady=4,
-                ).pack(side=tk.LEFT, padx=2)
             tk.Button(
                 row, text="清除", cursor="hand2",
                 command=lambda: var.set(""),
@@ -3291,19 +3721,39 @@ class AIMemoryGUI:
 
         _make_dir_row(
             data_page, "运行数据目录", runtime_var,
-            "选择运行数据目录", with_reset=True,
+            "选择运行数据目录",
         )
         _make_dir_row(
             data_page, "结果默认目录", results_var,
             "选择结果默认目录",
         )
 
-        tk.Button(
-            data_page, text="保存", command=_save_data_settings,
+        footer = tk.Frame(data_page, bg=COLOR_CARD)
+        footer.pack(fill=tk.X, pady=(12, 0))
+        save_button = tk.Button(
+            footer, text="保存", command=_save_data_settings,
             font=FONT_BODY_BOLD, bg=COLOR_TEXT_PRIMARY, fg="#FFFFFF",
             activebackground="#262626", activeforeground="#FFFFFF",
             relief=tk.FLAT, padx=18, pady=8, cursor="hand2",
-        ).pack(side=tk.RIGHT, pady=(12, 0))
+        )
+        reset_button = tk.Button(
+            footer, text="恢复默认", cursor="hand2",
+            command=lambda: (
+                runtime_var.set(str(default_app_settings().runtime_data_dir)),
+                results_var.set(""),
+            ),
+            font=FONT_BODY, bg=COLOR_HOVER, fg=COLOR_TEXT_PRIMARY,
+            activebackground=COLOR_BORDER, relief=tk.FLAT,
+            padx=18, pady=8,
+        )
+        save_button.pack(side=tk.RIGHT)
+        reset_button.pack(side=tk.RIGHT, padx=(0, 8))
+        data_page.footer = footer
+        data_page.save_button = save_button
+        data_page.reset_button = reset_button
+        data_page.runtime_var = runtime_var
+        data_page.results_var = results_var
+        page.data_page = data_page
 
         # ----- 页面切换方法（兼容外部调用） -----
         def show_page(page_key: str):
