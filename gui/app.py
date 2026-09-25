@@ -1450,10 +1450,10 @@ class AIMemoryGUI:
             self._generation_tip_panel.winfo_reqwidth(),
         )
         self._generation_workspace.grid_columnconfigure(
-            0, weight=1, minsize=left_width,
+            0, weight=3, minsize=left_width,
         )
         self._generation_workspace.grid_columnconfigure(
-            1, weight=0, minsize=right_width,
+            1, weight=1, minsize=right_width,
         )
         self._generation_right_column.configure(width=right_width)
         self._update_sidebar_width()
@@ -1797,8 +1797,8 @@ class AIMemoryGUI:
         workspace.pack(fill=tk.BOTH, expand=True)
         self._generation_workspace = workspace
         card_width = 184
-        workspace.grid_columnconfigure(0, weight=1, minsize=0)
-        workspace.grid_columnconfigure(1, weight=0, minsize=0)
+        workspace.grid_columnconfigure(0, weight=3, minsize=0)
+        workspace.grid_columnconfigure(1, weight=1, minsize=0)
         workspace.grid_rowconfigure(0, weight=1)
 
         left_column = tk.Frame(workspace, bg=COLOR_BG_APP)
@@ -1814,7 +1814,7 @@ class AIMemoryGUI:
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
         self._generation_mode_panel = mode_panel
-        mode_panel.pack(fill=tk.BOTH, expand=True)
+        mode_panel.pack(fill=tk.X)
         mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
         mode_header.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -1828,7 +1828,7 @@ class AIMemoryGUI:
         ).pack(side=tk.RIGHT)
 
         mode_grid = tk.Frame(mode_panel, bg=COLOR_CARD)
-        mode_grid.pack(fill=tk.BOTH, expand=True)
+        mode_grid.pack(fill=tk.X)
         mode_grid.grid_columnconfigure(0, weight=1, uniform="mode")
         mode_grid.grid_columnconfigure(1, weight=1, uniform="mode")
         mode_grid.grid_rowconfigure(0, weight=1)
@@ -3551,11 +3551,17 @@ class AIMemoryGUI:
             if inside:
                 others = [provider for provider in start_order if provider != src]
                 pointer_offset = dragged_top + row_height / 2
-                slot = sum(
-                    pointer_offset >= index * (row_height + row_gap) + row_height / 2
-                    for index, provider in enumerate(start_order)
-                    if provider != src
-                )
+                src_index = start_order.index(src)
+                slot = 0
+                for index, provider in enumerate(start_order):
+                    if provider == src:
+                        continue
+                    threshold = index * (row_height + row_gap) + row_height / 2
+                    if index == 0 and src_index > 0:
+                        threshold += row_gap
+                    elif index == len(start_order) - 1 and src_index < index:
+                        threshold -= row_gap
+                    slot += pointer_offset >= threshold
                 preview = others[:slot] + [src] + others[slot:]
                 drag_state["tgt"] = (
                     preview[min(slot + 1, len(preview) - 1)]

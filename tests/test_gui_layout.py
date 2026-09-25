@@ -219,6 +219,22 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         f"{card._title}: {card.itemcget(item, 'text')!r} {bounds}",
                     )
         left, right = app._generation_left_column, app._generation_right_column
+        mode_panel = app._generation_mode_panel
+        card_top = min(card.winfo_y() for card in cards)
+        card_bottom = max(
+            card.winfo_y() + card.winfo_height() for card in cards
+        )
+        self.assertGreater(mode_panel.winfo_height(), card_bottom - card_top)
+        self.assertLess(
+            mode_panel.winfo_height(), left.winfo_height(),
+            "mode panel should keep its natural height instead of filling the column",
+        )
+        self.assertEqual(
+            int(app._generation_workspace.grid_columnconfigure(0)["weight"]), 3,
+        )
+        self.assertEqual(
+            int(app._generation_workspace.grid_columnconfigure(1)["weight"]), 1,
+        )
         self.assertGreaterEqual(
             right.winfo_rootx(), left.winfo_rootx() + left.winfo_width(),
         )
@@ -371,6 +387,65 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             {provider: row.winfo_y() for provider, row in rows.items()},
             {provider: index * 42 for index, provider in enumerate(order)},
         )
+
+        siliconflow = "siliconflow"
+        self.assertEqual(order[1], siliconflow)
+        list_top = page.api_rows_frame.winfo_rooty()
+        list_bottom = list_top + page.api_rows_frame.winfo_height()
+        list_left = page.api_rows_frame.winfo_rootx()
+        list_center_x = list_left + page.api_rows_frame.winfo_width() // 2
+        page._drag_start(None, siliconflow)
+        page._drag_motion(SimpleNamespace(
+            y_root=list_top + 1,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(
+            page._drag_state["preview_order"],
+            [siliconflow, order[0], order[2]],
+            "the middle provider should be droppable above the top row",
+        )
+        page._drag_end(SimpleNamespace(
+            y_root=list_top + 1,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(page.ordered_providers[0], siliconflow)
+
+        page._drag_start(None, siliconflow)
+        page._drag_motion(SimpleNamespace(
+            y_root=list_top + 59,
+            x_root=list_center_x,
+        ))
+        page._drag_end(SimpleNamespace(
+            y_root=list_top + 59,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(page.ordered_providers[1], siliconflow)
+        page._drag_start(None, siliconflow)
+        page._drag_motion(SimpleNamespace(
+            y_root=list_bottom - 1,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(
+            page._drag_state["preview_order"][-1], siliconflow,
+            "the middle provider should be droppable below the bottom row",
+        )
+        page._drag_end(SimpleNamespace(
+            y_root=list_bottom - 1,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(page.ordered_providers[-1], siliconflow)
+        page._drag_start(None, siliconflow)
+        page._drag_motion(SimpleNamespace(
+            y_root=list_top + 50,
+            x_root=list_center_x,
+        ))
+        page._drag_end(SimpleNamespace(
+            y_root=list_top + 50,
+            x_root=list_center_x,
+        ))
+        self.assertEqual(page.ordered_providers, order)
+        self._flush(root)
+        order = list(page.ordered_providers)
 
         target = order[1]
         original_positions = {
