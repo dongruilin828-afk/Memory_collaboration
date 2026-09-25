@@ -1445,10 +1445,7 @@ class AIMemoryGUI:
             self._generation_mode_panel.winfo_reqwidth(),
             self._generation_auth_panel.winfo_reqwidth(),
         )
-        right_width = max(
-            self._generation_task_panel.winfo_reqwidth(),
-            self._generation_tip_panel.winfo_reqwidth(),
-        )
+        right_width = self._generation_task_panel.winfo_reqwidth()
         self._generation_workspace.grid_columnconfigure(
             0, weight=3, minsize=left_width,
         )
@@ -1891,7 +1888,7 @@ class AIMemoryGUI:
             right_column, bg=COLOR_CARD, padx=15, pady=14,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
-        task_panel.pack(fill=tk.X)
+        task_panel.pack(fill=tk.BOTH, expand=True)
         self._generation_task_panel = task_panel
         tk.Label(
             task_panel, text="本次任务", font=FONT_BODY_BOLD,
@@ -1925,41 +1922,20 @@ class AIMemoryGUI:
             ("访问方式", self.generation_auth_var),
         ):
             row = tk.Frame(task_panel, bg=COLOR_CARD)
-            row.pack(fill=tk.X, pady=5)
+            row.pack(fill=tk.X, pady=8)
             tk.Label(
-                row, text=label_text, font=FONT_TINY,
+                row, text=label_text, font=FONT_SMALL,
                 fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
             ).pack(side=tk.LEFT)
             tk.Label(
-                row, textvariable=value_var, font=FONT_TINY,
+                row, textvariable=value_var, font=FONT_SMALL,
                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
             ).pack(side=tk.RIGHT)
         tk.Frame(task_panel, bg=COLOR_BORDER, height=1).pack(fill=tk.X, pady=(8, 9))
         tk.Label(
-            task_panel, text="◷  预计耗时 1–3 分钟", font=FONT_TINY,
+            task_panel, text="◷  预计耗时 1–3 分钟", font=FONT_SMALL,
             fg=COLOR_SUCCESS, bg=COLOR_CARD, anchor="w",
         ).pack(fill=tk.X)
-
-        tip_panel = tk.Frame(
-            right_column, bg=COLOR_GENERATION_ACCENT_BG,
-            padx=14, pady=12, highlightthickness=1,
-            highlightbackground="#E4DDFE",
-        )
-        tip_panel.pack(fill=tk.X, pady=(12, 0))
-        self._generation_tip_panel = tip_panel
-        tk.Label(
-            tip_panel, text="✦  更好的总结效果", font=FONT_SMALL_BOLD,
-            fg="#6047C8", bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
-        ).pack(fill=tk.X)
-        tip_copy = tk.Label(
-            tip_panel,
-            text="归档选结构化，总览选高保真。",
-            font=FONT_TINY, fg=COLOR_TEXT_MUTED,
-            bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
-        )
-        self._generation_tip_copy = tip_copy
-        tip_copy.pack(fill=tk.X, pady=(6, 0))
-        HoverTooltip(tip_copy, "结构化总结适合归档；高保真总览适合快速回顾。")
 
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,

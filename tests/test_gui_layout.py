@@ -242,14 +242,14 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertGreaterEqual(
             app._generation_task_panel.winfo_rootx(), right.winfo_rootx(),
         )
-        self.assertGreaterEqual(
-            app._generation_tip_panel.winfo_rootx(), right.winfo_rootx(),
+        self.assertEqual(
+            app._generation_task_panel.winfo_rooty(), left.winfo_rooty(),
         )
-        self.assertEqual(root.tk.getint(app._generation_tip_copy.cget("wraplength")), 0)
-        tip_font = tkfont.Font(root=root, font=app._generation_tip_copy.cget("font"))
-        self.assertLessEqual(
-            tip_font.measure(app._generation_tip_copy.cget("text")),
-            app._generation_tip_copy.winfo_width(),
+        self.assertEqual(
+            app._generation_task_panel.winfo_rooty()
+            + app._generation_task_panel.winfo_height(),
+            left.winfo_rooty() + left.winfo_height(),
+            "task panel should match the height of the left-side content",
         )
         for row in app._generation_task_panel.winfo_children():
             labels = [child for child in row.winfo_children()
@@ -293,8 +293,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         content_bottom = max(
             app._generation_auth_panel.winfo_rooty()
             + app._generation_auth_panel.winfo_height(),
-            app._generation_tip_panel.winfo_rooty()
-            + app._generation_tip_panel.winfo_height(),
+            app._generation_task_panel.winfo_rooty()
+            + app._generation_task_panel.winfo_height(),
         )
         run_gap = app._generation_run_panel.winfo_rooty() - content_bottom
         self.assertGreaterEqual(run_gap, -2)
@@ -304,7 +304,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         for widget in (
             app.card_raw, app.card_normal, app.card_simple, app.card_detailed,
             app._generation_mode_panel, app._generation_auth_panel,
-            right, app._generation_task_panel, app._generation_tip_panel,
+            right, app._generation_task_panel,
             app._generation_run_panel, button,
         ):
             self.assertGreaterEqual(
