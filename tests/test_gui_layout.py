@@ -332,6 +332,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertLessEqual(root.winfo_width(), 1600)
 
     def _assert_home_controls(self, root, app):
+        self.assertGreaterEqual(self._font_size(root, app.home_title_label), 24)
+        self.assertGreaterEqual(self._font_size(root, app.home_subtitle_label), 13)
         for widget in (
             app.home_subtitle_label,
             app.file_select_button,

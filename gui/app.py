@@ -95,7 +95,7 @@ FONT_BODY_BOLD = (FONT_FAMILY, 10, "bold")
 FONT_SMALL = (FONT_FAMILY, 9)
 FONT_SMALL_BOLD = (FONT_FAMILY, 9, "bold")
 FONT_TINY = (FONT_FAMILY, 8)
-FONT_HERO = (FONT_FAMILY, 24, "bold")
+FONT_HERO = (FONT_FAMILY, 28, "bold")
 FONT_SIDEBAR_TITLE = (FONT_FAMILY, 12, "bold")
 FONT_SIDEBAR_ITEM = (FONT_FAMILY, 10)
 FONT_SIDEBAR_STEP = (FONT_FAMILY, 9, "bold")
@@ -1609,16 +1609,19 @@ class AIMemoryGUI:
         StackedLayersIcon(
             welcome, width=64, height=64, bg=COLOR_BG_APP,
         ).pack()
-        tk.Label(
+        self.home_title_label = tk.Label(
             welcome, text="AI 记忆协同管理", font=FONT_HERO,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP,
-        ).pack(pady=(12, 4))
+        )
+        self.home_title_label._responsive_min_font_size = 24
+        self.home_title_label._responsive_max_font_size = 30
+        self.home_title_label.pack(pady=(12, 4))
         self.home_subtitle_label = tk.Label(
             welcome, text="让对话更连续，让知识可复用",
-            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
+            font=(FONT_FAMILY, 14), fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
         )
-        self.home_subtitle_label._responsive_min_font_size = 11
-        self.home_subtitle_label._responsive_max_font_size = 13
+        self.home_subtitle_label._responsive_min_font_size = 13
+        self.home_subtitle_label._responsive_max_font_size = 15
         self.home_subtitle_label.pack()
 
         # ===== 统一 Omnibox 卡片（居中，最大宽度 ~720px） =====
