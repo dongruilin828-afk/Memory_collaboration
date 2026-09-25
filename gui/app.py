@@ -1794,7 +1794,7 @@ class AIMemoryGUI:
         ready_badge.pack(side=tk.RIGHT, anchor="n", pady=2)
 
         workspace = tk.Frame(section, bg=COLOR_BG_APP)
-        workspace.pack(fill=tk.BOTH, expand=True)
+        workspace.pack(fill=tk.X)
         self._generation_workspace = workspace
         card_width = 184
         workspace.grid_columnconfigure(0, weight=3, minsize=0)

@@ -290,6 +290,15 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             ),
         )
         self.assertTrue(button.winfo_ismapped())
+        content_bottom = max(
+            app._generation_auth_panel.winfo_rooty()
+            + app._generation_auth_panel.winfo_height(),
+            app._generation_tip_panel.winfo_rooty()
+            + app._generation_tip_panel.winfo_height(),
+        )
+        run_gap = app._generation_run_panel.winfo_rooty() - content_bottom
+        self.assertGreaterEqual(run_gap, -2)
+        self.assertLessEqual(run_gap, 24, "run panel should follow the content closely")
         canvas_left = app.bg_canvas.winfo_rootx()
         canvas_right = canvas_left + app.bg_canvas.winfo_width()
         for widget in (
