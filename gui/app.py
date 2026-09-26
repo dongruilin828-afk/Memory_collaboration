@@ -337,6 +337,7 @@ class FlatButton(tk.Canvas):
         variant: str = "primary",
         width: int = 220,
         height: int = 44,
+        icon_text: str = "",
         bg_parent: str = COLOR_BG_APP,
         **kwargs
     ):
@@ -352,17 +353,39 @@ class FlatButton(tk.Canvas):
         self._width = width
         self._height = height
         self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
+        self._icon_text = icon_text
+        self._icon_font = (
+            tkfont.Font(master=self, font=("Segoe MDL2 Assets", 12))
+            if icon_text else None
+        )
         self._enabled = True
         self._hover = False
+        self._focused = False
+        self._suppress_focus_ring = False
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
+        if variant == "settings-save":
+            self.configure(takefocus=True, cursor="hand2")
+            self.bind("<FocusIn>", self._on_focus_in)
+            self.bind("<FocusOut>", self._on_focus_out)
+            self.bind("<Return>", self._on_key_activate)
+            self.bind("<space>", self._on_key_activate)
         self.redraw()
 
     def set_responsive_scale(self, scale: float):
         self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
+        if self._icon_font:
+            self._icon_font.configure(
+                size=_scaled_font_size(self._icon_font, scale, 11, 13)
+            )
+        icon_width = (
+            self._icon_font.measure(self._icon_text) + 8
+            if self._icon_font else 0
+        )
         self._width = max(
-            round(self._base_width * scale), self._font.measure(self._text) + 32,
+            round(self._base_width * scale),
+            self._font.measure(self._text) + icon_width + 32,
         )
         self._height = max(
             round(self._base_height * scale), self._font.metrics("linespace") + 16,
@@ -382,9 +405,80 @@ class FlatButton(tk.Canvas):
         self._hover = False
         self.redraw()
 
+    def _on_focus_in(self, _event=None):
+        self._focused = not self._suppress_focus_ring
+        self.redraw()
+
+    def _on_focus_out(self, _event=None):
+        self._focused = False
+        self._suppress_focus_ring = False
+        self.redraw()
+
+    def _on_key_activate(self, _event=None):
+        self._suppress_focus_ring = False
+        self._focused = True
+        self.redraw()
+        self.invoke()
+        return "break"
+
     def _on_click(self, _event=None):
+        if self._variant == "settings-save":
+            self._suppress_focus_ring = True
+            self.focus_set()
+            self._focused = False
+            self.redraw()
         if self._enabled and self._command:
             self._command()
+
+    def invoke(self):
+        if self._enabled and self._command:
+            return self._command()
+        return None
+
+    @staticmethod
+    def _mix_color(start: str, end: str, amount: float) -> str:
+        channels = (
+            round(int(start[i:i + 2], 16) * (1 - amount)
+                  + int(end[i:i + 2], 16) * amount)
+            for i in (1, 3, 5)
+        )
+        return "#" + "".join(f"{channel:02X}" for channel in channels)
+
+    def _draw_settings_gradient(self, width: int, height: int):
+        _round_rectangle(
+            self, 2, 3, width - 2, height - 2, r=12,
+            fill="#DDE3EF", outline="",
+        )
+        x1, y1, x2, y2 = 2, 1, width - 2, height - 4
+        radius = min(12, (y2 - y1) / 2)
+        start, end = (
+            ("#146FB3", "#5B4BC0") if self._hover
+            else ("#0D5B99", "#49379F")
+        )
+        steps = max(1, width - 4)
+        for step in range(steps):
+            left = x1 + (x2 - x1) * step / steps
+            right = x1 + (x2 - x1) * (step + 1) / steps
+            center = (left + right) / 2
+            edge_distance = min(center - x1, x2 - center)
+            inset = (
+                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
+                if edge_distance < radius else 0
+            )
+            color = self._mix_color(start, end, step / max(1, steps - 1))
+            self.create_rectangle(
+                left, y1 + inset, right + 0.5, y2 - inset,
+                fill=color, outline=color,
+            )
+        _round_rectangle(
+            self, x1, y1, x2, y2, r=radius,
+            fill="", outline="#FFFFFF", width=1,
+        )
+        if self._focused:
+            _round_rectangle(
+                self, 0, 0, width, height, r=13,
+                fill="", outline="#8AB4F8", width=2,
+            )
 
     def redraw(self):
         self.delete("all")
@@ -403,6 +497,10 @@ class FlatButton(tk.Canvas):
             bg = "#0A0A0A" if not self._hover else "#262626"
             fg = "#FFFFFF"
             outline = ""
+        elif self._variant == "settings-save":
+            bg = COLOR_ACCENT_BLUE
+            fg = "#FFFFFF"
+            outline = ""
         elif self._variant == "secondary":
             bg = COLOR_HOVER if self._hover else COLOR_CARD
             fg = COLOR_TEXT_PRIMARY
@@ -411,14 +509,147 @@ class FlatButton(tk.Canvas):
             bg = COLOR_HOVER if self._hover else self._bg_parent
             fg = COLOR_TEXT_PRIMARY
             outline = COLOR_BORDER
+        if self._variant == "settings-save" and self._enabled:
+            self._draw_settings_gradient(w, h)
+        else:
+            _round_rectangle(
+                self, 1, 1, w - 1, h - 1,
+                r=12 if self._variant == "settings-save" else 6,
+                fill=bg, outline=outline, width=1,
+            )
+        if self._icon_text and self._icon_font:
+            icon_width = self._icon_font.measure(self._icon_text)
+            text_width = self._font.measure(self._text)
+            start_x = (w - icon_width - 8 - text_width) / 2
+            self.create_text(
+                start_x + icon_width / 2, h / 2,
+                text=self._icon_text, fill=fg, font=self._icon_font,
+            )
+            self.create_text(
+                start_x + icon_width + 8 + text_width / 2, h / 2,
+                text=self._text, fill=fg, font=self._font,
+            )
+        else:
+            self.create_text(
+                w // 2, h // 2, text=self._text,
+                fill=fg, font=self._font,
+            )
+
+
+class SettingsSegmentedTabs(tk.Canvas):
+    """局限于设置页的圆角分段选项，并支持鼠标与方向键切换。"""
+
+    _OPTIONS = (("api", "API KEY 设置"), ("data", "数据保存位置"))
+
+    def __init__(self, master, command=None, bg_parent=COLOR_CARD):
+        super().__init__(
+            master, height=42, highlightthickness=0, bg=bg_parent,
+            takefocus=True, cursor="hand2",
+        )
+        self._command = command
+        self._bg_parent = bg_parent
+        self._selected_key = "api"
+        self._base_height = 42
+        self._height = self._base_height
+        self._scale = 1.0
+        self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
+        self._focused = False
+        self._suppress_focus_ring = False
+        self.bind("<Configure>", lambda _event: self.redraw())
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<Left>", lambda _event: self._move_selection(-1))
+        self.bind("<Right>", lambda _event: self._move_selection(1))
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.redraw()
+
+    @property
+    def selected_key(self):
+        return self._selected_key
+
+    def set_responsive_scale(self, scale: float):
+        self._scale = scale
+        self._height = max(36, round(self._base_height * scale))
+        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
+        self.configure(height=self._height)
+        self.redraw()
+
+    def select(self, key: str):
+        if key in dict(self._OPTIONS):
+            self._selected_key = key
+            self.redraw()
+
+    def _widths(self):
+        return [
+            max(round(124 * self._scale), self._font.measure(label) + 32)
+            for _key, label in self._OPTIONS
+        ]
+
+    def _activate(self, key: str):
+        if key not in dict(self._OPTIONS) or key == self._selected_key:
+            return
+        self._selected_key = key
+        self.redraw()
+        if self._command:
+            self._command(key)
+
+    def _on_click(self, event):
+        self._suppress_focus_ring = True
+        self.focus_set()
+        self._focused = False
+        self.redraw()
+        widths = self._widths()
+        if event.x < widths[0] + 5:
+            self._activate("api")
+        elif event.x < sum(widths) + 10:
+            self._activate("data")
+
+    def _move_selection(self, direction: int):
+        self._suppress_focus_ring = False
+        self._focused = True
+        keys = [key for key, _label in self._OPTIONS]
+        self._activate(keys[(keys.index(self._selected_key) + direction) % len(keys)])
+        return "break"
+
+    def _on_focus_in(self, _event=None):
+        self._focused = not self._suppress_focus_ring
+        self.redraw()
+
+    def _on_focus_out(self, _event=None):
+        self._focused = False
+        self._suppress_focus_ring = False
+        self.redraw()
+
+    def redraw(self):
+        self.delete("all")
+        width = max(self.winfo_width(), 1)
+        height = self._height
         _round_rectangle(
-            self, 1, 1, w - 1, h - 1, r=6,
-            fill=bg, outline=outline, width=1
+            self, 1, 1, width - 1, height - 1, r=height / 2,
+            fill="#EDF1F5", outline=COLOR_BORDER, width=1,
         )
-        self.create_text(
-            w // 2, h // 2, text=self._text,
-            fill=fg, font=self._font
+        widths = self._widths()
+        positions = (4, 4 + widths[0] + 4)
+        selected_index = 0 if self._selected_key == "api" else 1
+        selected_x = positions[selected_index]
+        _round_rectangle(
+            self, selected_x, 3, selected_x + widths[selected_index],
+            height - 3, r=(height - 6) / 2,
+            fill="#0D5B99", outline="",
         )
+        for index, (key, label) in enumerate(self._OPTIONS):
+            self.create_text(
+                positions[index] + widths[index] / 2, height / 2,
+                text=label,
+                fill="#FFFFFF" if key == self._selected_key
+                else COLOR_TEXT_SECONDARY,
+                font=self._font,
+            )
+        if self._focused:
+            _round_rectangle(
+                self, 0, 0, width, height, r=height / 2,
+                fill="", outline=COLOR_BORDER_FOCUS, width=1,
+            )
 
 
 # ==================== 极简扁平选择卡片 ====================
@@ -3283,15 +3514,20 @@ class AIMemoryGUI:
         panel = tk.Frame(
             section, bg=COLOR_CARD, padx=24, pady=18,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
+            highlightcolor=COLOR_BORDER, takefocus=False,
         )
         panel.pack(fill=tk.BOTH, expand=True)
 
-        notebook = ttk.Notebook(panel)
-        notebook.pack(fill=tk.BOTH, expand=True)
-        api_page = tk.Frame(notebook, bg=COLOR_CARD, padx=18, pady=14)
-        data_page = tk.Frame(notebook, bg=COLOR_CARD, padx=18, pady=14)
-        notebook.add(api_page, text="API KEY 设置")
-        notebook.add(data_page, text="数据保存位置")
+        tabs = SettingsSegmentedTabs(
+            panel, command=lambda key: show_page(key), bg_parent=COLOR_CARD,
+        )
+        tabs.pack(fill=tk.X, pady=(0, 10))
+        page_host = tk.Frame(panel, bg=COLOR_CARD)
+        page_host.pack(fill=tk.BOTH, expand=True)
+        api_page = tk.Frame(page_host, bg=COLOR_CARD, padx=18, pady=14)
+        data_page = tk.Frame(page_host, bg=COLOR_CARD, padx=18, pady=14)
+        api_page.pack(fill=tk.BOTH, expand=True)
+        active_settings_page = {"key": "api"}
 
         try:
             existing_keys = self.credential_store.load_api_keys()
@@ -3586,12 +3822,6 @@ class AIMemoryGUI:
         page._drag_state = drag_state
         _layout_api_rows()
 
-        def _on_settings_tab_changed(_event=None):
-            if notebook.select() != str(api_page):
-                _cancel_api_reorder_animation()
-
-        notebook.bind("<<NotebookTabChanged>>", _on_settings_tab_changed, add="+")
-
         def _save_api_keys():
             _cancel_api_drag(animate=False)
             keys = {
@@ -3604,11 +3834,10 @@ class AIMemoryGUI:
             except CredentialStoreError as error:
                 show_notice(str(error), 5000)
 
-        save_button = tk.Button(
-            api_page, text="\U0001F512 安全保存", command=_save_api_keys,
-            font=FONT_BODY_BOLD, bg=COLOR_TEXT_PRIMARY, fg="#FFFFFF",
-            activebackground="#262626", activeforeground="#FFFFFF",
-            relief=tk.FLAT, padx=18, pady=8, cursor="hand2",
+        save_button = FlatButton(
+            api_page, text="安全保存", command=_save_api_keys,
+            variant="settings-save", icon_text="\uEA18",
+            width=148, height=46, bg_parent=COLOR_CARD,
         )
         save_button.pack(side=tk.RIGHT, pady=(8, 0))
         page.api_save_button = save_button
@@ -3739,13 +3968,20 @@ class AIMemoryGUI:
         data_page.runtime_var = runtime_var
         data_page.results_var = results_var
         page.data_page = data_page
+        page.settings_tabs = tabs
 
         # ----- 页面切换方法（兼容外部调用） -----
         def show_page(page_key: str):
-            if page_key == "api":
-                notebook.select(api_page)
-            elif page_key == "data":
-                notebook.select(data_page)
+            pages = {"api": api_page, "data": data_page}
+            if page_key not in pages:
+                return
+            if page_key != active_settings_page["key"]:
+                if active_settings_page["key"] == "api":
+                    _cancel_api_reorder_animation()
+                pages[active_settings_page["key"]].pack_forget()
+                pages[page_key].pack(fill=tk.BOTH, expand=True)
+                active_settings_page["key"] = page_key
+            tabs.select(page_key)
 
         page.show_page = show_page
 

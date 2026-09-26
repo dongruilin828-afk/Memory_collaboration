@@ -172,6 +172,24 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     settings_page = app.page_frames[3]
                     settings_page.show_page("api")
                     self._flush(root)
+                    settings_tabs = settings_page.settings_tabs
+                    settings_tabs.event_generate(
+                        "<Button-1>",
+                        x=settings_tabs._widths()[0] + 6,
+                        y=settings_tabs._height // 2,
+                    )
+                    self._flush(root)
+                    self.assertEqual(settings_tabs.selected_key, "data")
+                    self.assertFalse(settings_tabs._focused)
+                    self.assertEqual(
+                        settings_tabs.master.cget("highlightbackground"),
+                        settings_tabs.master.cget("highlightcolor"),
+                    )
+                    self.assertEqual(settings_page.data_page.winfo_manager(), "pack")
+                    settings_tabs._move_selection(-1)
+                    self._flush(root)
+                    self.assertEqual(settings_tabs.selected_key, "api")
+                    self.assertTrue(settings_tabs._focused)
                     self._assert_api_reorder_preserves_inputs(root, app, credentials)
 
                     settings_page.show_page("data")
