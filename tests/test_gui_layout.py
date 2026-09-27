@@ -414,8 +414,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             )
         self.assertGreaterEqual(self._font_size(root, app.btn_send), 20)
         self.assertEqual(
-            int(app._omnibox.content.cget("pady")), 8,
-            "home input panel should keep its compact vertical padding",
+            int(app._omnibox.content.cget("pady")), 0,
+            "home input panel should not add unused space below its controls",
         )
         for button in (app.file_select_button, app.paste_link_button):
             self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())

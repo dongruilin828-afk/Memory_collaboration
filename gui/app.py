@@ -1111,11 +1111,9 @@ class GlassCapsulePanel(tk.Canvas):
         super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
         self._bg_parent = bg_parent
         self._dragging = False
-        self.content = tk.Frame(
-            self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=8,
-        )
+        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=0)
         self._content_window = self.create_window(
-            16, 12, window=self.content, anchor="nw"
+            16, 20, window=self.content, anchor="nw"
         )
         self.content.bind("<Configure>", self._fit_height)
         self.bind("<Configure>", self._on_resize)
@@ -1130,7 +1128,7 @@ class GlassCapsulePanel(tk.Canvas):
         self.redraw()
 
     def _fit_height(self, _event=None):
-        height = self.content.winfo_reqheight() + 24
+        height = self.content.winfo_reqheight() + 32
         if self.winfo_reqheight() != height:
             self.configure(height=height)
 
@@ -1908,7 +1906,7 @@ class AIMemoryGUI:
 
         # ===== 底部微型工具栏 =====
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
-        toolbar.pack(fill=tk.X, pady=(8, 0))
+        toolbar.pack(fill=tk.X, pady=(2, 0))
 
         # 左下角：添加文件 + 粘贴链接
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
@@ -1949,7 +1947,7 @@ class AIMemoryGUI:
             fg="#FFFFFF",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_ACCENT_BLUE,
             relief=tk.FLAT, bd=0, cursor="arrow",
-            width=4, pady=5, highlightthickness=0,
+            width=4, pady=0, highlightthickness=0,
         )
         self.btn_send._responsive_min_font_size = 20
         self.btn_send._responsive_max_font_size = 25
