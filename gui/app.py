@@ -1111,7 +1111,9 @@ class GlassCapsulePanel(tk.Canvas):
         super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
         self._bg_parent = bg_parent
         self._dragging = False
-        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=16)
+        self.content = tk.Frame(
+            self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=8,
+        )
         self._content_window = self.create_window(
             16, 12, window=self.content, anchor="nw"
         )
@@ -1906,7 +1908,7 @@ class AIMemoryGUI:
 
         # ===== 底部微型工具栏 =====
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
-        toolbar.pack(fill=tk.X, pady=(12, 0))
+        toolbar.pack(fill=tk.X, pady=(8, 0))
 
         # 左下角：添加文件 + 粘贴链接
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
@@ -2606,19 +2608,9 @@ class AIMemoryGUI:
             (self.card_source_url, "url", has_url),
             (self.card_source_file, "file", has_file),
         )
-        visible_sources = tuple(
-            key for _option, key, available in source_options if available
-        )
-        packed_sources = tuple(
-            key for option, key, _available in source_options
-            if option.winfo_manager() == "pack"
-        )
-        if packed_sources != visible_sources:
-            for option, _key, _available in source_options:
-                option.pack_forget()
-            for option, _key, available in source_options:
-                if available:
-                    option.pack(side=tk.LEFT, expand=True)
+        for option, _key, _available in source_options:
+            if option.winfo_manager() != "pack":
+                option.pack(side=tk.LEFT, expand=True)
         for option, key, available in source_options:
             option.set_checked(source == key)
             option.set_disabled(self.is_running or not available)

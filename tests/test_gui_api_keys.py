@@ -252,7 +252,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertEqual(fake_gui.generation_source, "url")
         self.assertFalse(fake_gui.card_raw.disabled)
 
-    def test_source_options_only_show_available_sources(self):
+    def test_source_options_always_show_and_disable_unavailable_sources(self):
         visible = []
 
         class FakeOption:
@@ -294,19 +294,27 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         )
 
         AIMemoryGUI._refresh_generation_sources(fake_gui)
-        self.assertEqual(visible, ["file"])
+        self.assertEqual(visible, ["url", "file"])
+        self.assertTrue(fake_gui.card_source_url.disabled)
+        self.assertFalse(fake_gui.card_source_file.disabled)
 
         url["value"] = "https://example.com/share"
         AIMemoryGUI._refresh_generation_sources(fake_gui)
         self.assertEqual(visible, ["url", "file"])
+        self.assertFalse(fake_gui.card_source_url.disabled)
+        self.assertFalse(fake_gui.card_source_file.disabled)
 
         fake_gui.selected_summary_file = None
         AIMemoryGUI._refresh_generation_sources(fake_gui)
-        self.assertEqual(visible, ["url"])
+        self.assertEqual(visible, ["url", "file"])
+        self.assertFalse(fake_gui.card_source_url.disabled)
+        self.assertTrue(fake_gui.card_source_file.disabled)
 
         url["value"] = ""
         AIMemoryGUI._refresh_generation_sources(fake_gui)
-        self.assertEqual(visible, [])
+        self.assertEqual(visible, ["url", "file"])
+        self.assertTrue(fake_gui.card_source_url.disabled)
+        self.assertTrue(fake_gui.card_source_file.disabled)
 
     def test_first_url_after_file_defaults_to_url_and_keeps_manual_file_choice(self):
         class FakeOption:

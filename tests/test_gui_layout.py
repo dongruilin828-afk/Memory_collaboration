@@ -104,11 +104,6 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     )
 
                     app._show_page(1)
-                    # Display-only sources exercise both centered options at each width.
-                    app.selected_summary_file = Path("layout-test.md")
-                    app.capsule_entry.set_text("https://example.com/share")
-                    app._refresh_generation_sources()
-                    self._flush(root)
                     default_width = max(minimum, 1040)
                     wide_width = min(1600, available_width)
                     widths = (
@@ -284,6 +279,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         source_switch = app.card_source_url.master
         source_options = (app.card_source_url, app.card_source_file)
         self.assertTrue(all(option.winfo_ismapped() for option in source_options))
+        self.assertTrue(all(option._disabled for option in source_options))
         self.assertTrue(all(option._regular_font.actual("size") >= 9
                             for option in source_options))
         option_left = min(option.winfo_rootx() for option in source_options)
@@ -417,6 +413,10 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 f"{widget} is below the home-control minimum",
             )
         self.assertGreaterEqual(self._font_size(root, app.btn_send), 20)
+        self.assertEqual(
+            int(app._omnibox.content.cget("pady")), 8,
+            "home input panel should keep its compact vertical padding",
+        )
         for button in (app.file_select_button, app.paste_link_button):
             self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
         subtitle_font = tkfont.Font(
