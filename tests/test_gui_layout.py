@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from gui.app import AIMemoryGUI
+from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY
 from gui.settings_store import default_app_settings
 
 
@@ -104,6 +104,11 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     )
 
                     app._show_page(1)
+                    # Display-only sources exercise both centered options at each width.
+                    app.selected_summary_file = Path("layout-test.md")
+                    app.capsule_entry.set_text("https://example.com/share")
+                    app._refresh_generation_sources()
+                    self._flush(root)
                     default_width = max(minimum, 1040)
                     wide_width = min(1600, available_width)
                     widths = (
@@ -247,6 +252,55 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             mode_panel.winfo_height(), left.winfo_height(),
             "mode panel should keep its natural height instead of filling the column",
         )
+        mode_title = app._generation_mode_title_label
+        self.assertEqual(
+            self._font_size(root, mode_title),
+            int(app.card_raw._title_font.actual("size")),
+            "mode-panel heading should stay comparable to the mode-card titles",
+        )
+        mode_title_font = tkfont.Font(root=root, font=mode_title.cget("font"))
+        self.assertLessEqual(
+            mode_title_font.measure(mode_title.cget("text")), mode_title.winfo_width(),
+            "mode-panel heading is clipped",
+        )
+        mode_count = mode_title.master.winfo_children()[1]
+        self.assertLessEqual(
+            mode_title.winfo_rootx() + mode_title.winfo_width(),
+            mode_count.winfo_rootx(),
+            "mode-panel heading overlaps the selected count",
+        )
+        self.assertGreaterEqual(
+            self._font_size(root, app._generation_task_title_label), 11,
+        )
+        source_title = app._generation_source_title_label
+        self.assertEqual(source_title.cget("fg"), COLOR_TEXT_PRIMARY)
+        self.assertEqual(source_title.cget("anchor"), "center")
+        self.assertGreaterEqual(self._font_size(root, source_title), 10)
+        source_font = tkfont.Font(root=root, font=source_title.cget("font"))
+        self.assertLessEqual(
+            source_font.measure(source_title.cget("text")), source_title.winfo_width(),
+            "source heading is clipped",
+        )
+        source_switch = app.card_source_url.master
+        source_options = (app.card_source_url, app.card_source_file)
+        self.assertTrue(all(option.winfo_ismapped() for option in source_options))
+        self.assertTrue(all(option._regular_font.actual("size") >= 9
+                            for option in source_options))
+        option_left = min(option.winfo_rootx() for option in source_options)
+        option_right = max(
+            option.winfo_rootx() + option.winfo_width()
+            for option in source_options
+        )
+        switch_left = source_switch.winfo_rootx()
+        switch_right = switch_left + source_switch.winfo_width()
+        self.assertGreaterEqual(option_left, switch_left)
+        self.assertLessEqual(option_right, switch_right)
+        self.assertAlmostEqual(
+            (option_left + option_right) / 2,
+            (switch_left + switch_right) / 2,
+            delta=3,
+            msg="source options should remain centered in their gray container",
+        )
         self.assertEqual(
             int(app._generation_workspace.grid_columnconfigure(0)["weight"]), 3,
         )
@@ -362,7 +416,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 self._font_size(root, widget), 11,
                 f"{widget} is below the home-control minimum",
             )
-        self.assertGreaterEqual(self._font_size(root, app.btn_send), 17)
+        self.assertGreaterEqual(self._font_size(root, app.btn_send), 20)
         for button in (app.file_select_button, app.paste_link_button):
             self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
         subtitle_font = tkfont.Font(

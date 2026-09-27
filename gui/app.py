@@ -965,11 +965,11 @@ class GenerationChoiceCard(tk.Canvas):
             width=2 if self._checked else 1,
         )
         self.create_text(
-            18, 18, text=self._title, fill=title_color,
+            16, 18, text=self._title, fill=title_color,
             font=self._title_font, anchor="nw",
         )
         self.create_text(
-            18, 51, text=self._subtitle,
+            16, 51, text=self._subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
             font=self._subtitle_font, anchor="nw",
         )
@@ -1005,6 +1005,8 @@ class GenerationSegmentOption(tk.Canvas):
     def __init__(
         self, master, text: str, initial_checked: bool = False,
         on_toggle: callable = None, width: int = 142, height: int = 38,
+        regular_font=FONT_SMALL, bold_font=FONT_SMALL_BOLD,
+        min_font_size: int = 8, max_font_size: int = 10,
         **kwargs
     ):
         super().__init__(
@@ -1018,8 +1020,10 @@ class GenerationSegmentOption(tk.Canvas):
         self._hover = False
         self._on_toggle = on_toggle
         self._base_width = width
-        self._regular_font = tkfont.Font(master=self, font=FONT_SMALL)
-        self._bold_font = tkfont.Font(master=self, font=FONT_SMALL_BOLD)
+        self._regular_font = tkfont.Font(master=self, font=regular_font)
+        self._bold_font = tkfont.Font(master=self, font=bold_font)
+        self._min_font_size = min_font_size
+        self._max_font_size = max_font_size
         self._width = max(width, self._bold_font.measure(text) + 24)
         self._height = height
         self.configure(width=self._width)
@@ -1030,7 +1034,9 @@ class GenerationSegmentOption(tk.Canvas):
 
     def set_responsive_scale(self, scale: float):
         for font in (self._regular_font, self._bold_font):
-            font.configure(size=_scaled_font_size(font, scale, 8, 10))
+            font.configure(size=_scaled_font_size(
+                font, scale, self._min_font_size, self._max_font_size,
+            ))
         self._width = max(
             self._base_width, self._bold_font.measure(self._text) + 24,
         )
@@ -1937,14 +1943,14 @@ class AIMemoryGUI:
         self.btn_send = tk.Button(
             toolbar_right, text="→",
             command=self._on_omnibox_send,
-            font=(FONT_FAMILY, 18, "bold"), bg=COLOR_OMNIBOX_SURFACE,
+            font=(FONT_FAMILY, 22, "bold"), bg=COLOR_OMNIBOX_SURFACE,
             fg="#FFFFFF",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_ACCENT_BLUE,
             relief=tk.FLAT, bd=0, cursor="arrow",
-            width=3, pady=2, highlightthickness=0,
+            width=4, pady=5, highlightthickness=0,
         )
-        self.btn_send._responsive_min_font_size = 17
-        self.btn_send._responsive_max_font_size = 21
+        self.btn_send._responsive_min_font_size = 20
+        self.btn_send._responsive_max_font_size = 25
         self.btn_send.pack(side=tk.RIGHT)
         self.btn_send.bind("<Enter>", self._on_send_hover)
         self.btn_send.bind("<Leave>", self._on_send_leave)
@@ -2048,10 +2054,13 @@ class AIMemoryGUI:
         mode_panel.pack(fill=tk.X)
         mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
         mode_header.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(
-            mode_header, text="选择生成模式", font=FONT_BODY_BOLD,
+        self._generation_mode_title_label = tk.Label(
+            mode_header, text="选择生成模式", font=FONT_H2,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
-        ).pack(side=tk.LEFT)
+        )
+        self._generation_mode_title_label._responsive_min_font_size = 12
+        self._generation_mode_title_label._responsive_max_font_size = 16
+        self._generation_mode_title_label.pack(side=tk.LEFT)
         self.generation_selection_var = tk.StringVar(value="已选 1 项")
         tk.Label(
             mode_header, textvariable=self.generation_selection_var,
@@ -2121,27 +2130,36 @@ class AIMemoryGUI:
         )
         task_panel.pack(fill=tk.BOTH, expand=True)
         self._generation_task_panel = task_panel
-        tk.Label(
-            task_panel, text="本次任务", font=FONT_BODY_BOLD,
+        self._generation_task_title_label = tk.Label(
+            task_panel, text="本次任务", font=(FONT_FAMILY, 12, "bold"),
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w",
-        ).pack(fill=tk.X)
+        )
+        self._generation_task_title_label._responsive_min_font_size = 11
+        self._generation_task_title_label._responsive_max_font_size = 13
+        self._generation_task_title_label.pack(fill=tk.X)
         source_box = tk.Frame(task_panel, bg="#F4F6FA", padx=11, pady=10)
         source_box.pack(fill=tk.X, pady=(12, 12))
-        tk.Label(
-            source_box, text="内容来源", font=FONT_TINY,
-            fg=COLOR_TEXT_MUTED, bg="#F4F6FA", anchor="w",
-        ).pack(fill=tk.X)
+        self._generation_source_title_label = tk.Label(
+            source_box, text="内容来源", font=FONT_BODY_BOLD,
+            fg=COLOR_TEXT_PRIMARY, bg="#F4F6FA", anchor="center",
+            justify=tk.CENTER,
+        )
+        self._generation_source_title_label._responsive_min_font_size = 10
+        self._generation_source_title_label._responsive_max_font_size = 12
+        self._generation_source_title_label.pack(fill=tk.X)
         source_switch = tk.Frame(source_box, bg="#F4F6FA")
-        source_switch.pack(fill=tk.X, pady=(6, 0), padx=(0, 12))
+        source_switch.pack(fill=tk.X, pady=(6, 0))
         self.card_source_url = GenerationSegmentOption(
             source_switch, text=GENERATION_SOURCE_LABELS["url"],
             initial_checked=False, on_toggle=self._on_generation_source_toggled,
-            width=70,
+            width=70, regular_font=FONT_BODY, bold_font=FONT_BODY_BOLD,
+            min_font_size=9, max_font_size=12,
         )
         self.card_source_file = GenerationSegmentOption(
             source_switch, text=GENERATION_SOURCE_LABELS["file"],
             initial_checked=False, on_toggle=self._on_generation_source_toggled,
-            width=70,
+            width=70, regular_font=FONT_BODY, bold_font=FONT_BODY_BOLD,
+            min_font_size=9, max_font_size=12,
         )
 
         self.generation_output_var = tk.StringVar(value="1 个 Markdown")
@@ -2600,7 +2618,7 @@ class AIMemoryGUI:
                 option.pack_forget()
             for option, _key, available in source_options:
                 if available:
-                    option.pack(side=tk.LEFT)
+                    option.pack(side=tk.LEFT, expand=True)
         for option, key, available in source_options:
             option.set_checked(source == key)
             option.set_disabled(self.is_running or not available)
