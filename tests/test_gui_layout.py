@@ -86,6 +86,21 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         bounds = nav_item.bbox("content")
                         self.assertIsNotNone(bounds)
                         self.assertLessEqual(bounds[2], nav_item.winfo_width())
+                        title_bounds = nav_item.bbox("title")
+                        self.assertAlmostEqual(
+                            (title_bounds[0] + title_bounds[2]) / 2,
+                            nav_item.winfo_width() / 2,
+                            delta=1,
+                        )
+                        self.assertEqual(
+                            sum(nav_item.type(item) == "text"
+                                for item in nav_item.find_all()),
+                            1,
+                            "sidebar navigation should contain only its centered title",
+                        )
+                        self.assertGreaterEqual(
+                            int(nav_item._title_font.actual("size")), 12,
+                        )
                     self.assertLessEqual(
                         app.sidebar_title_label.winfo_rootx()
                         + app.sidebar_title_label.winfo_width(),

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 import os
 import sys
 import threading
@@ -97,7 +98,7 @@ FONT_SMALL_BOLD = (FONT_FAMILY, 9, "bold")
 FONT_TINY = (FONT_FAMILY, 8)
 FONT_HERO = (FONT_FAMILY, 28, "bold")
 FONT_SIDEBAR_TITLE = (FONT_FAMILY, 12, "bold")
-FONT_SIDEBAR_ITEM = (FONT_FAMILY, 10)
+FONT_SIDEBAR_ITEM = (FONT_FAMILY, 13, "bold")
 FONT_SIDEBAR_STEP = (FONT_FAMILY, 9, "bold")
 
 
@@ -1283,16 +1284,15 @@ class GlassNavigationItem(tk.Canvas):
     _CARD_MARGIN = 2
     _CARD_RADIUS = 16
 
-    def __init__(self, master, icon: str, title: str, description: str, **kwargs):
+    def __init__(self, master, icon: str, title: str, **kwargs):
         super().__init__(
             master, height=68, highlightthickness=0, bd=0,
             bg=COLOR_SIDEBAR, cursor="hand2", **kwargs,
         )
         self._icon = icon
         self._title = title
-        self._description = description
         icon_asset = {
-            "对话": "chat-outline",
+            "首页": "chat-outline",
             "生成": "document-outline",
             "历史": "history-clock",
         }.get(title)
@@ -1307,7 +1307,6 @@ class GlassNavigationItem(tk.Canvas):
         self._animation_id = None
         self._hovered = False
         self._title_font = tkfont.Font(master=self, font=FONT_SIDEBAR_ITEM)
-        self._description_font = tkfont.Font(master=self, font=FONT_TINY)
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
@@ -1315,10 +1314,7 @@ class GlassNavigationItem(tk.Canvas):
 
     def set_responsive_scale(self, scale: float):
         self._title_font.configure(
-            size=_scaled_font_size(self._title_font, scale, 9, 11),
-        )
-        self._description_font.configure(
-            size=_scaled_font_size(self._description_font, scale, 8, 10),
+            size=_scaled_font_size(self._title_font, scale, 12, 15),
         )
         self.redraw()
 
@@ -1355,6 +1351,32 @@ class GlassNavigationItem(tk.Canvas):
     @staticmethod
     def _mix(start: tuple[int, int, int], end: tuple[int, int, int], amount: float):
         return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
+
+    def _draw_settings_gear(self, color: str):
+        center_x, center_y = 27, 34
+        points = []
+        tooth_step = math.tau / 8
+        for tooth in range(8):
+            center = -math.pi / 2 + tooth * tooth_step
+            for offset, radius in (
+                (-tooth_step / 2, 8), (-tooth_step * 0.28, 8),
+                (-tooth_step * 0.28, 11), (tooth_step * 0.28, 11),
+                (tooth_step * 0.28, 8), (tooth_step / 2, 8),
+            ):
+                angle = center + offset
+                points.extend((
+                    center_x + radius * math.cos(angle),
+                    center_y + radius * math.sin(angle),
+                ))
+        points.extend(points[:2])
+        self.create_line(
+            *points, fill=color, width=2, joinstyle=tk.ROUND,
+            capstyle=tk.ROUND, tags="content",
+        )
+        self.create_oval(
+            center_x - 4, center_y - 4, center_x + 4, center_y + 4,
+            outline=color, width=2, tags="content",
+        )
 
     def redraw(self):
         self.delete("all")
@@ -1402,13 +1424,15 @@ class GlassNavigationItem(tk.Canvas):
                 27, 34, image=self._navigation_icon_image,
                 anchor=tk.CENTER, tags="content",
             )
+        elif self._title == "设置":
+            self._draw_settings_gear(icon_color)
         else:
             self.create_text(27, 34, text=self._icon, font=(FONT_FAMILY, 14),
                              fill=icon_color, anchor="center", tags="content")
-        self.create_text(52, 27, text=self._title, font=self._title_font,
-                         fill="#0F172A", anchor="w", tags="content")
-        self.create_text(52, 45, text=self._description, font=self._description_font,
-                         fill="#475569", anchor="w", tags="content")
+        self.create_text(
+            width / 2, height / 2, text=self._title, font=self._title_font,
+            fill="#0F172A", anchor="center", tags=("content", "title"),
+        )
 
 
 # ==================== 悬停提示 ====================
@@ -1554,20 +1578,20 @@ class AIMemoryGUI:
             sidebar, bg=COLOR_SIDEBAR_DIVIDER, height=1
         ).pack(fill=tk.X, padx=12, pady=(16, 10))
 
-        # 步骤导航（图标 + 标题 + 副标题）
+        # 主导航（图标 + 居中标题）
         nav = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=8, pady=4)
         nav.pack(fill=tk.BOTH, expand=True)
         self._sidebar_navigation = nav
 
         self._nav_steps = [
-            ("💬", "对话", "链接 + 文件合一输入"),
-            ("📑", "生成", "模式与流水线"),
-            ("🕒", "历史", "查看任务记录"),
-            ("⚙️", "设置", "API KEY / 数据位置"),
+            ("💬", "首页"),
+            ("📑", "生成"),
+            ("🕒", "历史"),
+            ("⚙️", "设置"),
         ]
         self._nav_items: list[GlassNavigationItem] = []
-        for idx, (icon, title, desc) in enumerate(self._nav_steps):
-            item = GlassNavigationItem(nav, icon, title, desc)
+        for idx, (icon, title) in enumerate(self._nav_steps):
+            item = GlassNavigationItem(nav, icon, title)
             # nav 自身保留 10px 内边距，让卡片距侧栏两侧自然留白。
             item.pack(fill=tk.X, pady=3)
             self._nav_items.append(item)
