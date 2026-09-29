@@ -232,8 +232,13 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 if card.type(item) == "text":
                     bounds = card.bbox(item)
                     self.assertGreaterEqual(bounds[0], 0)
+                    self.assertGreaterEqual(bounds[1], 0)
                     self.assertLessEqual(
                         bounds[2], card.winfo_width(),
+                        f"{card._title}: {card.itemcget(item, 'text')!r} {bounds}",
+                    )
+                    self.assertLessEqual(
+                        bounds[3], card.winfo_height(),
                         f"{card._title}: {card.itemcget(item, 'text')!r} {bounds}",
                     )
         left, right = app._generation_left_column, app._generation_right_column

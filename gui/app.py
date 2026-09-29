@@ -972,6 +972,7 @@ class GenerationChoiceCard(tk.Canvas):
             16, 51, text=self._subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
             font=self._subtitle_font, anchor="nw",
+            width=max(width - 48, 1),
         )
         if self._badge:
             badge_width = 42
@@ -2076,9 +2077,9 @@ class AIMemoryGUI:
 
         cards = (
             ("card_raw", "仅抓取对话", "保留原始问答，不调用 API。", "", False),
-            ("card_normal", "结构化总结", "分层整理，支持自定义。", "推荐", True),
-            ("card_simple", "高保真总览", "紧凑还原重点。", "", False),
-            ("card_detailed", "细节要点", "提取事实、数据和行动。", "", False),
+            ("card_normal", "结构化总结", "默认方式，支持选择不同话题重要程度", "推荐", True),
+            ("card_simple", "极简总结", "压缩为一段极短的总览，快速掌握关键信息", "", False),
+            ("card_detailed", "细节总结", "保留更多细节信息", "", False),
         )
         for index, card_data in enumerate(cards):
             attr, title, subtitle, badge, checked = card_data
@@ -2633,8 +2634,8 @@ class AIMemoryGUI:
         mode_cards = (
             (getattr(self, "card_raw", None), "原始对话"),
             (getattr(self, "card_normal", None), "结构化总结"),
-            (getattr(self, "card_simple", None), "高保真总览"),
-            (getattr(self, "card_detailed", None), "细节要点"),
+            (getattr(self, "card_simple", None), "极简总结"),
+            (getattr(self, "card_detailed", None), "细节总结"),
         )
         selected_modes = [
             label for card, label in mode_cards
