@@ -2998,7 +2998,8 @@ class AIMemoryGUI:
 
         tk.Label(
             content, text="⚠️ 在生成结束前请勿关闭浏览器！",
-            font=FONT_H2, fg=COLOR_DANGER, bg=COLOR_BG_APP, anchor="w"
+            font=FONT_H2, fg=COLOR_DANGER, bg=COLOR_BG_APP, anchor="w",
+            wraplength=420,
         ).pack(anchor="w", pady=(0, 8))
 
         tk.Label(
@@ -3009,7 +3010,7 @@ class AIMemoryGUI:
                 "登录成功后点击下方按钮继续生成。"
             ),
             font=FONT_BODY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
-            justify=tk.LEFT, anchor="w"
+            justify=tk.LEFT, anchor="w", wraplength=420,
         ).pack(anchor="w", pady=(0, 16))
 
         def on_login_done():
@@ -3019,7 +3020,7 @@ class AIMemoryGUI:
         FlatButton(
             content, text="已登录完毕，继续生成",
             command=on_login_done,
-            variant="primary", width=200, height=40,
+            variant="accent", width=200, height=40,
             bg_parent=COLOR_BG_APP
         ).pack(anchor="center")
 
@@ -3120,15 +3121,6 @@ class AIMemoryGUI:
             summary_label.pack(fill=tk.X, padx=(24, 0), pady=(1, 0))
             HoverTooltip(summary_label, summary_text)
 
-        tk.Label(
-            content,
-            text=(
-                "未勾选主题不会消失；媒体与附件说明始终保留，"
-                "详细版的细节记忆也始终保留。"
-            ),
-            font=FONT_TINY, fg=COLOR_ACCENT, bg=COLOR_BG_APP, anchor="w"
-        ).pack(anchor="w", pady=(12, 8))
-
         completed = False
 
         def finish(use_checked: bool):
@@ -3149,18 +3141,16 @@ class AIMemoryGUI:
 
         button_row = tk.Frame(content, bg=COLOR_BG_APP)
         button_row.pack(fill=tk.X, pady=(2, 0))
-        tk.Button(
+        FlatButton(
             button_row, text="不额外展开", command=lambda: finish(False),
-            font=FONT_SMALL, bg=COLOR_HOVER, fg=COLOR_TEXT_SECONDARY,
-            activebackground=COLOR_BORDER, relief=tk.FLAT,
-            padx=16, pady=7, cursor="hand2"
+            variant="secondary", width=150, height=42,
+            bg_parent=COLOR_BG_APP,
         ).pack(side=tk.LEFT)
-        tk.Button(
+        FlatButton(
             button_row, text="确认重点主题并继续",
             command=lambda: finish(True),
-            font=FONT_BODY_BOLD, bg=COLOR_TEXT_PRIMARY, fg="#FFFFFF",
-            activebackground="#262626", activeforeground="#FFFFFF",
-            relief=tk.FLAT, padx=18, pady=8, cursor="hand2"
+            variant="accent", width=220, height=42,
+            bg_parent=COLOR_BG_APP,
         ).pack(side=tk.RIGHT)
 
         dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
