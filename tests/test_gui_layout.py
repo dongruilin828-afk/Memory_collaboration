@@ -77,6 +77,28 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     self.assertGreaterEqual(initial_width, min(minimum + 32, available_width))
                     self.assertGreaterEqual(app.sidebar.winfo_width(), 210)
                     self.assertLessEqual(app.sidebar.winfo_width(), 260)
+                    entry = app.capsule_entry.entry
+                    self.assertTrue(entry.bind("<Return>"))
+                    entry.focus_force()
+                    self._flush(root)
+                    app.capsule_entry.set_text("https://example.com/share")
+                    entry.event_generate("<Return>")
+                    self._flush(root)
+                    self.assertEqual(app._current_page, 1)
+
+                    app._show_page(0)
+                    app.capsule_entry.set_text("")
+                    entry.event_generate("<Return>")
+                    self._flush(root)
+                    self.assertEqual(app._current_page, 0)
+
+                    app._select_summary_file(Path("dialog.md"))
+                    entry.event_generate("<Return>")
+                    self._flush(root)
+                    self.assertEqual(app._current_page, 1)
+                    app._clear_summary_file()
+                    app._show_page(0)
+
                     brand_font = tkfont.Font(
                         root=root, font=app.sidebar_title_label.cget("font"),
                     )

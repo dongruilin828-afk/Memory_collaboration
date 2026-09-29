@@ -1928,6 +1928,7 @@ class AIMemoryGUI:
             placeholder="粘贴或拖拽文件/链接",
         )
         self.capsule_entry.pack(fill=tk.X)
+        self.capsule_entry.entry.bind("<Return>", self._on_omnibox_send)
 
         # ===== 底部微型工具栏 =====
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
@@ -1988,12 +1989,13 @@ class AIMemoryGUI:
         spacer = tk.Frame(center, bg=COLOR_BG_APP, height=80)
         spacer.pack(fill=tk.BOTH, expand=True)
 
-    def _on_omnibox_send(self):
+    def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
         url = self.capsule_entry.get_text().strip()
         has_file = self.selected_summary_file is not None
         if url or has_file:
             self._show_page(1)
+        return "break"
 
     def _update_send_button_state(self):
         """根据输入内容更新发送按钮激活状态。"""
