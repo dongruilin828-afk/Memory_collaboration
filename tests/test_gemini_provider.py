@@ -15,6 +15,7 @@ from gui.service import (
     _extract_document_candidates,
     _extract_gemini_document_card_candidates,
     _page_has_conversation_content,
+    _parse_page_messages,
     requires_authenticated_browser,
 )
 
@@ -356,6 +357,67 @@ class GeminiRealisticDomTests(unittest.TestCase):
         self.assertEqual(candidates[0].filename, "完整文件名.pdf")
         self.assertTrue(candidates[0].reference.startswith("gemini-card:"))
 
+    def test_python_source_attachment_is_downloadable_and_linked(self):
+        private_html = """
+        <user-query-file-preview>
+          <button aria-label="recall_pipeline.py">
+            <div class="filename-label">recall_pipeline</div>
+          </button>
+        </user-query-file-preview>
+        """
+        candidates = _extract_gemini_document_card_candidates(
+            private_html,
+            "https://gemini.google.com/gem/801fad40429f/bf49992eb84f9bb3",
+        )
+        self.assertEqual([c.filename for c in candidates], ["recall_pipeline.py"])
+        shared_html = """
+        <user-query><user-query-file-preview>
+          <button aria-label="无法查看或下载共享对话中的文件">
+            <div class="filename-label">recall_pipeline</div>
+          </button>
+        </user-query-file-preview></user-query>
+        """
+        messages = gemini.parse_messages(
+            soup(shared_html),
+            {"recall_pipeline.py": "./documents/recall_pipeline.py"},
+        )
+        self.assertIn(
+            "[recall_pipeline.py](./documents/recall_pipeline.py)",
+            messages[0]["content"],
+        )
+
+    def test_same_name_uploads_keep_distinct_gemini_card_ids(self):
+        tokens = ["A" * 24, "B" * 24]
+        private_html = "".join(
+            f'<user-query-file-preview><button aria-label="recall_pipeline.py" '
+            f'jslog="BardVeMetadataKey:{token}">'
+            '<div class="filename-label">recall_pipeline</div>'
+            '</button></user-query-file-preview>'
+            for token in tokens
+        )
+        candidates = _extract_gemini_document_card_candidates(
+            private_html,
+            "https://gemini.google.com/gem/801fad40429f/bf49992eb84f9bb3",
+        )
+        self.assertEqual(len(candidates), 2)
+        self.assertNotEqual(candidates[0].reference, candidates[1].reference)
+        shared_html = '<user-query>' + "".join(
+            f'<user-query-file-preview><button '
+            f'aria-label="无法查看或下载共享对话中的文件" '
+            f'jslog="BardVeMetadataKey:{token}">'
+            '<div class="filename-label">recall_pipeline</div>'
+            '</button></user-query-file-preview>'
+            for token in tokens
+        ) + '</user-query>'
+        asset_map = {
+            candidates[0].reference: './documents/recall_pipeline.py',
+            candidates[1].reference: './documents/recall_pipeline_2.py',
+            'recall_pipeline.py': './documents/recall_pipeline_2.py',
+        }
+        content = gemini.parse_messages(soup(shared_html), asset_map)[0]['content']
+        self.assertIn('[recall_pipeline.py](./documents/recall_pipeline.py)', content)
+        self.assertIn('[recall_pipeline.py](./documents/recall_pipeline_2.py)', content)
+
     def test_stylesheet_is_not_document_candidate(self):
         html = '<link href="https://gemini.gstatic.com/app.css" title="notes.md">'
         self.assertEqual(
@@ -380,10 +442,27 @@ class GeminiRegistryTests(unittest.TestCase):
         self.assertIn("message-content", WAIT_SELECTOR)
 
 
+class GeminiPageShellTests(unittest.TestCase):
+    def test_gemini_home_shell_is_not_a_conversation(self):
+        html = '<html><body><main>Gemini 登录后开始对话</main></body></html>'
+        provider, messages = _parse_page_messages(
+            "https://gemini.google.com/gem/801fad40429f/058c89ea8d4f09b5",
+            soup(html),
+            {},
+        )
+        self.assertIsNone(provider)
+        self.assertIsNone(messages)
+
+
 class GeminiAuthRoutingTests(unittest.TestCase):
     def test_private_app_requires_login(self):
         self.assertTrue(requires_authenticated_browser(
             "https://gemini.google.com/app/c9f0d4Abc123def456"
+        ))
+
+    def test_private_gem_conversation_requires_login(self):
+        self.assertTrue(requires_authenticated_browser(
+            "https://gemini.google.com/gem/c9f0d4Abc123def456/a1b2c3d4e5f6"
         ))
 
     def test_share_link_does_not_require_login(self):

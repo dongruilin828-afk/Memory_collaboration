@@ -31,6 +31,7 @@ Gemini 网页是 Angular 应用，会话用自定义元素承载：用户提问�
 """
 
 import re
+from pathlib import Path
 
 import markdownify
 
@@ -273,9 +274,8 @@ def _localize_images(node, image_map) -> None:
 def _extract_document_attachments(node, asset_map):
     """提取用户上传的文档附件，优先使用已下载的本地链接。
 
-    分享页不提供文档下载（按钮 aria-label 为“无法查看或下载共享对话中的
-    文件”），按项目约定标记为不可用；图片型附件（aria 含“图片/灯箱”）保留
-    其 <img>，不在此处理。
+    分享页按钮不能直接下载文档；若原始会话已下载相同卡片 ID 的文件，
+    则链接本地副本，否则保留不可用提示。图片型附件保留其 <img>。
     """
     placeholders = []
     for card in list(node.find_all("user-query-file-preview")):
@@ -312,15 +312,38 @@ def _extract_document_attachments(node, asset_map):
                         break
                 if url:
                     break
-            local = asset_map.get(url, url) if url else asset_map.get(filename.lower(), "")
-            if not local and not ext:
-                stem_matches = {
-                    str(key): value for key, value in asset_map.items()
-                    if re.sub(r"\.[A-Za-z0-9]{1,10}$", "", str(key)).lower()
-                    == name.lower()
-                }
-                if len(set(stem_matches.values())) == 1:
-                    filename, local = next(iter(stem_matches.items()))
+            metadata = re.search(
+                r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
+                str(button.get("jslog") or "") if button else "",
+            )
+            local = asset_map.get(url, url) if url else ""
+            if not local and metadata:
+                prefix = f"gemini-card:{metadata.group(1)}:"
+                matches = [
+                    (str(key)[len(prefix):], value)
+                    for key, value in asset_map.items()
+                    if str(key).startswith(prefix)
+                    and (
+                        str(key)[len(prefix):].lower() == filename.lower()
+                        or (
+                            not ext
+                            and Path(str(key)[len(prefix):]).stem.lower()
+                            == name.lower()
+                        )
+                    )
+                ]
+                if len(matches) == 1:
+                    filename, local = matches[0]
+            if not local and not metadata:
+                local = asset_map.get(filename.lower(), "")
+                if not local and not ext:
+                    stem_matches = {
+                        str(key): value for key, value in asset_map.items()
+                        if re.sub(r"\.[A-Za-z0-9]{1,10}$", "", str(key)).lower()
+                        == name.lower()
+                    }
+                    if len(set(stem_matches.values())) == 1:
+                        filename, local = next(iter(stem_matches.items()))
             if local:
                 placeholders.append(f"📎 [{filename}]({local})")
             else:

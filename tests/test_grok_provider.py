@@ -754,8 +754,8 @@ class GrokCollectHtmlTests(unittest.IsolatedAsyncioTestCase):
         class FakeLocator:
             async def count(self):
                 return 2
-            async def nth(self, i):
-                pass
+            def nth(self, i):
+                return self
             async def scroll_into_view_if_needed(self, timeout=None):
                 pass
         class FakePage:
@@ -773,8 +773,8 @@ class GrokCollectHtmlTests(unittest.IsolatedAsyncioTestCase):
         class FakeLocator:
             async def count(self):
                 return 2
-            async def nth(self, i):
-                pass
+            def nth(self, i):
+                return self
             async def scroll_into_view_if_needed(self, timeout=None):
                 pass
         outer_html = [

@@ -42,3 +42,43 @@ deepseek：
 含图片：	https://chat.deepseek.com/a/chat/s/0a438c82-9c76-4466-a5d7-7a9cc372d588
 含文档：
 	https://chat.deepseek.com/a/chat/s/50e7af55-dfc9-4788-a03a-74030fe95233
+
+
+Gemini：
+
+含图片：
+1. 分享链接：https://share.gemini.google/pjqqn6qvUB6M
+网页链接：https://gemini.google.com/app/9aa52a89087a7fdc
+2. 分享链接：https://share.gemini.google/qPCQf7RxJpln
+网页链接：https://gemini.google.com/app/25206e116e95657b
+3. 分享链接：https://share.gemini.google/8JQy4nayqTxW
+网页链接：https://gemini.google.com/app/79254554f8cae5bb
+
+含视频：
+分享链接：https://share.gemini.google/MlzBdrSeaSA9
+网页链接：https://gemini.google.com/app/dc93107f5b84c529
+
+超长含图：
+分享链接：https://share.gemini.google/YHIhw3SCWFZ7
+网页链接：https://gemini.google.com/app/74bdac5e23ee872f
+
+含公式：
+分享链接：https://share.gemini.google/QbI7BSGJmBrZ
+网页链接：https://gemini.google.com/app/b9ca4895bcf98c0c
+
+含文档and代码：
+1. 分享链接：https://share.gemini.google/N3NeBQVhFWIT
+网页链接：https://gemini.google.com/gem/801fad40429f/058c89ea8d4f09b5
+2. 分享链接：https://share.gemini.google/YINsLdHDRoWg
+网页链接：https://gemini.google.com/gem/801fad40429f/bf49992eb84f9bb3
+
+含文档：
+1. 分享链接：https://share.gemini.google/jGwTR2BHtPH7
+网页链接：https://gemini.google.com/gem/801fad40429f/dac313bedc53ce2c
+2. 分享链接：https://share.gemini.google/1BQu05r14JML
+网页链接：https://share.gemini.google/1BQu05r14JML
+
+含交互：
+分享链接：https://share.gemini.google/9JuZLH5UhwNF
+网页链接：https://gemini.google.com/app/80e5717a57f1859f
+

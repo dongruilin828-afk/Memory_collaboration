@@ -151,7 +151,7 @@ async def collect_html(page):
                 const testId = turn
                     ? turn.getAttribute('data-testid') || ''
                     : '';
-                const turnMatch = testId.match(/(\d+)$/);
+                const turnMatch = testId.match(/(\\d+)$/);
                 const messageId =
                     element.getAttribute('data-message-id') || '';
                 const role = element.getAttribute('data-message-author-role')

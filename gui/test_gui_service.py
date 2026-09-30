@@ -26,6 +26,7 @@ from gui.service import (
     _extract_deepseek_document_card_candidates,
     _extract_document_candidates,
     _extract_gemini_document_card_candidates,
+    _gemini_document_card_download,
     _extract_grok_document_card_candidates,
     _grok_document_card_download,
     _gemini_private_conversation_url,
@@ -218,6 +219,29 @@ class GUIServiceTests(unittest.TestCase):
         page.wait_for_timeout.assert_awaited_once_with(1000)
         self.assertEqual(mapping[candidate.reference], "./result_files/data.csv")
 
+    def test_gemini_same_name_versions_save_separately(self):
+        first = DocumentCandidate(
+            'gemini-card:' + 'A' * 24 + ':same.py',
+            'https://gemini.google.com/app/example', 'same.py',
+        )
+        second = DocumentCandidate(
+            'gemini-card:' + 'B' * 24 + ':same.py',
+            'https://gemini.google.com/app/example', 'same.py',
+        )
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            'gui.service._gemini_document_card_download',
+            new=AsyncMock(side_effect=[(b'first', {}), (b'second', {})]),
+        ):
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(), [first, second], Path(temp_dir),
+                './documents',
+            ))
+            first_path = Path(temp_dir) / Path(mapping[first.reference]).name
+            second_path = Path(temp_dir) / Path(mapping[second.reference]).name
+            self.assertNotEqual(first_path, second_path)
+            self.assertEqual(first_path.read_bytes(), b'first')
+            self.assertEqual(second_path.read_bytes(), b'second')
+
     def test_gemini_share_metadata_and_document_cards(self):
         metadata = "[[\"r_file12345678\",\"c_058650b27dade1e6\"]]"
         import base64
@@ -238,9 +262,32 @@ class GUIServiceTests(unittest.TestCase):
         candidates = _extract_gemini_document_card_candidates(
             html, "https://gemini.google.com/share/example"
         )
+        self.assertEqual(candidates, [])
+        # 页面即使跳到原始会话，旧共享页 HTML 也不能生成可点击候选。
         self.assertEqual(
-            [candidate.filename for candidate in candidates],
-            ["报告.pdf", "notes.md"],
+            _extract_gemini_document_card_candidates(
+                html, "https://gemini.google.com/app/058650b27dade1e6"
+            ),
+            [],
+        )
+
+    def test_gemini_missing_document_card_fails_fast(self):
+        missing = SimpleNamespace(count=AsyncMock(return_value=0))
+        card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=missing)))
+        cards = SimpleNamespace(
+            filter=MagicMock(return_value=SimpleNamespace(first=card)),
+            get_by_role=MagicMock(return_value=SimpleNamespace(first=missing)),
+        )
+        page = SimpleNamespace(locator=MagicMock(return_value=cards))
+        candidate = DocumentCandidate(
+            "gemini-card:missing.pdf",
+            "https://gemini.google.com/app/058650b27dade1e6",
+            "missing.pdf",
+        )
+        with self.assertRaises(FileNotFoundError):
+            asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+        cards.get_by_role.assert_called_once_with(
+            "button", name="missing.pdf", exact=True
         )
 
     def test_image_downloads_are_bounded_and_keep_success_order(self):

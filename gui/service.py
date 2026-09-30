@@ -64,11 +64,12 @@ PRIVATE_CONVERSATION_PATTERNS = (
     re.compile(r"^/a/chat/s/[0-9a-f-]+/?$", re.IGNORECASE),
 )
 # Gemini：gemini.google.com（短链 share.gemini.google 跳转而来）。
-# 公开分享 /share/<id> 无需登录；账号内会话 /app/<id> 需登录。
+# 公开分享 /share/<id> 无需登录；账号内会话 /app/<id> 和
+# /gem/<gem_id>/<conversation_id> 需登录。
 # 裸 /app（新对话）与 /app?q=（预填提问）不是历史会话。
 GEMINI_HOSTS = {"gemini.google.com", "share.gemini.google"}
 GEMINI_PRIVATE_CONVERSATION_PATTERN = re.compile(
-    r"^/app/[0-9A-Za-z_-]{8,}/?$"
+    r"^/(?:app/[0-9A-Za-z_-]{8,}|gem/[0-9A-Za-z_-]{8,}/[0-9A-Za-z_-]{8,})/?$"
 )
 # Kimi：www.kimi.com / kimi.com（旧域名 kimi.moonshot.cn 跳转而来）。
 # 公开分享 /share/[<lang>/]<id> 无需登录；账号内会话 /chat/<id> 需登录
@@ -92,7 +93,7 @@ GROK_HOSTS = {"grok.com", "www.grok.com"}
 GROK_PRIVATE_CONVERSATION_PATTERN = re.compile(r"^/c/[0-9a-f-]{8,}")
 DOCUMENT_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".txt", ".csv", ".md", ".rtf",
+    ".txt", ".csv", ".md", ".rtf", ".py",
 }
 DOCUMENT_MIME_EXTENSIONS = {
     "application/pdf": ".pdf",
@@ -105,10 +106,11 @@ DOCUMENT_MIME_EXTENSIONS = {
     "text/plain": ".txt",
     "text/csv": ".csv",
     "text/markdown": ".md",
+    "text/x-python": ".py",
     "application/rtf": ".rtf",
 }
 GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
-UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md"}
+UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md", ".py"}
 DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
 DOUBAO_AI_DOCUMENT_MAX_COUNT = 12
 CHATGPT_CARD_REFERENCE_PREFIX = "chatgpt-card:"
@@ -2145,18 +2147,29 @@ def _extract_gemini_document_card_candidates(
     base_url: str,
 ) -> list[DocumentCandidate]:
     """从 Gemini 会话文件卡片建立点击下载候选。"""
-    if urlparse(base_url).netloc.lower().split(":", 1)[0] not in GEMINI_HOSTS:
+    parsed = urlparse(base_url)
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if (
+        host not in GEMINI_HOSTS
+        or host == "share.gemini.google"
+        or parsed.path.startswith("/share/")
+    ):
         return []
     candidates = []
-    seen_names = set()
+    seen_refs = set()
     soup = BeautifulSoup(html or "", "html.parser")
     for card in soup.find_all("user-query-file-preview"):
         button = card.find("button")
+        if button is None or button.has_attr("disabled"):
+            continue
+        aria = str(button.get("aria-label") or "").strip()
+        if button.get("aria-disabled") == "true" or "无法查看或下载" in aria:
+            continue
         name_node = card.select_one(".filename-label, [data-test-id='filename-label']")
         ext_node = card.select_one(".extension-label, [data-test-id='extension-label']")
         name = name_node.get_text(strip=True) if name_node else ""
         ext = ext_node.get_text(strip=True).lower() if ext_node else ""
-        filename = str(button.get("aria-label") or "").strip() if button else ""
+        filename = aria
         if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS and name:
             if not ext:
                 icon = card.find("img")
@@ -2172,14 +2185,20 @@ def _extract_gemini_document_card_candidates(
             filename = name if not ext or name.lower().endswith(f".{ext}") else f"{name}.{ext}"
         filename = _safe_document_filename(filename)
         lowered = filename.lower()
-        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS or lowered in seen_names:
+        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS:
             continue
-        seen_names.add(lowered)
-        candidates.append(DocumentCandidate(
-            f"{GEMINI_CARD_REFERENCE_PREFIX}{lowered}",
-            str(base_url),
-            filename,
-        ))
+        metadata = re.search(
+            r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
+            str(button.get("jslog") or ""),
+        )
+        reference = (
+            f"{GEMINI_CARD_REFERENCE_PREFIX}{metadata.group(1)}:{lowered}"
+            if metadata else f"{GEMINI_CARD_REFERENCE_PREFIX}{lowered}"
+        )
+        if reference in seen_refs:
+            continue
+        seen_refs.add(reference)
+        candidates.append(DocumentCandidate(reference, str(base_url), filename))
     return candidates
 
 
@@ -2505,7 +2524,7 @@ async def _chatgpt_document_card_file_id(
                     if (typeof value === 'string') {
                         const ids = Array.from(
                             value.matchAll(pattern), match => match[1]
-                        ).filter(id => /\d/.test(id));
+                        ).filter(id => /\\d/.test(id));
                         const hasName = value.includes(targetName);
                         return {
                             hasName,
@@ -3018,12 +3037,29 @@ async def _gemini_document_card_download(
 ) -> tuple[bytes, dict[str, str]]:
     """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
     cards = page.locator("user-query-file-preview")
-    card = cards.filter(has_text=Path(candidate.filename).stem).first
-    if await card.count() == 0:
-        card = cards.locator(
-            f'button[aria-label="{candidate.filename}"]'
+    metadata = re.match(
+        rf"^{GEMINI_CARD_REFERENCE_PREFIX}([A-Za-z0-9_+/=-]{{20,}}):",
+        candidate.reference,
+    )
+    if metadata:
+        matching_cards = cards.filter(has=page.locator(
+            f'button[jslog*="BardVeMetadataKey:{metadata.group(1)}"]'
+        ))
+        button = matching_cards.get_by_role(
+            "button", name=candidate.filename, exact=True
         ).first
-    await card.locator("button").first.click(timeout=timeout)
+    else:
+        card = cards.filter(has_text=Path(candidate.filename).stem).first
+        button = card.locator("button").first
+        if await button.count() == 0:
+            button = cards.get_by_role(
+                "button", name=candidate.filename, exact=True
+            ).first
+    if await button.count() == 0:
+        raise FileNotFoundError(candidate.filename)
+    if not await button.is_enabled():
+        raise PermissionError(candidate.filename)
+    await button.click(timeout=timeout)
     if Path(candidate.filename).suffix.lower() in {".doc", ".docx"}:
         await page.wait_for_timeout(3000)
     download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
@@ -3171,6 +3207,8 @@ async def _download_document_candidates(
                                 page, candidate, 60000
                             )
                             return candidate, body, headers, None
+                        except (FileNotFoundError, PermissionError):
+                            raise
                         except Exception:
                             if attempt:
                                 raise
@@ -3340,7 +3378,7 @@ async def _download_document_candidates(
             except OSError:
                 same_content = False
             if not same_content:
-                digest = hashlib.sha256(candidate.url.encode("utf-8")).hexdigest()[:8]
+                digest = hashlib.sha256(body).hexdigest()[:8]
                 target = target.with_name(f"{target.stem}_{digest}{target.suffix}")
         if not target.exists():
             target.write_bytes(body)
@@ -3391,7 +3429,7 @@ def _parse_page_messages(url: str, soup: BeautifulSoup, asset_map: Mapping[str, 
     parsed_url = urlparse(url)
     if codex.is_codex_path(parsed_url.path):
         return (provider, messages) if provider is codex else (None, None)
-    if (parsed_url.hostname or "").lower() in DOUBAO_HOSTS:
+    if (parsed_url.hostname or "").lower() in GEMINI_HOSTS | DOUBAO_HOSTS:
         return (provider, messages) if provider is not None else (None, None)
     return (provider, messages) if provider is not None else (
         None,
@@ -4045,7 +4083,12 @@ async def fetch_chat_pipeline(
                 gemini_private_url = _gemini_private_conversation_url(
                     page_snapshot_html + chr(10) + html
                 )
-                if gemini_private_url:
+                if current_host in GEMINI_HOSTS and requires_login_probe:
+                    # 当前已在登录后的私有会话，html 已滚动收齐全部卡片。
+                    gemini_document_candidates = (
+                        _extract_gemini_document_card_candidates(html, url)
+                    )
+                elif gemini_private_url:
                     if logger:
                         logger("发现 Gemini 原始附件，正在检查账号访问权限...")
                     await goto_with_retry_gui(page, gemini_private_url, logger=logger)
@@ -4097,7 +4140,9 @@ async def fetch_chat_pipeline(
                             page, gemini_private_url
                         )
                     if gemini_ready:
-                        private_html = await page.content()
+                        private_html = await collect_virtualized_html(page)
+                        if private_html is None:
+                            private_html = await page.content()
                         gemini_document_candidates = (
                             _extract_gemini_document_card_candidates(
                                 private_html, gemini_private_url
@@ -4121,9 +4166,10 @@ async def fetch_chat_pipeline(
                 document_candidates.extend(
                     _extract_chatgpt_document_card_candidates(html, page.url)
                 )
-                document_candidates.extend(
-                    _extract_gemini_document_card_candidates(html, page.url)
-                )
+                if not gemini_private_url:
+                    document_candidates.extend(
+                        _extract_gemini_document_card_candidates(html, url)
+                    )
                 document_candidates.extend(
                     _extract_kimi_document_card_candidates(html, page.url)
                 )
@@ -4295,6 +4341,9 @@ async def fetch_chat_pipeline(
                 elif codex_request:
                     if logger:
                         logger("Codex 页面未出现真实消息节点，拒绝解析验证页。")
+                elif requested_host in GEMINI_HOSTS:
+                    if logger:
+                        logger("Gemini 页面未出现真实消息节点，拒绝解析页面壳。")
                 elif requested_host in DOUBAO_HOSTS:
                     if logger:
                         logger("豆包页面未出现真实消息节点，拒绝解析页面壳。")
