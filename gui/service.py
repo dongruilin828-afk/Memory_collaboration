@@ -856,6 +856,7 @@ def build_markdown_asset_prefix(
     relative_dir = Path(
         os.path.relpath(Path(asset_dir).resolve(), Path(markdown_dir).resolve())
     ).as_posix()
+    relative_dir = quote(relative_dir, safe="/")
     return relative_dir if relative_dir.startswith(".") else f"./{relative_dir}"
 
 
@@ -1472,6 +1473,7 @@ async def _download_image_candidates(
 
     limit = max(1, min(int(concurrency), 8))
     semaphore = asyncio.Semaphore(limit)
+    screenshot_lock = asyncio.Lock()
 
     async def download(
         src: str,
@@ -1491,29 +1493,30 @@ async def _download_image_candidates(
             parsed_source.netloc.lower() == "lh3.googleusercontent.com"
             and parsed_source.path.startswith("/gg/")
         ):
-            images = page.locator("img")
-            for index in range(await images.count()):
-                image = images.nth(index)
-                current = await image.get_attribute("src") or await image.get_attribute("data-src")
-                if current != src:
-                    continue
-                await image.scroll_into_view_if_needed(
-                    timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
-                )
-                await image.evaluate(
-                    """img => img.complete && img.naturalWidth
-                        ? true
-                        : new Promise(resolve => {
-                            img.addEventListener('load', () => resolve(true), {once: true});
-                            img.addEventListener('error', () => resolve(false), {once: true});
-                            setTimeout(() => resolve(false), 10000);
-                        })"""
-                )
-                dimensions = await image.evaluate(
-                    "img => [img.naturalWidth, img.naturalHeight]"
-                )
-                if all(dimensions):
-                    break
+            async with screenshot_lock:
+                images = page.locator("img")
+                for index in range(await images.count()):
+                    image = images.nth(index)
+                    current = await image.get_attribute("src") or await image.get_attribute("data-src")
+                    if current != src:
+                        continue
+                    await image.scroll_into_view_if_needed(
+                        timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                    )
+                    await image.evaluate(
+                        """img => img.complete && img.naturalWidth
+                            ? true
+                            : new Promise(resolve => {
+                                img.addEventListener('load', () => resolve(true), {once: true});
+                                img.addEventListener('error', () => resolve(false), {once: true});
+                                setTimeout(() => resolve(false), 10000);
+                            })"""
+                    )
+                    dimensions = await image.evaluate(
+                        "img => [img.naturalWidth, img.naturalHeight]"
+                    )
+                    if all(dimensions):
+                        break
         for _attempt in range(GUI_IMAGE_DOWNLOAD_ATTEMPTS):
             try:
                 async with semaphore:
@@ -1617,68 +1620,79 @@ async def _download_image_candidates(
             except Exception as fallback_error:
                 failure_reason = type(fallback_error).__name__
             continue
-        try:
-            is_gemini_upload = parsed_source.netloc.lower() == "lh3.googleusercontent.com"
-            images = page.locator("img")
-            for index in range(await images.count()):
-                image = images.nth(index)
-                sources = await image.evaluate(
-                    "img => [img.src, img.currentSrc, img.getAttribute('data-src')]"
-                )
-                if src not in sources:
-                    continue
-                dimensions = await image.evaluate(
-                    "img => [img.naturalWidth, img.naturalHeight]"
-                )
-                if not all(dimensions):
-                    continue
-                if is_gemini_upload:
-                    wrapper_id = await image.evaluate(
-                        """img => new Promise(resolve => {
-                            const wrapper = document.createElement('div');
-                            wrapper.id = `trae-gemini-full-image-${Date.now()}`;
-                            wrapper.style.cssText = `
-                                position: fixed; left: 0; top: 0;
-                                z-index: 2147483647; display: block;
-                                width: ${img.naturalWidth}px;
-                                height: ${img.naturalHeight}px;
-                                background: #000;`;
-                            const clone = img.cloneNode(false);
-                            clone.removeAttribute('class');
-                            clone.removeAttribute('srcset');
-                            clone.removeAttribute('sizes');
-                            clone.style.cssText = `
-                                display: block; width: 100%; height: 100%;
-                                max-width: none; max-height: none;
-                                object-fit: fill; border-radius: 0;
-                                clip-path: none; transform: none;
-                                filter: none; opacity: 1;`;
-                            wrapper.appendChild(clone);
-                            document.body.appendChild(wrapper);
-                            if (clone.complete && clone.naturalWidth) {
-                                resolve(wrapper.id);
-                            } else {
-                                clone.onload = () => resolve(wrapper.id);
-                                clone.onerror = () => resolve(wrapper.id);
-                                setTimeout(() => resolve(wrapper.id), 5000);
-                            }
-                        })"""
+        async with screenshot_lock:
+            try:
+                is_gemini_upload = parsed_source.netloc.lower() == "lh3.googleusercontent.com"
+                images = page.locator("img")
+                for index in range(await images.count()):
+                    image = images.nth(index)
+                    sources = await image.evaluate(
+                        "img => [img.src, img.currentSrc, img.getAttribute('data-src')]"
                     )
-                    wrapper = page.locator(f"#{wrapper_id}")
-                    try:
-                        body = await wrapper.screenshot(
+                    if src not in sources:
+                        continue
+                    dimensions = await image.evaluate(
+                        "img => [img.naturalWidth, img.naturalHeight]"
+                    )
+                    if not all(dimensions):
+                        continue
+                    if is_gemini_upload:
+                        wrapper_id = await image.evaluate(
+                            """async img => {
+                                const wrapper = document.createElement('div');
+                                wrapper.id = `trae-gemini-full-image-${Date.now()}`;
+                                wrapper.style.cssText = `
+                                    position: fixed; left: 0; top: 0;
+                                    z-index: 2147483647; display: block;
+                                    width: ${img.naturalWidth}px;
+                                    height: ${img.naturalHeight}px;
+                                    background: #000;`;
+                                const clone = img.cloneNode(false);
+                                clone.src = img.currentSrc || img.src;
+                                clone.loading = 'eager';
+                                clone.removeAttribute('class');
+                                clone.removeAttribute('srcset');
+                                clone.removeAttribute('sizes');
+                                clone.style.cssText = `
+                                    display: block; width: 100%; height: 100%;
+                                    max-width: none; max-height: none;
+                                    object-fit: fill; border-radius: 0;
+                                    clip-path: none; transform: none;
+                                    filter: none; opacity: 1;`;
+                                wrapper.appendChild(clone);
+                                document.body.appendChild(wrapper);
+                                try {
+                                    await Promise.race([
+                                        clone.decode(),
+                                        new Promise((_, reject) => setTimeout(
+                                            () => reject(new Error('image decode timeout')), 10000
+                                        ))
+                                    ]);
+                                    await new Promise(resolve => requestAnimationFrame(
+                                        () => requestAnimationFrame(resolve)
+                                    ));
+                                    return wrapper.id;
+                                } catch (error) {
+                                    wrapper.remove();
+                                    throw error;
+                                }
+                            }"""
+                        )
+                        wrapper = page.locator(f"#{wrapper_id}")
+                        try:
+                            body = await wrapper.screenshot(
+                                type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                            )
+                        finally:
+                            await wrapper.evaluate("node => node.remove()")
+                    else:
+                        body = await image.screenshot(
                             type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                         )
-                    finally:
-                        await wrapper.evaluate("node => node.remove()")
-                else:
-                    body = await image.screenshot(
-                        type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
-                    )
-                if _is_supported_image_body(body):
-                    return src, body, None
-        except Exception as screenshot_error:
-            failure_reason = type(screenshot_error).__name__
+                    if _is_supported_image_body(body):
+                        return src, body, None
+            except Exception as screenshot_error:
+                failure_reason = type(screenshot_error).__name__
         return src, None, failure_reason or "unknown_error"
 
     download_results = await asyncio.gather(*(
@@ -2128,7 +2142,7 @@ def _extract_kimi_document_card_candidates(
 def _gemini_private_conversation_url(html: str) -> str:
     """从 Gemini 分享页文件卡片元数据恢复账号内原始会话地址。"""
     soup = BeautifulSoup(html or "", "html.parser")
-    for button in soup.select("user-query-file-preview button[jslog]"):
+    for button in soup.select("user-query button[jslog], user-query-file-preview button[jslog]"):
         match = re.search(r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)", str(button.get("jslog") or ""))
         if not match:
             continue
@@ -2140,6 +2154,60 @@ def _gemini_private_conversation_url(html: str) -> str:
         if conversation:
             return f"https://gemini.google.com/app/{conversation.group(1)}"
     return ""
+
+
+def _enrich_gemini_shared_user_content(
+    html: str, private_html: str, image_map: Optional[dict[str, str]] = None,
+) -> str:
+    """按原始消息编号补齐分享页的上传图，保留分享时的回答和文档卡片。"""
+    def request_key(node):
+        for element in node.select("[jslog]"):
+            match = re.search(
+                r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
+                str(element.get("jslog") or ""),
+            )
+            if not match:
+                continue
+            try:
+                metadata = base64.b64decode(match.group(1) + "===").decode("utf-8")
+            except (ValueError, UnicodeDecodeError):
+                continue
+            request = re.search(r'"(r_[0-9A-Za-z_-]+)"', metadata)
+            conversation = re.search(r'"(c_[0-9A-Za-z_-]+)"', metadata)
+            if request and conversation:
+                return request.group(1), conversation.group(1)
+        return None
+
+    shared = BeautifulSoup(html, "html.parser")
+    private = BeautifulSoup(private_html, "html.parser")
+    private_users = {
+        key: node for node in private.find_all("user-query")
+        if (key := request_key(node)) is not None
+    }
+    for user in shared.find_all("user-query"):
+        original = private_users.get(request_key(user))
+        if original is None:
+            continue
+        def image_cards(node):
+            return [card for card in node.find_all("user-query-file-preview")
+                    if any(urlparse(img.get("src") or img.get("data-src") or "").netloc
+                           == "lh3.googleusercontent.com" for img in card.find_all("img"))]
+        originals = image_cards(original)
+        current_cards = image_cards(user)
+        current_sources = [img.get("src") or img.get("data-src") or ""
+                           for card in current_cards for img in card.find_all("img")]
+        if originals and (len(originals) > len(current_cards)
+                          or not all(src in (image_map or {}) for src in current_sources)):
+            for card in current_cards:
+                card.decompose()
+            for card in reversed(originals):
+                user.insert(0, BeautifulSoup(str(card), "html.parser"))
+        query = user.select_one(".query-text")
+        full_query = original.select_one(".query-text")
+        if (query is not None and full_query is not None
+                and len(full_query.get_text()) > len(query.get_text())):
+            query.replace_with(BeautifulSoup(str(full_query), "html.parser"))
+    return str(shared)
 
 
 def _extract_gemini_document_card_candidates(
@@ -2906,7 +2974,7 @@ async def _save_doubao_ai_documents(
             if not target.exists():
                 target.write_bytes(payload)
             local_reference = (
-                f"{document_reference_prefix}/{target.name}"
+                f"{document_reference_prefix}/{quote(target.name, safe='')}"
             )
             for key in {
                 title.lower(),
@@ -3383,7 +3451,7 @@ async def _download_document_candidates(
         if not target.exists():
             target.write_bytes(body)
         local_reference = (
-            f"{document_reference_prefix}/{target.name}"
+            f"{document_reference_prefix}/{quote(target.name, safe='')}"
         )
         for key in {
             candidate.reference,
@@ -4080,8 +4148,10 @@ async def fetch_chat_pipeline(
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
                 gemini_document_candidates: list[DocumentCandidate] = []
-                gemini_private_url = _gemini_private_conversation_url(
-                    page_snapshot_html + chr(10) + html
+                gemini_private_url = (
+                    _gemini_private_conversation_url(page_snapshot_html + chr(10) + html)
+                    if current_host in GEMINI_HOSTS and soup_pre.find("user-query-file-preview")
+                    else ""
                 )
                 if current_host in GEMINI_HOSTS and requires_login_probe:
                     # 当前已在登录后的私有会话，html 已滚动收齐全部卡片。
@@ -4148,6 +4218,20 @@ async def fetch_chat_pipeline(
                                 private_html, gemini_private_url
                             )
                         )
+                        html = _enrich_gemini_shared_user_content(html, private_html, image_map)
+                        user_images = BeautifulSoup(html, "html.parser").select("user-query img")
+                        recovered_sources = [
+                            src for img in user_images
+                            if (src := img.get("src") or img.get("data-src") or "")
+                            and urlparse(src).hostname == "lh3.googleusercontent.com"
+                        ]
+                        recovered_warnings: list[str] = []
+                        image_map.update(await _download_image_candidates(
+                            page, recovered_sources, resolved_images_dir,
+                            image_reference_prefix, image_download_concurrency,
+                            recovered_warnings,
+                        ))
+                        fetch_warnings.extend(recovered_warnings)
                     elif logger:
                         logger("未获得 Gemini 原始会话访问权限，附件保持不可下载提示。")
                 document_candidates = list(dict.fromkeys([

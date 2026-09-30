@@ -30,6 +30,7 @@ from gui.service import (
     _extract_grok_document_card_candidates,
     _grok_document_card_download,
     _gemini_private_conversation_url,
+    _enrich_gemini_shared_user_content,
     _extract_doubao_ai_document_resources,
     _extract_doubao_ai_document_titles,
     _inject_chatgpt_attachment_names,
@@ -271,6 +272,52 @@ class GUIServiceTests(unittest.TestCase):
             [],
         )
 
+    def test_gemini_share_recovers_images_by_request_id_and_keeps_snapshot(self):
+        import base64
+        def user(request, text, images=(), document=False):
+            metadata = base64.b64encode(
+                f'[["r_{request}","c_conversation123"]]'.encode()
+            ).decode()
+            cards = ''.join(
+                f'<user-query-file-preview><button aria-label="图片"><img src="{src}"></button></user-query-file-preview>'
+                for src in images
+            )
+            if document:
+                cards += '<user-query-file-preview><button aria-label="无法查看或下载"><img src="https://gstatic.com/file.png"><div class="filename-label">keep.pdf</div></button></user-query-file-preview>'
+            return f'<user-query><button jslog="BardVeMetadataKey:{metadata}"></button>{cards}<div class="query-text">{text}</div></user-query>'
+        shared = (user('first', 'short', document=True)
+                  + '<message-content>shared answer</message-content>'
+                  + user('second', 'second'))
+        private = (user('second', 'second', ['https://lh3.googleusercontent.com/gg/three'])
+                   + user('first', 'short complete', ['https://lh3.googleusercontent.com/gg/one', 'https://lh3.googleusercontent.com/gg/two'])
+                   + user('later', 'must not export', ['https://lh3.googleusercontent.com/gg/later']))
+        enriched = BeautifulSoup(_enrich_gemini_shared_user_content(shared, private), 'html.parser')
+        users = enriched.find_all('user-query')
+        self.assertEqual(len(users), 2)
+        self.assertEqual([img['src'] for img in users[0].find_all('img')], [
+            'https://lh3.googleusercontent.com/gg/one',
+            'https://lh3.googleusercontent.com/gg/two',
+            'https://gstatic.com/file.png',
+        ])
+        self.assertEqual(users[0].select_one('.query-text').get_text(), 'short complete')
+        self.assertIn('keep.pdf', str(enriched))
+        self.assertIn('shared answer', str(enriched))
+        self.assertNotIn('must not export', str(enriched))
+        self.assertEqual(_gemini_private_conversation_url(shared), 'https://gemini.google.com/app/conversation123')
+
+    def test_gemini_enrichment_reuses_complete_downloaded_image_cards(self):
+        import base64
+        metadata = base64.b64encode(b'[["r_request123", "c_conversation123"]]').decode()
+        shared = f'<user-query><button jslog="BardVeMetadataKey:{metadata}"></button><user-query-file-preview><button aria-label="图片"><img src="https://lh3.googleusercontent.com/gg/cached"></button></user-query-file-preview><div class="query-text">same</div></user-query>'
+        private = shared.replace('/gg/cached', '/gg/fresh')
+        result = _enrich_gemini_shared_user_content(shared, private, {'https://lh3.googleusercontent.com/gg/cached': './images/cached.png'})
+        self.assertIn('/gg/cached', result)
+        self.assertNotIn('/gg/fresh', result)
+        # A failed initial download must still recover the fresh private source.
+        result = _enrich_gemini_shared_user_content(shared, private, {})
+        self.assertIn('/gg/fresh', result)
+        self.assertNotIn('/gg/cached', result)
+
     def test_gemini_missing_document_card_fails_fast(self):
         missing = SimpleNamespace(count=AsyncMock(return_value=0))
         card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=missing)))
@@ -504,6 +551,58 @@ class GUIServiceTests(unittest.TestCase):
             ))
             saved = Path(temp_dir) / Path(image_map[source]).name
             self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nrendered")
+
+    def test_concurrent_gemini_screenshots_never_overlap(self):
+        sources = ['https://lh3.googleusercontent.com/gg/one', 'https://lh3.googleusercontent.com/gg/two']
+        active = set()
+        class Image:
+            def __init__(self, source):
+                self.source = source
+            async def get_attribute(self, name):
+                return self.source if name == 'src' else None
+            async def scroll_into_view_if_needed(self, **kwargs):
+                self.assert_no_overlay()
+            def assert_no_overlay(self):
+                if active:
+                    raise AssertionError('another screenshot is still visible')
+            async def evaluate(self, script):
+                if 'trae-gemini-full-image' in script:
+                    self.assert_no_overlay()
+                    active.add(self.source)
+                    await asyncio.sleep(0.01)
+                    return str(sources.index(self.source))
+                if 'currentSrc' in script:
+                    return [self.source, self.source, None]
+                if 'new Promise' in script:
+                    return True
+                if 'remove()' in script:
+                    active.remove(self.source)
+                    return None
+                return [640, 480]
+            async def screenshot(self, **kwargs):
+                await asyncio.sleep(0.01)
+                if active != {self.source}:
+                    raise AssertionError('overlapping screenshots captured the wrong image')
+                return b'\x89PNG\r\n\x1a\n' + self.source.encode()
+        class Images:
+            async def count(self):
+                return len(sources)
+            def nth(self, index):
+                return Image(sources[index])
+        class Page:
+            request = SimpleNamespace(get=AsyncMock(return_value=SimpleNamespace(ok=False,status=403)))
+            async def evaluate(self, *args):
+                return None
+            def locator(self, selector):
+                return Image(sources[int(selector[1:])]) if selector.startswith('#') else Images()
+        warnings = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mapping = asyncio.run(_download_image_candidates(Page(), sources, Path(temp_dir), './images', warning_collector=warnings))
+            self.assertEqual(len(mapping), 2)
+            for source in sources:
+                self.assertEqual((Path(temp_dir)/Path(mapping[source]).name).read_bytes(), b'\x89PNG\r\n\x1a\n' + source.encode())
+        self.assertEqual(warnings, [])
+        self.assertEqual(active, set())
 
     def test_existing_image_directory_stays_concurrent_and_deduplicated(self):
         class FakeResponse:
@@ -763,7 +862,7 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(asset_dir, base / "课程 总结_images")
         self.assertEqual(
             build_markdown_asset_prefix(asset_dir, base),
-            "./课程 总结_images",
+            "./%E8%AF%BE%E7%A8%8B%20%E6%80%BB%E7%BB%93_images",
         )
         absolute_base = Path.cwd() / "用户结果"
         self.assertEqual(
@@ -771,7 +870,7 @@ class GUIServiceTests(unittest.TestCase):
                 absolute_base / "课程 总结_images",
                 absolute_base,
             ),
-            "./课程 总结_images",
+            "./%E8%AF%BE%E7%A8%8B%20%E6%80%BB%E7%BB%93_images",
         )
         self.assertEqual(
             build_image_asset_prefix(asset_dir),
@@ -1261,8 +1360,22 @@ class GUIServiceTests(unittest.TestCase):
             saved = list(output_dir.iterdir())
             self.assertEqual([path.name for path in saved], ["报告.docx"])
             self.assertEqual(saved[0].read_bytes(), b"PK\x03\x04fake-docx")
-            self.assertEqual(mapping["报告.docx"], "./result_files/报告.docx")
+            self.assertEqual(mapping["报告.docx"], "./result_files/%E6%8A%A5%E5%91%8A.docx")
             self.assertNotIn("secret", " ".join(mapping.values()))
+
+    def test_document_link_encodes_spaces_and_markdown_delimiters(self):
+        from urllib.parse import unquote, quote
+        filename = '新建 文本文档 (1)#%.txt'
+        response = SimpleNamespace(ok=True, headers={'content-type': 'text/plain'}, body=AsyncMock(return_value=b'original file content'))
+        page = SimpleNamespace(request=SimpleNamespace(get=AsyncMock(return_value=response)))
+        candidate = DocumentCandidate('file_ref', 'https://example.com/file', filename)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir) / 'documents'
+            mapping = asyncio.run(_download_document_candidates(page, [candidate], folder, './documents'))
+            reference = mapping[candidate.reference]
+            self.assertEqual(reference, './documents/' + quote(filename, safe=''))
+            self.assertEqual((Path(temp_dir) / unquote(reference)).read_bytes(), b'original file content')
+            self.assertEqual([path.name for path in folder.iterdir()], [filename])
 
     def test_chatgpt_document_retries_without_share_scope(self):
         share_id = "6aa93ca3-11c0-83e8-9c36-afa39378a735"

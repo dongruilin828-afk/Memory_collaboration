@@ -76,7 +76,7 @@ Gemini：
 1. 分享链接：https://share.gemini.google/jGwTR2BHtPH7
 网页链接：https://gemini.google.com/gem/801fad40429f/dac313bedc53ce2c
 2. 分享链接：https://share.gemini.google/1BQu05r14JML
-网页链接：https://share.gemini.google/1BQu05r14JML
+网页链接：https://gemini.google.com/app/af95f37cadb0389
 
 含交互：
 分享链接：https://share.gemini.google/9JuZLH5UhwNF

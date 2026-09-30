@@ -24,6 +24,17 @@ def soup(html):
     return BeautifulSoup(html, "html.parser")
 
 
+class GeminiUserFormattingTests(unittest.TestCase):
+    def test_long_query_preserves_every_line_and_protects_markup(self):
+        from html import escape
+        lines = ['declare $mep', '', '\xa0 \xa0 local x="<file>";', '\treturn 1', '```'] + [f'line {i}' for i in range(24)]
+        html = '<user-query><div class="query-text"><h5 class="cdk-visually-hidden">truncated preview…</h5>' + ''.join(
+            f'<p class="query-text-line"> {escape(line)} </p>' for line in lines
+        ) + '</div><button>复制提示</button></user-query>'
+        messages = gemini.parse_messages(soup(html))
+        self.assertEqual(messages[0]['content'], '````text\n' + '\n'.join(lines) + '\n````')
+
+
 class GeminiContentProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_public_share_waits_for_slow_hydration(self):
         class Locator:

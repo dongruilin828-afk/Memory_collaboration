@@ -374,14 +374,33 @@ def _render_user(node, image_map) -> str:
             # 通用下载链路理论上已下载；兜底保留远程地址，避免丢图。
             parts.append(f"![{alt}]({src})")
 
-    text = node.get_text(separator="\n", strip=True)
-    clean_lines = [
-        line.strip()
-        for line in text.split("\n")
-        if line.strip() and line.strip().lower() not in _NOISE_TEXT
-    ]
-    if clean_lines:
-        parts.append("\n".join(clean_lines))
+    query = node.select_one(".query-text")
+    query_lines = query.select("p.query-text-line") if query is not None else []
+    if query_lines:
+        # Angular 在每个 query-text-line 的文本两端各加一个显示空格。
+        # 只去掉这两个空格，保留输入中的缩进、空行和非断行空格。
+        lines = [line.get_text() for line in query_lines]
+        text = "\n".join(
+            line[1:-1] if line.startswith(" ") and line.endswith(" ") else line
+            for line in lines
+        )
+    elif query is not None:
+        text = query.get_text(separator="\n", strip=False).strip("\n")
+    else:
+        text = "\n".join(
+            line for line in node.get_text(separator="\n", strip=False).splitlines()
+            if line.strip() and line.strip().lower() not in _NOISE_TEXT
+        ).strip("\n")
+    if text.strip():
+        if (len(text.splitlines()) > 20
+                or re.search(r"(?m)^(?:[ \t\xa0]{4,}|\t)\S|</?[A-Za-z][^>]*>", text)):
+            # 用户粘贴的代码/终端输出应原样显示，不能被 Markdown/HTML 吞掉。
+            fence = "`" * max(3, 1 + max(
+                (len(run) for run in re.findall(r"`+", text)), default=0
+            ))
+            parts.append(f"{fence}text\n{text}\n{fence}")
+        else:
+            parts.append(text)
 
     # 去重并保持顺序。
     seen = set()
