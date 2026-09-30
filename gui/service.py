@@ -2159,36 +2159,37 @@ def _gemini_private_conversation_url(html: str) -> str:
     return ""
 
 
+def _gemini_message_key(node):
+    for element in node.select("[jslog]"):
+        match = re.search(
+            r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
+            str(element.get("jslog") or ""),
+        )
+        if not match:
+            continue
+        try:
+            metadata = base64.b64decode(match.group(1) + "===").decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            continue
+        request = re.search(r'"(r_[0-9A-Za-z_-]+)"', metadata)
+        conversation = re.search(r'"(c_[0-9A-Za-z_-]+)"', metadata)
+        if request and conversation:
+            return request.group(1), conversation.group(1)
+    return None
+
+
 def _enrich_gemini_shared_user_content(
     html: str, private_html: str, image_map: Optional[dict[str, str]] = None,
 ) -> str:
     """按原始消息编号补齐分享页的上传图，保留分享时的回答和文档卡片。"""
-    def request_key(node):
-        for element in node.select("[jslog]"):
-            match = re.search(
-                r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
-                str(element.get("jslog") or ""),
-            )
-            if not match:
-                continue
-            try:
-                metadata = base64.b64decode(match.group(1) + "===").decode("utf-8")
-            except (ValueError, UnicodeDecodeError):
-                continue
-            request = re.search(r'"(r_[0-9A-Za-z_-]+)"', metadata)
-            conversation = re.search(r'"(c_[0-9A-Za-z_-]+)"', metadata)
-            if request and conversation:
-                return request.group(1), conversation.group(1)
-        return None
-
     shared = BeautifulSoup(html, "html.parser")
     private = BeautifulSoup(private_html, "html.parser")
     private_users = {
         key: node for node in private.find_all("user-query")
-        if (key := request_key(node)) is not None
+        if (key := _gemini_message_key(node)) is not None
     }
     for user in shared.find_all("user-query"):
-        original = private_users.get(request_key(user))
+        original = private_users.get(_gemini_message_key(user))
         if original is None:
             continue
         def image_cards(node):
@@ -2275,6 +2276,122 @@ def _extract_gemini_document_card_candidates(
         seen_refs.add(reference)
         candidates.append(DocumentCandidate(reference, str(base_url), filename))
     return candidates
+
+
+def _gemini_query_text(user) -> str:
+    query = user.select_one(".query-text")
+    if query is None:
+        return ""
+    clean = BeautifulSoup(str(query), "html.parser")
+    gemini._strip_noise(clean)
+    return clean.get_text(" ", strip=True)
+
+
+def _restore_gemini_copied_file_cards(html: str, original_html: str, original_url: str) -> str:
+    """只替换请求编号、提问和附件对应的复制会话禁用卡片。"""
+    copied = BeautifulSoup(html, "html.parser")
+    original = BeautifulSoup(original_html, "html.parser")
+    original_users = {}
+    for user in original.find_all("user-query"):
+        key = _gemini_message_key(user)
+        if key:
+            if key[0] in original_users:
+                return ""
+            original_users[key[0]] = user
+    replacements = []
+    for user in copied.find_all("user-query"):
+        cards = user.find_all("user-query-file-preview")
+        blocked = [card for card in cards if card.select_one('button[aria-label*="无法查看或下载"]')]
+        if not blocked:
+            continue
+        key = _gemini_message_key(user)
+        source = original_users.get(key[0]) if key else None
+        query = _gemini_query_text(user)
+        if source is None or not query or query != _gemini_query_text(source):
+            return ""
+        source_cards = source.find_all("user-query-file-preview")
+        if len(cards) != len(source_cards):
+            return ""
+        for card, source_card in zip(cards, source_cards):
+            if card not in blocked:
+                continue
+            candidates = _extract_gemini_document_card_candidates(str(source_card), original_url)
+            if len(candidates) != 1 or gemini.is_video_attachment(card) != gemini.is_video_attachment(source_card):
+                return ""
+            if not gemini.is_video_attachment(card):
+                expected_card = BeautifulSoup(str(card), "html.parser")
+                button = expected_card.find("button")
+                button["aria-label"] = ""
+                button.attrs.pop("disabled", None)
+                button.attrs.pop("aria-disabled", None)
+                expected = _extract_gemini_document_card_candidates(str(expected_card), original_url)
+                if len(expected) != 1 or expected[0].filename.lower() != candidates[0].filename.lower():
+                    return ""
+            replacements.append((card, source_card))
+    for card, source_card in replacements:
+        card.replace_with(BeautifulSoup(str(source_card), "html.parser"))
+    return str(copied) if replacements else ""
+
+
+async def _recover_gemini_copied_attachments(page: Any, html: str, url: str, logger=None) -> tuple[str, str]:
+    """依据原提问搜索账号内会话，并验证消息标识与附件信息。"""
+    soup = BeautifulSoup(html, "html.parser")
+    blocked = soup.select_one('user-query-file-preview button[aria-label*="无法查看或下载"]')
+    user = blocked.find_parent("user-query") if blocked else None
+    if user is None or not _gemini_message_key(user):
+        return "", html
+    query = _gemini_query_text(user)
+    if not query:
+        return "", html
+    first_sentence = re.split(r"[？?。！!\n]", query, maxsplit=1)[0].strip()
+    queries = [first_sentence[:100] if len(first_sentence) >= 8 else query[:100], query[:100]]
+    recovered = False
+    try:
+        if logger:
+            logger("Gemini 复制会话附件不可用，正在搜索并核对账号内原始消息...")
+        for attempt, search_text in enumerate(queries):
+            phase = "打开搜索"
+            try:
+                if attempt:
+                    await goto_with_retry_gui(page, url, attempts=1, logger=logger)
+                    await collect_virtualized_html(page)
+                await page.locator('[data-test-id="search-chats-button"] a').click(timeout=5000)
+                phase = "等待搜索结果"
+                await page.locator('input[data-test-id="search-input"]').fill(search_text, timeout=5000)
+                await page.locator('.search-results-header, .no-results').first.wait_for(state="visible", timeout=15000)
+                links = await page.locator('search-snippet a[href]').evaluate_all(
+                    "elements => elements.map(element => element.getAttribute('href'))"
+                )
+                # ponytail: 每个查询最多核验 5 项；出现深位原会话时再加搜索结果分页。
+                for path in list(dict.fromkeys(links))[:5]:
+                    if not re.fullmatch(r"/app/[0-9A-Za-z_-]{8,}", path or ""):
+                        continue
+                    original_url = "https://gemini.google.com" + path
+                    if urlparse(original_url).path == urlparse(url).path:
+                        continue
+                    phase = "核对原始消息"
+                    await goto_with_retry_gui(page, original_url, attempts=1, logger=logger)
+                    if not await _page_has_conversation_content(page, original_url):
+                        continue
+                    original_html = await collect_virtualized_html(page) or await page.content()
+                    restored = _restore_gemini_copied_file_cards(html, original_html, original_url)
+                    if restored:
+                        recovered = True
+                        if logger:
+                            logger("已核对原始消息及附件，使用账号内原始会话下载。")
+                        return original_url, restored
+            except Exception as error:
+                if logger:
+                    logger(f"Gemini {phase}未完成（{type(error).__name__}，第 {attempt + 1} 次）。")
+    finally:
+        if not recovered:
+            try:
+                await goto_with_retry_gui(page, url, attempts=1, logger=logger)
+                await collect_virtualized_html(page)
+            except Exception as error:
+                if logger:
+                    logger(f"返回 Gemini 原会话失败（{type(error).__name__}），继续导出已读取内容。")
+    return "", html
 
 
 def _extract_grok_document_card_candidates(
@@ -3111,6 +3228,13 @@ async def _gemini_document_card_download(
     timeout: int,
 ) -> tuple[bytes, dict[str, str]]:
     """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
+    # 复制会话可能混合原始附件与后来上传的文件，逐个回到候选绑定的会话。
+    if getattr(page, "url", candidate.url).split("?")[0] != candidate.url.split("?")[0]:
+        parsed = urlparse(candidate.url)
+        if parsed.hostname != "gemini.google.com" or not requires_authenticated_browser(candidate.url):
+            raise ValueError("Gemini 附件来源必须是账号内会话")
+        await goto_with_retry_gui(page, candidate.url, attempts=1)
+        await collect_virtualized_html(page)
     cards = page.locator("user-query-file-preview")
     is_video = Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
     metadata = re.match(
@@ -4218,16 +4342,23 @@ async def fetch_chat_pipeline(
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
                 gemini_document_candidates: list[DocumentCandidate] = []
+                gemini_recovered_content = False
                 gemini_private_url = (
                     _gemini_private_conversation_url(page_snapshot_html + chr(10) + html)
                     if current_host in GEMINI_HOSTS and soup_pre.find("user-query-file-preview")
                     else ""
                 )
                 if current_host in GEMINI_HOSTS and requires_login_probe:
-                    # 当前已在登录后的私有会话，html 已滚动收齐全部卡片。
-                    gemini_document_candidates = (
-                        _extract_gemini_document_card_candidates(html, url)
-                    )
+                    # 私有链接也可能是从分享页复制的会话，原附件没有随复制注册。
+                    gemini_document_candidates = _extract_gemini_document_card_candidates(html, url)
+                    recovered_url, html = await _recover_gemini_copied_attachments(page, html, url, logger)
+                    if recovered_url:
+                        gemini_recovered_content = True
+                        known_refs = {candidate.reference for candidate in gemini_document_candidates}
+                        gemini_document_candidates.extend(
+                            candidate for candidate in _extract_gemini_document_card_candidates(html, recovered_url)
+                            if candidate.reference not in known_refs
+                        )
                 elif gemini_private_url:
                     if logger:
                         logger("发现 Gemini 原始附件，正在检查账号访问权限...")
@@ -4289,21 +4420,23 @@ async def fetch_chat_pipeline(
                             )
                         )
                         html = _enrich_gemini_shared_user_content(html, private_html, image_map)
-                        user_images = BeautifulSoup(html, "html.parser").select("user-query img")
-                        recovered_sources = [
-                            src for img in user_images
-                            if (src := img.get("src") or img.get("data-src") or "")
-                            and urlparse(src).hostname == "lh3.googleusercontent.com"
-                        ]
-                        recovered_warnings: list[str] = []
-                        image_map.update(await _download_image_candidates(
-                            page, recovered_sources, resolved_images_dir,
-                            image_reference_prefix, image_download_concurrency,
-                            recovered_warnings,
-                        ))
-                        fetch_warnings.extend(recovered_warnings)
+                        gemini_recovered_content = True
                     elif logger:
                         logger("未获得 Gemini 原始会话访问权限，附件保持不可下载提示。")
+                if gemini_recovered_content:
+                    user_images = BeautifulSoup(html, "html.parser").select("user-query img")
+                    recovered_sources = [
+                        src for img in user_images
+                        if (src := img.get("src") or img.get("data-src") or "")
+                        and urlparse(src).hostname == "lh3.googleusercontent.com"
+                    ]
+                    recovered_warnings: list[str] = []
+                    image_map.update(await _download_image_candidates(
+                        page, recovered_sources, resolved_images_dir,
+                        image_reference_prefix, image_download_concurrency,
+                        recovered_warnings,
+                    ))
+                    fetch_warnings.extend(recovered_warnings)
                 document_candidates = list(dict.fromkeys([
                     *(
                         candidate
