@@ -14,11 +14,15 @@ from gui.service import fetch_chat_pipeline, generate_raw_markdown
 CASES = {
     "01": "https://share.gemini.google/pjqqn6qvUB6M",
     "02": "https://gemini.google.com/app/9aa52a89087a7fdc",
+    "07": "https://share.gemini.google/MlzBdrSeaSA9",
+    "08": "https://gemini.google.com/app/dc93107f5b84c529",
     "09": "https://share.gemini.google/YHIhw3SCWFZ7",
     "13": "https://share.gemini.google/N3NeBQVhFWIT",
     "14": "https://gemini.google.com/gem/801fad40429f/058c89ea8d4f09b5",
     "15": "https://share.gemini.google/YINsLdHDRoWg",
     "16": "https://gemini.google.com/gem/801fad40429f/bf49992eb84f9bb3",
+    "19": "https://share.gemini.google/1BQu05r14JML",
+    "20": "https://gemini.google.com/app/af95f37cadb0389",
 }
 
 async def main():

@@ -1,0 +1,107 @@
+{
+  "image_map": {
+    "https://lh3.googleusercontent.com/gg/AJWXcNdauvrXKKr4TObbeQv-bmKZm88UyZ54nTXU9uBxiOJ77kHD6ZenM0G6Mvq5ruD6zlYE_8lHIbi5cjg0kmbXOICROyKMHN6ltKhlhGthzgHOjyQa-aoYqUpBeebhCmf9-4r8Me1GjarYetNwyx5pewTn_UfMvlH35hgWT2_Mc6B5AnwVvh09cvJ21RKr-nBdzb4lxaoEIqOMHNCCi8ujWDjI72ELBdj_xPnmgpdNEVMtBykfBdiO_xFn2nEu5RVE0k0TReefioBXpSp99nkcZUhv9xgVZ_4gymM": "./images/img_1_0c20d66f.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNcP5-Vy-59Cl9OLgdzPiammuiZ-Yu19xUtuxu0SckqLYferkQw2IoL4nTfa95IMC4i8u7e0JhDzYfKQytLVPCHibaHdK7GOBubhgLEkBQg5czv4ecLDtqtrzTOzLvjrUaZ08jLNSDgT2yMp3gszYnv5L6IBUjc0Oc4fq9Ky6NfNASdnTMlffaJc8sK0S3Mnp2nWEcJgAXUH6XvFRLEaHeHTjJfKcJIwQW2MulJQxPjM27ZMCQakYUOjm_NfxeDn52Pb1cIcHJjU8gegXKvfLxTLp8rRAbRInO4": "./images/img_2_d1f07ad4.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNeARiMnfhIu785kIB01ISbgnnzhfquPDzsA_FMUU0vTVU9b8_v3HOYTJxlZO3uduTwWsQ0oXKhAV9GkkCqcwIB2AMeRIdH3kyHwkDlksPU-WGLn-A16F2LoG_JL8HiktTm18lwBcpPiXHXwLTEtXeD8AsDH8x8GaTTKJTQP5xUx-AcqbJ4Cu8Y7MOGrDk1rFRH9zV3XE4hzQu06AXKra6M4wz2gnpsROfL5zl4u2HIng7E1S3dqW2Xr6lqTD3p0pDrRA-ZxdtpZBceOuDE7I0xqRJwxFqygnQ": "./images/img_3_37d2e772.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNfLKTVQeQZSYFJ4bf2zqW3xJO1uRB5irq8HNaS9y5sR1O7m7TIQwNLWtesNJObs3GjTa1_UfAZcw6fWVlt9Xk0WHHjuulHQLLCFBQsD5lpUbxSAZBw4AgfsJ9Ug6IxELbpw1xo9fRsfzWECe7RJwVBI6tLbyKEj44gQkEIi_hhES7qSNOtuBmiSyF_uNvaDgMw_EljOENZpcIa1ojYqkjM-muOo7xMpN0hxMs1ZywUK6hdPH7pyhDPMXEGYkm3acoCuQ3NCTbryde61O2dxGBsxAYkRC7i49UY": "./images/img_4_070e0feb.png",
+    "blob:https://gemini.google.com/05d87b7f-acfc-43de-a070-2c6ac5f4acb9": "./images/img_5_ca89a4cc.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNdKfhZ2xAvdEiqKdIT6M3BK-5l2MW8KSsp-fbSDN4M1ZKrMZkdlxW57gllctebR0kK5n-aWWaYTyKAKDKHOjoP00XbHwbqHto3KwRfKq6Ks5xKxx8LTTni9aQSADOgHPRqtFVOrpxk9t_zZuuNs24fbhVs3cTke0UzzFh2ZlfbBAzSKjuPvDYm4qDw9nzlhy3ne56fmUGaE5Gbx-3B6b2Qh_NqOMQkaPBYjf2E6mY3OqvmVmRhrSPqUyepKHuhUKhd78Cef2dSzkt8-d476nf7y6aGAkKlgsS8": "./images/img_6_3be0a4fc.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNc2X24C-9OwSm2UoyPAWlNL-IzoKdhnlpkd960jQhemmOkyuqNoOjIPSXoVBrbVr5IeFsCZ4lRcyBHHGM0sLEWwdgfSv7QqdIp11j0523V6n1QSmf1z7qWSRg9Ef8HnNngR382ckNQGAkRf26zyOv_zasN85hiEH8CtDdRLy0Z-7QJ8Nfogb9xHe3wC7rG0U29MMXX5KyJxn1JLEyC5KIN8DasUFuCgWiqp3zYGawHpPngwOOCgAGdl1HNXqV33N4gPQmfUwvLQOIZgflbXq1VkYIPExlj52DY": "./images/img_7_e9ed7c11.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNdL7rYCrfYda0gqfcUpoYmVbqaGHEX-wRSkMPKEJv7qaOq40-bzLBPwuieaeMsA9AidX-QVwpf4jWRQK3LADLZIXHLfblEaHgs5JkIfvbS2Zc8TP8o4J-gKCHdDqhS7jhNJqQvCW9uudsTsNQOE7TnA2ucNc20l2Yn5EbEwsg378DNhPmLpK1LbF033P-U8jWfl9lmuKOCqfygf1ZvMRBG1Kt2C6GLnOT_zU0XAPXL8994FziqZ8tf4i9J5rHI6LRqjmRRK4JNNesXsT33JwJMHPE-ALyAnNkk": "./images/img_8_d8ebb5ee.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNdyf78ZcfF4zHHqVVaOWUP6V8M6rLnJ5H1nRkerqTe9G_53bXXLqDg1atTxjZP6Otir9lWRAVzrT1NywKuXXVA7B53xjdUG_cmvvvQMvXh5TM-xoTsOzCUl9veiSYJjbYvH9-3PdUMh121OMYWlqA70MddolkQvFJ3oP1VSk06Nsb3D3Mtx37OBPtut8fyrMDCCBa4FbdWBUtmMvGDUOg-ewPhS8XkhQ0KTMhVT_4SXtyBgBGxQFEx1zQ5xVC6QISzZyxHq2JkH-Lha3QveZsXQoMugJdm1u5k": "./images/img_9_4d45f782.png",
+    "blob:https://gemini.google.com/dd09dfc6-b578-4565-af38-7b326fad7d27": "./images/img_10_0be27151.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNeb-GG2rbRmvrEZJ5cYGzOGkgZPRCro4hycLHaF6JoDICiFQ4k8JA7kptfaoFSLAtRRhSRDaJCHTW5QeVKVqqq3msob3CHUeNS5TC3bd8TZUbkIiBZSBNgvi0dnnrgtZtwSrH2XBy8ukai5CM4vIrbwR14oqMVrH_ZovcBrDFa-NVE0K5jVR2KKqd993HC2bqrossUUegflm5lnsXzKdl6ihSch1Ij-_WQjwXIt3_vNK6Z5cWnI_ctswpZtYnMUrES8JJ-6cOxDkvdtW-hI7mojkjV5_gfbOw": "./images/img_11_0b1330df.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNcWzHV2XQ6lqAMPYMxnyLY6u9jn6bHj4-_RpSiaii-anJCTFw77HeTiN48DkK1W72vZ7oLeMwrDEKmsmGnt6n5BTnkb7VAfeBDo7Zaw03igNdH6EPCwrEUJco8Pj8LNPU3LMZciprNj640rzXtoUvDEUZR-2e2afj7uBGUo4S4jGNb62FI9Fnhv2gOPfb6g2m0h-J9Qm3ZxMnMA4brVKy9zOIXpcNuk-i1d-5YaoJGJyiGKe44eoQFHCDooUYvS8pLIDw8p_14b8TGdqmsxh5i-tv21AU0q4Q4": "./images/img_12_558ed8cf.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNfaxm2e06GoSiP62P_96LaQ1_Qj2HjsK2d9u8KbAZk0fR1zvTA6CVhmVooqmR1mSyzWbMimg4EQCXXt6nOG2EGTHTkG9tf-lX2gJJeS2SlvwbTcArjkT411nkEpVCspoPtPRmNPp6BtVdxBmipREXgUSxOUdUptHVJFjbyhi6Xg_CVlKeGK8oO1zgkt8b530GRY9GYnrMgvmMdAuL9QdS68aE6Shx0QsKh1QPcI1nakjiVlJdzz7L36qAdD-0CqBcX88YBCpaHAkoCEPP1jLyciSILn8lxNmU0": "./images/img_13_84f62564.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNfyC8ybAGRGGiN_cP9EnRPvQ4SaAf8E4iIjxiW87Jkin5dAIRpOHEp71DQhTNcLBuu399BxAsG856ykMt8HWGVPCvW4Oze6RKnYilHJfOvp-UMVWmqvyzK5-j-Xfd5SG-9h7JRXPFArhuN1MbfyT3buWkfJt1jqheXORmJGUMDA1E4tQ5Ojslf9KJ1uT0bq-P29mQpENmD8Pyo7Q5zkfXf1CDWXvrgRu416fbzMXZyyYN7Hez0qomGZahAWQe8w6ohR489Rem40xqRoLvf2oeGkU2u3wV4qaZw": "./images/img_14_e498edcb.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNcsRmmWTiELHj14HkFG3wBbOyGtEXbOz_oHyBuht2UN_DYBBOitfvNpmcq24gS_aR2hqlI3tD4qjci67kF_T4dtYuDosl3g9GpIw6Q7XzmeW4Q4dRN2sVBhHqTyrNjzeNxqI9HZFV64YuRlQPzeTkUeDLKThVou7maae6kbJNbq2DW7HGVrEWRnigYALGxEbxSfToN0dcS7GbItoPMUMovkQk3_Nq5bBpvaT_D7aSgKG8tIjumeTqY_MIjhl74Gptj4ryg4Q0OiRXThcwijNsJQj1RCQKXwl_4": "./images/img_15_df95779a.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNfZm-O8RVzsW4ICZ_cJ6Fecn_OGeykA-BKQkxQusRtO96XahxbJcKJJSAB6RAo6WYshYqbiW1SrWevRd8VWdd_oRGysxZ_KpLMsxcYStjFMk18ULcnAB0s0WK_gueSvA3BydmLBsRbBNMIThQGkyRoAz9BSrKp_HMlC-8APEEuqvraJRlz0St5VrLAnHNmWlBaogYvVSwXI266vWzm58pmhsLXYFnbas_Mu4mir-XXT5GtJqvknrxEKvhfQbnrf-WeaYGwTU76laErS-2YMCVg5W9tY5gqClsQ": "./images/img_16_e8838233.png",
+    "https://lh3.googleusercontent.com/gg/AJWXcNdBdNv8WDXBMS8NYrbSct6Pl7DZH__2kJlv0n_mmV0mzPuWvkXA4k8DEWbXEhiGh_i9VHe6S27pzt6KBK33Iovmue6UDDuo0GamC8KK3d4YakTFwCZLjp2SmGWJvj5D8Vp1UcWpOIJuvAqVvgwQu2Jlg48UMH8KbYSgXCgcrAtFMyse_Ur5XEMuv2TxpJs0SPAWVkXNqbGo2yZfYYfAW4JrR2Wr6czhLK-i8A6BvtoqbfqCssl0BcJxirxw-TqfoYsGh7GDg_zY7gZBtYxRH0FBDY67XE2XWY4": "./images/img_17_150d13f0.png",
+    "blob:https://gemini.google.com/8dbb95e8-2bad-40ad-b64b-ea45f0978d5b": "./images/img_18_bec7e478.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_1_0c20d66f.png)\n\n![所上传图片的预览图](./images/img_2_d1f07ad4.png)\n\n![所上传图片的预览图](./images/img_3_37d2e772.png)\n\n![所上传图片的预览图](./images/img_4_070e0feb.png)\n\n我上传的四张图片分别对应导航栏中的四个部分，我现在需要你进一步设计这个前端，让这个前端变得更好看，可以模仿Gemini的风格，给我生成一下图片"
+    },
+    {
+      "role": "AI",
+      "content": "![Gemini 生成的图片](./images/img_5_ca89a4cc.png)"
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_6_3be0a4fc.png)\n\n![所上传图片的预览图](./images/img_7_e9ed7c11.png)\n\n![所上传图片的预览图](./images/img_8_d8ebb5ee.png)\n\n![所上传图片的预览图](./images/img_9_4d45f782.png)\n\n不是啊，你不要把导航栏中的四个部分放进同一个界面啊"
+    },
+    {
+      "role": "AI",
+      "content": "![Gemini 生成的图片](./images/img_10_0be27151.png)"
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_11_0b1330df.png)\n\n我现在很满意你这个部分的设计，我现在需要你给我拟写一份提示词，将我原来的这个部分修改成你这样"
+    },
+    {
+      "role": "AI",
+      "content": "这里是为您拟写的详细提示词，旨在将您原来的基础界面（如 image\\_6.png）中的输入框和操作区域，修改为您满意的 image\\_12.png 的高级设计。\n\n### 功能界面修改提示词：对话输入与操作区域增强\n\n**应用场景：** AI 记忆协同管理软件（桌面端或 Web 端）的“对话”主界面。\n\n**参考来源：** 核心设计参考 `image_12.png`。原界面参考 `image_6.png`。\n\n**设计目标：**\n在 `image_6.png` 的整体布局（左侧导航，右侧内容区）基础上，将右侧内容区底部的“对话输入框”和“文件/链接添加按钮”区域，从单一、基础的列表样式，替换为一个高度集成、采用现代化“玻璃拟态”（Glassmorphism）和渐变光效的高级组件。\n\n**核心组件：高级对话输入与文件集成面板**\n\n**1. 面板容器 (The Outer Panel)**\n\n* **主体：** 替换现有的基础框和按钮列表。创建一个单一的、圆角（大圆角，如 24px-30px）的矩形面板。\n* **材质与背景：** 采用一种高透明度的“玻璃”材质（Glassmorphism）。其内部背景具有非常柔和、微妙的彩色渐变：从左侧的淡蓝色/淡紫色过渡到右侧的淡橙色/淡粉色。\n* **边框与发光：** 面板应有一个极细（e.g., 1px）的浅色半透明边框，并具有微妙的外部阴影（drop shadow）和更深层次的半透明“辉光”（glow）效果，强化悬浮和玻璃质感。\n* **整体感觉：** 像一个精致、悬浮的半透明水晶控制板，集成在界面底部。\n\n**2. 内部布局 (Internal Elements)**\n面板内部应有上下两层结构：\n\n* **上层：文本输入区 (Text Input Area)**\n\n  + **位置：** 面板的上部。\n  + **主体：** 一个圆角矩形输入框（与面板圆角匹配，如 16px）。输入框本身应保持干净、不透明（白色或极浅灰），以确保文字清晰度。\n  + **边框：** 极细的半透明边框，当聚焦时可增加微妙的发光。\n  + **占位文字：** 输入框内显示精确、清晰的文本：`粘贴或拖拽文件/链接`。\n  + **功能提示：** 这个输入框必须视觉上暗示同时支持文本输入和拖拽操作。\n* **下层：操作按钮与导航 (Action Buttons)**\n\n  + **位置：** 面板的下部，与文本框平行排列。\n  + **左侧功能按钮：** 重新设计并排列两个原有的功能按钮。\n\n    - **按钮 1：** `添加文件`\n\n      * **图标：** 使用一个精致、极简、半透明的云端上传图标（或圆角文件夹图标）。\n      * **文本：** 紧随图标后的文本 `添加文件`。\n    - **按钮 2：** `粘贴链接`\n\n      * **图标：** 使用一个精致、极简、半透明的链条连接图标。\n      * **文本：** 紧随图标后的文本 `粘贴链接`。\n    - **按钮样式：** 这两个按钮不应有硬背景框，而是作为文本加图标的组合，采用半透明颜色（如深灰色），悬浮时可有微妙的高亮。\n  + **右侧导航按钮：**\n\n    - **位置：** 与添加按钮完全对齐，位于面板底部的最右侧。\n    - **图标：** 一个极简、半透明的右指向箭头图标 `→`（如向右的 chevron）。\n    - **功能：** 代表提交或导航到下一步。\n\n**3. 界面上下文集成**\n\n* 将这个新的集成面板，放置在 `image_6.png` 右侧内容区域的底部中央位置，取代旧的文本框和按钮。\n* 确保其在视觉上“悬浮”在淡蓝色的背景之上，其玻璃材质和渐变光效与背景形成高级的对比。\n* 将软件名称和标题移到更上方，保持界面的呼吸感。\n\n**4. 视觉与光影规范**\n\n* 所有新元素的图标、文本和边框，都应采用半透明或柔和的颜色，以与玻璃和渐变光效完美融合。\n* 文本和图标的对比度要足够高，确保可读性。\n* 渐变光效（蓝色到橙色）要非常微妙，避免过于刺眼。\n\n通过使用这些提示词，您可以向您的 UI 设计师、前端团队或 AI 生成工具清晰地传达您的需求，将现有的功能界面，提升为您所满意的 image\\_12.png 的高级、现代化设计。"
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_12_558ed8cf.png)\n\n我是要给ai智能体拟写提示词"
+    },
+    {
+      "role": "AI",
+      "content": "为了让你的 AI 编程/设计智能体（如 Cursor、Claude、v0 或 Copilot）准确无误地还原这个组件，可以直接复制以下针对前端代码实现的结构化提示词：\n\n**任务需求：重构“对话”主界面的输入控制台组件**\n\n请帮我修改现有的对话输入区域，将其重组成一个现代、高质感的集成式毛玻璃（Glassmorphism）胶囊面板，具体样式规范与代码实现要求如下：\n\n**1. 整体容器规范 (Container)**\n\n* **布局**：居中悬浮卡片，内部分为上下两层结构，内边距 `padding: 16px 20px`。\n* **圆角**：大圆角矩形，`border-radius: 24px`。\n* **背景材质**：采用 Gemini 风格的毛玻璃光效，背景为轻微渐变半透明高斯模糊：\n\n  + 背景渐变：`linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 245, 255, 0.6) 40%, rgba(255, 242, 235, 0.6) 100%)`\n  + 模糊滤镜：`backdrop-filter: blur(16px)`\n* **边框与阴影**：\n\n  + 边框：`1px solid rgba(255, 255, 255, 0.8)`，带有微弱的内外高光。\n  + 投影：柔和弥散阴影 `box-shadow: 0 8px 32px rgba(100, 115, 150, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04)`。\n\n**2. 上层：输入与拖拽区 (Input Area)**\n\n* **结构**：一个独立的圆角文本框，占满卡片上层宽度。\n* **样式**：\n\n  + 背景：纯白或极浅背景 `background: rgba(255, 255, 255, 0.95)`。\n  + 圆角：`border-radius: 12px`。\n  + 边框：`1px solid rgba(220, 226, 235, 0.8)`；获得焦点（focus）时带有淡蓝光晕效果。\n  + 占位文字（Placeholder）：`\"粘贴或拖拽文件/链接\"`，字号 14px，颜色 `#9CA3AF`。\n  + 交互：除普通打字外，支持原生 Drag & Drop 拖入文件/链接。\n\n**3. 下层：工具栏与发送控制 (Bottom Actions)**\n\n* **布局**：Flex 布局，`justify-content: space-between`，`align-items: center`，顶部预留 `margin-top: 12px`。\n* **左侧操作项**（并排横向排列，间距 16px）：\n\n  + **添加文件**：图标（极简云上传/上传图标）+ 文字“添加文件”。\n  + **粘贴链接**：图标（链条/Link 图标）+ 文字“粘贴链接”。\n  + **样式表现**：纯文本按钮样式（无实体底色），文字颜色中灰 `#4B5563`，字号 13px。悬浮（hover）时文字变为主题深色 `#1E293B`，附带微交互过度。\n* **右侧提交按钮**：\n\n  + 图标：向右的极简箭头 `→`（如 Lucide 的 `ArrowRight`）。\n  + 样式：轻量无边框图标按钮，垂直居中对齐，支持 hover 动画（箭头向右微移 2px）。\n\n**交付要求：**\n请直接输出对应的组件代码（如 React/Vue + Tailwind CSS 或纯 CSS），保持类名语义化并预留对应点击事件的 handler 函数。"
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_13_84f62564.png)\n\n我想让智能体改成这种效果，为我提供提示词"
+    },
+    {
+      "role": "AI",
+      "content": "可以直接复制以下提示词发给你的 AI 编程智能体：\n\n**任务需求：优化左侧侧边栏“当前激活选中态（Active Tab）”的视觉样式**\n\n请重构导航栏中选中项的样式，将其从原本生硬的纯灰色背景块，修改为高质感、轻盈柔和的 **Gemini 风格毛玻璃渐变胶囊卡片**。具体规范如下：\n\n**1. 容器与形状 (Container & Geometry)**\n\n* **形状**：胶囊圆角矩形，`border-radius: 16px`（或略大的圆角）。\n* **尺寸与间距**：内边距设置为 `padding: 12px 16px`，卡片与侧边栏左右两侧保留 8px–12px 的呼吸边距，不要完全顶格。\n\n**2. 背景渐变与毛玻璃质感 (Background & Glassmorphism)**\n\n* **多色柔和渐变**：背景采用从浅冰蓝过渡到浅暖橙粉的弥散渐变：\n\n  + CSS 示例：`background: linear-gradient(135deg, rgba(191, 219, 254, 0.7) 0%, rgba(224, 231, 255, 0.5) 45%, rgba(254, 215, 170, 0.6) 100%)`\n* **模糊滤镜**：添加毛玻璃磨砂效果 `backdrop-filter: blur(12px)`。\n* **边框与投影**：\n\n  + 边框：极细微高光边框 `border: 1px solid rgba(255, 255, 255, 0.6)`。\n  + 阴影：添加极轻的弥散柔光阴影，例如 `box-shadow: 0 4px 16px rgba(147, 197, 253, 0.15), 0 2px 4px rgba(0, 0, 0, 0.02)`。\n\n**3. 图标与文字排版 (Icon & Typography)**\n\n* **布局方式**：Flex 布局，图标与文字组呈横向对齐（`display: flex; align-items: center; gap: 12px;`）。\n* **左侧图标**：\n\n  + 使用极简细线条气泡图标（如 Lucide 的 `MessageSquare` 或 `MessageCircle`）。\n  + 描边粗细设为 `1.5px`–`1.75px`，颜色使用深冷灰 `#1E293B`，保持轻巧通透。\n* **右侧文本组**（垂直上下排列）：\n\n  + **主标题（“对话”）**：字号 `14px`，加粗 `font-weight: 600`，字色 `#0F172A`。\n  + **副标题（“链接 + 文件合一输入”）**：字号 `11px`–`12px`，正常字重 `font-weight: 400`，字色使用柔和中灰 `#475569`。\n\n**4. 交互效果 (Transition)**\n\n* 增加平滑的过渡动画 `transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1)`，确保从未选中项切换到当前激活项时，色彩和阴影淡入自然不生硬。\n\n**交付要求：**\n请输出适配当前技术栈（如 Tailwind CSS 类名或原生 CSS/SCSS）的代码片段，并说明如何绑定到 `active` 激活类名上。"
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_14_e498edcb.png)\n\n![所上传图片的预览图](./images/img_15_df95779a.png)\n\n![所上传图片的预览图](./images/img_16_e8838233.png)\n\n我现在需要你帮我拟写一份提示词给我的agent，将前端页面中的两个图标（图一 和图二），改为第三张图片中的图标"
+    },
+    {
+      "role": "AI",
+      "content": "这是一个非常明确的任务。你可以将以下提示词（包含中文和英文版本，以确保不同Agent都能准确理解）直接发送给你的Agent。\n\n### 方法一：最简练的直接替换提示词（推荐）\n\n如果你的Agent具有很强的文件处理和界面定位能力，可以使用这个最直接的版本。\n\n**提示词：**\n\n> **任务：** 请替换当前前端页面上的两个特定图标。\n>\n> **操作细节：**\n>\n> 1. **定位旧图标：** 请在页面上找到以下两个图标：\n>\n>    * 图一：那个带有黑色方块的扁平化复选框/列表图标（参考图片：`image_15.png`）。\n>    * 图二：那个蓝色的四角星（Gemini风格）图标（参考图片：`image_16.png`）。\n> 2. **执行替换：** 将这两个旧图标**全部**替换为第三张图片中的图标（一个灰色的立体堆叠层图标，参考图片：`image_17.png`）。\n> 3. **最终检查：** 请确保替换后的新图标保持与原页面一致的大小、位置和对齐方式，使其看起来自然融入现有界面。\n\n### 方法二：结构化的编程（API/Asset）提示词（更适用于代码 Agent）\n\n如果你的Agent是一个编程工具（例如Cursor或Claude Engineer），并且你需要修改代码库中的静态资源或API引用，可以使用这个版本。\n\n**提示词：**\n\n> **Role:** Senior Frontend Engineer\n>\n> **Task:** Replace two existing interface icons with a single new icon.\n>\n> **Context:** The frontend codebase currently uses two distinct icon assets that need to be synchronized with a single, updated design.\n>\n> **Assets Reference:**\n>\n> * **Old Icon 1 to replace:** The flat list/checkbox icon with a black square (reference: `image_15.png`).\n> * **Old Icon 2 to replace:** The blue four-pointed star (Gemini-style) icon (reference: `image_16.png`).\n> * **New Replacement Icon:** The grey, stacked volumetric layer icon (reference: `image_17.png`).\n>\n> **Action Plan:**\n>\n> 1. **Analyze** the codebase to find all instances where `image_15.png` and `image_16.png` are referenced in the UI components.\n> 2. **Replace** all references to these two old icons with the reference to the new icon `image_17.png`.\n> 3. **Ensure** the new icon retains the appropriate CSS styling (dimensions, padding, and alignment) that was applied to the original icons, maintaining a cohesive UI.\n> 4. (Optional) If those two files are no longer used elsewhere, suggest deleting them from the assets folder."
+    },
+    {
+      "role": "User",
+      "content": "![所上传图片的预览图](./images/img_17_150d13f0.png)\n\n给我生成一个像素高一点的，清晰一点的，一模一样的图片"
+    },
+    {
+      "role": "AI",
+      "content": "![Gemini 生成的图片](./images/img_18_bec7e478.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://gemini.google.com/app/9aa52a89087a7fdc",
+  "elapsed": 121.00043309999819,
+  "files": {
+    "images/img_10_0be27151.png": "14009946db9d172a0ce4ddc075e23f6877c7b7299a9961d94430d0a173603e5f",
+    "images/img_11_0b1330df.png": "22d798d7774d46ac3195a3fc2610d8b71ce0fb3ee3b60bebd6693df0ce4b1fb8",
+    "images/img_12_558ed8cf.png": "22d798d7774d46ac3195a3fc2610d8b71ce0fb3ee3b60bebd6693df0ce4b1fb8",
+    "images/img_13_84f62564.png": "f638b80efa75ea91df81dd769fe9b3bc277856992a5dac9d75804acc141bdc27",
+    "images/img_14_e498edcb.png": "f064052a0dffacd71cc30d900608dab88462f7891c39a45d170169f012ac12cc",
+    "images/img_15_df95779a.png": "5e23b86e745659f7d6dfcbf21154eeb6d5c450c4935b5e9f216f959e6fcfece4",
+    "images/img_16_e8838233.png": "916b66817a9f801e276d88e2e34d8008fd774d4aaa85e766a6084ec5a92fe264",
+    "images/img_17_150d13f0.png": "12a3627c17f93bf797a276ece9f8fd6e8428e6d29c506af3c7e68db1bc10406b",
+    "images/img_18_bec7e478.png": "3aa6a8f6e8787a00097aa8533fcd920ece20d9ee2183cb1fb0858649cfecb6a0",
+    "images/img_1_0c20d66f.png": "711514e46ee681fa34394c13e63a8b86e67091fb477c345034734f8091472b0a",
+    "images/img_2_d1f07ad4.png": "12fc1c8ec932c4218099878833ab04ea96674a753d1609a9e3d3211c6a6b834c",
+    "images/img_3_37d2e772.png": "e9c4e9278c5b7d3d68932206402aeeea2acb003002fb5a2b50435bcc64dd5f3b",
+    "images/img_4_070e0feb.png": "0727642ac3c28c9bea4a4aee4dd81ebc40961b179fd0e9164dd704be4349709e",
+    "images/img_5_ca89a4cc.png": "eebb7cafeb665cfe4224a4cb8d9491cc4036cd6b2ec3fbbe5740557087f306ee",
+    "images/img_6_3be0a4fc.png": "711514e46ee681fa34394c13e63a8b86e67091fb477c345034734f8091472b0a",
+    "images/img_7_e9ed7c11.png": "12fc1c8ec932c4218099878833ab04ea96674a753d1609a9e3d3211c6a6b834c",
+    "images/img_8_d8ebb5ee.png": "e9c4e9278c5b7d3d68932206402aeeea2acb003002fb5a2b50435bcc64dd5f3b",
+    "images/img_9_4d45f782.png": "0727642ac3c28c9bea4a4aee4dd81ebc40961b179fd0e9164dd704be4349709e"
+  },
+  "referenced_image_count": 18
+}

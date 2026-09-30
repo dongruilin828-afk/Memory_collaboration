@@ -220,6 +220,63 @@ class GUIServiceTests(unittest.TestCase):
         page.wait_for_timeout.assert_awaited_once_with(1000)
         self.assertEqual(mapping[candidate.reference], "./result_files/data.csv")
 
+    def test_gemini_video_uses_browser_download_and_rejects_error_pages(self):
+        import base64
+        body = b'\x00\x00\x00\x20ftypisom' + b'video data'
+        for content_type, payload_body, accepted in (
+            ('video/mp4', body, True),
+            ('text/html', b'<html>not available</html>', False),
+            ('application/octet-stream', b'<html>not available</html>', False),
+        ):
+            with self.subTest(content_type=content_type):
+                button = SimpleNamespace(count=AsyncMock(return_value=1),
+                                         is_enabled=AsyncMock(return_value=True), click=AsyncMock())
+                card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=button)))
+                cards = SimpleNamespace(filter=MagicMock(return_value=SimpleNamespace(first=card)))
+                source = 'https://contribution.usercontent.google.com/download?filename=recording%20test.mp4'
+                video = SimpleNamespace(wait_for=AsyncMock(), evaluate=AsyncMock(return_value=source))
+                close = SimpleNamespace(count=AsyncMock(return_value=0))
+                dialog = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=close)))
+                page = SimpleNamespace(
+                    locator=MagicMock(side_effect=lambda selector: {
+                        'user-query-file-preview': cards,
+                        '[role="dialog"] video': SimpleNamespace(first=video),
+                        '[role="dialog"]': SimpleNamespace(first=dialog),
+                    }[selector]),
+                    keyboard=SimpleNamespace(press=AsyncMock()),
+                    evaluate=AsyncMock(return_value={
+                        'data': base64.b64encode(payload_body).decode(),
+                        'headers': {'content-type': content_type},
+                    }),
+                )
+                candidate = DocumentCandidate('gemini-card:recording.mp4',
+                                              'https://gemini.google.com/app/example', 'recording.mp4')
+                if accepted:
+                    downloaded, headers = asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+                    self.assertEqual(downloaded, body)
+                    self.assertIn('recording%20test.mp4', headers['content-disposition'])
+                    self.assertEqual(page.evaluate.await_args.args[1]['url'], source)
+                else:
+                    with self.assertRaises(ValueError):
+                        asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+                page.keyboard.press.assert_awaited_once_with('Escape')
+
+    def test_gemini_video_saved_with_real_download_filename(self):
+        candidate = DocumentCandidate('gemini-card:' + 'A' * 24 + ':上传视频.mp4',
+                                      'https://gemini.google.com/app/example', '上传视频.mp4')
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            'gui.service._gemini_document_card_download',
+            new=AsyncMock(return_value=(b'\x00\x00\x00\x20ftypisomvideo', {
+                'content-type': 'video/mp4',
+                'content-disposition': "attachment; filename*=UTF-8''real%20name.mp4",
+            })),
+        ):
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(), [candidate], Path(temp_dir), './documents',
+            ))
+            self.assertEqual(mapping[candidate.reference], './documents/real%20name.mp4')
+            self.assertTrue((Path(temp_dir) / 'real name.mp4').is_file())
+
     def test_gemini_same_name_versions_save_separately(self):
         first = DocumentCandidate(
             'gemini-card:' + 'A' * 24 + ':same.py',

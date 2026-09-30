@@ -32,11 +32,31 @@ Gemini 网页是 Angular 应用，会话用自定义元素承载：用户提问�
 
 import re
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import markdownify
 
 
 DISPLAY_NAME = "Gemini"
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".m4v", ".avi", ".mkv"}
+VIDEO_MIME_EXTENSIONS = {
+    "video/mp4": ".mp4", "video/quicktime": ".mov", "video/webm": ".webm",
+    "video/x-m4v": ".m4v", "video/x-msvideo": ".avi", "video/x-matroska": ".mkv",
+}
+
+
+def is_video_attachment(card) -> bool:
+    return bool(card.select_one(
+        "[data-test-id='video-preview-button'], [data-test-id='video-thumbnail'], video"
+    ) or any(
+        Path(label).suffix.lower() in VIDEO_EXTENSIONS
+        or (not Path(label).suffix and re.search(r"视频|video", label, re.IGNORECASE))
+        for button in card.find_all("button")
+        if (label := str(button.get("aria-label") or "").strip())
+    ) or any(
+        "/type/video/" in str(img.get("src") or "")
+        for img in card.find_all("img")
+    ))
 
 # 用户提问与模型回答的自定义元素标签。
 USER_TAG = "user-query"
@@ -279,12 +299,13 @@ def _extract_document_attachments(node, asset_map):
     """
     placeholders = []
     for card in list(node.find_all("user-query-file-preview")):
+        is_video = is_video_attachment(card)
         button = card.find("button")
         aria = str(
             (button.get("aria-label") if button else "")
             or card.get("aria-label") or ""
         )
-        if "图片" in aria or "灯箱" in aria or "image" in aria.lower():
+        if not is_video and ("图片" in aria or "灯箱" in aria or "image" in aria.lower()):
             # 图片型附件：<img> 嵌在灯箱 <button> 内，而 button 稍后会被当作
             # 界面噪声清理。先把 img 提升到卡片位置，避免被一并删除。
             images = card.find_all("img")
@@ -293,10 +314,19 @@ def _extract_document_attachments(node, asset_map):
                 card.insert_before(img)
             card.decompose()
             continue
-        name_node = card.select_one(".filename-label")
+        name_node = card.select_one(".filename-label, .file-name")
         ext_node = card.select_one(".extension-label")
-        name = name_node.get_text(strip=True) if name_node else ""
+        name = name_node.get_text(strip=True) if name_node else ("上传视频" if is_video else "")
+        if card.find("file-preview-error") and re.fullmatch(r"[•●·*\s]+", name):
+            # 分享页会给已补回的图片另留一张遮蔽文件名的错误卡，不能再当文档。
+            name = ""
         ext = ext_node.get_text(strip=True) if ext_node else ""
+        if is_video:
+            ext = ext or "mp4"
+            for img in list(card.find_all("img")):
+                if not _is_decorative_image(img.get("src")):
+                    img["alt"] = "视频封面（非视频文件）"
+                    card.insert_before(img.extract())
         if name:
             filename = aria if re.search(r"\.[A-Za-z0-9]{1,10}$", aria) else name
             if ext and not re.search(
@@ -330,6 +360,7 @@ def _extract_document_attachments(node, asset_map):
                             and Path(str(key)[len(prefix):]).stem.lower()
                             == name.lower()
                         )
+                        or (is_video and Path(str(key)[len(prefix):]).suffix.lower() in VIDEO_EXTENSIONS)
                     )
                 ]
                 if len(matches) == 1:
@@ -345,7 +376,19 @@ def _extract_document_attachments(node, asset_map):
                     if len(set(stem_matches.values())) == 1:
                         filename, local = next(iter(stem_matches.items()))
             if local:
-                placeholders.append(f"📎 [{filename}]({local})")
+                if is_video:
+                    filename = unquote(Path(urlparse(local).path).name)
+                placeholders.append(f"{'🎬' if is_video else '📎'} [{filename}]({local})")
+            elif is_video:
+                placeholders.append(
+                    f"🎬 **[上传视频]** `{filename}` "
+                    "（视频原文件未能下载）"
+                )
+            elif card.find("file-preview-error"):
+                placeholders.append(
+                    f"📎 **[上传文档]** `{filename}` "
+                    "（Gemini 页面未显示该附件，未能下载）"
+                )
             else:
                 placeholders.append(
                     f"📎 **[上传文档]** `{filename}` "

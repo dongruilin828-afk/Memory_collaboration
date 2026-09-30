@@ -35,6 +35,93 @@ class GeminiUserFormattingTests(unittest.TestCase):
         self.assertEqual(messages[0]['content'], '````text\n' + '\n'.join(lines) + '\n````')
 
 
+class GeminiMediaAttachmentTests(unittest.TestCase):
+    def test_document_with_video_in_its_name_stays_a_document(self):
+        html = '''<user-query><user-query-file-preview>
+          <button aria-label="video_视频处理.py"><div class="filename-label">video_视频处理</div></button>
+          </user-query-file-preview></user-query>'''
+        candidates = _extract_gemini_document_card_candidates(
+            html, 'https://gemini.google.com/app/1234567890abcdef',
+        )
+        self.assertEqual(candidates[0].filename, 'video_视频处理.py')
+        content = gemini.parse_messages(soup(html), {
+            'video_视频处理.py': './documents/code.py',
+        })[0]['content']
+        self.assertIn('📎 [video_视频处理.py]', content)
+        self.assertNotIn('🎬', content)
+
+    def test_private_video_is_download_candidate_and_not_just_an_image(self):
+        token = 'A' * 24
+        html = f'''<user-query><user-query-file-preview>
+          <button aria-label="以灯箱形式显示上传的视频" data-test-id="video-preview-button"
+            jslog="BardVeMetadataKey:{token}">
+            <img data-test-id="video-thumbnail" src="https://lh3.googleusercontent.com/cover.png">
+          </button></user-query-file-preview><div class="query-text">解释视频</div></user-query>'''
+        candidates = _extract_gemini_document_card_candidates(
+            html, 'https://gemini.google.com/app/1234567890abcdef',
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].filename, '上传视频.mp4')
+        content = gemini.parse_messages(soup(html), {
+            candidates[0].reference: './documents/recording.mp4',
+            'https://lh3.googleusercontent.com/cover.png': './images/cover.png',
+        })[0]['content']
+        self.assertIn('🎬 [recording.mp4](./documents/recording.mp4)', content)
+        self.assertIn('![视频封面（非视频文件）](./images/cover.png)', content)
+        self.assertNotIn('[上传文档]', content)
+
+    def test_shared_video_file_and_player_cards_reference_one_local_video(self):
+        token = 'A' * 24
+        html = f'''<user-query><user-query-file-preview>
+          <button aria-label="以灯箱形式显示上传的视频" jslog="BardVeMetadataKey:{token}">
+            <img src="https://lh3.googleusercontent.com/cover.png"></button>
+          </user-query-file-preview><user-query-file-preview>
+          <button aria-label="无法查看或下载共享对话中的文件" jslog="BardVeMetadataKey:{token}">
+            <img src="https://drive-thirdparty.googleusercontent.com/32/type/video/mp4">
+            <div class="filename-label">recording</div></button>
+          </user-query-file-preview></user-query>'''
+        content = gemini.parse_messages(soup(html), {
+            f'gemini-card:{token}:上传视频.mp4': './documents/recording.mp4',
+        })[0]['content']
+        self.assertEqual(content.count('🎬 [recording.mp4](./documents/recording.mp4)'), 1)
+        self.assertNotIn('未提供下载', content)
+
+    def test_failed_ppt_preview_keeps_local_attachment_or_explicit_failure(self):
+        html = '''<user-query><user-query-file-preview><file-preview-error>
+          <div class="file-name">展示_成品</div><div class="file-error">上传的文件未显示</div>
+          </file-preview-error></user-query-file-preview>
+          <div class="query-text">解释 PPT 动画</div></user-query>'''
+        content = gemini.parse_messages(soup(html), {
+            '展示_成品.pptx': './documents/slides.pptx',
+        })[0]['content']
+        self.assertIn('[展示_成品.pptx](./documents/slides.pptx)', content)
+        unavailable = gemini.parse_messages(soup(html))[0]['content']
+        self.assertIn('展示_成品', unavailable)
+        self.assertIn('Gemini 页面未显示该附件，未能下载', unavailable)
+
+    def test_masked_image_error_card_does_not_become_a_document(self):
+        html = '''<user-query><user-query-file-preview><file-preview-error>
+          <div class="file-name">•••••••••</div></file-preview-error></user-query-file-preview>
+          <img src="https://lh3.googleusercontent.com/recovered.png">
+          <div class="query-text">已恢复图片</div></user-query>'''
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertNotIn('[上传文档]', content)
+        self.assertIn('![用户图片]', content)
+
+    def test_unavailable_video_is_marked_as_video(self):
+        html = '''<user-query><user-query-file-preview>
+          <button aria-label="无法查看或下载共享对话中的文件">
+            <img src="https://drive-thirdparty.googleusercontent.com/32/type/video/mp4">
+            <div class="filename-label">recording</div></button>
+          </user-query-file-preview></user-query>'''
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertIn('🎬 **[上传视频]** `recording.mp4`', content)
+        self.assertNotIn('[上传文档]', content)
+        self.assertEqual(_extract_gemini_document_card_candidates(
+            html, 'https://gemini.google.com/app/1234567890abcdef',
+        ), [])
+
+
 class GeminiContentProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_public_share_waits_for_slow_hydration(self):
         class Locator:

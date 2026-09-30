@@ -44,6 +44,7 @@ from scripts.providers import (
     codex,
     collect_virtualized_html,
     doubao,
+    gemini,
     grok,
     parse_messages,
     provider_for_url,
@@ -109,7 +110,9 @@ DOCUMENT_MIME_EXTENSIONS = {
     "text/x-python": ".py",
     "application/rtf": ".rtf",
 }
+GEMINI_ATTACHMENT_EXTENSIONS = DOCUMENT_EXTENSIONS | gemini.VIDEO_EXTENSIONS
 GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
+GUI_VIDEO_MAX_BYTES = 250 * 1024 * 1024
 UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md", ".py"}
 DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
 DOUBAO_AI_DOCUMENT_MAX_COUNT = 12
@@ -1781,8 +1784,8 @@ def _safe_document_filename(name: str, fallback_suffix: str = "") -> str:
     filename = Path(normalized).name.strip()
     filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename).strip(" .")
     suffix = Path(filename).suffix.lower()
-    if suffix not in DOCUMENT_EXTENSIONS:
-        suffix = fallback_suffix if fallback_suffix in DOCUMENT_EXTENSIONS else ""
+    if suffix not in GEMINI_ATTACHMENT_EXTENSIONS:
+        suffix = fallback_suffix if fallback_suffix in GEMINI_ATTACHMENT_EXTENSIONS else ""
         stem = filename or "attachment"
         filename = f"{stem}{suffix}"
     if not filename:
@@ -2238,7 +2241,11 @@ def _extract_gemini_document_card_candidates(
         name = name_node.get_text(strip=True) if name_node else ""
         ext = ext_node.get_text(strip=True).lower() if ext_node else ""
         filename = aria
-        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS and name:
+        if gemini.is_video_attachment(card):
+            filename = aria if Path(aria).suffix.lower() in gemini.VIDEO_EXTENSIONS else (name or "上传视频")
+            if Path(filename).suffix.lower() not in gemini.VIDEO_EXTENSIONS:
+                filename += f".{ext or 'mp4'}"
+        elif Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS and name:
             if not ext:
                 icon = card.find("img")
                 icon_text = " ".join((
@@ -2253,7 +2260,7 @@ def _extract_gemini_document_card_candidates(
             filename = name if not ext or name.lower().endswith(f".{ext}") else f"{name}.{ext}"
         filename = _safe_document_filename(filename)
         lowered = filename.lower()
-        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS:
+        if Path(filename).suffix.lower() not in GEMINI_ATTACHMENT_EXTENSIONS:
             continue
         metadata = re.search(
             r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
@@ -3105,6 +3112,7 @@ async def _gemini_document_card_download(
 ) -> tuple[bytes, dict[str, str]]:
     """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
     cards = page.locator("user-query-file-preview")
+    is_video = Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
     metadata = re.match(
         rf"^{GEMINI_CARD_REFERENCE_PREFIX}([A-Za-z0-9_+/=-]{{20,}}):",
         candidate.reference,
@@ -3113,9 +3121,12 @@ async def _gemini_document_card_download(
         matching_cards = cards.filter(has=page.locator(
             f'button[jslog*="BardVeMetadataKey:{metadata.group(1)}"]'
         ))
-        button = matching_cards.get_by_role(
-            "button", name=candidate.filename, exact=True
-        ).first
+        if is_video:
+            button = matching_cards.locator("button").first
+        else:
+            button = matching_cards.get_by_role(
+                "button", name=candidate.filename, exact=True
+            ).first
     else:
         card = cards.filter(has_text=Path(candidate.filename).stem).first
         button = card.locator("button").first
@@ -3128,10 +3139,64 @@ async def _gemini_document_card_download(
     if not await button.is_enabled():
         raise PermissionError(candidate.filename)
     await button.click(timeout=timeout)
-    if Path(candidate.filename).suffix.lower() in {".doc", ".docx"}:
-        await page.wait_for_timeout(3000)
-    download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
     try:
+        if is_video:
+            video = page.locator('[role="dialog"] video').first
+            await video.wait_for(state="visible", timeout=timeout)
+            source = await video.evaluate(
+                "el => el.currentSrc || el.src || el.querySelector('source')?.src || ''"
+            )
+            if not _is_safe_document_url(source):
+                raise ValueError("Gemini 视频播放器未提供可用地址")
+            # 视频必须走播放器使用的浏览器网络通道；独立请求栈可能连接失败，
+            # Response.body() 的调试缓存也可能在大文件完成后被淘汰。
+            payload = await page.evaluate(
+                """async ({url, timeout, maxBytes}) => {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeout);
+                    try {
+                        const response = await fetch(url, {
+                            credentials: 'include', signal: controller.signal,
+                        });
+                        if (!response.ok || response.status === 206)
+                            throw new Error(`video HTTP ${response.status}`);
+                        const length = Number(response.headers.get('content-length') || 0);
+                        if (length > maxBytes) throw new Error('video too large');
+                        const bytes = new Uint8Array(await response.arrayBuffer());
+                        if (!bytes.length || bytes.length > maxBytes)
+                            throw new Error('empty video or video too large');
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i += 0x8000)
+                            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+                        return {
+                            data: btoa(binary),
+                            headers: {
+                                'content-type': response.headers.get('content-type') || '',
+                                'content-disposition': response.headers.get('content-disposition') || '',
+                            },
+                        };
+                    } finally { clearTimeout(timer); }
+                }""",
+                {"url": source, "timeout": timeout, "maxBytes": GUI_VIDEO_MAX_BYTES},
+            )
+            headers = payload["headers"]
+            content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+            if content_type not in {*gemini.VIDEO_MIME_EXTENSIONS, "application/octet-stream"}:
+                raise ValueError("视频地址返回的不是视频文件")
+            filename = parse_qs(urlparse(source).query).get("filename", [candidate.filename])[0]
+            if not headers.get("content-disposition"):
+                headers["content-disposition"] = f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+            body = base64.b64decode(payload["data"], validate=True)
+            if not body or (content_type == "application/octet-stream" and not (
+                body[4:8] in {b"ftyp", b"moov", b"mdat", b"wide"}
+                or body.startswith(b"\x1a\x45\xdf\xa3")
+                or body.startswith(b"RIFF") and body[8:12] == b"AVI "
+            )):
+                raise ValueError("视频地址未返回有效视频内容")
+            return body, headers
+        if Path(candidate.filename).suffix.lower() in {".doc", ".docx"}:
+            await page.wait_for_timeout(3000)
+        download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
         await download_button.wait_for(state="visible", timeout=timeout)
         async with page.expect_download(timeout=timeout) as download_info:
             await download_button.click()
@@ -3426,6 +3491,7 @@ async def _download_document_candidates(
         content_type = headers.get("content-type", "").split(";", 1)[0].lower()
         inferred_suffix = (
             DOCUMENT_MIME_EXTENSIONS.get(content_type)
+            or gemini.VIDEO_MIME_EXTENSIONS.get(content_type)
             or _document_suffix(candidate.url)
             or mimetypes.guess_extension(content_type)
             or ""
@@ -3434,7 +3500,11 @@ async def _download_document_candidates(
             disposition_name or candidate.filename,
             inferred_suffix,
         )
-        if Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS:
+        if Path(filename).suffix.lower() not in (
+            GEMINI_ATTACHMENT_EXTENSIONS
+            if candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
+            else DOCUMENT_EXTENSIONS
+        ):
             failures["unsupported_type"] = failures.get("unsupported_type", 0) + 1
             continue
         body = _repair_downloaded_text_mojibake(body, filename, content_type)
@@ -4453,6 +4523,18 @@ async def fetch_chat_pipeline(
                         user_wait_seconds=user_wait_seconds,
                     )
                     return completed_result
+
+                if provider is gemini:
+                    unavailable = sum(
+                        message["content"].count("**[上传文档]**")
+                        + message["content"].count("**[上传视频]**")
+                        for message in parsed_messages if message["role"] == "User"
+                    )
+                    if unavailable:
+                        fetch_warnings.append(
+                            f"{unavailable} 个 Gemini 附件未取得原文件；"
+                            "已在导出正文中保留文件名及不可下载提示。"
+                        )
 
                 completed_result = FetchResult(
                     html=html,
