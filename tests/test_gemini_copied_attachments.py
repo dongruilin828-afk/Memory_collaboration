@@ -1,7 +1,10 @@
 """Gemini 复制会话附件恢复：核对消息身份，保留用户正文和回答。"""
 import asyncio
 import base64
+import hashlib
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from bs4 import BeautifulSoup
@@ -10,6 +13,7 @@ from gui.service import (
     _recover_gemini_copied_attachments,
     _restore_gemini_copied_file_cards,
     _gemini_document_card_download,
+    _download_image_candidates,
     DocumentCandidate,
 )
 
@@ -70,7 +74,7 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
             '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=wait)),
             'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['https://evil.example/app/source12345678', '/app/source12345678'])),
         }
-        page = SimpleNamespace(locator=MagicMock(side_effect=lambda selector: selectors[selector]))
+        page = SimpleNamespace(url=SOURCE_URL, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
         with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch(
             'gui.service._page_has_conversation_content', new=AsyncMock(return_value=True)
         ), patch('gui.service.collect_virtualized_html', new=AsyncMock(return_value=original)):
@@ -99,7 +103,7 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
             '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
             'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
         }
-        page = SimpleNamespace(locator=MagicMock(side_effect=lambda selector: selectors[selector]))
+        page = SimpleNamespace(url=SOURCE_URL, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
         with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch(
             'gui.service._page_has_conversation_content', new=AsyncMock(return_value=True)
         ), patch('gui.service.collect_virtualized_html', new=AsyncMock(return_value=original)):
@@ -132,6 +136,56 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
                 asyncio.run(_gemini_document_card_download(page, candidate, 1000))
         goto.assert_awaited_once_with(page, SOURCE_URL, attempts=1)
         collect.assert_awaited_once_with(page)
+
+    def test_search_binds_redirected_gem_source(self):
+        copied, original = fixtures()
+        actual_url = 'https://gemini.google.com/gem/gem123/source12345678'
+        selectors = {
+            '[data-test-id="search-chats-button"] a': SimpleNamespace(click=AsyncMock()),
+            'input[data-test-id="search-input"]': SimpleNamespace(fill=AsyncMock()),
+            '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
+            'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
+        }
+        page = SimpleNamespace(url=actual_url, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
+        with patch('gui.service.goto_with_retry_gui', new=AsyncMock()), patch(
+            'gui.service._page_has_conversation_content', new=AsyncMock(return_value=True)
+        ), patch('gui.service.collect_virtualized_html', new=AsyncMock(return_value=original)):
+            url, restored = asyncio.run(_recover_gemini_copied_attachments(page, copied, COPY_URL))
+        self.assertEqual(url, actual_url)
+        candidates = _extract_gemini_document_card_candidates(restored, url)
+        self.assertTrue(candidates)
+        self.assertTrue(all(candidate.url == actual_url for candidate in candidates))
+
+    def test_matching_gem_source_does_not_navigate_away(self):
+        actual_url = 'https://gemini.google.com/gem/gem123/source12345678'
+        missing = SimpleNamespace(count=AsyncMock(return_value=0))
+        card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=missing)))
+        cards = SimpleNamespace(filter=MagicMock(return_value=SimpleNamespace(first=card)), get_by_role=MagicMock(return_value=SimpleNamespace(first=missing)))
+        page = SimpleNamespace(url=actual_url, locator=MagicMock(return_value=cards))
+        candidate = DocumentCandidate('gemini-card:missing.pdf', actual_url, 'missing.pdf')
+        with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch('gui.service.collect_virtualized_html', new=AsyncMock()) as collect:
+            with self.assertRaises(FileNotFoundError):
+                asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+        goto.assert_not_awaited()
+        collect.assert_not_awaited()
+
+    def test_copied_image_uses_native_original_and_upgrades_cached_preview(self):
+        source = 'https://lh3.googleusercontent.com/gg/example'
+        body = b'\x89PNG\r\n\x1a\noriginal'
+        wrapper = SimpleNamespace(screenshot=AsyncMock(return_value=body), evaluate=AsyncMock())
+        page = SimpleNamespace(evaluate=AsyncMock(return_value='original-image'), locator=MagicMock(return_value=wrapper))
+        with tempfile.TemporaryDirectory() as directory, patch('gui.service._authenticated_page_get', new=AsyncMock()) as get:
+            target = Path(directory)
+            cached = target / f'img_1_{hashlib.md5(source.encode()).hexdigest()[:8]}.png'
+            cached.write_bytes(b'\x89PNG\r\n\x1a\npreview')
+            mapping = asyncio.run(_download_image_candidates(page, [source], target, './images', prefer_original=True))
+            self.assertEqual(mapping[source], './images/' + cached.name)
+            self.assertEqual(cached.read_bytes(), body)
+            self.assertEqual(len(list(target.iterdir())), 1)
+        get.assert_not_awaited()
+        self.assertIn("'=s0'", page.evaluate.await_args.args[0])
+        self.assertIn('image.naturalWidth', page.evaluate.await_args.args[0])
+        wrapper.evaluate.assert_awaited_once_with('node => node.remove()')
 
 if __name__ == '__main__':
     unittest.main()

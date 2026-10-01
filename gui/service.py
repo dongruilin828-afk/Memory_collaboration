@@ -1459,6 +1459,7 @@ async def _download_image_candidates(
     concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
     warning_collector: Optional[list[str]] = None,
     authentication_required: Optional[list[bool]] = None,
+    prefer_original: bool = False,
 ) -> dict[str, str]:
     """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
@@ -1466,7 +1467,7 @@ async def _download_image_candidates(
     resolved_references: dict[str, str] = {}
     pending_sources: list[str] = []
     for src in ordered_sources:
-        existing = _existing_image_for_source(images_dir, src)
+        existing = None if prefer_original else _existing_image_for_source(images_dir, src)
         if existing is None:
             pending_sources.append(src)
         else:
@@ -1492,6 +1493,44 @@ async def _download_image_candidates(
                 return src, None, "invalid_data_url"
         failure_reason: Optional[str] = None
         parsed_source = urlparse(src)
+        if prefer_original and parsed_source.netloc.lower() == "lh3.googleusercontent.com" and parsed_source.path.startswith("/gg/"):
+            async with screenshot_lock:
+                wrapper = None
+                try:
+                    wrapper_id = await page.evaluate(
+                        r"""async src => {
+                            const image = new Image();
+                            const url = new URL(src);
+                            url.pathname = url.pathname.replace(/=(?:s|w|h)\d+[^/]*$/, '') + '=s0';
+                            image.src = url.href;
+                            await Promise.race([image.decode(), new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error('original image timeout')), 10000))]);
+                            const wrapper = document.createElement('div');
+                            wrapper.id = `trae-gemini-original-image-${Date.now()}`;
+                            wrapper.style.cssText = `position:fixed;left:0;top:0;z-index:2147483647;
+                                width:${image.naturalWidth}px;height:${image.naturalHeight}px;background:#000;`;
+                            image.style.cssText = 'display:block;width:100%;height:100%;max-width:none;max-height:none;';
+                            wrapper.appendChild(image);
+                            document.body.appendChild(wrapper);
+                            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                            return wrapper.id;
+                        }""",
+                        src,
+                    )
+                    wrapper = page.locator(f"#{wrapper_id}")
+                    body = await wrapper.screenshot(type="png", timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS)
+                    if not _is_supported_image_body(body):
+                        raise ValueError("Gemini 原图未返回有效图片")
+                    return src, body, None
+                except Exception as error:
+                    if warning_collector is not None:
+                        warning_collector.append(f"Gemini 原图获取失败（{type(error).__name__}），尝试保留预览图。")
+                finally:
+                    if wrapper is not None:
+                        try:
+                            await wrapper.evaluate("node => node.remove()")
+                        except Exception:
+                            pass
         if (
             parsed_source.netloc.lower() == "lh3.googleusercontent.com"
             and parsed_source.path.startswith("/gg/")
@@ -1732,7 +1771,8 @@ async def _download_image_candidates(
         if body is None:
             continue
         url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
-        filename = f"img_{img_index}_{url_hash}.{_image_extension(src)}"
+        existing = _existing_image_for_source(images_dir, src) if prefer_original else None
+        filename = existing.name if existing else f"img_{img_index}_{url_hash}.{_image_extension(src)}"
         images_dir.mkdir(parents=True, exist_ok=True)
         (images_dir / filename).write_bytes(body)
         resolved_references[src] = f"{image_reference_prefix}/{filename}"
@@ -2374,6 +2414,7 @@ async def _recover_gemini_copied_attachments(page: Any, html: str, url: str, log
                     if not await _page_has_conversation_content(page, original_url):
                         continue
                     original_html = await collect_virtualized_html(page) or await page.content()
+                    original_url = page.url
                     restored = _restore_gemini_copied_file_cards(html, original_html, original_url)
                     if restored:
                         recovered = True
@@ -4343,6 +4384,7 @@ async def fetch_chat_pipeline(
                 await _drain_response_tasks(response_tasks)
                 gemini_document_candidates: list[DocumentCandidate] = []
                 gemini_recovered_content = False
+                gemini_copied_recovered = False
                 gemini_private_url = (
                     _gemini_private_conversation_url(page_snapshot_html + chr(10) + html)
                     if current_host in GEMINI_HOSTS and soup_pre.find("user-query-file-preview")
@@ -4350,10 +4392,11 @@ async def fetch_chat_pipeline(
                 )
                 if current_host in GEMINI_HOSTS and requires_login_probe:
                     # 私有链接也可能是从分享页复制的会话，原附件没有随复制注册。
-                    gemini_document_candidates = _extract_gemini_document_card_candidates(html, url)
+                    gemini_document_candidates = _extract_gemini_document_card_candidates(html, page.url)
                     recovered_url, html = await _recover_gemini_copied_attachments(page, html, url, logger)
                     if recovered_url:
                         gemini_recovered_content = True
+                        gemini_copied_recovered = True
                         known_refs = {candidate.reference for candidate in gemini_document_candidates}
                         gemini_document_candidates.extend(
                             candidate for candidate in _extract_gemini_document_card_candidates(html, recovered_url)
@@ -4416,7 +4459,7 @@ async def fetch_chat_pipeline(
                             private_html = await page.content()
                         gemini_document_candidates = (
                             _extract_gemini_document_card_candidates(
-                                private_html, gemini_private_url
+                                private_html, page.url
                             )
                         )
                         html = _enrich_gemini_shared_user_content(html, private_html, image_map)
@@ -4435,6 +4478,7 @@ async def fetch_chat_pipeline(
                         page, recovered_sources, resolved_images_dir,
                         image_reference_prefix, image_download_concurrency,
                         recovered_warnings,
+                        prefer_original=gemini_copied_recovered,
                     ))
                     fetch_warnings.extend(recovered_warnings)
                 document_candidates = list(dict.fromkeys([
