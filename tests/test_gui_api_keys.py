@@ -162,12 +162,51 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             with self.subTest(url=bool(url), file=selected_file is not None):
                 shown_pages = []
                 fake_gui = SimpleNamespace(
+                    _current_page=0,
                     capsule_entry=SimpleNamespace(get_text=lambda: url),
                     selected_summary_file=selected_file,
                     _show_page=shown_pages.append,
                 )
                 AIMemoryGUI._on_omnibox_send(fake_gui)
                 self.assertEqual(shown_pages, expected_pages)
+
+    def test_enter_starts_generation_only_when_generation_page_is_ready(self):
+        started = []
+        fake_gui = SimpleNamespace(
+            _current_page=1,
+            is_running=False,
+            btn_generate=SimpleNamespace(_enabled=True),
+            _on_start_generate=lambda: started.append(True),
+        )
+
+        result = AIMemoryGUI._on_generate_shortcut(fake_gui)
+
+        self.assertEqual(result, "break")
+        self.assertEqual(started, [True])
+
+        fake_gui.btn_generate._enabled = False
+        AIMemoryGUI._on_generate_shortcut(fake_gui)
+        self.assertEqual(started, [True])
+
+        fake_gui._current_page = 0
+        self.assertIsNone(AIMemoryGUI._on_generate_shortcut(fake_gui))
+
+    def test_omnibox_enter_starts_generation_after_page_transition(self):
+        started = []
+        fake_gui = SimpleNamespace(
+            _current_page=1,
+            is_running=False,
+            btn_generate=SimpleNamespace(_enabled=True),
+            _on_start_generate=lambda: started.append(True),
+        )
+        fake_gui._on_generate_shortcut = lambda event=None: (
+            AIMemoryGUI._on_generate_shortcut(fake_gui, event)
+        )
+
+        result = AIMemoryGUI._on_omnibox_send(fake_gui)
+
+        self.assertEqual(result, "break")
+        self.assertEqual(started, [True])
 
     def test_file_source_disables_raw_and_does_not_require_login(self):
         class FakeOption:

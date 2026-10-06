@@ -38,6 +38,7 @@ except ImportError:
     TkinterDnD = None
     _HAS_DND = False
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
+from gui.history_store import HistoryStore, HistoryStoreError
 from gui.settings_store import (
     AppSettings,
     SettingsStoreError,
@@ -1536,11 +1537,18 @@ class AIMemoryGUI:
         except (SettingsStoreError, Exception):
             self.app_settings = default_app_settings()
 
+        self.history_store = HistoryStore(self.app_settings.history_file)
+        try:
+            self.history_records = self.history_store.load()
+        except HistoryStoreError:
+            self.history_records = []
+
         self._settings_dialog = None
         self._api_key_dialog = None
         self._settings_load_error = None
 
         self._build_ui()
+        self._refresh_history_list()
         self._update_generate_button_state()
 
     # ---------------- UI 构建 ----------------
@@ -1652,6 +1660,8 @@ class AIMemoryGUI:
         self._build_settings_section()     # 设置页（内嵌）
 
         self._show_page(0)
+        self.root.bind("<Return>", self._on_generate_shortcut, add="+")
+        self.root.bind("<KP_Enter>", self._on_generate_shortcut, add="+")
         self.root.bind("<Configure>", self._on_root_configure, add="+")
         self.root.bind("<Destroy>", self._cancel_pending_ui_callbacks, add="+")
         self.root.after_idle(self._initialize_responsive_layout)
@@ -1991,10 +2001,24 @@ class AIMemoryGUI:
 
     def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
+        if getattr(self, "_current_page", 0) == 1:
+            return self._on_generate_shortcut(_event)
         url = self.capsule_entry.get_text().strip()
         has_file = self.selected_summary_file is not None
         if url or has_file:
             self._show_page(1)
+        return "break"
+
+    def _on_generate_shortcut(self, _event=None):
+        """在生成配置页按 Enter 时触发当前可用的生成操作。"""
+        if getattr(self, "_current_page", 0) != 1:
+            return None
+        if getattr(self, "is_running", False):
+            return "break"
+        button = getattr(self, "btn_generate", None)
+        if button is not None and not getattr(button, "_enabled", True):
+            return "break"
+        self._on_start_generate()
         return "break"
 
     def _update_send_button_state(self):
@@ -2296,12 +2320,17 @@ class AIMemoryGUI:
         )
         self.history_empty_label.pack(pady=(60, 0))
 
-        # 存储历史记录（内存中，任务完成后追加）
-        self.history_records: list[dict] = []
-
     def _add_history_record(self, record: dict):
         """任务完成后追加一条历史记录并刷新列表。"""
         self.history_records.insert(0, record)
+        try:
+            self.history_store.save(self.history_records)
+        except HistoryStoreError as error:
+            messagebox.showwarning(
+                "历史记录保存失败",
+                str(error),
+                parent=self.root,
+            )
         self._refresh_history_list()
 
     def _refresh_history_list(self):
@@ -3905,12 +3934,14 @@ class AIMemoryGUI:
                 )
                 new_settings = AppSettings(runtime_dir, results_dir)
                 self.app_settings = self.settings_store.save(new_settings)
+                self.history_store = HistoryStore(self.app_settings.history_file)
+                self.history_store.save(self.history_records)
                 runtime_var.set(str(self.app_settings.runtime_data_dir))
                 results_var.set(
                     str(self.app_settings.default_results_dir or "")
                 )
                 show_notice("已保存数据位置", 2000)
-            except SettingsStoreError as error:
+            except (SettingsStoreError, HistoryStoreError) as error:
                 show_notice(str(error), 5000)
             except Exception:
                 show_notice("保存失败，请检查目录权限", 4000)

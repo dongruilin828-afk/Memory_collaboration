@@ -41,6 +41,10 @@ class AppSettings:
     def debug_html_file(self) -> Path:
         return Path(self.runtime_data_dir) / "debug_last_fetch.html"
 
+    @property
+    def history_file(self) -> Path:
+        return Path(self.runtime_data_dir) / "task_history.json"
+
 
 def default_app_settings() -> AppSettings:
     return AppSettings(runtime_data_dir=Path(PROJECT_ROOT).resolve())
