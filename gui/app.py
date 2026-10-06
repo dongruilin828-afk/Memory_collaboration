@@ -51,6 +51,7 @@ from gui.service import (
     MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
     build_image_asset_directory,
+    build_output_paths,
     default_output_filename,
     fetch_chat_pipeline,
     generate_output_bundle,
@@ -112,6 +113,14 @@ def _scaled_font_size(font: tkfont.Font, scale: float, low: int, high: int) -> i
         base = abs(int(font.actual("size")))
         font._responsive_base_size = base
     return max(low, min(high, round(base * scale)))
+
+
+def _format_fetch_warnings(warnings: list[str]) -> str:
+    """把抓取警告整理为任务完成后的用户提示。"""
+    return "文件已正常生成，但抓取存在以下情况：\n\n" + "\n".join(
+        f"• {warning}" for warning in warnings
+    )
+
 
 def _prompt_output_target(
     parent: tk.Misc,
@@ -2587,7 +2596,7 @@ class AIMemoryGUI:
             files_row = tk.Frame(card, bg=COLOR_CARD)
             files_row.pack(fill=tk.X, pady=(10, 0))
             file_label = tk.Label(
-                files_row, text="📁 " + "、".join(files),
+                files_row, text="📁 " + "、".join(Path(file).name for file in files),
                 font=FONT_TINY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_CARD,
                 anchor="w", width=72,
             )
@@ -3170,13 +3179,36 @@ class AIMemoryGUI:
         threading.Thread(
             target=self._run_generation_task,
             args=(
-                "", False, modes, save_dir_path,
-                output_filename, api_keys, settings, Path(source_path),
+                "",
+                False,
+                modes,
+                save_dir_path,
+                output_filename,
+                dict(api_keys),
+                settings,
+                Path(source_path).resolve(),
             ),
             daemon=True
         ).start()
 
     # ---------------- 登录确认弹窗 ----------------
+
+    def _confirm_login_required(self) -> bool:
+        """在打开浏览器前征求用户同意。"""
+        answered = threading.Event()
+        result = {"confirmed": False}
+
+        def ask():
+            result["confirmed"] = messagebox.askyesno(
+                "需要登录",
+                "该资源需要登录后才能下载。是否打开浏览器登录后重试？",
+                parent=self.root,
+            )
+            answered.set()
+
+        self.root.after(0, ask)
+        answered.wait()
+        return result["confirmed"]
 
     def _show_login_dialog(
         self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event
@@ -3475,6 +3507,7 @@ class AIMemoryGUI:
         task_started = time.perf_counter()
         run_succeeded = False
         direct_summary = source_path is not None
+        fetch_warnings: list[str] = []
         if direct_summary:
             source_path = Path(source_path).resolve()
             metadata = {
@@ -3537,11 +3570,17 @@ class AIMemoryGUI:
                 )
             else:
                 update_progress(0.15, "正在加载分享页并解析动态列表...")
+                output_paths = build_output_paths(
+                    save_dir, modes, output_filename
+                )
+                asset_owner = output_paths["asset_markdown"].name
                 image_output_dir = build_image_asset_directory(
-                    save_dir, output_filename,
+                    save_dir,
+                    asset_owner,
                 )
                 document_output_dir = build_document_asset_directory(
-                    save_dir, output_filename,
+                    save_dir,
+                    asset_owner,
                 )
                 fetch_res = loop.run_until_complete(
                     fetch_chat_pipeline(
@@ -3553,6 +3592,9 @@ class AIMemoryGUI:
                                 0,
                                 lambda: self._show_login_dialog(loop, login_event)
                             )
+                        ),
+                        login_confirmation_callback=(
+                            self._confirm_login_required
                         ),
                         logger=lambda m: update_progress(0.28, m),
                         image_output_dir=image_output_dir,
@@ -3577,7 +3619,8 @@ class AIMemoryGUI:
                     message_count=len(fetch_res.messages),
                     downloaded_images=len(fetch_res.image_map),
                 )
-                for warning in fetch_res.warnings:
+                fetch_warnings = fetch_res.warnings
+                for warning in fetch_warnings:
                     run_log.event("fetch_warning", warning)
                 if fetch_res.error or not fetch_res.messages:
                     err = fetch_res.error or "未能提取到有效对话内容。"
@@ -3638,7 +3681,7 @@ class AIMemoryGUI:
             generation_seconds = (
                 time.perf_counter() - generation_started - selection_wait_seconds
             )
-            saved_files = [path.name for path in bundle.saved_files]
+            saved_files = [str(path.resolve()) for path in bundle.saved_files]
             processing = (
                 (bundle.summary_result or {}).get("processing", {})
                 if isinstance(bundle.summary_result, dict) else {}
@@ -3686,11 +3729,20 @@ class AIMemoryGUI:
                 "total_seconds": total_seconds,
                 "file_count": len(saved_files),
                 "saved_files": saved_files,
-                "output_dir": str(source_dir) if source_dir else "",
+                "output_dir": str(Path(save_dir).resolve()),
             }
             self.root.after(
                 0, lambda r=history_record: self._add_history_record(r)
             )
+            if fetch_warnings:
+                warning_text = _format_fetch_warnings(fetch_warnings)
+                self.root.after(
+                    0,
+                    lambda text=warning_text: messagebox.showwarning(
+                        "生成完成，但部分附件未下载",
+                        text,
+                    ),
+                )
             run_succeeded = True
 
         except Exception as e:

@@ -13,6 +13,32 @@ from scripts import gemini_summarizer as summary
 from scripts.providers import chatgpt, deepseek, doubao
 
 
+class LocalAssetPathTests(unittest.TestCase):
+    def test_file_uri_is_not_prefixed_with_project_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            asset = Path(temp_dir) / "image.png"
+            asset.write_bytes(b"image")
+            reference = asset.as_uri()
+
+            project_dir = Path(temp_dir) / "project"
+            self.assertEqual(
+                summary._resolve_local_asset(
+                    reference,
+                    project_dir=project_dir,
+                    source_dir=Path(temp_dir),
+                ),
+                asset.resolve(),
+            )
+            self.assertEqual(
+                summary._resolve_local_asset(
+                    str(asset),
+                    project_dir=project_dir,
+                    source_dir=Path(temp_dir),
+                ),
+                asset.resolve(),
+            )
+
+
 class FakeGateway:
     def __init__(self):
         self.calls = []
@@ -1117,6 +1143,34 @@ class GeminiSummarizerTests(unittest.TestCase):
             '1~10, 17, 18, 29~86, 89~186, 213~228, 231~236'
         )
 
+    def test_chatgpt_nested_role_nodes_are_not_duplicated(self):
+        html = """
+        <section data-message-author-role="user">
+          <div data-message-author-role="user">生成一张图片给我</div>
+        </section>
+        """
+        self.assertEqual(chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+        ), [{"role": "User", "content": "生成一张图片给我"}])
+
+    def test_chatgpt_generated_image_only_answer_is_preserved(self):
+        source = "https://chatgpt.com/backend-api/estuary/content?id=file_image"
+        html = f"""
+        <section data-message-author-role="assistant">
+          <img src="{source}" alt="已生成图片：学习桌">
+          <img src="{source}" alt="已生成图片：学习桌">
+          <img src="{source}" alt="已生成图片：学习桌">
+        </section>
+        """
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {source: "./images/generated.png"},
+        )
+        self.assertEqual(messages, [{
+            "role": "AI",
+            "content": "![已生成图片：学习桌](./images/generated.png)",
+        }])
+
     def test_chatgpt_math_nodes_restore_latex_before_markdown_conversion(self):
         html = r"""
         <div data-message-author-role="assistant">
@@ -1274,6 +1328,172 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIsNone(asyncio.run(doubao.collect_html(unrelated_page)))
         self.assertEqual(unrelated_page.scrolled, [])
         self.assertEqual(unrelated_page.waits, [])
+
+    def test_direct_doubao_collector_merges_history_loaded_while_scrolling(self):
+        def fragment(number):
+            return {
+                "key": str(number),
+                "html": (
+                    '<div class="message-item" data-doubao-role="assistant">'
+                    f'消息{number}</div>'
+                ),
+            }
+
+        class EmptyShareMessages:
+            async def count(self):
+                return 0
+
+        class FirstMessage:
+            def __init__(self, page):
+                self.page = page
+
+            async def evaluate(self, script):
+                self.page.round += 1
+
+        class VisibleMessage:
+            async def scroll_into_view_if_needed(self, timeout):
+                pass
+
+        class DirectMessages:
+            def __init__(self, page):
+                self.page = page
+                self.first = FirstMessage(page)
+
+            async def count(self):
+                return len(self.page.snapshots[min(
+                    self.page.round, len(self.page.snapshots) - 1
+                )])
+
+            def nth(self, index):
+                return VisibleMessage()
+
+            async def evaluate_all(self, script):
+                return self.page.snapshots[min(
+                    self.page.round, len(self.page.snapshots) - 1
+                )]
+
+        class SelectedList:
+            def __init__(self, page):
+                self.page = page
+
+            def locator(self, selector):
+                self.page.direct_selector = selector
+                return DirectMessages(self.page)
+
+        class Lists:
+            def __init__(self, page):
+                self.page = page
+
+            async def evaluate_all(self, script):
+                return [{"index": 0, "count": 2, "textLength": 10}]
+
+            def nth(self, index):
+                return SelectedList(self.page)
+
+        class FakePage:
+            def __init__(self):
+                self.round = 0
+                self.waits = []
+                self.direct_selector = None
+                self.snapshots = [
+                    [fragment(3), fragment(4)],
+                    [fragment(1), fragment(2), fragment(3), fragment(4)],
+                    [fragment(1), fragment(2), fragment(3), fragment(4)],
+                    [fragment(1), fragment(2), fragment(3), fragment(4)],
+                ]
+
+            def locator(self, selector):
+                if selector == doubao.SHARE_MESSAGE_SELECTOR:
+                    return EmptyShareMessages()
+                return Lists(self)
+
+            async def wait_for_timeout(self, milliseconds):
+                self.waits.append(milliseconds)
+
+        page = FakePage()
+        html = asyncio.run(doubao.collect_html(page))
+
+        self.assertEqual(page.direct_selector, doubao.DIRECT_MESSAGE_SELECTOR)
+        self.assertEqual(page.round, 3)
+        self.assertEqual(html.count('class="message-item"'), 4)
+        self.assertLess(html.index("消息1"), html.index("消息4"))
+
+    def test_direct_doubao_collector_captures_generated_iframe_charts(self):
+        png = b"\x89PNG\r\n\x1a\nchart"
+
+        class Preview:
+            async def screenshot(self, type):
+                return png
+
+        class Previews:
+            def __init__(self, count):
+                self._count = count
+
+            async def count(self):
+                return self._count
+
+            def nth(self, index):
+                return Preview()
+
+        class Message:
+            def __init__(self, has_preview=False):
+                self.has_preview = has_preview
+
+            async def scroll_into_view_if_needed(self, timeout):
+                pass
+
+            async def evaluate(self, script):
+                pass
+
+            def locator(self, selector):
+                return Previews(int(self.has_preview))
+
+        class Messages:
+            first = Message()
+
+            async def count(self):
+                return 2
+
+            def nth(self, index):
+                return Message(has_preview=index == 1)
+
+            async def evaluate_all(self, script):
+                return [{
+                    "index": 1,
+                    "key": "1",
+                    "html": (
+                        '<div class="message-item" data-doubao-role="assistant">'
+                        '<iframe src="https://marscode-static.doubaocdn.com/'
+                        'html_preview/?channelId=chart"></iframe></div>'
+                    ),
+                }]
+
+        class SelectedList:
+            def locator(self, selector):
+                return Messages()
+
+        class Lists:
+            async def evaluate_all(self, script):
+                return [{"index": 0, "count": 1, "textLength": 0}]
+
+            def nth(self, index):
+                return SelectedList()
+
+        class EmptyShareMessages:
+            async def count(self):
+                return 0
+
+        class Page:
+            def locator(self, selector):
+                return EmptyShareMessages() if selector == doubao.SHARE_MESSAGE_SELECTOR else Lists()
+
+            async def wait_for_timeout(self, milliseconds):
+                pass
+
+        html = asyncio.run(doubao.collect_html(Page()))
+        self.assertIn("data:image/png;base64,", html)
+        self.assertIn("生成图表", html)
+        self.assertNotIn("<iframe", html)
 
     def test_direct_doubao_synthetic_roles_do_not_depend_on_css_role_class(self):
         html = """
@@ -1464,6 +1684,32 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertIn("AI 生成的在线报告", assets[0].description)
         self.assertNotIn("AI 生成的正文内容", assets[0].description)
         self.assertEqual(gateway.media_assets, [])
+
+    def test_doubao_generated_image_prefers_original_over_thumbnail(self):
+        thumbnail = (
+            "https://cdn.example/rc_gen_image/same.jpeg"
+            "~tplv-x-cthumb_lwm3.png?thumb"
+        )
+        original = (
+            "https://cdn.example/rc_gen_image/same.jpeg"
+            "~tplv-x-cgen_lwm3.png?original"
+        )
+        html = f"""
+        <div class="message-item">
+          <img alt="image" src="{thumbnail}" />
+          <img src="{original}" />
+        </div>
+        """
+        messages = doubao.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {thumbnail: "./images/thumb.jpg", original: "./images/original.jpg"},
+        )
+        self.assertNotIn("thumb.jpg", messages[0]["content"])
+        self.assertIn("original.jpg", messages[0]["content"])
+        self.assertEqual(
+            doubao.prefer_original_generated_images([thumbnail, original]),
+            [original],
+        )
 
     def test_doubao_ai_images_drop_empty_placeholders_and_repeated_ui_icons(self):
         placeholder = (
@@ -1705,6 +1951,45 @@ output = "Harry Potter_translated.pdf"</pre>
         without_selection = summary.render_summary_markdown(result)
         self.assertNotIn("## 重点主题详情", without_selection)
         self.assertNotIn("只属于代码主题的重点细节", without_selection)
+
+    def test_summary_markdown_links_every_media_reference(self):
+        result = {
+            "model": "test-model", "source": "DeepSeek.md",
+            "conversation": {
+                "message_count": 2, "chunk_count": 1,
+                "conversation_types": ["document_analysis"],
+            },
+            "overall_summary": "附件测试。",
+            "current_state": {}, "topics": [], "memory_items": [],
+            "typed_records": {}, "query_index": [],
+            "media": [{
+                "media_id": "M001", "message_index": 1,
+                "kind": "document", "source_role": "user",
+                "label": "result1.xlsx",
+                "reference": "./AI_memory_summary_files/result1.xlsx",
+                "status": "unavailable", "can_reverify": True,
+                "description": "格式暂未接入解析。",
+            }, {
+                "media_id": "M002", "message_index": 2,
+                "kind": "image", "source_role": "user",
+                "label": "用户图片",
+                "reference": "./AI_memory_summary_images/image.png",
+                "status": "described", "can_reverify": True,
+                "description": "图片内容。",
+            }],
+            "processing": {"warnings": []},
+        }
+
+        rendered = summary.render_summary_markdown(result)
+
+        self.assertIn(
+            "- 文件：[result1.xlsx](./AI_memory_summary_files/result1.xlsx)",
+            rendered,
+        )
+        self.assertIn(
+            "- 图片：![用户图片](./AI_memory_summary_images/image.png)",
+            rendered,
+        )
 
     def test_default_outputs_and_v8_structure(self):
         messages = [

@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from bs4 import BeautifulSoup
 
 from gui.service import (
@@ -18,24 +18,37 @@ from gui.service import (
     _close_browser_context_safely,
     _collect_response_assets,
     _document_download_url_from_payload,
+    _document_response_cache_keys,
+    _deepseek_document_card_get,
     _download_document_candidates,
     _download_image_candidates,
     _extract_chatgpt_document_card_candidates,
     _extract_chatgpt_shared_image_sources,
     _extract_deepseek_document_card_candidates,
     _extract_document_candidates,
+    _extract_gemini_document_card_candidates,
+    _gemini_document_card_download,
+    _extract_grok_document_card_candidates,
+    _grok_document_card_download,
+    _gemini_private_conversation_url,
+    _enrich_gemini_shared_user_content,
     _extract_doubao_ai_document_resources,
     _extract_doubao_ai_document_titles,
     _inject_chatgpt_attachment_names,
     _inject_chatgpt_message_images,
     _inject_chatgpt_shared_images,
     _chatgpt_message_asset_groups,
+    _is_decorative_image_candidate,
     _normalize_doubao_ai_document_text,
+    _page_has_conversation_content,
+    _parse_page_messages,
     _rehydrate_chatgpt_conversation,
     _repair_downloaded_text_mojibake,
+    _set_browser_window_state,
     DocumentCandidate,
     build_document_asset_directory,
     build_image_asset_directory,
+    build_image_asset_prefix,
     build_markdown_asset_prefix,
     build_output_paths,
     default_output_filename,
@@ -43,6 +56,7 @@ from gui.service import (
     generate_output_bundle,
     generate_raw_markdown,
     gui_summary_config_candidates,
+    launch_browser_context,
     normalize_markdown_filename,
     parse_fallback_messages_gui,
     requires_authenticated_browser,
@@ -51,6 +65,337 @@ from scripts.gemini_summarizer import GeminiSummaryError, SummaryConfig
 
 
 class GUIServiceTests(unittest.TestCase):
+    def test_gemini_blob_image_is_downloaded(self):
+        body = b"\x89PNG\r\n\x1a\ncontent"
+        page = SimpleNamespace(
+            evaluate=AsyncMock(return_value=(
+                "data:;base64,iVBORw0KGgpjb250ZW50"
+            )),
+            locator=MagicMock(),
+        )
+        page.request = SimpleNamespace(get=AsyncMock(side_effect=ValueError))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mapping = asyncio.run(_download_image_candidates(
+                page,
+                ["blob:https://gemini.google.com/generated"],
+                Path(temp_dir),
+                "./images",
+            ))
+            self.assertEqual(len(mapping), 1)
+            saved = Path(temp_dir) / Path(next(iter(mapping.values()))).name
+            self.assertEqual(saved.read_bytes(), body)
+
+    def test_background_browser_starts_offscreen(self):
+        launcher = AsyncMock(return_value=(object(), "chromium"))
+        playwright = SimpleNamespace(
+            chromium=SimpleNamespace(launch_persistent_context=launcher)
+        )
+        with patch("gui.service.browser_channel_candidates", return_value=("chromium",)):
+            asyncio.run(launch_browser_context(
+                playwright,
+                headless=False,
+                viewport=None,
+                no_viewport=True,
+                start_minimized=True,
+            ))
+        args = launcher.await_args.kwargs["args"]
+        self.assertIn("--start-minimized", args)
+        self.assertIn("--window-position=-32000,-32000", args)
+
+    def test_maximize_restores_offscreen_browser_first(self):
+        session = SimpleNamespace(
+            send=AsyncMock(side_effect=[{"windowId": 7}, None, None]),
+            detach=AsyncMock(),
+        )
+        page = SimpleNamespace(
+            context=SimpleNamespace(new_cdp_session=AsyncMock(return_value=session))
+        )
+        asyncio.run(_set_browser_window_state(page, "maximized"))
+        self.assertEqual(
+            session.send.await_args_list[1].args,
+            ("Browser.setWindowBounds", {
+                "windowId": 7,
+                "bounds": {
+                    "windowState": "normal",
+                    "left": 0,
+                    "top": 0,
+                    "width": 1200,
+                    "height": 800,
+                },
+            }),
+        )
+        self.assertEqual(
+            session.send.await_args_list[2].args,
+            ("Browser.setWindowBounds", {
+                "windowId": 7,
+                "bounds": {"windowState": "maximized"},
+            }),
+        )
+
+    def test_grok_share_document_cards(self):
+        html = '''
+        <button aria-label="打开附件">report.pdf</button>
+        <button aria-label="打开附件"><img src="preview-image">image.png</button>
+        <button aria-label="打开附件">result.xlsx</button>
+        '''
+        candidates = _extract_grok_document_card_candidates(
+            html, "https://grok.com/share/example"
+        )
+        self.assertEqual(
+            [candidate.filename for candidate in candidates],
+            ["report.pdf", "result.xlsx"],
+        )
+
+    def test_grok_card_accepts_browser_download(self):
+        class FakeDownload:
+            async def path(self):
+                return downloaded_path
+
+        class FakeCard:
+            async def click(self, timeout):
+                page.listeners["download"](FakeDownload())
+
+        class FakeLocator:
+            def filter(self, **_kwargs):
+                return self
+
+            @property
+            def first(self):
+                return FakeCard()
+
+        class FakeKeyboard:
+            press = AsyncMock()
+
+        class FakePage:
+            def __init__(self):
+                self.listeners = {}
+                self.keyboard = FakeKeyboard()
+
+            def locator(self, _selector):
+                return FakeLocator()
+
+            def on(self, event, callback):
+                self.listeners[event] = callback
+
+            def remove_listener(self, event, _callback):
+                self.listeners.pop(event)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            downloaded_path = Path(temp_dir) / "result.xlsx"
+            downloaded_path.write_bytes(b"xlsx")
+            page = FakePage()
+            body, headers = asyncio.run(_grok_document_card_download(
+                page,
+                DocumentCandidate(
+                    "grok-card:result.xlsx",
+                    "https://grok.com/share/example",
+                    "result.xlsx",
+                ),
+                1000,
+            ))
+        self.assertEqual(body, b"xlsx")
+        self.assertIn("result.xlsx", headers["content-disposition"])
+        page.keyboard.press.assert_awaited_once_with("Escape")
+
+    def test_gemini_document_download_retries_once(self):
+        page = SimpleNamespace(
+            keyboard=SimpleNamespace(press=AsyncMock()),
+            wait_for_timeout=AsyncMock(),
+        )
+        candidate = DocumentCandidate(
+            "gemini-card:data.csv",
+            "https://gemini.google.com/app/example",
+            "data.csv",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "gui.service._gemini_document_card_download",
+            new=AsyncMock(side_effect=[TimeoutError, (b"a,b\n1,2\n", {})]),
+        ) as download:
+            mapping = asyncio.run(_download_document_candidates(
+                page,
+                [candidate],
+                Path(temp_dir),
+                "./result_files",
+            ))
+        self.assertEqual(download.await_count, 2)
+        page.keyboard.press.assert_awaited_once_with("Escape")
+        page.wait_for_timeout.assert_awaited_once_with(1000)
+        self.assertEqual(mapping[candidate.reference], "./result_files/data.csv")
+
+    def test_gemini_video_uses_browser_download_and_rejects_error_pages(self):
+        import base64
+        body = b'\x00\x00\x00\x20ftypisom' + b'video data'
+        for content_type, payload_body, accepted in (
+            ('video/mp4', body, True),
+            ('text/html', b'<html>not available</html>', False),
+            ('application/octet-stream', b'<html>not available</html>', False),
+        ):
+            with self.subTest(content_type=content_type):
+                button = SimpleNamespace(count=AsyncMock(return_value=1),
+                                         is_enabled=AsyncMock(return_value=True), click=AsyncMock())
+                card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=button)))
+                cards = SimpleNamespace(filter=MagicMock(return_value=SimpleNamespace(first=card)))
+                source = 'https://contribution.usercontent.google.com/download?filename=recording%20test.mp4'
+                video = SimpleNamespace(wait_for=AsyncMock(), evaluate=AsyncMock(return_value=source))
+                close = SimpleNamespace(count=AsyncMock(return_value=0))
+                dialog = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=close)))
+                page = SimpleNamespace(
+                    locator=MagicMock(side_effect=lambda selector: {
+                        'user-query-file-preview': cards,
+                        '[role="dialog"] video': SimpleNamespace(first=video),
+                        '[role="dialog"]': SimpleNamespace(first=dialog),
+                    }[selector]),
+                    keyboard=SimpleNamespace(press=AsyncMock()),
+                    evaluate=AsyncMock(return_value={
+                        'data': base64.b64encode(payload_body).decode(),
+                        'headers': {'content-type': content_type},
+                    }),
+                )
+                candidate = DocumentCandidate('gemini-card:recording.mp4',
+                                              'https://gemini.google.com/app/example', 'recording.mp4')
+                if accepted:
+                    downloaded, headers = asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+                    self.assertEqual(downloaded, body)
+                    self.assertIn('recording%20test.mp4', headers['content-disposition'])
+                    self.assertEqual(page.evaluate.await_args.args[1]['url'], source)
+                else:
+                    with self.assertRaises(ValueError):
+                        asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+                page.keyboard.press.assert_awaited_once_with('Escape')
+
+    def test_gemini_video_saved_with_real_download_filename(self):
+        candidate = DocumentCandidate('gemini-card:' + 'A' * 24 + ':上传视频.mp4',
+                                      'https://gemini.google.com/app/example', '上传视频.mp4')
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            'gui.service._gemini_document_card_download',
+            new=AsyncMock(return_value=(b'\x00\x00\x00\x20ftypisomvideo', {
+                'content-type': 'video/mp4',
+                'content-disposition': "attachment; filename*=UTF-8''real%20name.mp4",
+            })),
+        ):
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(), [candidate], Path(temp_dir), './documents',
+            ))
+            self.assertEqual(mapping[candidate.reference], './documents/real%20name.mp4')
+            self.assertTrue((Path(temp_dir) / 'real name.mp4').is_file())
+
+    def test_gemini_same_name_versions_save_separately(self):
+        first = DocumentCandidate(
+            'gemini-card:' + 'A' * 24 + ':same.py',
+            'https://gemini.google.com/app/example', 'same.py',
+        )
+        second = DocumentCandidate(
+            'gemini-card:' + 'B' * 24 + ':same.py',
+            'https://gemini.google.com/app/example', 'same.py',
+        )
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            'gui.service._gemini_document_card_download',
+            new=AsyncMock(side_effect=[(b'first', {}), (b'second', {})]),
+        ):
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(), [first, second], Path(temp_dir),
+                './documents',
+            ))
+            first_path = Path(temp_dir) / Path(mapping[first.reference]).name
+            second_path = Path(temp_dir) / Path(mapping[second.reference]).name
+            self.assertNotEqual(first_path, second_path)
+            self.assertEqual(first_path.read_bytes(), b'first')
+            self.assertEqual(second_path.read_bytes(), b'second')
+
+    def test_gemini_share_metadata_and_document_cards(self):
+        metadata = "[[\"r_file12345678\",\"c_058650b27dade1e6\"]]"
+        import base64
+        encoded = base64.b64encode(metadata.encode()).decode()
+        html = f'''
+        <user-query-file-preview><button aria-label="无法查看或下载共享对话中的文件"
+          jslog="191296;BardVeMetadataKey:{encoded}">
+          <div class="filename-label">报告</div><div class="extension-label">PDF</div>
+        </button></user-query-file-preview>
+        <user-query-file-preview><button aria-label="无法查看或下载共享对话中的文件">
+          <img alt="text/markdown"><div class="filename-label">notes</div>
+        </button></user-query-file-preview>
+        '''
+        self.assertEqual(
+            _gemini_private_conversation_url(html),
+            "https://gemini.google.com/app/058650b27dade1e6",
+        )
+        candidates = _extract_gemini_document_card_candidates(
+            html, "https://gemini.google.com/share/example"
+        )
+        self.assertEqual(candidates, [])
+        # 页面即使跳到原始会话，旧共享页 HTML 也不能生成可点击候选。
+        self.assertEqual(
+            _extract_gemini_document_card_candidates(
+                html, "https://gemini.google.com/app/058650b27dade1e6"
+            ),
+            [],
+        )
+
+    def test_gemini_share_recovers_images_by_request_id_and_keeps_snapshot(self):
+        import base64
+        def user(request, text, images=(), document=False):
+            metadata = base64.b64encode(
+                f'[["r_{request}","c_conversation123"]]'.encode()
+            ).decode()
+            cards = ''.join(
+                f'<user-query-file-preview><button aria-label="图片"><img src="{src}"></button></user-query-file-preview>'
+                for src in images
+            )
+            if document:
+                cards += '<user-query-file-preview><button aria-label="无法查看或下载"><img src="https://gstatic.com/file.png"><div class="filename-label">keep.pdf</div></button></user-query-file-preview>'
+            return f'<user-query><button jslog="BardVeMetadataKey:{metadata}"></button>{cards}<div class="query-text">{text}</div></user-query>'
+        shared = (user('first', 'short', document=True)
+                  + '<message-content>shared answer</message-content>'
+                  + user('second', 'second'))
+        private = (user('second', 'second', ['https://lh3.googleusercontent.com/gg/three'])
+                   + user('first', 'short complete', ['https://lh3.googleusercontent.com/gg/one', 'https://lh3.googleusercontent.com/gg/two'])
+                   + user('later', 'must not export', ['https://lh3.googleusercontent.com/gg/later']))
+        enriched = BeautifulSoup(_enrich_gemini_shared_user_content(shared, private), 'html.parser')
+        users = enriched.find_all('user-query')
+        self.assertEqual(len(users), 2)
+        self.assertEqual([img['src'] for img in users[0].find_all('img')], [
+            'https://lh3.googleusercontent.com/gg/one',
+            'https://lh3.googleusercontent.com/gg/two',
+            'https://gstatic.com/file.png',
+        ])
+        self.assertEqual(users[0].select_one('.query-text').get_text(), 'short complete')
+        self.assertIn('keep.pdf', str(enriched))
+        self.assertIn('shared answer', str(enriched))
+        self.assertNotIn('must not export', str(enriched))
+        self.assertEqual(_gemini_private_conversation_url(shared), 'https://gemini.google.com/app/conversation123')
+
+    def test_gemini_enrichment_reuses_complete_downloaded_image_cards(self):
+        import base64
+        metadata = base64.b64encode(b'[["r_request123", "c_conversation123"]]').decode()
+        shared = f'<user-query><button jslog="BardVeMetadataKey:{metadata}"></button><user-query-file-preview><button aria-label="图片"><img src="https://lh3.googleusercontent.com/gg/cached"></button></user-query-file-preview><div class="query-text">same</div></user-query>'
+        private = shared.replace('/gg/cached', '/gg/fresh')
+        result = _enrich_gemini_shared_user_content(shared, private, {'https://lh3.googleusercontent.com/gg/cached': './images/cached.png'})
+        self.assertIn('/gg/cached', result)
+        self.assertNotIn('/gg/fresh', result)
+        # A failed initial download must still recover the fresh private source.
+        result = _enrich_gemini_shared_user_content(shared, private, {})
+        self.assertIn('/gg/fresh', result)
+        self.assertNotIn('/gg/cached', result)
+
+    def test_gemini_missing_document_card_fails_fast(self):
+        missing = SimpleNamespace(count=AsyncMock(return_value=0))
+        card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=missing)))
+        cards = SimpleNamespace(
+            filter=MagicMock(return_value=SimpleNamespace(first=card)),
+            get_by_role=MagicMock(return_value=SimpleNamespace(first=missing)),
+        )
+        page = SimpleNamespace(locator=MagicMock(return_value=cards))
+        candidate = DocumentCandidate(
+            "gemini-card:missing.pdf",
+            "https://gemini.google.com/app/058650b27dade1e6",
+            "missing.pdf",
+        )
+        with self.assertRaises(FileNotFoundError):
+            asyncio.run(_gemini_document_card_download(page, candidate, 1000))
+        cards.get_by_role.assert_called_once_with(
+            "button", name="missing.pdf", exact=True
+        )
+
     def test_image_downloads_are_bounded_and_keep_success_order(self):
         class FakeResponse:
             def __init__(self, ok, payload):
@@ -118,6 +463,205 @@ class GUIServiceTests(unittest.TestCase):
         self.assertTrue(image_map[candidates[0]].startswith("./assets/img_1_"))
         self.assertTrue(image_map[candidates[2]].startswith("./assets/img_2_"))
         self.assertTrue(image_map[candidates[3]].startswith("./assets/img_3_"))
+
+    def test_image_download_saves_embedded_png_data_url(self):
+        source = "data:image/png;base64,iVBORw0KGgpyZWFs"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                SimpleNamespace(),
+                [source],
+                Path(temp_dir),
+                "./assets",
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertTrue(saved.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+
+    def test_image_download_falls_back_to_page_fetch_after_http_failure(self):
+        class FakeResponse:
+            ok = False
+            status = 403
+            headers = {}
+
+        class FakeRequest:
+            async def get(self, src, timeout):
+                return FakeResponse()
+
+        class FakePage:
+            request = FakeRequest()
+
+            def __init__(self):
+                self.fetches = []
+
+            async def evaluate(self, script, src):
+                self.fetches.append(src)
+                return "data:;base64,iVBORw0KGgpyZWFs"
+
+        source = "https://example.com/protected.png"
+        page = FakePage()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                page,
+                [source],
+                Path(temp_dir),
+                "./assets",
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertTrue(saved.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+
+        self.assertEqual(page.fetches, [source])
+
+    def test_unloaded_gemini_image_still_uses_network_download(self):
+        source = "https://lh3.googleusercontent.com/gg/example"
+
+        class FakeResponse:
+            ok = True
+            headers = {"content-type": "image/png"}
+
+            async def body(self):
+                return b"\x89PNG\r\n\x1a\nreal"
+
+        class FakeImage:
+            async def get_attribute(self, name):
+                return source if name == "src" else None
+
+            async def scroll_into_view_if_needed(self, timeout):
+                return None
+
+            async def evaluate(self, script):
+                return False if "new Promise" in script else [0, 0]
+
+        class FakeImages:
+            async def count(self):
+                return 1
+
+            def nth(self, index):
+                return FakeImage()
+
+        class FakeRequest:
+            async def get(self, src, timeout):
+                return FakeResponse()
+
+        class FakePage:
+            request = FakeRequest()
+
+            def locator(self, selector):
+                return FakeImages()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                FakePage(), [source], Path(temp_dir), "./images",
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nreal")
+
+    def test_gemini_fallback_exports_full_decoded_image_without_lightbox(self):
+        source = "https://lh3.googleusercontent.com/gg/example"
+
+        class FakeResponse:
+            ok = False
+            status = 403
+            headers = {}
+
+        class FakeRequest:
+            async def get(self, src, timeout):
+                return FakeResponse()
+
+        class FakeImage:
+            async def get_attribute(self, name):
+                return source if name == "src" else None
+
+            async def is_visible(self):
+                return True
+
+            async def scroll_into_view_if_needed(self, timeout):
+                return None
+
+            async def evaluate(self, script):
+                if "trae-gemini-full-image" in script:
+                    return "full-image"
+                if "currentSrc" in script:
+                    return [None, source, None]
+                if "new Promise" in script:
+                    return True
+                return [640, 480]
+
+            async def screenshot(self, **kwargs):
+                return b"\x89PNG\r\n\x1a\nrendered"
+
+        class FakeImages:
+            async def count(self):
+                return 1
+
+            def nth(self, index):
+                return FakeImage()
+
+        class FakePage:
+            request = FakeRequest()
+
+            async def evaluate(self, script, src):
+                raise TimeoutError
+
+            def locator(self, selector):
+                return FakeImage() if selector.startswith("#") else FakeImages()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                FakePage(), [source], Path(temp_dir), "./images"
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nrendered")
+
+    def test_concurrent_gemini_screenshots_never_overlap(self):
+        sources = ['https://lh3.googleusercontent.com/gg/one', 'https://lh3.googleusercontent.com/gg/two']
+        active = set()
+        class Image:
+            def __init__(self, source):
+                self.source = source
+            async def get_attribute(self, name):
+                return self.source if name == 'src' else None
+            async def scroll_into_view_if_needed(self, **kwargs):
+                self.assert_no_overlay()
+            def assert_no_overlay(self):
+                if active:
+                    raise AssertionError('another screenshot is still visible')
+            async def evaluate(self, script):
+                if 'trae-gemini-full-image' in script:
+                    self.assert_no_overlay()
+                    active.add(self.source)
+                    await asyncio.sleep(0.01)
+                    return str(sources.index(self.source))
+                if 'currentSrc' in script:
+                    return [self.source, self.source, None]
+                if 'new Promise' in script:
+                    return True
+                if 'remove()' in script:
+                    active.remove(self.source)
+                    return None
+                return [640, 480]
+            async def screenshot(self, **kwargs):
+                await asyncio.sleep(0.01)
+                if active != {self.source}:
+                    raise AssertionError('overlapping screenshots captured the wrong image')
+                return b'\x89PNG\r\n\x1a\n' + self.source.encode()
+        class Images:
+            async def count(self):
+                return len(sources)
+            def nth(self, index):
+                return Image(sources[index])
+        class Page:
+            request = SimpleNamespace(get=AsyncMock(return_value=SimpleNamespace(ok=False,status=403)))
+            async def evaluate(self, *args):
+                return None
+            def locator(self, selector):
+                return Image(sources[int(selector[1:])]) if selector.startswith('#') else Images()
+        warnings = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mapping = asyncio.run(_download_image_candidates(Page(), sources, Path(temp_dir), './images', warning_collector=warnings))
+            self.assertEqual(len(mapping), 2)
+            for source in sources:
+                self.assertEqual((Path(temp_dir)/Path(mapping[source]).name).read_bytes(), b'\x89PNG\r\n\x1a\n' + source.encode())
+        self.assertEqual(warnings, [])
+        self.assertEqual(active, set())
 
     def test_existing_image_directory_stays_concurrent_and_deduplicated(self):
         class FakeResponse:
@@ -231,6 +775,104 @@ class GUIServiceTests(unittest.TestCase):
 
         self.assertEqual(request.calls, [source, signed])
 
+    def test_image_download_retries_owned_chatgpt_file_without_share_scope(self):
+        share_id = "6aa95199-4040-83e8-b16a-4be411338d94"
+        source = (
+            "https://chatgpt.com/backend-api/files/download/file_image"
+            f"?shared_conversation_id={share_id}"
+        )
+        private_source = (
+            "https://chatgpt.com/backend-api/files/download/file_image"
+            "?post_id=&inline=false&download_intent=false"
+        )
+
+        class FakeResponse:
+            ok = True
+            status = 200
+
+            def __init__(self, payload, content_type):
+                self.payload = payload
+                self.headers = {"content-type": content_type}
+
+            async def body(self):
+                return self.payload
+
+            async def json(self):
+                return {"error_code": "safety_check_failed"}
+
+        class FakeRequest:
+            def __init__(self):
+                self.calls = []
+
+            async def get(self, src, timeout):
+                self.calls.append(src)
+                if src == source:
+                    return FakeResponse(b"{}", "application/json")
+                if src == private_source:
+                    response = FakeResponse(b"{}", "application/json")
+                    response.json = lambda: asyncio.sleep(
+                        0, result={"download_url": "https://example.com/signed.png"}
+                    )
+                    return response
+                return FakeResponse(b"\x89PNG\r\n\x1a\nreal", "image/png")
+
+        request = FakeRequest()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                SimpleNamespace(request=request),
+                [source],
+                Path(temp_dir),
+                "./assets",
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nreal")
+
+        self.assertEqual(
+            request.calls,
+            [source, private_source, "https://example.com/signed.png"],
+        )
+
+    def test_image_download_reports_chatgpt_login_requirement(self):
+        share_id = "6aa93ca3-11c0-83e8-9c36-afa39378a735"
+        source = (
+            "https://chatgpt.com/backend-api/files/download/file_image"
+            f"?shared_conversation_id={share_id}"
+        )
+
+        class FakeResponse:
+            def __init__(self, ok, status, payload):
+                self.ok = ok
+                self.status = status
+                self.payload = payload
+                self.headers = {"content-type": "application/json"}
+
+            async def json(self):
+                return self.payload
+
+        class FakeRequest:
+            async def get(self, src, timeout):
+                if "shared_conversation_id" in src:
+                    return FakeResponse(
+                        True, 200, {"error_code": "safety_check_failed"}
+                    )
+                return FakeResponse(False, 403, {"detail": "Forbidden"})
+
+        authentication_required = []
+        warnings = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                SimpleNamespace(request=FakeRequest()),
+                [source],
+                Path(temp_dir),
+                "./assets",
+                warning_collector=warnings,
+                authentication_required=authentication_required,
+            ))
+
+        self.assertEqual(image_map, {})
+        self.assertEqual(authentication_required, [True])
+        self.assertIn("http_403", warnings[0])
+
     def test_browser_cleanup_failure_becomes_warning(self):
         class BrokenContext:
             async def close(self):
@@ -281,6 +923,18 @@ class GUIServiceTests(unittest.TestCase):
             build_markdown_asset_prefix(asset_dir, base),
             "./%E8%AF%BE%E7%A8%8B%20%E6%80%BB%E7%BB%93_images",
         )
+        absolute_base = Path.cwd() / "用户结果"
+        self.assertEqual(
+            build_markdown_asset_prefix(
+                absolute_base / "课程 总结_images",
+                absolute_base,
+            ),
+            "./%E8%AF%BE%E7%A8%8B%20%E6%80%BB%E7%BB%93_images",
+        )
+        self.assertEqual(
+            build_image_asset_prefix(asset_dir),
+            asset_dir.resolve().as_uri(),
+        )
 
     def test_custom_runtime_directory_owns_summary_cache(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -315,6 +969,7 @@ class GUIServiceTests(unittest.TestCase):
             {"normal": True},
             "课程总结.txt",
         )
+        self.assertEqual(single["asset_markdown"].name, "课程总结.md")
         self.assertEqual(single["normal_markdown"].name, "课程总结.md")
         self.assertEqual(single["normal_json"].name, "课程总结.json")
 
@@ -327,6 +982,16 @@ class GUIServiceTests(unittest.TestCase):
                 "detailed": True,
             },
             "课程总结.md",
+        )
+        self.assertEqual(
+            multiple["asset_markdown"].name,
+            "课程总结_export.md",
+        )
+        self.assertEqual(
+            build_image_asset_directory(
+                base, multiple["asset_markdown"].name
+            ),
+            base / "课程总结_export_images",
         )
         self.assertEqual(
             multiple["raw_markdown"].name,
@@ -359,12 +1024,53 @@ class GUIServiceTests(unittest.TestCase):
         messages = parse_fallback_messages_gui(soup)
         self.assertTrue(len(messages) >= 1)
 
+    def test_doubao_shell_is_not_parsed_as_conversation(self):
+        soup = BeautifulSoup(
+            "<html><title>豆包 - 你的 AI 智能助手</title></html>",
+            "html.parser",
+        )
+        provider, messages = _parse_page_messages(
+            "https://www.doubao.com/thread/example",
+            soup,
+            {},
+        )
+        self.assertIsNone(provider)
+        self.assertIsNone(messages)
+
+    def test_doubao_home_message_item_is_not_conversation_content(self):
+        class Locator:
+            async def count(self):
+                return 0
+
+        class Page:
+            url = "https://www.doubao.com/"
+            selector = ""
+
+            async def wait_for_selector(self, selector, state, timeout):
+                self.selector = selector
+
+            def locator(self, selector):
+                self.selector = selector
+                return Locator()
+
+        page = Page()
+        ready = asyncio.run(_page_has_conversation_content(
+            page,
+            "https://www.doubao.com/chat/38441607137483266",
+        ))
+        self.assertFalse(ready)
+        self.assertNotIn(".message-item", page.selector)
+
     def test_generate_raw_markdown(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / "output.md"
             messages = [
-                {"role": "User", "content": "你好"},
-                {"role": "AI", "content": "你好！有什么我可以帮你的？"}
+                {
+                    "role": "User",
+                    "content": "![截图](./output_images/截图.png)\n\n"
+                    "📎 [资料](./output_files/中文 资料.pdf)",
+                },
+                {"role": "AI", "content": "你好！有什么我可以帮你的？"},
             ]
             generate_raw_markdown(messages, target)
             self.assertTrue(target.is_file())
@@ -372,6 +1078,8 @@ class GUIServiceTests(unittest.TestCase):
             self.assertIn("# AI 对话记忆导出", content)
             self.assertIn("用户提问", content)
             self.assertIn("AI 回答", content)
+            self.assertIn("![截图](./output_images/截图.png)", content)
+            self.assertIn("[资料](./output_files/中文 资料.pdf)", content)
 
     def test_normal_and_detailed_reuse_one_result_and_one_selection(self):
         messages = [
@@ -714,6 +1422,71 @@ class GUIServiceTests(unittest.TestCase):
             self.assertEqual(mapping["报告.docx"], "./result_files/%E6%8A%A5%E5%91%8A.docx")
             self.assertNotIn("secret", " ".join(mapping.values()))
 
+    def test_document_link_encodes_spaces_and_markdown_delimiters(self):
+        from urllib.parse import unquote, quote
+        filename = '新建 文本文档 (1)#%.txt'
+        response = SimpleNamespace(ok=True, headers={'content-type': 'text/plain'}, body=AsyncMock(return_value=b'original file content'))
+        page = SimpleNamespace(request=SimpleNamespace(get=AsyncMock(return_value=response)))
+        candidate = DocumentCandidate('file_ref', 'https://example.com/file', filename)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir) / 'documents'
+            mapping = asyncio.run(_download_document_candidates(page, [candidate], folder, './documents'))
+            reference = mapping[candidate.reference]
+            self.assertEqual(reference, './documents/' + quote(filename, safe=''))
+            self.assertEqual((Path(temp_dir) / unquote(reference)).read_bytes(), b'original file content')
+            self.assertEqual([path.name for path in folder.iterdir()], [filename])
+
+    def test_chatgpt_document_retries_without_share_scope(self):
+        share_id = "6aa93ca3-11c0-83e8-9c36-afa39378a735"
+        source = (
+            "https://chatgpt.com/backend-api/files/download/file_csv"
+            f"?shared_conversation_id={share_id}"
+        )
+        private_source = (
+            "https://chatgpt.com/backend-api/files/download/file_csv"
+            "?post_id=&inline=false&download_intent=false"
+        )
+
+        class FakeResponse:
+            ok = True
+            status = 200
+
+            def __init__(self, payload, content_type):
+                self.payload = payload
+                self.headers = {"content-type": content_type}
+
+            async def body(self):
+                return self.payload
+
+            async def json(self):
+                return {"error_code": "safety_check_failed"}
+
+        class FakeRequest:
+            def __init__(self):
+                self.calls = []
+
+            async def get(self, url, timeout):
+                self.calls.append(url)
+                if url == source:
+                    return FakeResponse(b"{}", "application/json")
+                return FakeResponse(b"a,b\n1,2\n", "text/csv")
+
+        request = FakeRequest()
+        candidate = DocumentCandidate("file_csv", source, "data.csv")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(request=request),
+                [candidate],
+                output_dir,
+                "./result_files",
+                conversation_url=f"https://chatgpt.com/share/{share_id}",
+            ))
+            self.assertEqual((output_dir / "data.csv").read_bytes(), b"a,b\n1,2\n")
+
+        self.assertEqual(request.calls, [source, private_source])
+        self.assertEqual(mapping["data.csv"], "./result_files/data.csv")
+
     def test_document_candidates_reject_local_and_credential_urls(self):
         html = (
             '<a href="http://127.0.0.1/private.pdf">private.pdf</a>'
@@ -821,11 +1594,31 @@ class GUIServiceTests(unittest.TestCase):
             set(),
         )
         self.assertEqual(len(deepseek_documents), 1)
-        self.assertEqual(
-            deepseek_documents[0].url,
+        self.assertEqual(deepseek_documents[0].url,
             "https://files.deepseeksvc.com/api/file?"
             "file_id=fake&state=signed&ty=r",
         )
+
+        grok_documents = []
+        grok_images = set()
+        _collect_response_assets(
+            {"fileAttachmentsMetadata": [{
+                "fileName": "result.xlsx",
+                "fileMimeType": (
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                "fileUri": "users/user-id/asset-id/content",
+            }]},
+            "https://grok.com/c/conversation-id",
+            grok_documents,
+            grok_images,
+        )
+        self.assertEqual(grok_documents, [DocumentCandidate(
+            "users/user-id/asset-id/content",
+            "https://assets.grok.com/users/user-id/asset-id/content",
+            "result.xlsx",
+        )])
 
     def test_successful_chatgpt_document_response_is_reused_without_retry(self):
         class FakeResponse:
@@ -897,6 +1690,89 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(candidates[0].filename, "mddd.md")
         self.assertTrue(candidates[0].reference.startswith("deepseek-card:"))
 
+    def test_deepseek_site_icon_is_decorative(self):
+        self.assertTrue(_is_decorative_image_candidate(
+            "https://cdn.deepseek.com/site-icons/csair.com"
+        ))
+        self.assertFalse(_is_decorative_image_candidate(
+            "https://cdn.deepseek.com/content/answer.webp"
+        ))
+
+    def test_deepseek_document_card_uses_react_signed_path(self):
+        signed_path = "/file?file_id=xlsx-id&state=signed"
+        name = MagicMock()
+        name.evaluate = AsyncMock(return_value=signed_path)
+        message = MagicMock()
+        message.get_by_text.return_value.first = name
+        page = MagicMock()
+        page.locator.return_value.filter.return_value = message
+        candidate = DocumentCandidate(
+            "deepseek-card:result1.xlsx",
+            "https://chat.deepseek.com/a/chat/s/example",
+            "result1.xlsx",
+        )
+
+        with patch(
+            "gui.service._scroll_to_deepseek_file_card",
+            new=AsyncMock(return_value=True),
+        ), patch(
+            "gui.service._authenticated_page_get",
+            new=AsyncMock(return_value="response"),
+        ) as request:
+            response = asyncio.run(_deepseek_document_card_get(
+                page, candidate, 20000
+            ))
+
+        self.assertEqual(response, "response")
+        name.evaluate.assert_awaited_once()
+        self.assertEqual(name.evaluate.await_args.args[1], "result1.xlsx")
+        request.assert_awaited_once_with(
+            page,
+            "https://files.deepseeksvc.com/api/file?"
+            "file_id=xlsx-id&state=signed&ty=r",
+            20000,
+        )
+
+    def test_deepseek_response_cache_does_not_collide_on_shared_path(self):
+        first = _document_response_cache_keys(
+            "https://files.deepseeksvc.com/api/file?file_id=first&state=one"
+        )
+        second = _document_response_cache_keys(
+            "https://files.deepseeksvc.com/api/file?file_id=second&state=two"
+        )
+        self.assertEqual(first, (
+            "https://files.deepseeksvc.com/api/file?file_id=first&state=one",
+        ))
+        self.assertTrue(set(first).isdisjoint(second))
+
+    def test_deepseek_image_body_is_not_saved_as_document(self):
+        response = SimpleNamespace(
+            ok=True,
+            headers={"content-type": "image/webp"},
+            body=AsyncMock(return_value=b"RIFF\x00\x00\x00\x00WEBPpayload"),
+        )
+        page = SimpleNamespace()
+        candidate = DocumentCandidate(
+            "/file?file_id=fake&state=signed",
+            "https://files.deepseeksvc.com/api/file?file_id=fake&state=signed&ty=r",
+            "report.pdf",
+        )
+        warnings = []
+        with patch(
+            "gui.service._authenticated_page_get",
+            new=AsyncMock(return_value=response),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                mapping = asyncio.run(_download_document_candidates(
+                    page,
+                    [candidate],
+                    Path(temp_dir),
+                    "./documents",
+                    warning_collector=warnings,
+                ))
+                self.assertEqual(mapping, {})
+                self.assertFalse((Path(temp_dir) / "report.pdf").exists())
+        self.assertTrue(any("not_a_document" in warning for warning in warnings))
 
     def test_doubao_response_metadata_produces_authorized_candidate(self):
         documents = []
@@ -928,7 +1804,9 @@ class GUIServiceTests(unittest.TestCase):
             '&amp;quot;file&amp;quot;:{'
             '&amp;quot;name&amp;quot;:&amp;quot;课堂材料.docx&amp;quot;,'
             '&amp;quot;uri&amp;quot;:'
-            '&amp;quot;tos-cn-i-test/folder/material.docx&amp;quot;}'
+            '&amp;quot;tos-cn-i-test/folder/material.docx&amp;quot;,'
+            '&amp;quot;url&amp;quot;:'
+            '&amp;quot;https://example.com/material.docx?signature=test&amp;quot;}'
         )
         candidates = _extract_document_candidates(
             html,
@@ -939,6 +1817,10 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(
             candidates[0].reference,
             "tos-cn-i-test/folder/material.docx",
+        )
+        self.assertEqual(
+            candidates[0].url,
+            "https://example.com/material.docx?signature=test",
         )
 
     def test_doubao_share_decodes_unicode_escaped_document_uri(self):
@@ -1164,6 +2046,36 @@ class GUIServiceTests(unittest.TestCase):
         self.assertIn("/api/auth/session", script)
         self.assertNotIn("token", argument)
 
+    def test_grok_asset_uses_page_fetch_across_origins(self):
+        class ResponseInfo:
+            value = asyncio.sleep(0, result=SimpleNamespace(ok=True))
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class FakePage:
+            url = "https://grok.com/c/conversation-id"
+
+            def __init__(self):
+                self.request = SimpleNamespace(get=AsyncMock())
+                self.argument = None
+
+            def expect_response(self, *_args, **_kwargs):
+                return ResponseInfo()
+
+            async def evaluate(self, _script, argument):
+                self.argument = argument
+
+        page = FakePage()
+        url = "https://assets.grok.com/users/user-id/asset-id/content"
+        result = asyncio.run(_authenticated_page_get(page, url, 1000))
+        self.assertTrue(result.ok)
+        self.assertEqual(page.argument, {"resource": url, "prepare": None})
+        page.request.get.assert_not_awaited()
+
     def test_chatgpt_share_placeholder_uses_matching_embedded_image(self):
         share_id = "6a5ed6e7-bd38-83ee-936d-571f7594a63e"
         source_html = (
@@ -1198,7 +2110,11 @@ class GUIServiceTests(unittest.TestCase):
         share_id = "6a5ed6e7-bd38-83ee-936d-571f7594a63e"
 
         class FakePage:
-            async def evaluate(self, _script):
+            def __init__(self):
+                self.script = ""
+
+            async def evaluate(self, script):
+                self.script = script
                 return [
                     {
                         "images": [
@@ -1218,11 +2134,13 @@ class GUIServiceTests(unittest.TestCase):
                     },
                 ]
 
+        page = FakePage()
         image_groups, document_groups = asyncio.run(
             _chatgpt_message_asset_groups(
-                FakePage(), f"https://chatgpt.com/share/{share_id}"
+                page, f"https://chatgpt.com/share/{share_id}"
             )
         )
+        self.assertIn("value.mapping", page.script)
         html = (
             '<div data-message-author-role="user">第一问</div>'
             '<div data-message-author-role="user">第二问</div>'

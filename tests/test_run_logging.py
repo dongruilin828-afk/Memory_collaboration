@@ -44,7 +44,7 @@ class GenerationRunLogTests(unittest.TestCase):
         )
         candidates = gui_summary_config_candidates(base_config)
         self.assertTrue(all(
-            item.request_timeout_seconds == 120 for item in candidates
+            item.request_timeout_seconds == 180 for item in candidates
         ))
         created_models = []
 

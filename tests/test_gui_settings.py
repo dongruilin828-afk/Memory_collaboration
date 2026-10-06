@@ -54,12 +54,18 @@ class GUISettingsStoreTests(unittest.TestCase):
             self.assertFalse(any(runtime.glob(".ai-memory-write-test-*")))
             self.assertFalse(any(results.glob(".ai-memory-write-test-*")))
 
-            self.assertEqual(saved.browser_profile_dir, runtime / ".browser_user_data")
-            self.assertEqual(saved.log_dir, runtime / "log")
-            self.assertEqual(saved.summary_cache_dir, runtime / "summary_results")
             self.assertEqual(
-                saved.debug_html_file,
-                runtime / "debug_last_fetch.html",
+                saved.browser_profile_dir.resolve(),
+                (runtime / ".browser_user_data").resolve(),
+            )
+            self.assertEqual(saved.log_dir.resolve(), (runtime / "log").resolve())
+            self.assertEqual(
+                saved.summary_cache_dir.resolve(),
+                (runtime / "summary_results").resolve(),
+            )
+            self.assertEqual(
+                saved.debug_html_file.resolve(),
+                (runtime / "debug_last_fetch.html").resolve(),
             )
 
     def test_clearing_result_default_keeps_runtime_location(self):
