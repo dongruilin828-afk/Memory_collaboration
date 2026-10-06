@@ -786,7 +786,6 @@ MODE_FILENAME_SUFFIXES = {
 GUI_IMAGE_DOWNLOAD_CONCURRENCY = 4
 GUI_IMAGE_DOWNLOAD_ATTEMPTS = 2
 GUI_IMAGE_DOWNLOAD_TIMEOUT_MS = 10000
-GUI_REQUEST_TIMEOUT_SECONDS = 120
 SILICONFLOW_FREE_SUMMARY_MODELS = (
     "Qwen/Qwen3-8B",
 )
@@ -929,9 +928,8 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
                 rate_limit_wait_seconds=min(
                     int(candidate.rate_limit_wait_seconds), 5
                 ),
-                request_timeout_seconds=min(
-                    int(candidate.request_timeout_seconds),
-                    GUI_REQUEST_TIMEOUT_SECONDS,
+                request_timeout_seconds=int(
+                    candidate.request_timeout_seconds
                 ),
             ))
 
@@ -4979,7 +4977,7 @@ def generate_output_bundle(
             break
         except SummaryRequestTimeoutError as error:
             # 同一提供商的其他模型通常共享网络入口；超时后跳过该提供商，
-            # 但若用户还配置了另一提供商，则立即切换，避免 120 秒后直接失败。
+            # 但若用户还配置了另一提供商，则立即切换，避免等待后直接失败。
             last_error = error
             timed_out_providers.add(candidate_config.provider)
             next_config = next_usable_config(attempt_index)

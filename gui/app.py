@@ -49,6 +49,13 @@ from gui.service import (
 )
 
 
+def _format_fetch_warnings(warnings: list[str]) -> str:
+    """把抓取警告整理为任务完成后的用户提示。"""
+    return "文件已正常生成，但抓取存在以下情况：\n\n" + "\n".join(
+        f"• {warning}" for warning in warnings
+    )
+
+
 def _prompt_output_target(
     parent: tk.Misc,
     modes: dict[str, bool],
@@ -2311,7 +2318,7 @@ class AIMemoryGUI:
                 output_filename,
                 dict(api_keys),
                 settings,
-                Path(source_path),
+                Path(source_path).resolve(),
             ),
             daemon=True,
         ).start()
@@ -2642,6 +2649,7 @@ class AIMemoryGUI:
         task_started = time.perf_counter()
         run_succeeded = False
         direct_summary = source_path is not None
+        fetch_warnings: list[str] = []
         if direct_summary:
             source_path = Path(source_path).resolve()
             metadata = {
@@ -2758,7 +2766,8 @@ class AIMemoryGUI:
                     message_count=len(fetch_res.messages),
                     downloaded_images=len(fetch_res.image_map),
                 )
-                for warning in fetch_res.warnings:
+                fetch_warnings = fetch_res.warnings
+                for warning in fetch_warnings:
                     run_log.event("fetch_warning", warning)
                 if fetch_res.error or not fetch_res.messages:
                     err = fetch_res.error or "未能提取到有效对话内容。"
@@ -2870,6 +2879,15 @@ class AIMemoryGUI:
                 ) if file_list_str else "所有任务生成完成！",
             )
             self.root.after(0, lambda: self._show_completed_badge(5))
+            if fetch_warnings:
+                warning_text = _format_fetch_warnings(fetch_warnings)
+                self.root.after(
+                    0,
+                    lambda text=warning_text: messagebox.showwarning(
+                        "生成完成，但部分附件未下载",
+                        text,
+                    ),
+                )
             run_succeeded = True
 
         except Exception as e:

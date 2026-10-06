@@ -14,6 +14,7 @@ from gui.credential_store import (
 from gui.app import (
     AIMemoryGUI,
     _direct_summary_output_filename,
+    _format_fetch_warnings,
     _load_direct_summary_file,
 )
 from gui.service import (
@@ -89,6 +90,15 @@ class CredentialStoreTests(unittest.TestCase):
 
 
 class GUIApiKeyRoutingTests(unittest.TestCase):
+    def test_fetch_warnings_are_clear_after_success(self):
+        text = _format_fetch_warnings([
+            "2 个 Gemini 附件未取得原文件；已在导出正文中保留文件名及不可下载提示。"
+        ])
+
+        self.assertIn("文件已正常生成", text)
+        self.assertIn("2 个 Gemini 附件未取得原文件", text)
+        self.assertIn("保留文件名及不可下载提示", text)
+
     @staticmethod
     def _fake_gui(*, raw=False, normal=False, simple=False, detailed=False):
         opened = []
