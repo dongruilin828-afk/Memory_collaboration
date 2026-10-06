@@ -440,7 +440,9 @@ def _is_codex_share_data_response(response_url: str) -> bool:
 
 def _document_response_cache_keys(response_url: str) -> tuple[str, ...]:
     parsed = urlparse(str(response_url or ""))
-    keys = [str(response_url or ""), parsed.path]
+    keys = [str(response_url or "")]
+    if parsed.netloc.lower().split(":", 1)[0] != "files.deepseeksvc.com":
+        keys.append(parsed.path)
     chatgpt_match = re.match(
         r"^/backend-api/files/download/(?P<file_id>[^/]+)$",
         parsed.path,
@@ -1211,11 +1213,14 @@ def _image_extension(src: str) -> str:
 
 
 def _is_decorative_image_candidate(src: str) -> bool:
-    """识别 ChatGPT 引用卡片使用的 Google favicon，避免下载无关图标。"""
+    """识别引用卡片使用的 favicon，避免下载无关图标。"""
     parsed = urlparse(src)
     return (
         parsed.netloc.lower() in {"google.com", "www.google.com"}
         and parsed.path.rstrip("/").lower() == "/s2/favicons"
+    ) or (
+        parsed.netloc.lower() == "cdn.deepseek.com"
+        and parsed.path.lower().startswith("/site-icons/")
     )
 
 
@@ -2903,12 +2908,17 @@ async def _deepseek_document_card_get(
     ).get_by_text(candidate.filename, exact=True).first
     try:
         signed_path = await name.evaluate(
-            """element => {
+            """(element, expectedName) => {
                 const seen = new WeakSet();
                 const find = value => {
                     if (!value || typeof value !== 'object' || seen.has(value)) return '';
                     seen.add(value);
-                    if (typeof value.signedPath === 'string') return value.signedPath;
+                    const filename = value.file_name || value.fileName
+                        || value.filename || value.name || '';
+                    if (
+                        filename === expectedName
+                        && typeof value.signedPath === 'string'
+                    ) return value.signedPath;
                     for (const child of Object.values(value)) {
                         const found = find(child);
                         if (found) return found;
@@ -2924,7 +2934,8 @@ async def _deepseek_document_card_get(
                     }
                 }
                 return '';
-            }"""
+            }""",
+            candidate.filename,
         )
         if not signed_path:
             return None
@@ -3457,6 +3468,15 @@ async def _download_document_candidates(
                         break
             if cached is not None:
                 body, headers = cached
+                candidate_host = urlparse(candidate.url).netloc.lower().split(":", 1)[0]
+                if (
+                    (
+                        candidate_host == "files.deepseeksvc.com"
+                        or candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+                    )
+                    and _is_supported_image_body(body)
+                ):
+                    return candidate, None, dict(headers), "not_a_document"
                 return candidate, body, dict(headers), None
             async with semaphore:
                 response = None
@@ -3606,6 +3626,14 @@ async def _download_document_candidates(
                 return candidate, None, headers, "empty_body"
             if len(body) > GUI_DOCUMENT_MAX_BYTES:
                 return candidate, None, headers, "too_large"
+            if (
+                (
+                    candidate_host == "files.deepseeksvc.com"
+                    or candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+                )
+                and _is_supported_image_body(body)
+            ):
+                return candidate, None, headers, "not_a_document"
             return candidate, body, headers, None
         except Exception as error:
             return candidate, None, {}, type(error).__name__
@@ -4487,9 +4515,13 @@ async def fetch_chat_pipeline(
                     ),
                     *response_document_candidates,
                     *gemini_document_candidates,
-                    *_extract_document_candidates(
-                        page_snapshot_html + chr(10) + html,
-                        page.url,
+                    *(
+                        []
+                        if current_host == "chat.deepseek.com"
+                        else _extract_document_candidates(
+                            page_snapshot_html + chr(10) + html,
+                            page.url,
+                        )
                     ),
                 ]))
                 document_candidates.extend(

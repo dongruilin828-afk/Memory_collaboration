@@ -18,6 +18,7 @@ from gui.service import (
     _close_browser_context_safely,
     _collect_response_assets,
     _document_download_url_from_payload,
+    _document_response_cache_keys,
     _deepseek_document_card_get,
     _download_document_candidates,
     _download_image_candidates,
@@ -37,6 +38,7 @@ from gui.service import (
     _inject_chatgpt_message_images,
     _inject_chatgpt_shared_images,
     _chatgpt_message_asset_groups,
+    _is_decorative_image_candidate,
     _normalize_doubao_ai_document_text,
     _page_has_conversation_content,
     _parse_page_messages,
@@ -1688,6 +1690,14 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(candidates[0].filename, "mddd.md")
         self.assertTrue(candidates[0].reference.startswith("deepseek-card:"))
 
+    def test_deepseek_site_icon_is_decorative(self):
+        self.assertTrue(_is_decorative_image_candidate(
+            "https://cdn.deepseek.com/site-icons/csair.com"
+        ))
+        self.assertFalse(_is_decorative_image_candidate(
+            "https://cdn.deepseek.com/content/answer.webp"
+        ))
+
     def test_deepseek_document_card_uses_react_signed_path(self):
         signed_path = "/file?file_id=xlsx-id&state=signed"
         name = MagicMock()
@@ -1714,6 +1724,8 @@ class GUIServiceTests(unittest.TestCase):
             ))
 
         self.assertEqual(response, "response")
+        name.evaluate.assert_awaited_once()
+        self.assertEqual(name.evaluate.await_args.args[1], "result1.xlsx")
         request.assert_awaited_once_with(
             page,
             "https://files.deepseeksvc.com/api/file?"
@@ -1721,6 +1733,46 @@ class GUIServiceTests(unittest.TestCase):
             20000,
         )
 
+    def test_deepseek_response_cache_does_not_collide_on_shared_path(self):
+        first = _document_response_cache_keys(
+            "https://files.deepseeksvc.com/api/file?file_id=first&state=one"
+        )
+        second = _document_response_cache_keys(
+            "https://files.deepseeksvc.com/api/file?file_id=second&state=two"
+        )
+        self.assertEqual(first, (
+            "https://files.deepseeksvc.com/api/file?file_id=first&state=one",
+        ))
+        self.assertTrue(set(first).isdisjoint(second))
+
+    def test_deepseek_image_body_is_not_saved_as_document(self):
+        response = SimpleNamespace(
+            ok=True,
+            headers={"content-type": "image/webp"},
+            body=AsyncMock(return_value=b"RIFF\x00\x00\x00\x00WEBPpayload"),
+        )
+        page = SimpleNamespace()
+        candidate = DocumentCandidate(
+            "/file?file_id=fake&state=signed",
+            "https://files.deepseeksvc.com/api/file?file_id=fake&state=signed&ty=r",
+            "report.pdf",
+        )
+        warnings = []
+        with patch(
+            "gui.service._authenticated_page_get",
+            new=AsyncMock(return_value=response),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                mapping = asyncio.run(_download_document_candidates(
+                    page,
+                    [candidate],
+                    Path(temp_dir),
+                    "./documents",
+                    warning_collector=warnings,
+                ))
+                self.assertEqual(mapping, {})
+                self.assertFalse((Path(temp_dir) / "report.pdf").exists())
+        self.assertTrue(any("not_a_document" in warning for warning in warnings))
 
     def test_doubao_response_metadata_produces_authorized_candidate(self):
         documents = []
