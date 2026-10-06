@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY
+from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY, SummaryTopicCard
 from gui.settings_store import default_app_settings
 
 
@@ -42,6 +42,35 @@ class _SettingsStore:
     def save(self, settings):
         self.saved.append(settings)
         return settings
+
+
+class SummaryTopicCardTests(unittest.TestCase):
+    def test_card_toggles_and_expands_for_long_summary(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        try:
+            root.withdraw()
+            toggles = []
+            card = SummaryTopicCard(
+                root,
+                index=1,
+                title="一个需要重点展开的主题",
+                summary="这是一段较长的主题摘要。" * 40,
+                on_toggle=lambda item: toggles.append(item.checked),
+                width=420,
+            )
+            card.pack()
+            root.update_idletasks()
+
+            self.assertFalse(card.checked)
+            self.assertGreater(card.winfo_reqheight(), 88)
+            card._toggle()
+            self.assertTrue(card.checked)
+            self.assertEqual(toggles, [True])
+        finally:
+            root.destroy()
 
 
 class GUIResponsiveGeometryTests(unittest.TestCase):
@@ -204,7 +233,6 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         - app.bg_canvas.bbox(app.canvas_window_id)[1],
                         app.bg_canvas.winfo_height(),
                     )
-
                     app._show_page(3)
                     settings_page = app.page_frames[3]
                     settings_page.show_page("api")
