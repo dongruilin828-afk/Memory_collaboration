@@ -49,3 +49,7 @@ summary_results/
 
 # 用于 agent
 agents.md
+
+# 保留 Gemini 抓取测试目录中的全部文件与附件
+!/tests/Gemini_Right/
+!/tests/Gemini_Right/**
