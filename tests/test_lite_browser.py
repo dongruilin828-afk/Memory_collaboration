@@ -94,7 +94,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertNotIn("sensitive failure", str(raised.exception))
 
-    async def test_chatgpt_private_url_starts_minimized_and_only_restores_for_login(self):
+    async def test_chatgpt_private_url_respects_no_login_mode(self):
         class FakePage:
             def on(self, *_args):
                 pass
@@ -119,13 +119,13 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, *_args):
                 return False
 
-        for content_states, expected_callback in (
-            ((True,), 0),
-            ((False,), 1),
-        ):
-            with self.subTest(content_states=content_states):
+        for has_conversation_content in (True, False):
+            with self.subTest(
+                has_conversation_content=has_conversation_content
+            ):
                 contexts = [FakeContext()]
                 callback = Mock()
+                confirmation_callback = Mock(return_value=False)
                 login_event = asyncio.Event()
                 login_event.set()
                 launcher = AsyncMock(side_effect=[
@@ -145,27 +145,43 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     new=AsyncMock(),
                 ), patch(
                     "gui.service._page_has_conversation_content",
-                    new=AsyncMock(side_effect=content_states),
+                    new=AsyncMock(return_value=has_conversation_content),
                 ), patch(
                     "gui.service._set_browser_window_state",
                     new=AsyncMock(),
                 ):
-                    await fetch_chat_pipeline(
-                        "https://chatgpt.com/c/"
-                        "11111111-2222-3333-4444-555555555555",
-                        need_login=False,
-                        login_ready_event=login_event,
-                        login_required_callback=callback,
-                    )
+                    if has_conversation_content:
+                        await fetch_chat_pipeline(
+                            "https://chatgpt.com/c/"
+                            "11111111-2222-3333-4444-555555555555",
+                            need_login=False,
+                            login_ready_event=login_event,
+                            login_required_callback=callback,
+                            login_confirmation_callback=confirmation_callback,
+                        )
+                    else:
+                        result = await fetch_chat_pipeline(
+                            "https://chatgpt.com/c/"
+                            "11111111-2222-3333-4444-555555555555",
+                            need_login=False,
+                            login_ready_event=login_event,
+                            login_required_callback=callback,
+                            login_confirmation_callback=confirmation_callback,
+                        )
+                        self.assertIn("已取消打开登录浏览器", result.error)
 
                 self.assertEqual(
                     [
                         call.kwargs["headless"]
                         for call in launcher.await_args_list
                     ],
-                    [False],
+                    [True],
                 )
-                self.assertTrue(
+                self.assertFalse(
                     launcher.await_args_list[0].kwargs["start_minimized"]
                 )
-                self.assertEqual(callback.call_count, expected_callback)
+                self.assertEqual(callback.call_count, 0)
+                self.assertEqual(
+                    confirmation_callback.call_count,
+                    0 if has_conversation_content else 1,
+                )

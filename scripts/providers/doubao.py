@@ -1,10 +1,12 @@
 """豆包页面消息解析。"""
 
+import base64
 import re
 from collections import Counter
 from urllib.parse import unquote
 
 import markdownify
+from bs4 import BeautifulSoup
 
 
 DISPLAY_NAME = "豆包"
@@ -12,6 +14,21 @@ SHARE_MESSAGE_SELECTOR = ".message-item"
 DIRECT_LIST_SELECTOR = "div[class*='message-list-']"
 DIRECT_MESSAGE_SELECTOR = "div.my-0.w-full.mx-auto"
 WAIT_SELECTOR = f"{SHARE_MESSAGE_SELECTOR}, {DIRECT_LIST_SELECTOR}"
+HOSTS = ("doubao.com", "www.doubao.com")
+_GENERATED_IMAGE_RE = re.compile(r"(/rc_gen_image/[^?]+?)~tplv-[^?]+-(cthumb|cgen)_")
+
+
+def prefer_original_generated_images(sources):
+    """同一豆包生成图同时出现缩略图和原图时只保留原图。"""
+    matches = [(src, _GENERATED_IMAGE_RE.search(str(src))) for src in sources]
+    original_keys = {
+        match.group(1) for _, match in matches
+        if match and match.group(2) == "cgen"
+    }
+    return [
+        src for src, match in matches
+        if not (match and match.group(2) == "cthumb" and match.group(1) in original_keys)
+    ]
 
 
 async def _scroll_messages(page, messages, message_count):
@@ -68,33 +85,89 @@ async def collect_html(page):
     direct_messages = lists.nth(selected["index"]).locator(
         DIRECT_MESSAGE_SELECTOR
     )
-    direct_count = await direct_messages.count()
-    await _scroll_messages(page, direct_messages, direct_count)
+    fragment_by_key = {}
+    ordered_keys = []
+    unchanged_rounds = 0
+    first_fragment = None
+    for _ in range(20):
+        current_fragments = await direct_messages.evaluate_all(
+            """elements => elements.map((wrapper, index) => {
+                const roleRows = Array.from(wrapper.querySelectorAll(
+                    'div.flex.flex-row.w-full'
+                ));
+                if (!roleRows.length) return null;
+                const isUser = roleRows.some(row => row.classList.contains('justify-end'));
+                const hasContent = Boolean(
+                    (wrapper.innerText || '').trim()
+                    || wrapper.querySelector('img, picture, iframe, [class*="file"], [class*="doc"]')
+                );
+                if (!hasContent) return null;
+                const clone = wrapper.cloneNode(true);
+                clone.classList.add('message-item');
+                clone.setAttribute('data-doubao-role', isUser ? 'user' : 'assistant');
+                const message = wrapper.querySelector('[data-message-id]');
+                return {
+                    index,
+                    key: message?.getAttribute('data-message-id') || clone.outerHTML,
+                    html: clone.outerHTML
+                };
+            }).filter(Boolean)"""
+        )
+        for item in current_fragments:
+            try:
+                message = direct_messages.nth(item["index"])
+                await message.scroll_into_view_if_needed(timeout=3000)
+                await page.wait_for_timeout(120)
+                previews = message.locator(
+                    'iframe[src*="html_preview"]'
+                )
+                preview_images = []
+                for preview_index in range(await previews.count()):
+                    image = await previews.nth(preview_index).screenshot(type="png")
+                    preview_images.append(
+                        "data:image/png;base64," + base64.b64encode(image).decode("ascii")
+                    )
+                if preview_images:
+                    fragment = BeautifulSoup(item["html"], "html.parser")
+                    for iframe, image_src in zip(fragment.find_all("iframe"), preview_images):
+                        iframe.replace_with(fragment.new_tag("img", src=image_src, alt="生成图表"))
+                    item["html"] = str(fragment)
+            except Exception:
+                continue
+        current_keys = [item["key"] for item in current_fragments]
+        new_keys = [key for key in current_keys if key not in fragment_by_key]
+        if new_keys:
+            ordered_keys = new_keys + ordered_keys
+        for item in current_fragments:
+            fragment_by_key[item["key"]] = item["html"]
 
-    message_fragments = await direct_messages.evaluate_all(
-        """elements => elements.map((wrapper, index) => {
-            const roleRows = Array.from(wrapper.querySelectorAll(
-                'div.flex.flex-row.w-full'
-            ));
-            if (!roleRows.length) return null;
-            const isUser = roleRows.some(row => row.classList.contains('justify-end'));
-            const hasContent = Boolean(
-                (wrapper.innerText || '').trim()
-                || wrapper.querySelector('img, picture, [class*="file"], [class*="doc"]')
-            );
-            if (!hasContent) return null;
-            const clone = wrapper.cloneNode(true);
-            clone.classList.add('message-item');
-            clone.setAttribute('data-doubao-role', isUser ? 'user' : 'assistant');
-            clone.setAttribute('data-doubao-order', String(index));
-            return clone.outerHTML;
-        }).filter(Boolean)"""
-    )
-    if not message_fragments:
+        current_first = current_keys[0] if current_keys else None
+        unchanged_rounds = (
+            unchanged_rounds + 1 if current_first == first_fragment else 0
+        )
+        if unchanged_rounds >= 2 or not current_fragments:
+            break
+        first_fragment = current_first
+        try:
+            await direct_messages.first.evaluate(
+                """element => {
+                    let scroller = element.parentElement;
+                    while (
+                        scroller
+                        && scroller.scrollHeight <= scroller.clientHeight
+                    ) scroller = scroller.parentElement;
+                    if (scroller) scroller.scrollTop = 0;
+                }"""
+            )
+        except Exception:
+            break
+        await page.wait_for_timeout(700)
+
+    if not ordered_keys:
         return None
     return (
         "<!DOCTYPE html><html><body>"
-        + "\n".join(message_fragments)
+        + "\n".join(fragment_by_key[key] for key in ordered_keys)
         + "</body></html>"
     )
 
@@ -116,8 +189,16 @@ def _is_empty_svg_placeholder(img) -> bool:
 
 
 def _remove_assistant_image_artifacts(msg) -> None:
-    """移除豆包 AI 消息中的空占位图和重复界面图标。"""
-    for img in list(msg.find_all("img")):
+    """移除豆包 AI 消息中的空占位图、生成图缩略图和重复界面图标。"""
+    images = list(msg.find_all("img"))
+    kept_sources = set(prefer_original_generated_images([
+        img.get("src") or img.get("data-src") for img in images
+    ]))
+    for img in images:
+        src = str(img.get("src") or img.get("data-src") or "")
+        if src not in kept_sources:
+            img.decompose()
+            continue
         src = str(img.get("src") or img.get("data-src") or "")
         alt = str(img.get("alt") or "").strip().lower()
         if (
@@ -159,6 +240,9 @@ def parse_messages(soup, image_map=None):
         is_user = declared_role == 'user' or (
             not declared_role and 'justify-end' in classes
         )
+
+        if not is_user:
+            _remove_assistant_image_artifacts(msg)
 
         # 只把成功下载的真实图片替换为本地路径。豆包文档卡片还会
         # 内嵌 Asset cover/base64/fallback 装饰图，不能当成用户上传图片。
@@ -259,7 +343,6 @@ def parse_messages(soup, image_map=None):
                     'content': final_text
                 })
         else:
-            _remove_assistant_image_artifacts(msg)
             ai_document_links = []
             for card in msg.find_all(
                 "div", class_=re.compile(r"^product-card-")
