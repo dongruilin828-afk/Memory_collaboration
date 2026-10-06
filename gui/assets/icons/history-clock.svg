@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-labelledby="title desc">
+  <title id="title">History</title>
+  <desc id="desc">A clean clock outline representing history.</desc>
+  <circle cx="12" cy="12" r="8.5" fill="none" stroke="#4B5563" stroke-width="1.8"/>
+  <path d="M12 7.5V12L15.5 14" fill="none" stroke="#4B5563" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
