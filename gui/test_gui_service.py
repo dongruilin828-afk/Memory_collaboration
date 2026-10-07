@@ -37,6 +37,7 @@ from gui.service import (
     _inject_chatgpt_attachment_names,
     _inject_chatgpt_message_images,
     _inject_chatgpt_shared_images,
+    _mark_unavailable_assets,
     _chatgpt_message_asset_groups,
     _is_decorative_image_candidate,
     _normalize_doubao_ai_document_text,
@@ -700,6 +701,7 @@ class GUIServiceTests(unittest.TestCase):
         request = FakeRequest()
         page = SimpleNamespace(request=request)
         warnings = []
+        failures = {existing: "old_error"}
         with tempfile.TemporaryDirectory() as temp_dir:
             images_dir = Path(temp_dir)
             digest = hashlib.md5(existing.encode("utf-8")).hexdigest()[:8]
@@ -712,6 +714,7 @@ class GUIServiceTests(unittest.TestCase):
                 "./assets",
                 concurrency=2,
                 warning_collector=warnings,
+                failure_collector=failures,
             ))
 
             self.assertEqual(
@@ -726,9 +729,33 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(request.max_active, 2)
         self.assertEqual(len(warnings), 1)
         self.assertIn("1 个真实图片资源下载失败", warnings[0])
+        self.assertEqual(set(failures), {failing})
         self.assertEqual(list(image_map), [existing, fresh])
         self.assertEqual(image_map[existing], f"./assets/{existing_file.name}")
         self.assertTrue(image_map[fresh].startswith("./assets/img_8_"))
+
+    def test_unavailable_assets_keep_names_in_messages(self):
+        image_url = "https://example.com/photo.png"
+        document = DocumentCandidate(
+            "document-card", "https://example.com/report.pdf", "report.pdf"
+        )
+        messages = [{
+            "role": "AI",
+            "content": (
+                f"![分析图]({image_url})\n"
+                f"[下载报告]({document.url})\n"
+                "📎 **[上传文件]** `notes.docx`"
+            ),
+        }]
+        _mark_unavailable_assets(
+            messages,
+            {image_url: "http_403"},
+            {document: "http_403"},
+        )
+        content = messages[0]["content"]
+        self.assertIn("🖼️ **[图片]** `分析图`（原图片未能下载）", content)
+        self.assertIn("📎 **[上传文档]** `report.pdf`（原文件未能下载）", content)
+        self.assertIn("📎 **[上传文件]** `notes.docx`（原文件未能下载）", content)
 
     def test_image_download_follows_signed_metadata_and_skips_stale_json(self):
         source = "https://chatgpt.com/backend-api/files/download/file_image"

@@ -2949,17 +2949,7 @@ class AIMemoryGUI:
         if getattr(self, "is_running", False):
             return
         url = self.capsule_entry.get_text()
-        try:
-            host = urlparse(url).netloc.lower()
-            path = urlparse(url).path.lower()
-        except Exception:
-            host, path = "", ""
-        is_private = (
-            ("chatgpt.com" in host or "chat.openai.com" in host)
-            and "/c/" in path
-        ) or (
-            "chat.deepseek.com" in host and "/a/chat/s/" in path
-        )
+        is_private = requires_authenticated_browser(url)
         self._url_is_private = is_private
         if is_private and hasattr(self, "card_no_login"):
             self.card_need_login.set_checked(False)
@@ -3200,8 +3190,9 @@ class AIMemoryGUI:
 
         def ask():
             result["confirmed"] = messagebox.askyesno(
-                "需要登录",
-                "该资源需要登录后才能下载。是否打开浏览器登录后重试？",
+                "需要登录或切换账号",
+                "当前登录状态无法读取目标会话。可能尚未登录、登录了其他账号，"
+                "或当前账号无权访问。是否打开浏览器登录或切换账号？",
                 parent=self.root,
             )
             answered.set()
@@ -3238,8 +3229,8 @@ class AIMemoryGUI:
             content,
             text=(
                 "系统已为您打开浏览器窗口。\n"
-                "请在弹出的浏览器中登录您的 AI 账号，"
-                "登录成功后点击下方按钮继续生成。"
+                "请登录或切换到有权访问目标会话的 AI 账号，确认目标会话内容"
+                "已经显示后，再点击下方按钮继续生成。"
             ),
             font=FONT_BODY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
             justify=tk.LEFT, anchor="w", wraplength=420,
@@ -3250,7 +3241,7 @@ class AIMemoryGUI:
             dialog.destroy()
 
         FlatButton(
-            content, text="已登录完毕，继续生成",
+            content, text="已确认会话可访问，继续生成",
             command=on_login_done,
             variant="accent", width=200, height=40,
             bg_parent=COLOR_BG_APP

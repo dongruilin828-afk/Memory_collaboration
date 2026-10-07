@@ -69,8 +69,8 @@ BARE_DOCUMENT_PATTERN = re.compile(
     re.IGNORECASE
 )
 UNAVAILABLE_IMAGE_PATTERN = re.compile(
-    r"🖼️\s*(?:\*\*)?\[用户上传图片\](?:\*\*)?\s*"
-    r"[（(](?P<reason>[^）)]+)[）)]"
+    r"🖼️\s*(?:\*\*)?\[(?:用户上传)?图片\](?:\*\*)?\s*"
+    r"(?:`(?P<label>[^`]+)`\s*)?[（(](?P<reason>[^）)]+)[）)]"
 )
 UPLOAD_PLACEHOLDER_PATTERN = re.compile(
     r"(?mi)^[ 	]*(?:上传文件|上传文档)[ 	]*$"
@@ -1203,7 +1203,7 @@ def discover_media(
                 media_id=f"M{media_counter:03d}",
                 message_index=message_index,
                 kind="image",
-                label="用户上传图片",
+                label=(match.group("label") or "图片").strip(),
                 reference="unavailable://shared-image",
                 source_role=source_role,
                 status="unavailable",

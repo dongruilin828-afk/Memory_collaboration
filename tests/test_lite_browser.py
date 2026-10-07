@@ -185,3 +185,67 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     confirmation_callback.call_count,
                     0 if has_conversation_content else 1,
                 )
+
+    async def test_login_recheck_reports_wrong_account(self):
+        class FakePage:
+            def on(self, *_args):
+                pass
+
+            async def wait_for_timeout(self, _milliseconds):
+                pass
+
+        class FakeContext:
+            def __init__(self):
+                self.pages = [FakePage()]
+
+            async def close(self):
+                pass
+
+        class FakePlaywrightManager:
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, *_args):
+                return False
+
+        login_event = asyncio.Event()
+        login_event.set()
+        login_callback = Mock()
+        confirmation_callback = Mock(return_value=True)
+        launcher = AsyncMock(side_effect=[
+            (FakeContext(), "chromium"),
+            (FakeContext(), "chromium"),
+        ])
+        with patch(
+            "gui.service.async_playwright",
+            return_value=FakePlaywrightManager(),
+        ), patch(
+            "gui.service.launch_browser_context",
+            new=launcher,
+        ), patch(
+            "gui.service.goto_with_retry_gui",
+            new=AsyncMock(),
+        ), patch(
+            "gui.service._drain_response_tasks",
+            new=AsyncMock(),
+        ), patch(
+            "gui.service._page_has_conversation_content",
+            new=AsyncMock(return_value=False),
+        ), patch(
+            "gui.service._set_browser_window_state",
+            new=AsyncMock(),
+        ):
+            result = await fetch_chat_pipeline(
+                "https://chatgpt.com/c/11111111-2222-3333-4444-555555555555",
+                login_ready_event=login_event,
+                login_required_callback=login_callback,
+                login_confirmation_callback=confirmation_callback,
+            )
+
+        self.assertIn("当前账号仍无法访问目标会话", result.error)
+        self.assertEqual(confirmation_callback.call_count, 1)
+        self.assertEqual(login_callback.call_count, 1)
+        self.assertEqual(
+            [call.kwargs["headless"] for call in launcher.await_args_list],
+            [True, False],
+        )

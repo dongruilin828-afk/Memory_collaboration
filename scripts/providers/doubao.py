@@ -262,10 +262,11 @@ def parse_messages(soup, image_map=None):
                     or "doc-canvas-card-fallback" in (src or "")
                     or (src or "").startswith("data:image/")
                 )
-                if (
-                    src in local_image_paths
-                    and not is_document_cover
-                ):
+                if is_document_cover:
+                    continue
+                if src in local_image_paths:
+                    user_parts.append(f"![用户图片]({src})")
+                elif (src or "").startswith(("http://", "https://")):
                     user_parts.append(f"![用户图片]({src})")
 
             # 识别真实的 HTML 文件卡片（非全文正则）

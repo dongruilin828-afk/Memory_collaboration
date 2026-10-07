@@ -1463,6 +1463,7 @@ async def _download_image_candidates(
     warning_collector: Optional[list[str]] = None,
     authentication_required: Optional[list[bool]] = None,
     prefer_original: bool = False,
+    failure_collector: Optional[dict[str, str]] = None,
 ) -> dict[str, str]:
     """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
@@ -1750,6 +1751,14 @@ async def _download_image_candidates(
         reason for _src, body, reason in download_results
         if body is None and reason
     ]
+    if failure_collector is not None:
+        failure_collector.update({
+            src: reason or "unknown_error"
+            for src, body, reason in download_results
+            if body is None
+        })
+        for src in resolved_references:
+            failure_collector.pop(src, None)
     if failed_reasons and warning_collector is not None:
         reason_counts: dict[str, int] = {}
         for reason in failed_reasons:
@@ -1786,6 +1795,8 @@ async def _download_image_candidates(
         if src in resolved_references
     }
     for src, local_reference in list(result.items()):
+        if failure_collector is not None:
+            failure_collector.pop(src, None)
         filename = Path(parse_qs(urlparse(src).query).get("filename", [""])[0]).name
         if filename:
             result[filename.lower()] = local_reference
@@ -3403,6 +3414,7 @@ async def _download_document_candidates(
     captured_documents: Optional[
         Mapping[str, tuple[bytes, Mapping[str, str]]]
     ] = None,
+    failure_collector: Optional[dict[DocumentCandidate, str]] = None,
 ) -> dict[str, str]:
     """使用页面登录态下载可用附件，并返回 URL/文件名到本地相对链接的映射。"""
     documents_dir = Path(documents_dir)
@@ -3668,13 +3680,18 @@ async def _download_document_candidates(
         for candidate, body, _headers, _reason in results
         if body is not None
     }
+    if failure_collector is not None:
+        for failed in list(failure_collector):
+            if failed.filename.lower() in successful_names:
+                failure_collector.pop(failed, None)
     for candidate, body, headers, reason in results:
         if body is None:
             if candidate.filename.lower() in successful_names:
                 continue
-            failures[reason or "unknown_error"] = failures.get(
-                reason or "unknown_error", 0
-            ) + 1
+            failure_reason = reason or "unknown_error"
+            failures[failure_reason] = failures.get(failure_reason, 0) + 1
+            if failure_collector is not None:
+                failure_collector[candidate] = failure_reason
             continue
         disposition_name = _document_filename_from_disposition(
             headers.get("content-disposition", "")
@@ -3697,6 +3714,8 @@ async def _download_document_candidates(
             else DOCUMENT_EXTENSIONS
         ):
             failures["unsupported_type"] = failures.get("unsupported_type", 0) + 1
+            if failure_collector is not None:
+                failure_collector[candidate] = "unsupported_type"
             continue
         body = _repair_downloaded_text_mojibake(body, filename, content_type)
         documents_dir.mkdir(parents=True, exist_ok=True)
@@ -3750,6 +3769,68 @@ async def _close_browser_context_safely(
                 logger(warning)
             except Exception:
                 pass
+
+
+def _unavailable_asset_name(reference: str, fallback: str) -> str:
+    parsed = urlparse(reference)
+    query_name = Path(parse_qs(parsed.query).get("filename", [""])[0]).name
+    return unquote(query_name or Path(parsed.path).name) or fallback
+
+
+def _mark_unavailable_assets(
+    messages: list[dict[str, str]],
+    image_failures: Mapping[str, str],
+    document_failures: Mapping[DocumentCandidate, str],
+) -> None:
+    for message in messages:
+        content = message.get("content", "")
+        for reference in image_failures:
+            content = re.sub(
+                rf"!\[(?P<label>[^\]]*)\]\({re.escape(reference)}(?:\s+[^)]*)?\)",
+                lambda match: (
+                    "🖼️ **[图片]** `"
+                    + (match.group("label").strip() or _unavailable_asset_name(
+                        reference, "图片"
+                    ))
+                    + "`（原图片未能下载）"
+                ),
+                content,
+            )
+        for candidate in document_failures:
+            name = candidate.filename or _unavailable_asset_name(
+                candidate.url, "附件"
+            )
+            placeholder = f"📎 **[上传文档]** `{name}`（原文件未能下载）"
+            content = re.sub(
+                rf"(?<!!)\[[^\]]*\]\({re.escape(candidate.url)}(?:\s+[^)]*)?\)",
+                placeholder,
+                content,
+            )
+            marker = re.compile(
+                rf"📎\s*\*\*\[(?:上传文档|上传文件)\]\*\*\s*"
+                rf"`{re.escape(name)}`(?![^\n]*未能下载)",
+                re.IGNORECASE,
+            )
+            content = marker.sub(placeholder, content)
+        content = re.sub(
+            r"!\[(?P<label>[^\]]*)\]\((?P<url>https?://[^)\s]+)(?:\s+[^)]*)?\)",
+            lambda match: (
+                "🖼️ **[图片]** `"
+                + (match.group("label").strip() or _unavailable_asset_name(
+                    match.group("url"), "图片"
+                ))
+                + "`（原图片未能下载）"
+            ),
+            content,
+        )
+        content = re.sub(
+            r"(📎\s*\*\*\[(?:上传文档|上传文件)\]\*\*\s*`[^`]+`)"
+            r"(?![^\n]*(?:未能下载|无法下载|未提供下载))",
+            r"\1（原文件未能下载）",
+            content,
+            flags=re.IGNORECASE,
+        )
+        message["content"] = content
 
 
 def _parse_page_messages(url: str, soup: BeautifulSoup, asset_map: Mapping[str, str]):
@@ -4087,8 +4168,8 @@ async def fetch_chat_pipeline(
                         ):
                             if logger:
                                 logger(
-                                    "当前登录状态无法读取该会话，请在浏览器中登录后"
-                                    "点击【登录完毕】..."
+                                    "当前登录状态无法读取该会话，请在浏览器中登录或切换到"
+                                    "有权访问的账号，确认会话内容已显示后继续..."
                                 )
                             if login_required_callback is not None:
                                 login_required_callback()
@@ -4106,6 +4187,15 @@ async def fetch_chat_pipeline(
                             await goto_with_retry_gui(page, url, logger=logger)
                             await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
+                            content_ready = (
+                                await _page_has_conversation_content(page, url)
+                                or (codex_request and bool(authorized_content_responses))
+                            )
+                            if not content_ready:
+                                raise RuntimeError(
+                                    "当前账号仍无法访问目标会话。请切换到有权访问该会话的账号，"
+                                    "确认会话内容已显示后重试。"
+                                )
                             if requested_host in {
                                 "chatgpt.com", "chat.openai.com"
                             }:
@@ -4338,6 +4428,7 @@ async def fetch_chat_pipeline(
                 download_started = time.perf_counter()
                 image_warnings: list[str] = []
                 image_authentication_required: list[bool] = []
+                image_failures: dict[str, str] = {}
                 image_map = await _download_image_candidates(
                     page,
                     image_candidates,
@@ -4346,6 +4437,7 @@ async def fetch_chat_pipeline(
                     image_download_concurrency,
                     image_warnings,
                     image_authentication_required,
+                    failure_collector=image_failures,
                 )
                 if (
                     image_authentication_required
@@ -4388,6 +4480,7 @@ async def fetch_chat_pipeline(
                     await goto_with_retry_gui(page, url, logger=logger)
                     await page.wait_for_timeout(1800)
                     image_warnings.clear()
+                    image_failures.clear()
                     image_map = await _download_image_candidates(
                         page,
                         image_candidates,
@@ -4395,6 +4488,7 @@ async def fetch_chat_pipeline(
                         image_reference_prefix,
                         image_download_concurrency,
                         image_warnings,
+                        failure_collector=image_failures,
                     )
                     await _set_browser_window_state(page, "minimized")
                 fetch_warnings.extend(image_warnings)
@@ -4505,6 +4599,7 @@ async def fetch_chat_pipeline(
                         image_reference_prefix, image_download_concurrency,
                         recovered_warnings,
                         prefer_original=gemini_copied_recovered,
+                        failure_collector=image_failures,
                     ))
                     fetch_warnings.extend(recovered_warnings)
                 document_candidates = list(dict.fromkeys([
@@ -4549,6 +4644,7 @@ async def fetch_chat_pipeline(
                         continue
                     document_candidates.append(candidate)
                     existing_document_names.add(candidate.filename.lower())
+                document_failures: dict[DocumentCandidate, str] = {}
                 document_map = await _download_document_candidates(
                     page,
                     document_candidates,
@@ -4558,6 +4654,7 @@ async def fetch_chat_pipeline(
                     fetch_warnings,
                     conversation_url=url,
                     captured_documents=captured_document_responses,
+                    failure_collector=document_failures,
                 )
                 codex_change_map = _save_codex_file_changes(
                     list({change["path"]: change for change in codex_file_changes}.values()),
@@ -4615,6 +4712,7 @@ async def fetch_chat_pipeline(
                                 captured_documents=(
                                     captured_document_responses
                                 ),
+                                failure_collector=document_failures,
                             )
                         )
                         document_candidates.extend(late_doubao_candidates)
@@ -4730,6 +4828,10 @@ async def fetch_chat_pipeline(
                         user_wait_seconds=user_wait_seconds,
                     )
                     return completed_result
+
+                _mark_unavailable_assets(
+                    parsed_messages, image_failures, document_failures
+                )
 
                 if provider is gemini:
                     unavailable = sum(
@@ -5079,7 +5181,12 @@ def generate_output_bundle(
             model=config.model,
         )
         simple_markdown = output_paths["simple_markdown"]
-        write_simple_markdown(simple_markdown, simple_overview, simple_meta)
+        write_simple_markdown(
+            simple_markdown,
+            simple_overview,
+            simple_meta,
+            base_result.get("media", []),
+        )
         saved_files.append(simple_markdown)
 
     if intermediate_only:

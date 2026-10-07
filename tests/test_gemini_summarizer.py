@@ -1778,6 +1778,21 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertFalse(assets[0].public_dict()["can_reverify"])
         self.assertIn("不可重新验证", assets[0].description)
 
+    def test_named_unavailable_image_keeps_its_label(self):
+        messages = [{
+            "role": "AI",
+            "content": "🖼️ **[图片]** `流程图.png`（原图片未能下载）",
+        }]
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            assets = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+        self.assertEqual(len(assets), 1)
+        self.assertEqual(assets[0].label, "流程图.png")
+        self.assertEqual(assets[0].status, "unavailable")
+        self.assertIn("AI 回答中包含一张图片", assets[0].description)
+
     def test_long_messages_are_split_without_losing_text(self):
         original = "A" * 900 + "\n\n" + "B" * 900
         chunks = summary.chunk_messages(

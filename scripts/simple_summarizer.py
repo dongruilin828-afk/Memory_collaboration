@@ -491,7 +491,11 @@ def parse_simple_markdown(value: str) -> tuple[str, dict[str, str]]:
     match = re.search(r"(?m)^# 总览\s*$", value)
     if match:
         prefix = value[:match.start()]
-        overview = value[match.end():].strip()
+        overview = re.split(
+            r"(?m)^# 无法下载的图片和附件\s*$",
+            value[match.end():],
+            maxsplit=1,
+        )[0].strip()
     else:
         prefix = ""
         overview = value.strip()
@@ -510,7 +514,9 @@ def parse_simple_markdown(value: str) -> tuple[str, dict[str, str]]:
 
 
 def render_simple_markdown(
-    overview: str, metadata: dict[str, str]
+    overview: str,
+    metadata: dict[str, str],
+    media: list[dict[str, Any]] | None = None,
 ) -> str:
     lines = [
         f"- 后端：{metadata['provider']}",
@@ -525,15 +531,30 @@ def render_simple_markdown(
         normalize_simple_overview(overview),
         ""
     ]
+    unavailable = [
+        item for item in (media or [])
+        if isinstance(item, dict) and not item.get("can_reverify", True)
+    ]
+    if unavailable:
+        lines.extend(["# 无法下载的图片和附件", ""])
+        for item in unavailable:
+            kind = "图片" if item.get("kind") == "image" else "附件"
+            lines.append(
+                f"- {kind}：`{item.get('label') or kind}`（原资源未能下载）"
+            )
+        lines.append("")
     return "\n".join(lines)
 
 
 def write_simple_markdown(
-    path: Path, overview: str, metadata: dict[str, str]
+    path: Path,
+    overview: str,
+    metadata: dict[str, str],
+    media: list[dict[str, Any]] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(path.name + ".tmp")
     temp_path.write_text(
-        render_simple_markdown(overview, metadata), encoding="utf-8"
+        render_simple_markdown(overview, metadata, media), encoding="utf-8"
     )
     temp_path.replace(path)

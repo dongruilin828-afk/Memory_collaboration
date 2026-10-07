@@ -97,13 +97,33 @@ class SimpleSummarizerTests(unittest.TestCase):
         self.assertIn("- 分块数：1", rendered)
         self.assertIn("- 对话类型：编程任务、媒体分析", rendered)
         self.assertTrue(rendered.endswith("# 总览\n\n已经完成。\n"))
-        self.assertEqual(rendered.count("#"), 1)
+        headings = [line for line in rendered.splitlines() if line.startswith("# ")]
+        self.assertEqual(headings, ["# 总览"])
 
         overview, saved = simple.parse_simple_markdown(rendered)
         self.assertEqual(overview, "已经完成。")
         self.assertEqual(saved, {
             "provider": "gemini", "model": "gemini-test"
         })
+
+    def test_markdown_always_lists_unavailable_media(self):
+        metadata = simple.build_simple_metadata({
+            "source": "sample.md",
+            "conversation": {},
+        })
+        rendered = simple.render_simple_markdown(
+            "已完成总结。",
+            metadata,
+            [
+                {"kind": "image", "label": "流程图.png", "can_reverify": False},
+                {"kind": "document", "label": "报告.pdf", "can_reverify": False},
+                {"kind": "image", "label": "已下载.png", "can_reverify": True},
+            ],
+        )
+        self.assertIn("# 无法下载的图片和附件", rendered)
+        self.assertIn("图片：`流程图.png`（原资源未能下载）", rendered)
+        self.assertIn("附件：`报告.pdf`（原资源未能下载）", rendered)
+        self.assertNotIn("已下载.png", rendered)
 
     def test_non_programming_assistant_suggestion_is_not_pending(self):
         result = {
