@@ -926,7 +926,7 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
         }:
             candidates.append(replace(
                 candidate,
-                retries=1,
+                retries=2,
                 rate_limit_wait_seconds=min(
                     int(candidate.rate_limit_wait_seconds), 5
                 ),

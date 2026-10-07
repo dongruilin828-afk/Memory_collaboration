@@ -1510,6 +1510,49 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("用户问题", messages[0]["content"])
         self.assertIn("豆包回答", messages[1]["content"])
 
+    def test_deepseek_math_and_reasoning_are_preserved_without_duplication(self):
+        html = r"""
+        <div data-virtual-list-item-key="1">
+          <div class="ds-message">
+            <div class="ds-think-content">
+              推导 <span class="katex"><span class="katex-mathml"><math>
+                <semantics><annotation encoding="application/x-tex">n\ge3</annotation></semantics>
+              </math></span><span class="katex-html">n ≥ 3</span></span>
+            </div>
+            <div class="ds-assistant-message-main-content">
+              结论 <span class="katex-display"><span class="katex">
+                <span class="katex-mathml"><math><semantics>
+                  <annotation encoding="application/x-tex">\boxed{x}</annotation>
+                </semantics></math></span><span class="katex-html">x</span>
+              </span></span>
+            </div>
+          </div>
+        </div>
+        """
+        messages = deepseek.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        )
+        self.assertEqual(len(messages), 1)
+        self.assertIn(r"$n\ge3$", messages[0]["reasoning"])
+        self.assertNotIn("n ≥ 3", messages[0]["reasoning"])
+        self.assertIn("$$\n\\boxed{x}\n$$", messages[0]["content"])
+        self.assertNotIn("katex-html", messages[0]["content"])
+
+    def test_raw_markdown_omits_reasoning(self):
+        messages = [{
+            "role": "AI",
+            "content": "最终回答",
+            "reasoning": "中间推理",
+        }]
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "export.md"
+            from gui.service import generate_raw_markdown
+            generate_raw_markdown(messages, target)
+            output = target.read_text(encoding="utf-8")
+        self.assertNotIn("已思考", output)
+        self.assertNotIn("中间推理", output)
+        self.assertIn("最终回答", output)
+
     def test_deepseek_markdown_attachment_uses_downloaded_local_file(self):
         html = """
         <div data-virtual-list-item-key="1">

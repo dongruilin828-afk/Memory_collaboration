@@ -1322,7 +1322,7 @@ class GUIServiceTests(unittest.TestCase):
                 ("gemini", "gemini-3.5-flash-lite"),
             ],
         )
-        self.assertTrue(all(item.retries == 1 for item in gemini_candidates))
+        self.assertTrue(all(item.retries == 2 for item in gemini_candidates))
 
         silicon = SummaryConfig(
             provider="siliconflow",
@@ -1337,7 +1337,7 @@ class GUIServiceTests(unittest.TestCase):
             ],
         )
         self.assertTrue(
-            all(item.retries == 1 for item in silicon_candidates)
+            all(item.retries == 2 for item in silicon_candidates)
         )
 
     def test_gui_falls_back_to_next_gemini_model_without_reprompting(self):

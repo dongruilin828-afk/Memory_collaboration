@@ -1,19 +1,37 @@
 ChatGPT：
 
-分享链接：
-含图片：		https://chatgpt.com/share/6a5ed6e7-bd38-83ee-936d-571f7594a63e
-对话超长文档：	https://chatgpt.com/share/6a5edf1e-b8bc-83ee-9e9a-3fb6dd7134af
-含文档：		https://chatgpt.com/share/6a60329f-c73c-83ee-a272-ea3768b04ab5
+含图片：
+1. 分享链接：https://chatgpt.com/share/6ac4fb8e-f9fc-83ea-a9f4-593b63ca3241
+网页链接：https://chatgpt.com/c/6ac4fb21-f6d4-83ea-9720-821f2dc0757e
+2. 分享链接：https://chatgpt.com/share/6ac4fc46-b1b8-83ea-9520-e7ff6e19eb5d
+网页链接：https://chatgpt.com/c/6aa7b657-6ef0-83e8-a62f-7cacfc24e6c3
+3. 分享链接：https://chatgpt.com/share/6ac62a93-a220-83ea-b98a-bd266708233e
+网页链接：https://chatgpt.com/c/6ac62a48-b930-83e9-b67b-2851ce92bace
 
-网页对话链接：
-含数学公式：	https://chatgpt.com/c/6a5f0e9b-eb9c-83e8-b0df-0ffd18b0d78d
-含图片、文档：	https://chatgpt.com/c/6a8a521f-9f28-83e8-857b-577272409c92
+含文档：
+1. 分享链接：https://chatgpt.com/share/6ac4fbda-5998-83e9-a803-d8ddcd825868
+网页链接：https://chatgpt.com/c/6ab9c3b4-8858-83e9-a70b-b476d73169cb
 
-补充：
-https://chatgpt.com/c/6a90fc42-7d58-83ee-a3b8-8633aec378cf
-https://chatgpt.com/share/6a955cce-385c-83e8-a0ab-0767b9511527
-https://chatgpt.com/c/6a902fa2-b220-83e8-b0dc-a90fda099855
-https://chatgpt.com/share/6a955cf0-89a8-83ee-8377-e001e5728c54
+含图片和文档：
+分享链接：https://chatgpt.com/share/6aa93ca3-11c0-83e8-9c36-afa39378a735
+网页链接：https://chatgpt.com/c/6aa8063f-b938-83e8-838a-23916a007d8e
+
+含图片和代码：
+分享链接：https://chatgpt.com/share/6ac629f5-1964-83e9-b50b-aa9f82a5f1b5
+网页链接：https://chatgpt.com/c/6ac6297f-1c6c-83ea-9f83-d857569c42c8
+
+含公式和代码：
+分享链接：https://chatgpt.com/share/6ac4fe50-08c8-83ea-b7a5-ad2fc76d38b8
+网页链接：https://chatgpt.com/c/6ac4fca3-28c0-83e9-9036-d134c662d2c5
+
+超长对话：
+分享链接：https://chatgpt.com/share/6ac50210-df40-83e9-b461-e0b9f76b35fa
+网页链接：https://chatgpt.com/c/6ac4ff2d-c5d8-83ea-86f5-231443e512b0
+
+含交互：
+分享链接：https://chatgpt.com/share/6ac62d2e-7240-83e9-b89f-1b0528d6ead2
+网页链接：https://chatgpt.com/c/6ac62a61-103c-83ea-ac60-71ff3b7d0318
+
 
 
 豆包：
@@ -61,7 +79,7 @@ https://chatgpt.com/share/6a955cf0-89a8-83ee-8377-e001e5728c54
 
 
 
-deepseek：
+DeepSeek：
 
 含图片：
 1. 分享链接：https://chat.deepseek.com/share/ggouoijhrlddjcalk9
@@ -72,7 +90,6 @@ deepseek：
 网页链接：https://chat.deepseek.com/a/chat/s/bd3f70c2-1f94-434c-9caf-97644ff15379
 
 含文档：
-补充网页链接：https://chat.deepseek.com/a/chat/s/50e7af55-dfc9-4788-a03a-74030fe95233
 分享链接：https://chat.deepseek.com/share/pki1qth09650r7ks2e
 网页链接：https://chat.deepseek.com/a/chat/s/ae507153-8867-439f-939c-c76692fd461c
 

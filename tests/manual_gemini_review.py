@@ -24,6 +24,7 @@ async def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cases", nargs="+", choices=CASES, default=list(CASES))
     parser.add_argument("--suffix", default="fixed")
+    parser.add_argument("--login-wait", type=int, default=180)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     for case in args.cases:
@@ -37,8 +38,18 @@ async def main():
                 print(f"[{case}] {message}", flush=True)
             logger(f"开始 {CASES[case]}")
             try:
+                private = "gemini.google.com" in CASES[case]
+                login_ready = asyncio.Event()
+                asyncio.get_running_loop().call_later(args.login_wait, login_ready.set)
                 result = await fetch_chat_pipeline(
-                    CASES[case], logger=logger,
+                    CASES[case],
+                    need_login=private,
+                    login_ready_event=login_ready,
+                    login_required_callback=lambda: logger(
+                        f"请在 {args.login_wait} 秒内完成 Gemini 登录；到时自动继续。"
+                    ),
+                    login_confirmation_callback=lambda: True,
+                    logger=logger,
                     image_output_dir=target / "images", image_reference_base=target,
                     document_output_dir=target / "documents", document_reference_base=target,
                     browser_profile_root=Path(__file__).resolve().parents[1] / ".browser_user_data",

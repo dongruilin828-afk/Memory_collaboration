@@ -14,6 +14,64 @@ HOSTS = ("chat.deepseek.com",)
 console = Console()
 
 
+def _replace_math_with_placeholders(node):
+    """用唯一 LaTeX 源替换 KaTeX 多层 DOM，避免导出公式重复。"""
+    replacements = {}
+    counter = 0
+
+    def replace(target, latex, display):
+        nonlocal counter
+        latex = str(latex or "").strip()
+        if not latex:
+            return
+        token = f"AIMEMORYMATHPLACEHOLDER{counter:04d}Z"
+        counter += 1
+        replacements[token] = (
+            f"\n\n$$\n{latex}\n$$\n\n" if display else f"${latex}$"
+        )
+        target.replace_with(token)
+
+    for math in list(node.select('[role="math"][data-math-source]')):
+        style = str(math.get("style") or "").replace(" ", "").lower()
+        replace(
+            math,
+            math.get("data-math-source"),
+            math.select_one(".katex-display") is not None
+            or "display:block" in style,
+        )
+
+    for annotation in list(
+        node.select('annotation[encoding="application/x-tex"]')
+    ):
+        katex = annotation.find_parent(class_="katex")
+        if katex is None:
+            continue
+        display = katex.find_parent(class_="katex-display")
+        replace(display or katex, annotation.get_text(), display is not None)
+
+    return replacements
+
+
+def _node_to_markdown(node, image_map):
+    """将 DeepSeek 消息节点转换为保留公式和本地图片的 Markdown。"""
+    content = BeautifulSoup(str(node), "html.parser")
+    root = content.find()
+    for removable in root.select(
+        "script, style, noscript, button, .md-code-block-banner-wrap"
+    ):
+        removable.decompose()
+    for img in root.find_all("img"):
+        src = img.get("src") or img.get("data-src")
+        if src in image_map:
+            img["src"] = image_map[src]
+
+    replacements = _replace_math_with_placeholders(root)
+    text = markdownify.markdownify(str(root), heading_style="ATX").strip()
+    for token, latex in replacements.items():
+        text = text.replace(token, latex)
+    return text
+
+
 async def collect_html(page):
     """逐屏收集 DeepSeek 虚拟列表中的消息，避免超长分享对话丢失。"""
     item_selector = "[data-virtual-list-item-key]"
@@ -188,28 +246,15 @@ def parse_messages(soup, image_map=None):
 
         answer_node = item.select_one('.ds-assistant-message-main-content')
         if answer_node is not None:
-            answer_soup = BeautifulSoup(str(answer_node), 'html.parser')
-            answer = answer_soup.select_one(
-                '.ds-assistant-message-main-content'
-            )
-
-            # 去掉代码块工具栏中的“复制/下载”等界面文字，保留代码本体。
-            for removable in answer.select(
-                'script, style, noscript, button, .md-code-block-banner-wrap'
-            ):
-                removable.decompose()
-
-            for img in answer.find_all('img'):
-                src = img.get('src') or img.get('data-src')
-                if src in image_map:
-                    img['src'] = image_map[src]
-
-            md_text = markdownify.markdownify(
-                str(answer),
-                heading_style='ATX'
-            ).strip()
+            md_text = _node_to_markdown(answer_node, image_map)
             if md_text:
-                parsed_messages.append({'role': 'AI', 'content': md_text})
+                message = {'role': 'AI', 'content': md_text}
+                thinking_node = item.select_one('.ds-think-content')
+                if thinking_node is not None:
+                    reasoning = _node_to_markdown(thinking_node, image_map)
+                    if reasoning:
+                        message['reasoning'] = reasoning
+                parsed_messages.append(message)
             continue
 
         user_soup = BeautifulSoup(str(message_node), 'html.parser')

@@ -15,7 +15,7 @@ from gui.service import fetch_chat_pipeline, generate_output_bundle, generate_ra
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT = Path(__file__).with_name("tests.txt").read_text(encoding="utf-8-sig")
-SECTION = TEXT.split("deepseek：", 1)[1].split("Gemini：", 1)[0]
+SECTION = re.split(r"DeepSeek：", TEXT, maxsplit=1, flags=re.IGNORECASE)[1].split("Gemini：", 1)[0]
 CASES = re.findall(r"https://chat\.deepseek\.com/\S+", SECTION)
 
 
@@ -27,7 +27,7 @@ async def main():
     parser.add_argument("--cases", nargs="*", type=int)
     parser.add_argument("--skip-summary", action="store_true")
     args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=False)
+    args.output.mkdir(parents=True, exist_ok=True)
     api_keys = WindowsCredentialStore().load_api_keys()
     manifest = []
     selected = set(args.cases or range(1, len(CASES) + 1))
@@ -37,7 +37,7 @@ async def main():
             continue
         case = f"{index:02d}"
         target = args.output / case
-        target.mkdir()
+        target.mkdir(exist_ok=True)
         started = time.perf_counter()
         with (target / "run.log").open("w", encoding="utf-8") as log:
             def logger(message):
@@ -47,8 +47,25 @@ async def main():
 
             record = {"case": case, "url": url}
             try:
+                private = "/a/chat/s/" in url
+                login_ready = asyncio.Event()
+                if private:
+                    signal = args.output / "login_ready.signal"
+
+                    async def wait_for_login_signal():
+                        while not signal.exists() or signal.stat().st_mtime < started:
+                            await asyncio.sleep(1)
+                        login_ready.set()
+
+                    asyncio.create_task(wait_for_login_signal())
+                else:
+                    login_ready.set()
                 result = await fetch_chat_pipeline(
                     url,
+                    need_login=private,
+                    login_ready_event=login_ready,
+                    login_required_callback=lambda: logger("请在浏览器中完成 DeepSeek 登录。"),
+                    login_confirmation_callback=lambda: True,
                     logger=logger,
                     image_output_dir=target / "images",
                     image_reference_base=target,

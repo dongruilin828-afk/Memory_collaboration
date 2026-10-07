@@ -54,6 +54,13 @@ class SimpleSummarizerTests(unittest.TestCase):
         self.assertTrue(any("列表" in error for error in errors))
         self.assertTrue(any("99" in error for error in errors))
 
+    def test_validation_accepts_range_compacted_from_source_numbers(self):
+        projection = {"known": "重量限制通常为5公斤至8公斤"}
+        errors = simple.validate_simple_overview(
+            "重量限制通常为5-8公斤。", projection, 100
+        )
+        self.assertFalse(any("数字" in error for error in errors))
+
     def test_generation_retries_after_overlong_output(self):
         gateway = FakeGateway([
             {"overview": "甲" * 300},

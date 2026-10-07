@@ -343,6 +343,12 @@ def validate_simple_overview(
             r"(?<![A-Za-z])\d+(?:[.~-]\d+)?%?", overview
         )
         if number not in source_text
+        and not (
+            (range_match := re.fullmatch(
+                r"(\d+(?:\.\d+)?)[~-](\d+(?:\.\d+)?)%?", number
+            ))
+            and all(part in source_text for part in range_match.groups())
+        )
     })
     if unsupported_numbers:
         errors.append("出现输入中不存在的数字：" + "、".join(unsupported_numbers))
