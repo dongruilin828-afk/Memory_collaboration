@@ -1724,6 +1724,70 @@ class HoverTooltip:
             self._tip = None
 
 
+class HorizontalFileList(tk.Frame):
+    """Single-line file list that exposes horizontal scrolling on overflow."""
+
+    def __init__(self, master, text: str, tooltip_text: str):
+        super().__init__(master, bg=COLOR_CARD)
+        self.canvas = tk.Canvas(
+            self,
+            height=22,
+            bg=COLOR_CARD,
+            highlightthickness=0,
+            borderwidth=0,
+            xscrollincrement=16,
+        )
+        self.scrollbar = tk.Scrollbar(
+            self,
+            orient=tk.HORIZONTAL,
+            command=self.canvas.xview,
+            width=8,
+            relief=tk.FLAT,
+            borderwidth=0,
+            highlightthickness=0,
+            elementborderwidth=0,
+            background=COLOR_BORDER,
+            activebackground=COLOR_TEXT_MUTED,
+            troughcolor=COLOR_CARD,
+        )
+        self.canvas.configure(xscrollcommand=self.scrollbar.set)
+        self.canvas.pack(fill=tk.X, expand=True)
+        self._text_id = self.canvas.create_text(
+            0, 2,
+            text=text,
+            font=FONT_TINY,
+            fill=COLOR_TEXT_SECONDARY,
+            anchor="nw",
+        )
+        self.canvas.bind("<Configure>", self._sync_scrollbar, add="+")
+        self.canvas.bind("<Shift-MouseWheel>", self._on_horizontal_wheel)
+        self.canvas.bind("<Shift-Button-4>", self._on_horizontal_wheel)
+        self.canvas.bind("<Shift-Button-5>", self._on_horizontal_wheel)
+        HoverTooltip(self.canvas, tooltip_text)
+        self.after_idle(self._sync_scrollbar)
+
+    def _sync_scrollbar(self, _event=None):
+        bounds = self.canvas.bbox(self._text_id)
+        if not bounds:
+            return
+        self.canvas.configure(scrollregion=(0, 0, bounds[2], bounds[3]))
+        overflowing = bounds[2] > self.canvas.winfo_width()
+        if overflowing and not self.scrollbar.winfo_manager():
+            self.scrollbar.pack(fill=tk.X, pady=(2, 0))
+        elif not overflowing and self.scrollbar.winfo_manager():
+            self.scrollbar.pack_forget()
+            self.canvas.xview_moveto(0)
+
+    def _on_horizontal_wheel(self, event):
+        delta = getattr(event, "delta", 0)
+        if delta:
+            direction = -3 if delta > 0 else 3
+        else:
+            direction = -3 if getattr(event, "num", 0) == 4 else 3
+        self.canvas.xview_scroll(direction, "units")
+        return "break"
+
+
 # ==================== 主 GUI ====================
 
 GENERATION_SOURCE_LABELS = {
@@ -2466,12 +2530,6 @@ class AIMemoryGUI:
                 row, textvariable=value_var, font=FONT_SMALL,
                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
             ).pack(side=tk.RIGHT)
-        tk.Frame(task_panel, bg=COLOR_BORDER, height=1).pack(fill=tk.X, pady=(8, 9))
-        tk.Label(
-            task_panel, text="◷  预计耗时 1–3 分钟", font=FONT_SMALL,
-            fg=COLOR_SUCCESS, bg=COLOR_CARD, anchor="w",
-        ).pack(fill=tk.X)
-
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
             highlightthickness=1, highlightbackground="#DED7FA",
@@ -2652,13 +2710,13 @@ class AIMemoryGUI:
         if files:
             files_row = tk.Frame(card, bg=COLOR_CARD)
             files_row.pack(fill=tk.X, pady=(10, 0))
-            file_label = tk.Label(
-                files_row, text="📁 " + "、".join(Path(file).name for file in files),
-                font=FONT_TINY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_CARD,
-                anchor="w", width=72,
+            file_text = "📁 " + "、".join(Path(file).name for file in files)
+            file_list = HorizontalFileList(
+                files_row,
+                text=file_text,
+                tooltip_text="、".join(map(str, files)),
             )
-            file_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            HoverTooltip(file_label, "、".join(map(str, files)))
+            file_list.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             output_dir = record.get("output_dir")
             if output_dir:

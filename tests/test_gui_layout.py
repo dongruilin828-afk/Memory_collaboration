@@ -15,6 +15,7 @@ from gui.app import (
     COLOR_GENERATION_ACCENT,
     COLOR_TEXT_PRIMARY,
     FlatButton,
+    HorizontalFileList,
     SummaryTopicCard,
 )
 from gui.settings_store import default_app_settings
@@ -157,6 +158,41 @@ class SummaryTopicCardTests(unittest.TestCase):
 
 
 class GUIResponsiveGeometryTests(unittest.TestCase):
+    def test_history_file_list_scrolls_horizontally_only_when_needed(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        try:
+            root.attributes("-alpha", 0.0)
+            root.geometry("360x120+0+0")
+            file_list = HorizontalFileList(
+                root,
+                text="📁 " + "、".join(f"very-long-output-{index}.md" for index in range(12)),
+                tooltip_text="output files",
+            )
+            file_list.pack(fill=tk.X, padx=20, pady=20)
+            self._flush(root)
+
+            self.assertTrue(file_list.scrollbar.winfo_ismapped())
+            self.assertLess(file_list.canvas.xview()[1], 1.0)
+            initial_xview = file_list.canvas.xview()
+            file_list._on_horizontal_wheel(SimpleNamespace(delta=-120, num=0))
+            self._flush(root)
+            self.assertGreater(file_list.canvas.xview()[0], initial_xview[0])
+
+            file_list.destroy()
+            short_file_list = HorizontalFileList(
+                root,
+                text="📁 summary.md",
+                tooltip_text="summary.md",
+            )
+            short_file_list.pack(fill=tk.X, padx=20, pady=20)
+            self._flush(root)
+            self.assertFalse(short_file_list.scrollbar.winfo_ismapped())
+        finally:
+            root.destroy()
+
     def test_same_window_resizes_without_drift_and_preserves_layout(self):
         for scaling in (1.0, 1.25, 1.5):
             with self.subTest(tk_scaling=scaling):
