@@ -37,6 +37,7 @@ class MergedGenerationTests(unittest.TestCase):
         settings = AppSettings(directory / "runtime")
         save_dir = directory / "chosen output"
         paths = build_output_paths(save_dir, modes, "中文 result.md")
+        result_dir = paths["output_dir"]
         app = object.__new__(AIMemoryGUI)
         app.root = SimpleNamespace(after=lambda _delay, callback: callback())
         app.progress_bar = Mock()
@@ -76,15 +77,17 @@ class MergedGenerationTests(unittest.TestCase):
             owner = paths["asset_markdown"].stem
             self.assertEqual(kwargs["image_output_dir"].name, owner + "_images")
             self.assertEqual(kwargs["document_output_dir"].name, owner + "_files")
-            self.assertEqual(kwargs["image_reference_base"], save_dir)
-            self.assertEqual(kwargs["document_reference_base"], save_dir)
+            self.assertEqual(kwargs["image_output_dir"].parent, result_dir)
+            self.assertEqual(kwargs["document_output_dir"].parent, result_dir)
+            self.assertEqual(kwargs["image_reference_base"], result_dir)
+            self.assertEqual(kwargs["document_reference_base"], result_dir)
             return FetchResult(
                 html="", image_map={}, messages=messages, warnings=[warning]
             )
 
         def summarize(**kwargs):
             self.assertEqual(kwargs["messages"], messages)
-            self.assertEqual(kwargs["source_dir"], save_dir.resolve())
+            self.assertEqual(kwargs["source_dir"], result_dir.resolve())
             self.assertEqual(kwargs["result_cache_dir"], settings.summary_cache_dir.resolve())
             selected = ()
             if modes.get("normal") or modes.get("detailed"):
@@ -127,9 +130,10 @@ class MergedGenerationTests(unittest.TestCase):
                     expected.append(paths[mode + "_json"])
         records = app.history_store.load()
         self.assertEqual(records[0]["saved_files"], [str(path.resolve()) for path in expected])
-        self.assertEqual(records[0]["output_dir"], str(save_dir.resolve()))
+        self.assertEqual(records[0]["output_dir"], str(result_dir.resolve()))
         self.assertEqual(records[0]["file_count"], len(expected))
         self.assertTrue(all(path.is_file() for path in expected))
+        self.assertTrue(all(path.parent == result_dir for path in expected))
         for mode in ("raw", "normal", "detailed"):
             if modes.get(mode):
                 self.assertIn(

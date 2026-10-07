@@ -869,13 +869,15 @@ def build_output_paths(
     modes: Mapping[str, bool],
     output_filename: Optional[str] = None,
 ) -> dict[str, Path]:
-    """计算各模式的输出路径；未指定名称时完全沿用旧命名规则。"""
+    """计算各模式的输出路径，并统一放入本次结果的同名文件夹。"""
     save_dir = Path(save_dir)
     enabled_modes = [
         mode for mode in DEFAULT_MODE_MARKDOWN_FILENAMES
         if modes.get(mode)
     ]
     markdown_names = dict(DEFAULT_MODE_MARKDOWN_FILENAMES)
+    folder_source = output_filename or default_output_filename(modes)
+    output_dir = save_dir / Path(normalize_markdown_filename(folder_source)).stem
 
     if output_filename is not None:
         normalized = normalize_markdown_filename(output_filename)
@@ -899,19 +901,20 @@ def build_output_paths(
         return f"{stem}{suffix}.json"
 
     return {
-        "asset_markdown": save_dir / markdown_names[enabled_modes[0]],
-        "raw_markdown": save_dir / markdown_names["raw"],
-        "normal_json": save_dir / json_name(
+        "output_dir": output_dir,
+        "asset_markdown": output_dir / markdown_names[enabled_modes[0]],
+        "raw_markdown": output_dir / markdown_names["raw"],
+        "normal_json": output_dir / json_name(
             "normal", "AI_memory_result.json"
         ),
-        "normal_markdown": save_dir / markdown_names["normal"],
-        "detailed_json": save_dir / json_name(
+        "normal_markdown": output_dir / markdown_names["normal"],
+        "detailed_json": output_dir / json_name(
             "detailed", "AI_memory_detailed_result.json"
         ),
-        "detailed_markdown": save_dir / markdown_names["detailed"],
-        "simple_markdown": save_dir / markdown_names["simple"],
-        "intermediate_json": save_dir / ".gui_intermediate_result.json",
-        "intermediate_markdown": save_dir / ".gui_intermediate_summary.md",
+        "detailed_markdown": output_dir / markdown_names["detailed"],
+        "simple_markdown": output_dir / markdown_names["simple"],
+        "intermediate_json": output_dir / ".gui_intermediate_result.json",
+        "intermediate_markdown": output_dir / ".gui_intermediate_summary.md",
     }
 
 
@@ -4838,8 +4841,8 @@ def generate_output_bundle(
         raise ValueError("至少需要选择一种生成模式。")
 
     save_dir = Path(save_dir).resolve()
-    save_dir.mkdir(parents=True, exist_ok=True)
     output_paths = build_output_paths(save_dir, modes, output_filename)
+    output_paths["output_dir"].mkdir(parents=True, exist_ok=True)
     saved_files: list[Path] = []
 
     if modes.get("raw"):
@@ -4984,7 +4987,7 @@ def generate_output_bundle(
                 source_dir=(
                     Path(source_dir).resolve()
                     if source_dir is not None
-                    else save_dir
+                    else output_paths["output_dir"].resolve()
                 ),
                 source_name=source_name or output_paths["raw_markdown"].name,
                 output_json=primary_json,

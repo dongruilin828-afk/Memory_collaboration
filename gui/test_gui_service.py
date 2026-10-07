@@ -969,6 +969,12 @@ class GUIServiceTests(unittest.TestCase):
             {"normal": True},
             "课程总结.txt",
         )
+        self.assertEqual(single["output_dir"], base / "课程总结")
+        self.assertTrue(all(
+            path.parent == single["output_dir"]
+            for key, path in single.items()
+            if key != "output_dir"
+        ))
         self.assertEqual(single["asset_markdown"].name, "课程总结.md")
         self.assertEqual(single["normal_markdown"].name, "课程总结.md")
         self.assertEqual(single["normal_json"].name, "课程总结.json")
@@ -983,15 +989,21 @@ class GUIServiceTests(unittest.TestCase):
             },
             "课程总结.md",
         )
+        self.assertEqual(multiple["output_dir"], base / "课程总结")
+        self.assertTrue(all(
+            path.parent == multiple["output_dir"]
+            for key, path in multiple.items()
+            if key != "output_dir"
+        ))
         self.assertEqual(
             multiple["asset_markdown"].name,
             "课程总结_export.md",
         )
         self.assertEqual(
             build_image_asset_directory(
-                base, multiple["asset_markdown"].name
+                multiple["output_dir"], multiple["asset_markdown"].name
             ),
-            base / "课程总结_export_images",
+            base / "课程总结" / "课程总结_export_images",
         )
         self.assertEqual(
             multiple["raw_markdown"].name,

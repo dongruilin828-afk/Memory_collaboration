@@ -10,7 +10,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY, SummaryTopicCard
+from gui.app import (
+    AIMemoryGUI,
+    COLOR_GENERATION_ACCENT,
+    COLOR_TEXT_PRIMARY,
+    FlatButton,
+    SummaryTopicCard,
+)
 from gui.settings_store import default_app_settings
 
 
@@ -69,6 +75,83 @@ class SummaryTopicCardTests(unittest.TestCase):
             card._toggle()
             self.assertTrue(card.checked)
             self.assertEqual(toggles, [True])
+            indicator_items = card.find_withtag("selection_indicator")
+            self.assertEqual(len(indicator_items), 3)
+            self.assertEqual(
+                [card.type(item) for item in indicator_items],
+                ["polygon", "line", "line"],
+            )
+        finally:
+            root.destroy()
+
+    def test_topic_dialog_keeps_action_buttons_visible(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        try:
+            root.attributes("-alpha", 0.0)
+            root.geometry("1000x700+0+0")
+            root.tk.call("tk", "scaling", 1.5)
+            root.update_idletasks()
+            app = object.__new__(AIMemoryGUI)
+            app.root = root
+            app._show_summary_topic_dialog(
+                [
+                    {
+                        "topic_id": f"topic_{index}",
+                        "title": f"第 {index} 个需要重点展开的主题",
+                        "summary": "这是一段主题摘要。" * 3,
+                    }
+                    for index in range(1, 7)
+                ],
+                lambda _selected: None,
+            )
+            root.update()
+            dialog = next(
+                child for child in root.winfo_children()
+                if isinstance(child, tk.Toplevel)
+            )
+
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+
+            buttons = [
+                widget for widget in descendants(dialog)
+                if isinstance(widget, FlatButton)
+            ]
+            self.assertEqual(
+                [button._text for button in buttons],
+                ["暂不选择", "确认并继续生成"],
+            )
+            self.assertEqual(
+                [button._variant for button in buttons],
+                ["topic-secondary", "topic-primary"],
+            )
+            self.assertEqual(
+                [(button._base_width, button._base_height) for button in buttons],
+                [(132, 44), (196, 44)],
+            )
+            self.assertEqual(buttons[1].cget("bg"), COLOR_GENERATION_ACCENT)
+            self.assertTrue(all(button.winfo_ismapped() for button in buttons))
+            dialog_bottom = dialog.winfo_rooty() + dialog.winfo_height()
+            self.assertTrue(all(
+                button.winfo_rooty() + button.winfo_height() <= dialog_bottom
+                for button in buttons
+            ))
+            canvas = next(
+                widget for widget in descendants(dialog)
+                if isinstance(widget, tk.Canvas)
+                and not isinstance(widget, FlatButton)
+            )
+            self.assertLessEqual(
+                canvas.winfo_rooty() + canvas.winfo_height(),
+                min(button.winfo_rooty() for button in buttons),
+            )
+            dialog.grab_release()
+            dialog.destroy()
         finally:
             root.destroy()
 

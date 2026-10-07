@@ -89,6 +89,10 @@ COLOR_DRAG_NORMAL = "#F0F4F9"
 COLOR_GENERATION_ACCENT = "#6F55E8"
 COLOR_GENERATION_ACCENT_HOVER = "#5F43D2"
 COLOR_GENERATION_ACCENT_BG = "#F4F1FF"
+COLOR_TOPIC_DIALOG_BG = "#F6F7FB"
+COLOR_TOPIC_CARD_SELECTED = "#F5F3FF"
+COLOR_TOPIC_CARD_HOVER = "#FAFAFC"
+COLOR_TOPIC_CONTROL = "#ECEFF4"
 
 FONT_FAMILY = "Microsoft YaHei UI"
 FONT_TITLE = (FONT_FAMILY, 18, "bold")
@@ -128,12 +132,12 @@ def _prompt_output_target(
     settings: AppSettings,
     suggested_name: str | None = None,
 ) -> tuple[Path, str] | None:
-    """按设置询问输出目标；配置默认目录时只询问文件名。"""
+    """询问结果名称；生成时会在所选位置创建同名结果文件夹。"""
     suggested_name = suggested_name or default_output_filename(modes)
     if settings.default_results_dir is not None:
         chosen_name = simpledialog.askstring(
             "设置保存名称",
-            "请输入本次结果的保存名称：",
+            "请输入本次结果文件夹的名称：",
             initialvalue=suggested_name,
             parent=parent,
         )
@@ -147,9 +151,9 @@ def _prompt_output_target(
     save_file = filedialog.asksaveasfilename(
         parent=parent,
         title=(
-            "请选择保存位置并设置文件名"
+            "请选择保存位置并设置结果名称"
             if sum(bool(value) for value in modes.values()) == 1
-            else "请选择保存位置并设置共同文件名（将自动添加模式后缀）"
+            else "请选择保存位置并设置结果名称（文件将自动添加模式后缀）"
         ),
         initialdir=str(Path(settings.runtime_data_dir) / "results" / "summary"),
         initialfile=suggested_name,
@@ -363,6 +367,7 @@ class FlatButton(tk.Canvas):
         self._base_height = height
         self._width = width
         self._height = height
+        self._bg_parent = bg_parent
         self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
         self._icon_text = icon_text
         self._icon_font = (
@@ -376,12 +381,11 @@ class FlatButton(tk.Canvas):
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
-        if variant == "settings-save":
-            self.configure(takefocus=True, cursor="hand2")
-            self.bind("<FocusIn>", self._on_focus_in)
-            self.bind("<FocusOut>", self._on_focus_out)
-            self.bind("<Return>", self._on_key_activate)
-            self.bind("<space>", self._on_key_activate)
+        self.configure(takefocus=True, cursor="hand2")
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Return>", self._on_key_activate)
+        self.bind("<space>", self._on_key_activate)
         self.redraw()
 
     def set_responsive_scale(self, scale: float):
@@ -433,11 +437,10 @@ class FlatButton(tk.Canvas):
         return "break"
 
     def _on_click(self, _event=None):
-        if self._variant == "settings-save":
-            self._suppress_focus_ring = True
-            self.focus_set()
-            self._focused = False
-            self.redraw()
+        self._suppress_focus_ring = True
+        self.focus_set()
+        self._focused = False
+        self.redraw()
         if self._enabled and self._command:
             self._command()
 
@@ -491,9 +494,48 @@ class FlatButton(tk.Canvas):
                 fill="", outline="#8AB4F8", width=2,
             )
 
+    def _draw_topic_primary_gradient(self, width: int, height: int):
+        x1, y1, x2, y2 = 1, 1, width - 1, height - 1
+        radius = min(9, (y2 - y1) / 2)
+        start, end = (
+            ("#7667E8", "#5F4DD3") if self._hover
+            else ("#806FEA", "#6955DA")
+        )
+        steps = max(1, width - 4)
+        for step in range(steps):
+            left = x1 + (x2 - x1) * step / steps
+            right = x1 + (x2 - x1) * (step + 1) / steps
+            center = (left + right) / 2
+            edge_distance = min(center - x1, x2 - center)
+            inset = (
+                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
+                if edge_distance < radius else 0
+            )
+            color = self._mix_color(start, end, step / max(1, steps - 1))
+            self.create_rectangle(
+                left, y1 + inset, right + 0.5, y2 - inset,
+                fill=color, outline=color,
+            )
+        _round_rectangle(
+            self, x1, y1, x2, y2, r=radius,
+            fill="", outline="#6552D3", width=1,
+        )
+        if self._focused:
+            _round_rectangle(
+                self, 2, 2, width - 2, height - 2, r=8,
+                fill="", outline="#D9D3FF", width=1,
+            )
+
     def redraw(self):
         self.delete("all")
         w, h = self._width, self._height
+        self.configure(
+            bg=(
+                COLOR_GENERATION_ACCENT
+                if self._variant == "topic-primary" and self._enabled
+                else self._bg_parent
+            )
+        )
         if not self._enabled:
             bg, fg = COLOR_DISABLED, COLOR_TEXT_DISABLED
             outline = ""
@@ -516,18 +558,41 @@ class FlatButton(tk.Canvas):
             bg = COLOR_HOVER if self._hover else COLOR_CARD
             fg = COLOR_TEXT_PRIMARY
             outline = COLOR_BORDER
+        elif self._variant == "topic-secondary":
+            bg = "#F1EFFF" if self._hover else "#FFFFFF"
+            fg = COLOR_GENERATION_ACCENT if self._hover else COLOR_TEXT_SECONDARY
+            outline = "#BDB4F3" if self._hover else "#D9DCE6"
+        elif self._variant == "topic-primary":
+            bg = COLOR_GENERATION_ACCENT
+            fg = "#FFFFFF"
+            outline = ""
+        elif self._variant == "ghost":
+            bg = COLOR_HOVER if self._hover else self._bg_parent
+            fg = COLOR_TEXT_SECONDARY
+            outline = ""
         else:
             bg = COLOR_HOVER if self._hover else self._bg_parent
             fg = COLOR_TEXT_PRIMARY
             outline = COLOR_BORDER
         if self._variant == "settings-save" and self._enabled:
             self._draw_settings_gradient(w, h)
+        elif self._variant == "topic-primary" and self._enabled:
+            self._draw_topic_primary_gradient(w, h)
         else:
             _round_rectangle(
                 self, 1, 1, w - 1, h - 1,
-                r=12 if self._variant == "settings-save" else 6,
+                r=(
+                    12 if self._variant == "settings-save"
+                    else 9 if self._variant.startswith("topic-")
+                    else 6
+                ),
                 fill=bg, outline=outline, width=1,
             )
+            if self._focused:
+                _round_rectangle(
+                    self, 1, 1, w - 1, h - 1, r=6,
+                    fill="", outline="#8C78E8", width=2,
+                )
         if self._icon_text and self._icon_font:
             icon_width = self._icon_font.measure(self._icon_text)
             text_width = self._font.measure(self._text)
@@ -834,9 +899,9 @@ class SummaryTopicCard(tk.Canvas):
         super().__init__(
             master,
             width=width,
-            height=88,
+            height=96,
             highlightthickness=0,
-            bg=COLOR_BG_APP,
+            bg=COLOR_TOPIC_DIALOG_BG,
             cursor="hand2",
             takefocus=True,
             **kwargs,
@@ -846,7 +911,7 @@ class SummaryTopicCard(tk.Canvas):
         self._summary = summary
         self._on_toggle = on_toggle
         self._width = width
-        self._height = 88
+        self._height = 96
         self._checked = False
         self._hover = False
         self._focused = False
@@ -901,84 +966,76 @@ class SummaryTopicCard(tk.Canvas):
         self.delete("all")
         width = self._width
         if self._checked:
-            background = "#FFFFFF"
-            outline = "#6246D9"
+            background = COLOR_TOPIC_CARD_SELECTED
+            outline = "#CEC6F7"
         elif self._hover:
-            background = "#FAF9FF"
-            outline = "#B8AAEF"
+            background = COLOR_TOPIC_CARD_HOVER
+            outline = "#CDD3DE"
         else:
             background = COLOR_CARD
-            outline = "#D7DCE5"
-
-        if self._checked:
-            _round_rectangle(
-                self, 4, 5, width - 2, self._height - 1, r=10,
-                fill="#DDD6FA", outline="",
-            )
+            outline = COLOR_BORDER
 
         _round_rectangle(
             self, 2, 2, width - 4, self._height - 4, r=10,
             fill=background, outline=outline,
-            width=2 if self._checked else 1,
+            width=1,
         )
         if self._checked:
-            self.create_line(12, 2, width - 14, 2, fill=outline, width=2)
-            self.create_line(
-                12, self._height - 4, width - 14, self._height - 4,
-                fill=outline, width=2,
-            )
-            self.create_line(2, 12, 2, self._height - 14, fill=outline, width=2)
-            self.create_line(
-                width - 4, 12, width - 4, self._height - 14,
-                fill=outline, width=2,
+            _round_rectangle(
+                self, 2, 12, 6, self._height - 14, r=2,
+                fill=COLOR_GENERATION_ACCENT, outline="",
             )
         if self._focused and not self._checked:
             _round_rectangle(
-                self, 4, 4, width - 6, self._height - 6, r=8,
-                fill="", outline="#8C78E8", width=1,
-            )
-        if self._checked:
-            _round_rectangle(
-                self, 8, 14, 12, self._height - 16, r=2,
-                fill=COLOR_GENERATION_ACCENT, outline="",
+                self, 5, 5, width - 7, self._height - 8, r=9,
+                fill="", outline="#8C78E8", width=2,
             )
 
-        badge_fill = (
-            COLOR_GENERATION_ACCENT if self._checked else COLOR_ACCENT_BG
-        )
-        badge_text = "#FFFFFF" if self._checked else COLOR_TEXT_SECONDARY
-        self.create_oval(18, 17, 46, 45, fill=badge_fill, outline="")
         self.create_text(
-            32, 31, text=str(self._index), fill=badge_text,
-            font=FONT_SMALL_BOLD,
+            24, 23, text=f"{self._index:02d}",
+            fill=(COLOR_GENERATION_ACCENT if self._checked else COLOR_TEXT_MUTED),
+            font=FONT_SMALL_BOLD, anchor="nw",
         )
 
-        check_x = width - 34
-        self.create_oval(
-            check_x - 10, 20, check_x + 10, 40,
-            fill=COLOR_GENERATION_ACCENT if self._checked else "#FFFFFF",
-            outline=COLOR_GENERATION_ACCENT if self._checked else "#C7CDD6",
-            width=1.5,
+        check_x = width - 31
+        check_y = 30
+        indicator_fill = (
+            COLOR_GENERATION_ACCENT if self._checked else COLOR_TOPIC_CONTROL
+        )
+        indicator_outline = (
+            COLOR_GENERATION_ACCENT if self._checked else "#C9CFD9"
+        )
+        _round_rectangle(
+            self, check_x - 10, check_y - 10, check_x + 10, check_y + 10,
+            r=5,
+            fill=indicator_fill, outline=indicator_outline, width=1,
+            tags=("selection_indicator",),
         )
         if self._checked:
             self.create_line(
-                check_x - 5, 30, check_x - 1, 34, check_x + 6, 26,
-                fill="#FFFFFF", width=2, smooth=True,
+                check_x - 5, check_y, check_x - 1, check_y + 4,
+                fill="#FFFFFF", width=2, capstyle=tk.ROUND,
+                tags=("selection_indicator",),
+            )
+            self.create_line(
+                check_x - 1, check_y + 4, check_x + 6, check_y - 5,
+                fill="#FFFFFF", width=2, capstyle=tk.ROUND,
+                tags=("selection_indicator",),
             )
 
-        text_width = width - 116
+        text_width = width - 112
         title_id = self.create_text(
-            58, 16, text=self._title, fill=COLOR_TEXT_PRIMARY,
+            58, 18, text=self._title, fill=COLOR_TEXT_PRIMARY,
             font=FONT_BODY_BOLD, anchor="nw", width=text_width,
         )
         title_bbox = self.bbox(title_id)
-        summary_y = (title_bbox[3] if title_bbox else 32) + 8
+        summary_y = (title_bbox[3] if title_bbox else 34) + 7
         summary_id = self.create_text(
-            58, summary_y, text=self._summary, fill=COLOR_TEXT_SECONDARY,
+            58, summary_y, text=self._summary, fill=COLOR_TEXT_MUTED,
             font=FONT_BODY, anchor="nw", width=text_width,
         )
         summary_bbox = self.bbox(summary_id)
-        desired_height = max(88, (summary_bbox[3] if summary_bbox else 70) + 18)
+        desired_height = max(96, (summary_bbox[3] if summary_bbox else 72) + 20)
         if desired_height != self._height:
             self._height = desired_height
             self.configure(height=desired_height)
@@ -3217,7 +3274,7 @@ class AIMemoryGUI:
         dialog.title("授权登录确认")
         dialog.geometry("480x230")
         dialog.resizable(False, False)
-        dialog.configure(bg=COLOR_BG_APP)
+        dialog.configure(bg=COLOR_TOPIC_DIALOG_BG)
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -3266,57 +3323,48 @@ class AIMemoryGUI:
         dialog.transient(self.root)
         dialog.grab_set()
 
-        height = min(700, 330 + 92 * min(len(available_topics), 4))
-        width = 650
+        height = min(690, 300 + 104 * min(len(available_topics), 4))
+        width = 680
         x = self.root.winfo_x() + (self.root.winfo_width() - width) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - height) // 2
         dialog.geometry(f"{width}x{height}+{x}+{y}")
 
-        content = tk.Frame(dialog, bg=COLOR_BG_APP, padx=32, pady=26)
+        content = tk.Frame(
+            dialog, bg=COLOR_TOPIC_DIALOG_BG, padx=36, pady=30,
+        )
         content.pack(fill=tk.BOTH, expand=True)
-
-        eyebrow = tk.Canvas(
-            content, width=104, height=26, bg=COLOR_BG_APP,
-            highlightthickness=0,
-        )
-        eyebrow.pack(anchor="w", pady=(0, 9))
-        _round_rectangle(
-            eyebrow, 0, 0, 104, 26, r=13,
-            fill=COLOR_GENERATION_ACCENT_BG, outline="",
-        )
-        eyebrow.create_text(
-            52, 13, text="✦  重点增强", font=FONT_SMALL_BOLD,
-            fill=COLOR_GENERATION_ACCENT,
-        )
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(3, weight=1)
 
         tk.Label(
             content, text="哪些主题值得重点展开？",
-            font=FONT_TITLE, fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w"
-        ).pack(anchor="w")
+            font=(FONT_FAMILY, 20, "bold"), fg=COLOR_TEXT_PRIMARY,
+            bg=COLOR_TOPIC_DIALOG_BG, anchor="w",
+        ).grid(row=0, column=0, sticky="w")
         tk.Label(
             content,
             text=(
                 "所有主题摘要都会保留。选中的主题将在文末进一步展开关键记忆，"
                 "方便你快速回看最重要的内容。"
             ),
-            font=FONT_SMALL, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
-            wraplength=580, justify=tk.LEFT, anchor="w"
-        ).pack(anchor="w", pady=(7, 18))
+            font=FONT_BODY, fg=COLOR_TEXT_MUTED, bg=COLOR_TOPIC_DIALOG_BG,
+            wraplength=600, justify=tk.LEFT, anchor="w"
+        ).grid(row=1, column=0, sticky="w", pady=(8, 22))
 
-        list_header = tk.Frame(content, bg=COLOR_BG_APP)
-        list_header.pack(fill=tk.X, pady=(0, 8))
+        list_header = tk.Frame(content, bg=COLOR_TOPIC_DIALOG_BG)
+        list_header.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         selection_var = tk.StringVar(master=dialog)
         tk.Label(
             list_header, textvariable=selection_var,
             font=FONT_SMALL_BOLD, fg=COLOR_TEXT_SECONDARY,
-            bg=COLOR_BG_APP,
+            bg=COLOR_TOPIC_DIALOG_BG,
         ).pack(side=tk.LEFT)
 
-        choices_shell = tk.Frame(content, bg=COLOR_BG_APP)
-        choices_shell.pack(fill=tk.BOTH, expand=True)
+        choices_shell = tk.Frame(content, bg=COLOR_TOPIC_DIALOG_BG)
+        choices_shell.grid(row=3, column=0, sticky="nsew")
         choices_canvas = tk.Canvas(
-            choices_shell, bg=COLOR_BG_APP, highlightthickness=0,
-            height=min(404, max(96, 92 * len(available_topics)))
+            choices_shell, bg=COLOR_TOPIC_DIALOG_BG, highlightthickness=0,
+            height=1,
         )
         choices_scrollbar = MinimalScrollbar(
             choices_shell, target_canvas=choices_canvas, width=7,
@@ -3324,7 +3372,7 @@ class AIMemoryGUI:
         choices_canvas.configure(yscrollcommand=choices_scrollbar.set_range)
         choices_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         choices_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
-        choices = tk.Frame(choices_canvas, bg=COLOR_BG_APP)
+        choices = tk.Frame(choices_canvas, bg=COLOR_TOPIC_DIALOG_BG)
         choices_window = choices_canvas.create_window(
             0, 0, window=choices, anchor="nw"
         )
@@ -3349,7 +3397,7 @@ class AIMemoryGUI:
 
         def refresh_selection_status(_card=None):
             selected_count = sum(card.checked for card in cards.values())
-            selection_var.set(f"已选择 {selected_count} / {len(available_topics)} 个主题")
+            selection_var.set(f"已选 {selected_count} 项，共 {len(available_topics)} 项")
             clear_button.configure(
                 fg=COLOR_GENERATION_ACCENT if selected_count else COLOR_TEXT_DISABLED,
                 cursor="hand2" if selected_count else "arrow",
@@ -3360,11 +3408,11 @@ class AIMemoryGUI:
                 card.set_checked(checked)
             refresh_selection_status()
 
-        actions = tk.Frame(list_header, bg=COLOR_BG_APP)
+        actions = tk.Frame(list_header, bg=COLOR_TOPIC_DIALOG_BG)
         actions.pack(side=tk.RIGHT)
         clear_button = tk.Label(
             actions, text="清空", font=FONT_SMALL_BOLD,
-            fg=COLOR_TEXT_DISABLED, bg=COLOR_BG_APP,
+            fg=COLOR_TEXT_DISABLED, bg=COLOR_TOPIC_DIALOG_BG,
             padx=8, cursor="arrow",
         )
         clear_button.pack(side=tk.RIGHT)
@@ -3376,7 +3424,7 @@ class AIMemoryGUI:
         )
         select_all_button = tk.Label(
             actions, text="全选", font=FONT_SMALL_BOLD,
-            fg=COLOR_GENERATION_ACCENT, bg=COLOR_BG_APP,
+            fg=COLOR_GENERATION_ACCENT, bg=COLOR_TOPIC_DIALOG_BG,
             padx=8, cursor="hand2",
         )
         select_all_button.pack(side=tk.RIGHT)
@@ -3388,9 +3436,9 @@ class AIMemoryGUI:
             card = SummaryTopicCard(
                 choices, index=index, title=str(topic["title"]),
                 summary=summary_text, on_toggle=refresh_selection_status,
-                width=552,
+                width=578,
             )
-            card.pack(fill=tk.X, pady=(0, 8))
+            card.pack(fill=tk.X, pady=(0, 10))
             cards[topic_id] = card
 
         refresh_selection_status()
@@ -3413,22 +3461,26 @@ class AIMemoryGUI:
             dialog.destroy()
             on_done(selected)
 
-        tk.Frame(content, bg=COLOR_BORDER, height=1).pack(
-            fill=tk.X, pady=(14, 16)
+        footer = tk.Frame(content, bg=COLOR_TOPIC_DIALOG_BG)
+        footer.grid(row=4, column=0, sticky="ew")
+        tk.Frame(footer, bg=COLOR_BORDER, height=1).pack(
+            fill=tk.X, pady=(16, 14)
         )
-        button_row = tk.Frame(content, bg=COLOR_BG_APP)
+        button_row = tk.Frame(footer, bg=COLOR_TOPIC_DIALOG_BG)
         button_row.pack(fill=tk.X)
+        action_group = tk.Frame(button_row, bg=COLOR_TOPIC_DIALOG_BG)
+        action_group.pack(side=tk.RIGHT)
         FlatButton(
-            button_row, text="暂不选择", command=lambda: finish(False),
-            variant="secondary", width=138, height=42,
-            bg_parent=COLOR_BG_APP,
-        ).pack(side=tk.LEFT)
+            action_group, text="暂不选择", command=lambda: finish(False),
+            variant="topic-secondary", width=132, height=44,
+            bg_parent=COLOR_TOPIC_DIALOG_BG,
+        ).pack(side=tk.LEFT, padx=(0, 12))
         FlatButton(
-            button_row, text="确认并继续生成",
+            action_group, text="确认并继续生成",
             command=lambda: finish(True),
-            variant="accent", width=196, height=42,
-            bg_parent=COLOR_BG_APP,
-        ).pack(side=tk.RIGHT)
+            variant="topic-primary", width=196, height=44,
+            bg_parent=COLOR_TOPIC_DIALOG_BG,
+        ).pack(side=tk.LEFT)
 
         dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
         dialog.bind("<Escape>", lambda _e: finish(False))
@@ -3532,6 +3584,8 @@ class AIMemoryGUI:
         run_log = GenerationRunLog(
             app_settings.log_dir, metadata=metadata,
         )
+        output_paths = build_output_paths(save_dir, modes, output_filename)
+        result_dir = output_paths["output_dir"]
 
         login_event = asyncio.Event()
 
@@ -3570,16 +3624,13 @@ class AIMemoryGUI:
                 )
             else:
                 update_progress(0.15, "正在加载分享页并解析动态列表...")
-                output_paths = build_output_paths(
-                    save_dir, modes, output_filename
-                )
                 asset_owner = output_paths["asset_markdown"].name
                 image_output_dir = build_image_asset_directory(
-                    save_dir,
+                    result_dir,
                     asset_owner,
                 )
                 document_output_dir = build_document_asset_directory(
-                    save_dir,
+                    result_dir,
                     asset_owner,
                 )
                 fetch_res = loop.run_until_complete(
@@ -3598,9 +3649,9 @@ class AIMemoryGUI:
                         ),
                         logger=lambda m: update_progress(0.28, m),
                         image_output_dir=image_output_dir,
-                        image_reference_base=save_dir,
+                        image_reference_base=result_dir,
                         document_output_dir=document_output_dir,
-                        document_reference_base=save_dir,
+                        document_reference_base=result_dir,
                         browser_profile_root=app_settings.browser_profile_dir,
                         debug_html_file=app_settings.debug_html_file,
                     )
@@ -3729,7 +3780,7 @@ class AIMemoryGUI:
                 "total_seconds": total_seconds,
                 "file_count": len(saved_files),
                 "saved_files": saved_files,
-                "output_dir": str(Path(save_dir).resolve()),
+                "output_dir": str(result_dir.resolve()),
             }
             self.root.after(
                 0, lambda r=history_record: self._add_history_record(r)
