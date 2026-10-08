@@ -17,12 +17,18 @@ ChatGPT：
 网页链接：https://chatgpt.com/c/6aa8063f-b938-83e8-838a-23916a007d8e
 
 含图片和代码：
-分享链接：https://chatgpt.com/share/6ac629f5-1964-83e9-b50b-aa9f82a5f1b5
+1. 分享链接：https://chatgpt.com/share/6ac629f5-1964-83e9-b50b-aa9f82a5f1b5
 网页链接：https://chatgpt.com/c/6ac6297f-1c6c-83ea-9f83-d857569c42c8
+2. 分享链接：https://chatgpt.com/share/6ac64dc6-ef94-83e9-abd4-a700760ff2c9
+网页链接：https://chatgpt.com/c/6ac64d3e-3ac4-83ea-9101-1a107d94579d
 
 含公式和代码：
 分享链接：https://chatgpt.com/share/6ac4fe50-08c8-83ea-b7a5-ad2fc76d38b8
 网页链接：https://chatgpt.com/c/6ac4fca3-28c0-83e9-9036-d134c662d2c5
+
+含视频：
+分享链接：https://chatgpt.com/share/6ac64d05-b08c-83e9-82f6-ecb01f142770
+网页链接：https://chatgpt.com/c/6ac64cba-6f00-83ea-80be-af589a675801
 
 超长对话：
 分享链接：https://chatgpt.com/share/6ac50210-df40-83e9-b461-e0b9f76b35fa
@@ -31,6 +37,10 @@ ChatGPT：
 含交互：
 分享链接：https://chatgpt.com/share/6ac62d2e-7240-83e9-b89f-1b0528d6ead2
 网页链接：https://chatgpt.com/c/6ac62a61-103c-83ea-ac60-71ff3b7d0318
+
+含公式和交互：
+分享链接：https://chatgpt.com/share/6ac64bf0-f584-83e9-8ca8-f9a8dd7a07c2
+网页链接：https://chatgpt.com/c/6ac64b2e-af9c-83e9-8244-221bc497230a
 
 
 
@@ -114,6 +124,7 @@ DeepSeek：
 网页链接：https://chat.deepseek.com/a/chat/s/a7ec7dc8-fa43-4be1-aa3c-1d11f6072900
 
 
+
 Gemini：
 
 含图片：
@@ -151,3 +162,35 @@ Gemini：
 含交互：
 分享链接：https://share.gemini.google/9JuZLH5UhwNF
 网页链接：https://gemini.google.com/app/80e5717a57f1859f
+
+
+
+Kimi：
+
+含图片：
+1. 分享链接：https://www.kimi.com/share/1a1193c2-fb82-8f03-8000-0000d0da2d0d
+网页链接：https://www.kimi.com/chat/1a0d7abb-0a12-8a88-8000-09c61ff99ff6?chat_enter_method=history
+
+含图片和文档：
+分享链接：https://www.kimi.com/share/1a119342-0b02-8dd5-8000-0000db889d12
+网页链接：https://www.kimi.com/chat/1a09fa70-b792-8c7b-8000-09c68e8832a8?chat_enter_method=history
+
+含图片和代码：
+分享链接：https://www.kimi.com/share/1a1196e2-4062-84d9-8000-00002c479606
+网页链接：https://www.kimi.com/chat/1a1196c8-4322-802b-8000-09c612b5d969?chat_enter_method=new_chat
+
+含视频：
+分享链接：https://www.kimi.com/share/1a119416-e8d2-8314-8000-000013d85a92
+网页链接：https://www.kimi.com/chat/1a119344-4bb2-837c-8000-09c6b6513a74?chat_enter_method=history
+
+含公式：
+分享链接：https://www.kimi.com/share/1a119330-04b2-8591-8000-0000a1abeae5
+网页链接：https://www.kimi.com/chat/1a089623-1952-8d61-8000-09c6f0514485?chat_enter_method=history
+
+超长对话：
+分享链接：https://www.kimi.com/share/1a11981c-33e2-8b7f-8000-000035f94916
+网页链接：https://www.kimi.com/chat/1a119717-75b2-860c-8000-09c65ad7b271?chat_enter_method=new_chat
+
+含公式和交互：
+分享链接：https://www.kimi.com/share/1a11985d-2622-8b86-8000-00007d85901f
+网页链接：https://www.kimi.com/chat/1a11983b-c582-8134-8000-09c6f2ced19e?chat_enter_method=new_chat
