@@ -1,11 +1,12 @@
 import asyncio
 import json
+import logging
 import os
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from bs4 import BeautifulSoup
 
@@ -748,6 +749,41 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertTrue(public["can_reverify"])
         self.assertEqual(public["source_role"], "user")
 
+    def test_missing_model_description_keeps_local_document_reverifiable(self):
+        class EmptyMediaGateway:
+            def generate_json(self, prompt, schema, media_assets=None):
+                return {"items": []}
+
+        with tempfile.TemporaryDirectory() as temp:
+            local_path = Path(temp) / "report.md"
+            local_path.write_text("测试文档", encoding="utf-8")
+            asset = summary.MediaAsset(
+                media_id="M001",
+                message_index=1,
+                kind="document",
+                label="report.md",
+                reference="./report.md",
+                local_path=local_path,
+                mime_type="text/markdown",
+                status="ready",
+                extracted_text="测试文档",
+            )
+            warnings = summary.describe_media(
+                [asset],
+                EmptyMediaGateway(),
+                summary.SummaryConfig(),
+                lambda _message: None,
+            )
+            public = asset.public_dict()
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(asset.status, "unclear")
+        self.assertEqual(public["access_status"], "available_local")
+        self.assertTrue(public["can_reverify"])
+        self.assertIn("本地文件仍可访问", asset.description)
+        self.assertIn("可重新提取或验证", asset.description)
+        self.assertNotIn("无法访问文档原件", asset.description)
+
     def test_media_api_failure_keeps_local_file_reverifiable_and_retryable(self):
         class FailingGateway:
             def generate_json(self, prompt, schema, media_assets=None):
@@ -1055,6 +1091,22 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("苹果\t3", xlsx.extracted_text)
         self.assertEqual(pdf.status, "ready")
         self.assertEqual(pdf.extracted_text, "（空文档）")
+
+    def test_pdf_ignores_repaired_wrong_pointer_warning(self):
+        class FakePage:
+            def extract_text(self):
+                logging.getLogger("pypdf._reader").warning(
+                    "Ignoring wrong pointing object 8 0 (offset 0)"
+                )
+                logging.getLogger("pypdf._reader").warning("其他 PDF 警告")
+                return "可正常提取的正文"
+
+        with patch("pypdf.PdfReader", return_value=Mock(pages=[FakePage()])):
+            with self.assertLogs("pypdf._reader", level="WARNING") as captured:
+                text = summary._extract_pdf_text(Path("sample.pdf"), 100)
+
+        self.assertEqual(text, "可正常提取的正文")
+        self.assertEqual(captured.output, ["WARNING:pypdf._reader:其他 PDF 警告"])
 
     def test_image_mime_uses_file_bytes_and_pptx_text_is_extracted(self):
         with tempfile.TemporaryDirectory() as temp:

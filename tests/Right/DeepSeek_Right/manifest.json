@@ -1,0 +1,344 @@
+[
+    {
+        "case":  "01",
+        "url":  "https://chat.deepseek.com/share/ggouoijhrlddjcalk9",
+        "messages":  10,
+        "images":  3,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "01/AI_memory_summary.md",
+                        "01/AI_memory_result.json",
+                        "01/AI_memory_detailed_summary.md",
+                        "01/AI_memory_detailed_result.json",
+                        "01/AI_memory_simple.md"
+                    ],
+        "elapsed":  265.5320004999958
+    },
+    {
+        "case":  "02",
+        "url":  "https://chat.deepseek.com/a/chat/s/8e55b899-df1b-4f85-9608-81fb1440ff71",
+        "messages":  10,
+        "images":  3,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "02/AI_memory_summary.md",
+                        "02/AI_memory_result.json",
+                        "02/AI_memory_detailed_summary.md",
+                        "02/AI_memory_detailed_result.json",
+                        "02/AI_memory_simple.md"
+                    ],
+        "elapsed":  599.3761879999947
+    },
+    {
+        "case":  "03",
+        "url":  "https://chat.deepseek.com/share/qsavxpsaxlte7zn46o",
+        "messages":  6,
+        "images":  3,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "03/AI_memory_summary.md",
+                        "03/AI_memory_result.json",
+                        "03/AI_memory_detailed_summary.md",
+                        "03/AI_memory_detailed_result.json",
+                        "03/AI_memory_simple.md"
+                    ],
+        "elapsed":  240.33018740000261
+    },
+    {
+        "case":  "04",
+        "url":  "https://chat.deepseek.com/a/chat/s/5393f0db-672c-4132-88b4-ab7c8f4716c0",
+        "messages":  6,
+        "images":  3,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "04/AI_memory_summary.md",
+                        "04/AI_memory_result.json",
+                        "04/AI_memory_detailed_summary.md",
+                        "04/AI_memory_detailed_result.json",
+                        "04/AI_memory_simple.md"
+                    ],
+        "elapsed":  183.06901940000535
+    },
+    {
+        "case":  "05",
+        "url":  "https://chat.deepseek.com/share/pzonrk850wxhlww7hf",
+        "messages":  10,
+        "images":  5,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "05/AI_memory_summary.md",
+                        "05/AI_memory_result.json",
+                        "05/AI_memory_detailed_summary.md",
+                        "05/AI_memory_detailed_result.json",
+                        "05/AI_memory_simple.md"
+                    ],
+        "elapsed":  625.4612797000009
+    },
+    {
+        "case":  "06",
+        "url":  "https://chat.deepseek.com/a/chat/s/bd3f70c2-1f94-434c-9caf-97644ff15379",
+        "messages":  10,
+        "images":  5,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "06/AI_memory_summary.md",
+                        "06/AI_memory_result.json",
+                        "06/AI_memory_detailed_summary.md",
+                        "06/AI_memory_detailed_result.json",
+                        "06/AI_memory_simple.md"
+                    ],
+        "elapsed":  432.51730490000045
+    },
+    {
+        "case":  "07",
+        "url":  "https://chat.deepseek.com/share/pki1qth09650r7ks2e",
+        "messages":  2,
+        "images":  0,
+        "documents":  1,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "07/AI_memory_summary.md",
+                        "07/AI_memory_result.json",
+                        "07/AI_memory_detailed_summary.md",
+                        "07/AI_memory_detailed_result.json",
+                        "07/AI_memory_simple.md"
+                    ],
+        "elapsed":  45.29142719999072
+    },
+    {
+        "case":  "08",
+        "url":  "https://chat.deepseek.com/a/chat/s/ae507153-8867-439f-939c-c76692fd461c",
+        "messages":  2,
+        "images":  0,
+        "documents":  1,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "08/AI_memory_summary.md",
+                        "08/AI_memory_result.json",
+                        "08/AI_memory_detailed_summary.md",
+                        "08/AI_memory_detailed_result.json",
+                        "08/AI_memory_simple.md"
+                    ],
+        "elapsed":  46.08344890001172
+    },
+    {
+        "case":  "09",
+        "url":  "https://chat.deepseek.com/share/8tlfy59h6uaegqd1za",
+        "messages":  12,
+        "images":  1,
+        "documents":  4,
+        "error":  null,
+        "warnings":  [
+                         "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
+                     ],
+        "outputs":  [
+                        "09/AI_memory_summary.md",
+                        "09/AI_memory_result.json",
+                        "09/AI_memory_detailed_summary.md",
+                        "09/AI_memory_detailed_result.json",
+                        "09/AI_memory_simple.md"
+                    ],
+        "elapsed":  628.0141791999922
+    },
+    {
+        "case":  "10",
+        "url":  "https://chat.deepseek.com/a/chat/s/001f0d68-ef55-45f6-8b5b-a92f55156eba",
+        "messages":  12,
+        "images":  1,
+        "documents":  5,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "10/AI_memory_summary.md",
+                        "10/AI_memory_result.json",
+                        "10/AI_memory_detailed_summary.md",
+                        "10/AI_memory_detailed_result.json",
+                        "10/AI_memory_simple.md"
+                    ],
+        "elapsed":  677.0125113999966
+    },
+    {
+        "case":  "11",
+        "url":  "https://chat.deepseek.com/share/y04rnu2brf3j4pvjvp",
+        "messages":  6,
+        "images":  0,
+        "documents":  1,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "11/AI_memory_summary.md",
+                        "11/AI_memory_result.json",
+                        "11/AI_memory_detailed_summary.md",
+                        "11/AI_memory_detailed_result.json",
+                        "11/AI_memory_simple.md"
+                    ],
+        "elapsed":  578.5793641999917
+    },
+    {
+        "case":  "12",
+        "url":  "https://chat.deepseek.com/a/chat/s/13500be0-261a-4b09-ad43-9c53c1936ffa",
+        "messages":  6,
+        "images":  0,
+        "documents":  1,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "12/AI_memory_summary.md",
+                        "12/AI_memory_result.json",
+                        "12/AI_memory_detailed_summary.md",
+                        "12/AI_memory_detailed_result.json",
+                        "12/AI_memory_simple.md"
+                    ],
+        "elapsed":  727.0853757000004
+    },
+    {
+        "case":  "13",
+        "url":  "https://chat.deepseek.com/share/xzrc03uspoiokxsi65",
+        "messages":  4,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "13/AI_memory_summary.md",
+                        "13/AI_memory_result.json",
+                        "13/AI_memory_detailed_summary.md",
+                        "13/AI_memory_detailed_result.json",
+                        "13/AI_memory_simple.md"
+                    ],
+        "elapsed":  176.05194079999637
+    },
+    {
+        "case":  "14",
+        "url":  "https://chat.deepseek.com/a/chat/s/d311a326-6242-474d-9b25-bbe226d1e11f",
+        "messages":  4,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "14/AI_memory_summary.md",
+                        "14/AI_memory_result.json",
+                        "14/AI_memory_detailed_summary.md",
+                        "14/AI_memory_detailed_result.json",
+                        "14/AI_memory_simple.md"
+                    ],
+        "elapsed":  138.33368769999652
+    },
+    {
+        "case":  "15",
+        "url":  "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
+        "messages":  114,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "15/AI_memory_summary.md",
+                        "15/AI_memory_result.json",
+                        "15/AI_memory_detailed_summary.md",
+                        "15/AI_memory_detailed_result.json",
+                        "15/AI_memory_simple.md"
+                    ],
+        "elapsed":  952.0074706000014
+    },
+    {
+        "case":  "16",
+        "url":  "https://chat.deepseek.com/a/chat/s/5596e55b-b63a-4758-9032-cd24d9e37e70",
+        "messages":  114,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "16/AI_memory_summary.md",
+                        "16/AI_memory_result.json",
+                        "16/AI_memory_detailed_summary.md",
+                        "16/AI_memory_detailed_result.json",
+                        "16/AI_memory_simple.md"
+                    ],
+        "elapsed":  580.2117940999888
+    },
+    {
+        "case":  "17",
+        "url":  "https://chat.deepseek.com/share/lmmvlmh5guq33fqa1s",
+        "messages":  2,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "17/AI_memory_summary.md",
+                        "17/AI_memory_result.json",
+                        "17/AI_memory_detailed_summary.md",
+                        "17/AI_memory_detailed_result.json",
+                        "17/AI_memory_simple.md"
+                    ],
+        "elapsed":  155.61879600000975
+    },
+    {
+        "case":  "18",
+        "url":  "https://chat.deepseek.com/a/chat/s/a7ec7dc8-fa43-4be1-aa3c-1d11f6072900",
+        "messages":  2,
+        "images":  0,
+        "documents":  0,
+        "error":  null,
+        "warnings":  [
+
+                     ],
+        "outputs":  [
+                        "18/AI_memory_summary.md",
+                        "18/AI_memory_result.json",
+                        "18/AI_memory_detailed_summary.md",
+                        "18/AI_memory_detailed_result.json",
+                        "18/AI_memory_simple.md"
+                    ],
+        "elapsed":  39.29559730000619
+    }
+]

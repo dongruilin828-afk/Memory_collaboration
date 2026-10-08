@@ -1,0 +1,469 @@
+{
+  "image_map": {},
+  "messages": [
+    {
+      "role": "User",
+      "content": "指数用英语怎么说"
+    },
+    {
+      "role": "AI",
+      "content": "“指数”用英语要分语境：\n\n* **数学中幂的指数**：**exponent**  \n  例：在 $2^3$ 中，3 是 **exponent**。\n* **指数、指标、股票指数**：**index**  \n  例：股票指数 **stock index**；消费者价格指数 **Consumer Price Index (CPI)**。  \n  复数：**indexes** 或 **indices**。\n* **指数增长 / 指数函数**：**exponential**  \n  例：指数增长 **exponential growth**；指数函数 **exponential function**。\n\n所以最常用的是 **index**；如果是数学里的“幂指数”，则是 **exponent**。",
+      "reasoning": "我们需要回答用户中文问题：“指数用英语怎么说”。需要根据语境。指数有多种含义：数学中的 exponent（幂指数），index（指数，如股票指数、指数指标），指数函数 exponential function。也可能“指数”在数学中 power? 需解释。用户只问“指数用英语怎么说”，应该给出常见翻译，并区分语境。需要简洁。可以回答：最常见是 index；数学幂运算中的指数是 exponent；指数增长/指数函数用 exponential。如果指股票/经济指数：index（复数 indexes 或 indices）。如果指“2^3中的3”：exponent。如果“指数函数”：exponential function。要问语境？可以直接列出。注意“指数”在中文里也可是“指数”如“消费者价格指数” CPI = Consumer Price Index。英语发音？ index /ˈɪndeks/; exponent /ɪkˈspoʊnənt/; exponential /ˌekspəˈnenʃl/。要回答准确。\n\n需要最终答案，不用分析。可能用户想要简单。可写：\n\n“指数”英语要看语境：\n\n* 数学中幂的指数：exponent（如 2³ 中的 3 是 exponent）\n* 指数、指标、股票指数：index（复数 indexes/indices），如 stock index\n* 指数增长/指数函数：exponential，如 exponential growth / exponential function\n\n所以最常用：index；数学幂指数：exponent。\n\n可以。"
+    },
+    {
+      "role": "User",
+      "content": "集合的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“集合”用英语通常说 **set**。\n\n不同语境下：\n\n* **数学中的集合**：**set**  \n  例：集合论 **set theory**；子集 **subset**。\n* **一般意义的“集合、聚集”**：**gathering / collection / assembly**\n\n  + **gathering**：聚会、聚集\n  + **collection**：收藏、收集起来的一批东西\n  + **assembly**：集会、装配、集合\n* **动词“集合”**：**gather / assemble / muster**\n\n  + **gather**：聚集\n  + **assemble**：集合、集结\n  + **muster**：召集、集合（常指人员）\n\n如果是数学语境，答案就是 **set**。"
+    },
+    {
+      "role": "User",
+      "content": "并集的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“并集”的英文是 **union**。\n\n数学里常见表达：\n\n* **并集**：**union**\n* **A 和 B 的并集**：**the union of A and B**\n* **并集符号**：**∪**，读作 **union**\n\n相关概念：\n\n* **交集**：**intersection**\n* **补集**：**complement**\n* **子集**：**subset**\n* **全集**：**universal set**"
+    },
+    {
+      "role": "User",
+      "content": "差集的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“差集”的英文是 **difference**，也可以说 **set difference**。\n\n常见表达：\n\n* **差集**：**difference** / **set difference**\n* **A 和 B 的差集**：**the difference of A and B**\n* **A 减 B 的差集**：**A minus B**，记作 **A − B** 或 **A \\ B**\n\n相关概念：\n\n* **并集**：**union**\n* **交集**：**intersection**\n* **补集**：**complement**\n* **对称差集**：**symmetric difference**"
+    },
+    {
+      "role": "User",
+      "content": "press"
+    },
+    {
+      "role": "AI",
+      "content": "“press” 这个词有很多意思，具体看语境：\n\n**作动词**\n\n* **按、压**：press the button 按按钮\n* **推、挤**：press through the crowd 挤过人群\n* **催促、敦促**：press somebody to do something 催促某人做某事\n* **熨烫**：press clothes 熨衣服\n* **新闻界、媒体进行报道/施压**：The press pressed him for answers.\n\n**作名词**\n\n* **新闻界、媒体**：the press 新闻界\n* **出版社**：Oxford University Press 牛津大学出版社\n* **印刷机**：printing press\n* **按压**：give it a press 按一下\n* **压力、紧迫**：the press of time 时间紧迫\n\n**常见搭配**\n\n* **press conference**：新闻发布会\n* **press release**：新闻稿\n* **press coverage**：媒体报道\n* **press freedom**：新闻自由\n* **press on**：继续坚持\n* **press for**：迫切要求\n\n如果你是想问它在某个具体句子里的意思，可以把句子发我，我帮你判断。"
+    },
+    {
+      "role": "User",
+      "content": "with less fear of the consequences form either the law or the press"
+    },
+    {
+      "role": "AI",
+      "content": "这句话里的 **press** 是“**新闻界、媒体**”的意思。\n\n整句：\n\n**with less fear of the consequences from either the law or the press**\n\n可以理解为：\n\n**“不那么害怕来自法律或媒体的后果”**  \n或更自然一点：  \n**“对法律或媒体带来的后果没那么恐惧”**\n\n这里：\n\n* **the law**：法律（指法律制裁、法律责任）\n* **the press**：新闻界、媒体（指媒体报道、舆论压力）\n* **consequences from either the law or the press**：来自法律或媒体的后果\n\n注意你原句里应该是 **from**，不是 **form**。"
+    },
+    {
+      "role": "User",
+      "content": "All the troubles are gone"
+    },
+    {
+      "role": "AI",
+      "content": "**All the troubles are gone.**\n\n意思是：\n\n**所有的麻烦都过去了。**  \n**一切烦恼都消失了。**\n\n逐词看：\n\n* **All the troubles**：所有的麻烦 / 烦恼\n* **are gone**：已经不见了 / 已经过去了\n\n也可以更自然地说：\n\n* **All the troubles are gone.** 所有麻烦都没了。\n* **All my troubles are gone.** 我所有的烦恼都没了。\n* **All the trouble is gone.** 麻烦都过去了。（这里 **trouble** 也可作不可数）\n\n如果你是想问某个具体语境下的翻译，可以把上下文发我。"
+    },
+    {
+      "role": "User",
+      "content": "这个语法真的正确吗"
+    },
+    {
+      "role": "AI",
+      "content": "从语法上说，**All the troubles are gone.** 是正确的。\n\n拆开看：\n\n* **All the troubles**：复数主语，中心词是 **troubles**\n* **are**：复数动词，和复数主语一致\n* **gone**：过去分词作形容词，表示“消失了、不在了”\n\n所以结构是：\n\n**主语（复数）+ be 动词（are）+ 形容词（gone）**\n\n这完全符合英语语法。\n\n类似例子：\n\n* **All the students are gone.** 所有学生都走了。\n* **All my friends are gone.** 我所有的朋友都不在了。\n* **The days are gone.** 那些日子一去不复返了。\n\n不过要注意一点：\n\n**trouble** 作“麻烦、烦恼”讲时，通常更常作**不可数名词**，所以更常见的说法是：\n\n* **All the trouble is gone.**\n* **All my trouble is gone.**\n\n但 **troubles** 也可以作可数名词，表示“种种麻烦、各种烦恼”，这时：\n\n* **All the troubles are gone.**\n\n也是对的，只是语气上更强调“一件件具体的麻烦事都没了”。\n\n所以结论：\n\n* 语法正确：**All the troubles are gone.**\n* 更常见、更自然：**All the trouble is gone.** 或 **All my troubles are gone.**（看语境）"
+    },
+    {
+      "role": "User",
+      "content": "daytime前用什么介词？"
+    },
+    {
+      "role": "AI",
+      "content": "**daytime** 前常用介词是 **in**，有时用 **during**。\n\n最常见：\n\n* **in the daytime**：在白天  \n  例：He sleeps in the daytime. 他白天睡觉。\n\n也可以说：\n\n* **during the daytime**：在白天期间  \n  例：The park is crowded during the daytime. 白天公园里很拥挤。\n\n一般不用 **at the daytime**。\n\n但如果是 **at night**（在晚上），那是固定搭配；和 **daytime** 对应时，通常说：\n\n* **in the daytime** / **during the day**\n* **at night**\n\n所以：  \n**白天：in the daytime / during the daytime**  \n**晚上：at night**"
+    },
+    {
+      "role": "User",
+      "content": "I hold the firm belief that..."
+    },
+    {
+      "role": "AI",
+      "content": "**I hold the firm belief that...** 这个表达**语法正确**，意思也很清楚：\n\n**我坚信……**  \n**我坚定地认为……**\n\n结构是：\n\n* **I hold**：我持有\n* **the firm belief**：坚定的信念\n* **that...**：同位语从句，说明 belief 的内容\n\n例：\n\n* **I hold the firm belief that hard work pays off.**  \n  我坚信努力会有回报。\n* **I hold the firm belief that everyone deserves a second chance.**  \n  我坚信每个人都值得第二次机会。\n\n不过要注意语体：\n\n* 这个表达**偏正式、书面化**，适合议论文、演讲、作文开头等。\n* 日常口语里更自然的是：\n\n  + **I firmly believe that...**\n  + **I strongly believe that...**\n  + **I’m firmly convinced that...**\n\n所以：  \n**I hold the firm belief that...** 完全能用，但略显正式、有点“套话”感。  \n如果想让表达更自然，可以用 **I firmly believe that...**。"
+    },
+    {
+      "role": "User",
+      "content": "Can firm be placed by another better word?"
+    },
+    {
+      "role": "AI",
+      "content": "可以的。**firm** 本身没问题，但如果你想换一个更自然、更有力或更书面化的词，要看你想表达哪种“坚定”。\n\n常见替换：\n\n1. **strong belief**\n\n   * **I hold the strong belief that...**\n   * 更常见，但语气比 **firm** 稍弱一点。\n2. **deep belief**\n\n   * **I hold the deep belief that...**\n   * 强调“内心深处坚信”，偏书面、带感情。\n3. **firm conviction**\n\n   * **I hold the firm conviction that...**\n   * 比 **belief** 更正式、更有力量，表示“坚定信念”。\n4. **strong conviction**\n\n   * **I hold the strong conviction that...**\n   * 很自然，语气强。\n5. **unshakable belief / conviction**\n\n   * **I hold the unshakable belief that...**\n   * 强调“不可动摇的信念”，很有力量，但稍夸张。\n6. **deep-rooted belief**\n\n   * **I hold the deep-rooted belief that...**\n   * 强调“根深蒂固的信念”。\n7. **firmly believe**\n\n   * 如果你想改整个句型，最自然是：\n   * **I firmly believe that...**\n   * 这比 **I hold the firm belief that...** 更简洁、更常见。\n\n如果只是把 **firm** 换掉，比较推荐：\n\n* **I hold the strong belief that...**（自然）\n* **I hold the firm conviction that...**（更有力、更正式）\n* **I hold the deep conviction that...**（更书面、更有情感）\n* **I hold the unshakable belief that...**（最强，但略夸张）\n\n不过说实话，**I hold the firm belief that...** 已经很标准，只是有点模板化。  \n如果想让整句更好，最推荐直接改成：\n\n**I firmly believe that...**\n\n或更正式一点：\n\n**I hold the firm conviction that...**"
+    },
+    {
+      "role": "User",
+      "content": "unprecedented"
+    },
+    {
+      "role": "AI",
+      "content": "**unprecedented** 意思是：\n\n**前所未有的；史无前例的；空前的**\n\n读音：/ʌnˈpresɪdentɪd/\n\n拆解：\n\n* **un-**：不、没有\n* **precedent**：先例\n* **-ed**：形容词后缀\n\n所以字面就是“没有先例的”。\n\n**常见搭配**\n\n* **unprecedented situation**：前所未有的局面\n* **unprecedented challenge**：前所未有的挑战\n* **unprecedented opportunity**：前所未有的机会\n* **unprecedented growth**：空前的增长\n* **unprecedented level**：前所未有的水平\n* **on an unprecedented scale**：以空前的规模\n* **at an unprecedented rate**：以前所未有的速度\n\n**例句**\n\n* The world is facing an unprecedented crisis.  \n  世界正面临一场前所未有的危机。\n* This is an unprecedented event in modern history.  \n  这是现代史上史无前例的事件。\n* The company achieved unprecedented success.  \n  这家公司取得了空前的成功。\n* We are living in unprecedented times.  \n  我们正生活在一个前所未有的时代。\n\n**注意**\n\n它通常带有“罕见、重大、值得注意”的意味，不一定是好事，也不一定是坏事，具体看语境。\n\n近义词：\n\n* **unparalleled**：无与伦比的\n* **extraordinary**：非凡的\n* **record-breaking**：破纪录的\n* **never seen before**：以前从未见过的\n\n反义词：\n\n* **precedented**（很少用）\n* **common**：常见的\n* **ordinary**：普通的\n* **routine**：常规的\n\n如果你想把 **unprecedented** 用在某个句子里，可以发我，我帮你看是否自然。"
+    },
+    {
+      "role": "User",
+      "content": "obessesive"
+    },
+    {
+      "role": "AI",
+      "content": "你拼的 **obessesive** 多了一个 **s**，正确拼写是：\n\n**obsessive**\n\n意思是：\n\n**痴迷的；着迷的；强迫性的；过度关注的**\n\n读音：/əbˈsesɪv/\n\n词根：\n\n* **obsess**：使痴迷、使着魔\n* **obsessive**：痴迷的、强迫性的\n\n**常见意思**\n\n1. **对某事过度痴迷的**\n\n   * **obsessive about something**\n   * He is obsessive about cleanliness.  \n     他有洁癖/他对清洁过度在意。\n2. **强迫性的**\n\n   * **obsessive behavior**：强迫性行为\n   * **obsessive thoughts**：强迫性想法\n3. **口语里也可表示“特别着迷的”**\n\n   * She’s obsessive about that band.  \n     她对那个乐队特别着迷。\n\n**常见搭配**\n\n* **obsessive-compulsive disorder (OCD)**：强迫症\n* **obsessive fan**：痴迷的粉丝\n* **obsessive interest**：过度的兴趣\n* **obsessive attention to detail**：对细节的过度关注\n\n**近义词**\n\n* **compulsive**：强迫性的\n* **fixated**：执着的、念念不忘的\n* **fanatical**：狂热的\n* **consumed**：被……吞噬的、全身心投入的\n\n**注意**\n\n* **obsessive** 是形容词\n* **obsessively** 是副词：痴迷地、强迫性地\n* **obsession** 是名词：痴迷、执念\n* **obsess** 是动词：使痴迷、使困扰\n\n如果你想问的是它在某个句子里的意思，可以把句子发我。"
+    },
+    {
+      "role": "User",
+      "content": "I used to get obsessive of you."
+    },
+    {
+      "role": "AI",
+      "content": "这句话**不太自然**，主要问题是搭配：\n\n**obsessive 后面通常不接 of**，一般用：\n\n* **be obsessive about somebody/something**\n* **be obsessive over somebody/something**\n\n所以更自然的说法是：\n\n**I used to be obsessive about you.**  \n或  \n**I used to be obsessive over you.**\n\n意思大概是：\n\n**我以前对你很痴迷。**  \n**我以前对你特别着迷/过度在意。**\n\n不过如果你想表达的是“我曾经迷恋你”，更自然、更常见的英语是：\n\n* **I used to be obsessed with you.**  \n  我以前迷恋过你。\n\n注意区别：\n\n* **obsessed with**：对……着迷、迷恋（最常用）\n* **obsessive about/over**：对……过度在意、痴迷到有点强迫的程度\n\n所以你这句如果改成：\n\n**I used to be obsessed with you.**\n\n是最自然、最像英语母语者会说的。\n\n如果你就是想保留 **obsessive**，那可以说：\n\n**I used to be obsessive about you.**\n\n但语气比 **obsessed with** 更强调“过度在意、有点病态地关注”。"
+    },
+    {
+      "role": "User",
+      "content": "辅助表元的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“辅助表元”这个说法要看具体语境，常见翻译有：\n\n1. **如果指数学/逻辑中的辅助元素**  \n   **auxiliary element**\n2. **如果指表格中的辅助表元/辅助单元格**  \n   **auxiliary cell**  \n   或 **helper cell**\n3. **如果指某个集合、矩阵、关系中的辅助元素**  \n   **auxiliary element**\n4. **如果“表元”是“表元素”的意思**  \n   **table element**  \n   那“辅助表元”就是：  \n   **auxiliary table element**\n5. **如果“表元”是数据库/表格里的“单元格”**  \n   **cell**  \n   辅助表元：**auxiliary cell**\n\n不过，“表元”这个词本身比较专业，不同领域可能对应不同英文。  \n如果你能告诉我它出现在哪个领域，比如：\n\n* 数学集合论\n* 数据库表\n* 表格/Excel\n* 逻辑学\n* 编程数据结构\n\n我可以给你更准确的英文。"
+    },
+    {
+      "role": "User",
+      "content": "初始化的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“初始化”的英文是：\n\n**initialization**（名词）  \n**initialize**（动词）\n\n英式拼写也常写作：\n\n**initialisation**  \n**initialise**\n\n常见用法：\n\n* **初始化系统**：initialize the system\n* **初始化变量**：initialize a variable\n* **初始化设置**：initialization settings\n* **初始化过程**：initialization process\n* **默认初始化**：default initialization\n\n在编程里很常见，比如：\n\n* **initialize an array**：初始化数组\n* **initialize the database**：初始化数据库\n* **system initialization**：系统初始化\n\n所以：  \n**初始化 = initialization / initialize**"
+    },
+    {
+      "role": "User",
+      "content": "初始化的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“初始化”的英文是：\n\n**initialize**（动词）  \n**initialization**（名词，美式拼写）  \n**initialisation**（名词，英式拼写）\n\n常见搭配：\n\n* **initialize a variable**：初始化变量\n* **initialize the system**：初始化系统\n* **system initialization**：系统初始化\n* **initialization process**：初始化过程\n\n如果指编程里的“初始化”，最常用就是 **initialize**。"
+    },
+    {
+      "role": "User",
+      "content": "考察的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“考察”的英文要看具体语境，常见有：\n\n**1. 考察、调查、审视（最常用）**\n\n* **examine**\n* **investigate**\n* **look into**\n* **study**\n\n例：\n\n* 考察一个问题：**examine a problem**\n* 考察市场：**investigate the market**\n\n**2. 实地考察、参观考察**\n\n* **inspect**\n* **tour**\n* **field trip**\n* **field study**\n* **on-site inspection**\n\n例：\n\n* 去某地考察：**make a field trip to...**\n* 实地考察：**on-site inspection / field investigation**\n\n**3. 考察某人（评估能力、表现）**\n\n* **assess**\n* **evaluate**\n* **review**\n\n例：\n\n* 考察员工表现：**assess an employee’s performance**\n\n**4. 学术/研究中的“考察”**\n\n* **investigate**\n* **explore**\n* **survey**\n\n例：\n\n* 考察某现象：**investigate a phenomenon**\n* 考察影响因素：**explore the influencing factors**\n\n**5. 作为名词“考察”**\n\n* **investigation**\n* **inspection**\n* **study**\n* **survey**\n* **assessment**\n* **field trip**\n\n所以最常用的几个是：\n\n* **investigate**：调查、考察\n* **examine**：考察、审视\n* **inspect**：实地考察、检查\n* **assess / evaluate**：考察评估\n* **field trip / field study**：实地考察\n\n如果你有具体句子，我可以帮你选最合适的那个。"
+    },
+    {
+      "role": "User",
+      "content": "复位的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“复位”的英文要看语境，常见有：\n\n**1. 机械/按钮/开关“复位、归位”**\n\n* **reset**\n* **restore**\n* **return to position**\n\n例：\n\n* 按复位键：**press the reset button**\n* 复位开关：**reset switch**\n\n**2. 电子/系统“复位、重置”**\n\n* **reset**\n* **restore**\n* **reinitialize**\n\n例：\n\n* 系统复位：**system reset**\n* 复位电路：**reset circuit**\n\n**3. 医疗“复位”（骨头、关节等）**\n\n* **reduce**\n* **reduction**\n* **reset**\n\n例：\n\n* 骨折复位：**fracture reduction**\n* 关节复位：**joint reduction**\n\n**4. 位置/状态“恢复到原位”**\n\n* **return to the original position**\n* **restore to the original state**\n* **reposition**\n\n**5. 计算机/程序“复位”**\n\n* **reset**\n* **clear**\n* **restore**\n\n最常用的就是：\n\n**reset**\n\n如果是医学上的“复位”，通常用：\n\n**reduction**\n\n所以：\n\n* 一般复位：**reset**\n* 医疗复位：**reduction / reduce**\n* 恢复原位：**return to position / reposition**"
+    },
+    {
+      "role": "User",
+      "content": "数据的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“数据”的英文是：\n\n**data**\n\n注意：\n\n* **data** 通常是复数名词，单数是 **datum**\n* 但在现代英语里，**data** 也常被当作不可数名词使用\n\n例：\n\n* **data analysis**：数据分析\n* **data collection**：数据收集\n* **big data**：大数据\n* **data processing**：数据处理\n* **a piece of data**：一条数据\n* **These data are...** 或 **This data is...** 都可以，后者更口语、更常见\n\n所以最常用就是：\n\n**data**"
+    },
+    {
+      "role": "User",
+      "content": "portion"
+    },
+    {
+      "role": "AI",
+      "content": "**portion** 主要有这几个意思：\n\n**1. 部分、份额**\n\n* **a portion of...**：……的一部分\n* 例：A portion of the profit was donated. 一部分利润被捐了出去。\n\n**2. 一份（食物）**\n\n* 例：a small portion of rice 一小份米饭\n* 常见搭配：**portion size** 份量\n\n**3. 分配、分给**\n\n* **portion out**：把……分成份、分配\n* 例：She portioned out the food. 她把食物分成了份。\n\n**常见搭配**\n\n* **a portion of**：一部分\n* **portion size**：份量\n* **portion out**：分配、分发\n* **serving portion**：一份的量\n\n**近义词**\n\n* **part**：部分\n* **section**：部分、区段\n* **share**：份额\n* **serving**：一份食物\n* **allocation**：分配额\n\n**注意**\n\n* **portion** 作名词时，常指“从整体中分出来的一部分”或“一份食物”。\n* 如果只是泛指“部分”，**part** 更常用；如果是“一份食物”，**portion** 很常用。\n\n如果你有具体句子，我可以帮你判断用 **portion** 是否合适。"
+    },
+    {
+      "role": "User",
+      "content": "uniformly"
+    },
+    {
+      "role": "AI",
+      "content": "**uniformly** 是副词，意思是：\n\n**一致地；统一地；均匀地**\n\n读音：/ˈjuːnɪfɔːrmli/\n\n词根：\n\n* **uniform**：统一的、一致的、均匀的\n* **-ly**：副词后缀\n\n**常见意思**\n\n1. **一致地、统一地**\n\n   * The rules are applied uniformly.  \n     这些规则被统一执行。\n2. **均匀地**\n\n   * The paint spread uniformly.  \n     油漆均匀地散开。\n   * uniformly distributed  \n     均匀分布的\n3. **始终如一地、一贯地**\n\n   * He was uniformly polite to everyone.  \n     他对每个人都始终彬彬有礼。\n\n**常见搭配**\n\n* **uniformly distributed**：均匀分布的\n* **uniformly accepted**：被普遍接受的\n* **uniformly applied**：统一适用的\n* **uniformly high/low**：普遍偏高/偏低\n\n**近义词**\n\n* **consistently**：一贯地\n* **evenly**：均匀地\n* **equally**：平等地、同样地\n* **uniformly** 更强调“没有差异、统一一致”\n\n**注意**\n\n* **uniform** 作形容词：统一的、一致的、均匀的\n* **uniformly** 作副词：一致地、均匀地\n* **uniformity** 作名词：一致性、统一性\n\n如果你有具体句子，我可以帮你判断 **uniformly** 用得是否自然。"
+    },
+    {
+      "role": "User",
+      "content": "manipulate"
+    },
+    {
+      "role": "AI",
+      "content": "**manipulate** 主要有这几个意思：\n\n**1. 操纵、控制（人、局势、市场等）**\n\n* **manipulate people**：操纵别人\n* **manipulate the market**：操纵市场\n* **manipulate public opinion**：操纵舆论\n\n例：He tried to manipulate her into doing what he wanted.  \n他试图操纵她去做他想让她做的事。\n\n**2. 熟练操作、使用（工具、机器等）**\n\n* **manipulate a machine**：熟练操作机器\n* **manipulate the controls**：操作控制装置\n\n例：She can manipulate the device with one hand.  \n她能单手操作这个设备。\n\n**3. 篡改、做手脚（数据、账目等）**\n\n* **manipulate data**：篡改数据\n* **manipulate figures**：在数字上做手脚\n* **manipulate accounts**：做假账\n\n例：The company was accused of manipulating its financial records.  \n这家公司被指控篡改财务记录。\n\n**4. 医学/物理中“手法操作、推拿”**\n\n* **manipulate a joint**：手法复位关节\n* **manipulation**：手法操作、推拿\n\n**常见搭配**\n\n* **manipulate somebody into doing something**：操纵某人做某事\n* **manipulate data**：操纵/篡改数据\n* **manipulate public opinion**：操纵舆论\n* **market manipulation**：市场操纵\n* **photo manipulation**：照片篡改/修图\n\n**词性变化**\n\n* **manipulate**：动词\n* **manipulation**：名词\n* **manipulative**：形容词，善于操纵的、控制欲强的\n* **manipulator**：名词，操纵者\n\n**语气**  \n这个词通常带**负面含义**，尤其指用不正当、隐蔽的手段控制别人或事物。  \n如果只是“操作机器”，则比较中性。\n\n如果你有具体句子，我可以帮你判断它在这里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "bearer"
+    },
+    {
+      "role": "AI",
+      "content": "**bearer** 主要有这几个意思：\n\n**1. 持有者、携带者**\n\n* **bearer of good news**：带来好消息的人\n* **bearer of bad news**：报坏消息的人\n* **card bearer**：持卡人\n* **passport bearer**：护照持有人\n\n**2. 送信人、捎信人**\n\n* **the bearer of this letter**：这封信的送信人\n* 旧式用法，常见于正式书信：**To the bearer of this letter...**\n\n**3. 金融/票据中的“持票人”**\n\n* **bearer**：持票人、持有人\n* **bearer bond**：无记名债券\n* **bearer cheque**：无记名支票\n* **payable to bearer**：凭票付款、付给持票人\n\n**4. 承载者、承担者**\n\n* **bearer of a burden**：承担重担的人\n* **bearer of responsibility**：责任的承担者\n\n**5. 医疗/生物中的“携带者”**\n\n* **disease bearer**：疾病携带者\n* 但更常见的是 **carrier**，比如 **carrier of a disease**\n\n**常见搭配**\n\n* **bearer of good/bad news**：好消息/坏消息的传递者\n* **bearer bond**：无记名债券\n* **bearer token**：持有者令牌（计算机领域）\n* **flag bearer**：旗手、扛旗者\n* **standard bearer**：旗手；也指领袖、倡导者\n\n**注意**\n\n* **bearer** 强调“拿着、持有、携带”的人或物。\n* 如果是疾病携带者，通常用 **carrier**，不是 **bearer**。\n* 在计算机里 **bearer token** 很常见，意思是“持有者令牌”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "inclination"
+    },
+    {
+      "role": "AI",
+      "content": "**inclination** 主要有这几个意思：\n\n**1. 倾向、意愿**\n\n* **inclination to do something**：做某事的倾向/意愿\n* **have an inclination to...**：倾向于……\n* **show little inclination to...**：不太愿意……\n\n例：He showed no inclination to leave.  \n他没有要走的意思。\n\n**2. 倾向、趋势**\n\n* **an inclination toward(s)...**：对……的倾向\n* **natural inclination**：天生的倾向\n* 例：She has an inclination toward(s) art.  \n  她对艺术有偏好/倾向。\n\n**3. 倾斜、斜度**\n\n* **angle of inclination**：倾角\n* **the inclination of the roof**：屋顶的倾斜度\n\n**4. 点头、弯腰（表示同意或问候）**\n\n* 例：a slight inclination of the head  \n  微微点头\n\n**常见搭配**\n\n* **have an inclination to do something**：倾向于做某事\n* **show no inclination to do something**：没有做某事的意愿\n* **natural inclination**：天性、自然倾向\n* **angle of inclination**：倾角\n* **inclination toward(s)**：对……的倾向\n\n**词性变化**\n\n* **incline**：动词，倾向；使倾斜\n* **inclined**：形容词，倾向于……的\n\n  + **be inclined to do something**：倾向于做某事\n* **inclination**：名词\n\n**近义词**\n\n* **tendency**：倾向、趋势\n* **preference**：偏好\n* **disposition**：性情、倾向\n* **leaning**：倾向、偏向\n\n**注意**\n\n* **inclination** 比 **tendency** 更常带有“个人意愿、偏好”的意味。\n* **tendency** 更偏“客观趋势、习惯性倾向”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "reap"
+    },
+    {
+      "role": "AI",
+      "content": "**reap** 主要有这几个意思：\n\n**1. 收割、收获（庄稼）**\n\n* **reap the harvest**：收割庄稼\n* **reap wheat**：收割小麦\n\n例：The farmers are busy reaping the rice.  \n农民们正忙着收割稻子。\n\n**2. 获得、得到（回报、好处、结果）**\n\n* **reap the benefits**：获得好处\n* **reap the rewards**：得到回报\n* **reap what you sow**：种瓜得瓜，种豆得豆；自食其果\n* **reap the consequences**：承担后果\n\n例：If you work hard now, you'll reap the benefits later.  \n如果你现在努力，以后就会受益。\n\n**3. 遭受、招致（不好的结果）**\n\n* **reap the consequences of...**：因……而自食其果\n* **reap the whirlwind**：自食恶果（来自《圣经》）\n\n**常见搭配**\n\n* **reap the benefits/rewards**：获得好处/回报\n* **reap what you sow**：种什么因得什么果\n* **reap a profit**：获利\n* **reap the harvest**：收割庄稼；收获成果\n* **reap the consequences**：承担后果\n\n**词性变化**\n\n* **reap**：动词\n* **reaper**：名词，收割者；收割机\n* **reaping**：名词/动名词，收割；收获\n\n**近义词**\n\n* **harvest**：收割；收获\n* **gain**：获得\n* **obtain**：得到\n* **earn**：赚取、赢得\n\n**注意**\n\n* **reap** 常和 **what you sow** 连用，表示“种瓜得瓜，种豆得豆”。\n* **reap the benefits/rewards** 是非常常见的固定搭配。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "“对应的”的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“对应的”英文要看语境，常见有：\n\n**1. 最常用：corresponding**\n\n* **the corresponding value**：对应的值\n* **the corresponding author**：通讯作者\n* **corresponding changes**：相应的变化\n\n**2. 强调“相匹配的”：matching**\n\n* **the matching key**：对应的钥匙\n* **a matching pair**：对应的一对\n\n**3. 强调“分别对应的”：respective**\n\n* **their respective roles**：他们各自对应的角色\n* **the respective answers**：各自对应的答案\n\n**4. 强调“相关的、相应的”：relevant**\n\n* **the relevant information**：对应的/相关的信息\n* **the relevant documents**：相应的文件\n\n**5. 数学/逻辑中“对应的”：corresponding**\n\n* **corresponding angles**：对应角\n* **corresponding points**：对应点\n* **one-to-one correspondence**：一一对应\n\n**常见选择**\n\n* 一般“对应的”：**corresponding**\n* 强调匹配：**matching**\n* 强调各自对应的：**respective**\n* 强调相关相应的：**relevant**\n\n所以最常用、最通用的就是：\n\n**corresponding**\n\n如果你有具体句子，我可以帮你选最合适的词。"
+    },
+    {
+      "role": "User",
+      "content": "反的，颠倒的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“反的、颠倒的”英文要看具体语境，常见有：\n\n**1. 颠倒的、倒过来的**\n\n* **upside down**：上下颠倒\n\n  + The picture is upside down. 画挂反了/倒过来了。\n* **inverted**：倒置的、反向的\n\n  + inverted image 倒像\n* **reversed**：反向的、颠倒的\n\n  + reversed order 相反的顺序\n\n**2. 反的、相反的**\n\n* **opposite**：相反的\n\n  + the opposite direction 相反方向\n* **contrary**：相反的\n\n  + contrary to expectations 与预期相反\n* **reverse**：相反的、反向的\n\n  + the reverse effect 相反的效果\n\n**3. 里外反的**\n\n* **inside out**：里外反了\n\n  + You're wearing your shirt inside out. 你衬衫穿反了。\n\n**4. 前后反的**\n\n* **backwards / backward**：前后颠倒\n\n  + You put your shoes on backwards. 你鞋穿反了。\n\n**5. 数学/逻辑中“逆的”**\n\n* **inverse**：逆的、反的\n\n  + inverse function 反函数\n  + inverse relationship 反比关系\n\n**常见区分**\n\n* 上下颠倒：**upside down**\n* 里外反：**inside out**\n* 前后反：**backwards**\n* 顺序反：**reversed**\n* 性质相反：**opposite / contrary**\n* 数学逆：**inverse**\n\n如果你有具体句子，我可以帮你选最合适的那个。"
+    },
+    {
+      "role": "User",
+      "content": "elevate"
+    },
+    {
+      "role": "AI",
+      "content": "**elevate** 主要有这几个意思：\n\n**1. 举起、抬高（物理位置）**\n\n* **elevate the platform**：抬高平台\n* **elevate your legs**：把腿抬高\n\n例：The doctor told him to elevate his injured foot.  \n医生让他把受伤的脚抬高。\n\n**2. 提升、提高（水平、地位、质量）**\n\n* **elevate the standard**：提高标准\n* **elevate the quality**：提升质量\n* **elevate your mood**：改善情绪\n* **elevate somebody to a position**：把某人提升到某个职位\n\n例：The goal is to elevate the company's reputation.  \n目标是提升公司的声誉。\n\n**3. 使高尚、使更有思想**\n\n* **elevate the mind**：陶冶心灵\n* **elevating experience**：提升人的体验/高尚的体验\n\n**常见搭配**\n\n* **elevate the status**：提升地位\n* **elevate the risk**：增加/提高风险\n* **elevate blood pressure**：使血压升高\n* **elevate the conversation**：提升对话层次\n* **elevate to**：提升到……\n\n**词性变化**\n\n* **elevate**：动词\n* **elevation**：名词，提升；海拔；高度\n* **elevated**：形容词，升高的；提高的；高尚的\n* **elevator**：名词，电梯（美式）\n\n**近义词**\n\n* **raise**：举起、提高\n* **lift**：抬起\n* **promote**：提升、促进\n* **enhance**：增强、提升\n* **upgrade**：升级、提升\n\n**注意**\n\n* **elevate** 比 **raise** 更正式。\n* **raise** 更通用；**elevate** 常带“提升到更高层次”的意味。\n* 医疗里 **elevate** 常指“把身体部位抬高”。\n* 抽象意义里常指“提升地位、水平、品质、情绪”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "wired"
+    },
+    {
+      "role": "AI",
+      "content": "**wired** 主要有这几个意思，具体看语境：\n\n**1. 联网的、接网的**\n\n* **wired internet**：有线网络\n* **wired connection**：有线连接\n* 反义词：**wireless**（无线的）\n\n**2. 接了电线的、布好线的**\n\n* **a wired house**：布好线的房子\n* **wired for sound**：装好音响线路的\n\n**3. 兴奋的、亢奋的（口语）**\n\n* **I’m wired.**：我特别兴奋/精神亢奋。\n* 常指喝了咖啡、能量饮料后那种“来劲、睡不着”的状态。\n* 例：I’m too wired to sleep. 我太亢奋了，睡不着。\n\n**4. 紧张的、焦虑不安的（口语）**\n\n* 有时也指神经紧绷、坐立不安。\n* 例：He gets wired before every exam. 他每次考试前都紧张得不行。\n\n**5. 固定的、根深蒂固的（较正式）**\n\n* **a wired-in habit**：根深蒂固的习惯\n* 但这种用法不如前几种常见。\n\n**常见搭配**\n\n* **wired connection**：有线连接\n* **wired network**：有线网络\n* **get wired**：变得兴奋/紧张\n* **wired up**：接好线；也口语指“兴奋起来”\n* **wired for**：为……接好线；天生适合……\n\n**注意**\n\n* 最常见的是“有线的、联网的”和口语里的“兴奋的、亢奋的”。\n* 如果是“无线”，就是 **wireless**。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "consensus"
+    },
+    {
+      "role": "AI",
+      "content": "**consensus** 意思是：\n\n**共识；一致意见；共同看法**\n\n读音：/kənˈsensəs/\n\n**常见用法**\n\n* **reach a consensus**：达成共识\n* **build a consensus**：建立共识\n* **there is a consensus that...**：人们普遍认为……\n* **a general consensus**：普遍共识\n* **consensus opinion**：共识意见\n* **consensus decision**：协商一致的决定\n\n**例句**\n\n* We finally reached a consensus.  \n  我们最终达成了共识。\n* There is a growing consensus that climate change is a serious threat.  \n  越来越多的人一致认为气候变化是严重威胁。\n* The group couldn't reach a consensus on the issue.  \n  这个小组在这个问题上无法达成共识。\n\n**注意**\n\n* **consensus** 通常指一群人形成的“共同意见”，不是某一个人的观点。\n* 常见搭配是 **reach a consensus**，不是 ~~reach consensus~~ 也可以，但加 **a** 更常见。\n* 不要和 **census**（人口普查）混淆，拼写和意思都不同。\n\n**近义词**\n\n* **agreement**：一致、同意\n* **accord**：一致、协议\n* **unanimity**：全体一致\n* **common ground**：共同点、共识基础\n\n如果你有具体句子，我可以帮你看它用得是否自然。"
+    },
+    {
+      "role": "User",
+      "content": "integral"
+    },
+    {
+      "role": "AI",
+      "content": "**integral** 主要有这几个意思：\n\n**1. 不可或缺的、构成整体所必需的**\n\n* **an integral part of...**：……不可分割的一部分\n* **integral to...**：对……必不可少\n\n例：Music is an integral part of the culture.  \n音乐是这种文化中不可或缺的一部分。\n\n* Trust is integral to a good relationship.  \n  信任对良好的关系至关重要。\n\n**2. 完整的、整体的**\n\n* **integral whole**：完整的整体\n* 强调各部分构成一个完整统一体。\n\n**3. 数学中的“积分的”**\n\n* **integral**：积分；积分的\n* **integral calculus**：积分学\n* **definite integral**：定积分\n* **indefinite integral**：不定积分\n\n**常见搭配**\n\n* **an integral part of**：……不可分割的一部分\n* **integral to**：对……必不可少\n* **integral component**：不可或缺的组成部分\n* **integral role**：不可或缺的作用\n* **integral calculus**：积分学\n\n**词性变化**\n\n* **integral**：形容词；也可作名词，指“积分”\n* **integrate**：动词，整合、使成为一体\n* **integration**：名词，整合、一体化\n* **integrity**：名词，完整、正直\n\n**近义词**\n\n* **essential**：必不可少的\n* **necessary**：必要的\n* **fundamental**：根本的、基础的\n* **intrinsic**：内在的、固有的\n\n**注意**\n\n* **integral** 作“不可或缺的”时，常和 **part** 连用：**an integral part of**。\n* 作“完整的”时，语气比 **whole** 更正式。\n* 数学里就是“积分”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "soprano"
+    },
+    {
+      "role": "AI",
+      "content": "**soprano** 意思是：\n\n**女高音；高音部；女高音歌手**\n\n读音：/səˈprɑːnoʊ/（美） /səˈprɑːnəʊ/（英）\n\n**常见意思**\n\n1. **女高音（人）**\n\n   * She is a soprano.  \n     她是一名女高音歌手。\n2. **女高音声部**\n\n   * She sings soprano.  \n     她唱女高音。\n3. **最高音的音乐声部**\n\n   * the soprano part  \n     女高音声部\n\n**常见搭配**\n\n* **soprano singer**：女高音歌手\n* **soprano voice**：女高音嗓音\n* **lyric soprano**：抒情女高音\n* **coloratura soprano**：花腔女高音\n* **dramatic soprano**：戏剧女高音\n\n**相关声部**\n\n* **soprano**：女高音\n* **mezzo-soprano**：女中音\n* **alto**：女低音\n* **tenor**：男高音\n* **baritone**：男中音\n* **bass**：男低音\n\n**注意**\n\n* **soprano** 可以指人，也可以指声部。\n* 复数：**sopranos**\n* 在合唱中，**Soprano** 常缩写为 **S.** 或 **Sop.**\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "genre"
+    },
+    {
+      "role": "AI",
+      "content": "**genre** 意思是：\n\n**体裁；类型；风格；流派**\n\n读音：/ˈʒɑːnrə/（美） /ˈʒɒnrə/（英）\n\n**常见意思**\n\n1. **文学、艺术、音乐、电影等的体裁/类型**\n\n   * **music genre**：音乐类型\n   * **film genre**：电影类型\n   * **literary genre**：文学体裁\n   * **a new genre**：一种新流派\n2. **某类作品的整体风格**\n\n   * **genre fiction**：类型小说（如科幻、悬疑、爱情等）\n   * **genre painting**：风俗画\n\n**常见搭配**\n\n* **music genre**：音乐类型\n* **film/movie genre**：电影类型\n* **literary genre**：文学体裁\n* **genre fiction**：类型小说\n* **a genre of**：一种……类型\n\n**例句**\n\n* What genre of music do you like?  \n  你喜欢什么类型的音乐？\n* Science fiction is a popular genre.  \n  科幻小说是一种很受欢迎的类型。\n* This film blends several genres.  \n  这部电影融合了好几种类型。\n\n**近义词**\n\n* **category**：类别\n* **type**：类型\n* **kind**：种类\n* **style**：风格\n* **school**：流派\n\n**注意**\n\n* **genre** 更常用于艺术、文学、音乐、电影等领域，比 **type** 更正式、更专业。\n* 复数：**genres**\n\n如果你有具体句子，我可以帮你看它用得是否自然。"
+    },
+    {
+      "role": "User",
+      "content": "统计的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“统计”的英文要看词性和语境：\n\n**1. 作名词：统计学 / 统计数据**\n\n* **statistics**：统计学；统计数据\n\n  + **statistics** 作“统计学”时是单数概念：Statistics is useful.\n  + 作“统计数据”时是复数：The statistics are clear.\n* **statistic**：单条统计数字\n\n  + a statistic 一项统计数据\n\n**2. 作动词：统计、统计得出**\n\n* **count**\n* **tally**\n* **compile statistics**\n* **collect data**\n* **calculate**\n\n例：\n\n* 统计人数：**count the number of people**\n* 统计结果：**tally the results**\n* 统计数据：**collect statistics / compile statistics**\n\n**3. 作形容词：统计的**\n\n* **statistical**\n\n  + statistical analysis 统计分析\n  + statistical data 统计数据\n  + statistical significance 统计显著性\n\n**常见搭配**\n\n* **statistical analysis**：统计分析\n* **statistical data**：统计数据\n* **statistical method**：统计方法\n* **statistics**：统计学；统计数据\n* **official statistics**：官方统计数据\n\n**总结**\n\n* 统计学 / 统计数据：**statistics**\n* 统计的（形容词）：**statistical**\n* 统计（动词）：**count / tally / compile statistics**\n\n如果你有具体句子，我可以帮你选最合适的词。"
+    },
+    {
+      "role": "User",
+      "content": "插入的英文"
+    },
+    {
+      "role": "AI",
+      "content": "“插入”的英文要看语境，常见有：\n\n**1. 最常用：insert**\n\n* **insert a card**：插入卡片\n* **insert a coin**：投入硬币\n* **insert a key**：插入钥匙\n* **insert a word**：插入一个词\n\n**2. 把东西塞进/放进：put in / place in**\n\n* **put in the battery**：装入电池\n* **place the file in the folder**：把文件放进文件夹\n\n**3. 插入文字/段落：insert / add**\n\n* **insert a paragraph**：插入一段\n* **add a sentence**：加一句话\n\n**4. 计算机/编程中“插入”：insert**\n\n* **insert a row**：插入一行\n* **insert a node**：插入节点\n* **INSERT statement**：插入语句（SQL）\n\n**5. 插话：interject / cut in / insert**\n\n* **interject**：插话\n* **cut in**：插嘴\n* **He inserted a comment.**：他插了一句评论。\n\n**6. 插进、刺入：insert / stick in**\n\n* **stick a needle in**：把针插进去\n\n**常见搭配**\n\n* **insert into**：插入到……\n* **insert between**：插入到……之间\n* **insert a picture**：插入图片\n* **insert a table**：插入表格\n\n**总结**\n\n* 一般“插入”：**insert**\n* 插话：**interject / cut in**\n* 塞进去：**put in / stick in**\n\n如果你有具体句子，我可以帮你选最合适的词。"
+    },
+    {
+      "role": "User",
+      "content": "esteem"
+    },
+    {
+      "role": "AI",
+      "content": "**esteem** 意思是：\n\n**尊重；敬重；好评；珍视**\n\n读音：/ɪˈstiːm/\n\n**1. 作名词：尊重、敬重**\n\n* **high esteem**：高度尊重\n* **hold somebody in high esteem**：非常敬重某人\n* **gain/win somebody's esteem**：赢得某人的尊重\n* **self-esteem**：自尊\n\n例：\n\n* He is held in high esteem by his colleagues.  \n  他深受同事敬重。\n* Her self-esteem was badly damaged.  \n  她的自尊心受到了严重打击。\n\n**2. 作动词：尊重、敬重、珍视**\n\n* **esteem somebody/something**：尊重/珍视某人某物\n* 较正式，日常口语里更常用 **respect** 或 **value**。\n\n例：\n\n* I greatly esteem your advice.  \n  我非常珍视你的建议。\n\n**常见搭配**\n\n* **hold somebody in high esteem**：敬重某人\n* **a mark of esteem**：敬意的表示\n* **self-esteem**：自尊\n* **gain/win esteem**：赢得尊重\n* **esteem somebody highly**：高度尊重某人\n\n**近义词**\n\n* **respect**：尊重\n* **admiration**：钦佩\n* **regard**：尊重、看重\n* **value**：重视、珍视\n\n**注意**\n\n* **esteem** 比 **respect** 更正式、更书面。\n* **self-esteem** 是常见搭配，意思是“自尊心、自我价值感”。\n* 日常表达“我尊重你”一般说 **I respect you**，而不是 **I esteem you**，后者显得很正式甚至有点老派。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "bureaucracy"
+    },
+    {
+      "role": "AI",
+      "content": "**bureaucracy** 意思是：\n\n**官僚机构；官僚体制；官僚主义；繁琐的行政程序**\n\n读音：/bjʊˈrɑːkrəsi/\n\n**常见意思**\n\n1. **官僚体制 / 官僚机构**\n\n   * 指政府或大型组织中层层审批、按规章办事的体系。\n   * The country has a massive bureaucracy.  \n     这个国家有一个庞大的官僚机构。\n2. **官僚主义 / 官僚作风**\n\n   * 常带贬义，指办事僵化、效率低、繁文缛节多。\n   * I'm tired of all this bureaucracy.  \n     我受够了这些官僚作风。\n3. **繁琐的行政程序**\n\n   * 口语里常说“一堆手续、一堆流程”。\n   * We had to deal with a lot of bureaucracy to get the permit.  \n     为了拿到许可证，我们得处理一大堆繁琐手续。\n\n**常见搭配**\n\n* **government bureaucracy**：政府官僚机构\n* **corporate bureaucracy**：公司官僚体系\n* **cut bureaucracy**：精简官僚程序\n* **red tape**：繁文缛节（和 bureaucracy 意思接近，更强调手续繁琐）\n\n**词性变化**\n\n* **bureaucrat**：官僚\n* **bureaucratic**：官僚的；官僚主义的\n\n  + bureaucratic procedures 官僚程序\n* **bureaucratically**：官僚式地\n\n**近义词**\n\n* **red tape**：繁文缛节\n* **administration**：行政机构\n* **officialdom**：官场、官僚阶层\n* **paperwork**：文书工作\n\n**注意**\n\n* **bureaucracy** 通常是贬义或中性偏贬，尤其指“效率低、程序繁琐”时。\n* 说“官僚体制”是中性描述；说“官僚主义”就是批评了。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "cumbersome"
+    },
+    {
+      "role": "AI",
+      "content": "**cumbersome** 意思是：\n\n**笨重的；繁琐的；累赘的；难以处理的**\n\n读音：/ˈkʌmbərsəm/\n\n**常见意思**\n\n1. **笨重的、不便携带的**\n\n   * a cumbersome suitcase  \n     一个笨重的手提箱\n   * The equipment was too cumbersome to carry.  \n     这设备太笨重，不好携带。\n2. **繁琐的、效率低的**\n\n   * cumbersome procedures  \n     繁琐的程序\n   * a cumbersome process  \n     一个繁琐的流程\n   * The system is slow and cumbersome.  \n     这个系统又慢又麻烦。\n3. **累赘的、拖累的**\n\n   * a cumbersome responsibility  \n     一项累赘的责任\n\n**常见搭配**\n\n* **cumbersome process**：繁琐的流程\n* **cumbersome procedure**：繁琐的程序\n* **cumbersome system**：笨重/低效的系统\n* **cumbersome equipment**：笨重的设备\n* **cumbersome bureaucracy**：繁琐的官僚程序\n\n**近义词**\n\n* **bulky**：笨重的、体积大的\n* **unwieldy**：笨重的、难以操作的\n* **awkward**：笨拙的、不方便的\n* **clumsy**：笨拙的\n* **burdensome**：繁重的、累赘的\n\n**注意**\n\n* **cumbersome** 既可以指物理上“笨重”，也可以指流程、制度“繁琐”。\n* 和 **bureaucracy** 很搭：**cumbersome bureaucracy** 就是“繁琐的官僚程序”。\n\n如果你有具体句子，我可以帮你看它用得是否自然。"
+    },
+    {
+      "role": "User",
+      "content": "horror"
+    },
+    {
+      "role": "AI",
+      "content": "**horror** 意思是：\n\n**恐怖；恐惧；惊骇；恐怖的事物**\n\n读音：/ˈhɔːrər/（美） /ˈhɒrə/（英）\n\n**常见意思**\n\n1. **恐怖、恐惧（强烈情绪）**\n\n   * in horror：惊恐地\n   * She watched in horror as the fire spread.  \n     她惊恐地看着火势蔓延。\n   * He was filled with horror.  \n     他满心恐惧。\n2. **令人恐怖的事物/经历**\n\n   * the horrors of war  \n     战争的恐怖\n   * It was a horror to watch.  \n     看着太可怕了。\n3. **类型：恐怖片/恐怖小说**\n\n   * horror movie / horror film：恐怖片\n   * horror story：恐怖故事\n   * horror novel：恐怖小说\n\n**常见搭配**\n\n* **in horror**：惊恐地\n* **to one's horror**：令某人惊恐的是\n\n  + To my horror, I realized I had lost my keys.  \n    令我惊恐的是，我意识到钥匙丢了。\n* **horror film/movie**：恐怖片\n* **horror story**：恐怖故事；口语里也指“很糟糕的经历”\n* **the horrors of...**：……的恐怖\n\n**词性变化**\n\n* **horror**：名词\n* **horrible**：形容词，可怕的、糟糕的\n* **horrifying**：形容词，令人恐惧的\n* **horrified**：形容词，感到恐惧的\n* **horrify**：动词，使恐惧\n\n**近义词**\n\n* **terror**：恐怖、惊骇\n* **fear**：害怕\n* **dread**：恐惧、畏惧\n* **fright**：惊吓\n\n**注意**\n\n* **horror** 比 **fear** 语气更强，常指“令人毛骨悚然”的那种恐惧。\n* **horror** 也常指电影/文学类型“恐怖”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "terror"
+    },
+    {
+      "role": "AI",
+      "content": "**terror** 意思是：\n\n**恐怖；恐惧；惊骇；恐怖活动**\n\n读音：/ˈterər/（美） /ˈterə/（英）\n\n**常见意思**\n\n1. **极度恐惧、惊骇**\n\n   * in terror：惊恐地\n   * She screamed in terror.  \n     她惊恐地尖叫。\n   * He was filled with terror.  \n     他满心恐惧。\n2. **令人恐惧的人或事物**\n\n   * the terror of war  \n     战争的恐怖\n   * He was the terror of the neighborhood.  \n     他是这一带令人害怕的人。\n3. **恐怖活动、恐怖主义**\n\n   * terror attack：恐怖袭击\n   * terror group：恐怖组织\n   * war on terror：反恐战争\n\n**常见搭配**\n\n* **in terror**：惊恐地\n* **sheer terror**：极度恐惧\n* **strike terror into somebody**：使某人感到恐惧\n* **terror attack**：恐怖袭击\n* **war on terror**：反恐战争\n\n**词性变化**\n\n* **terror**：名词\n* **terrorist**：名词，恐怖分子；形容词，恐怖主义的\n* **terrorism**：名词，恐怖主义\n* **terrify**：动词，使恐惧\n* **terrifying**：形容词，令人恐惧的\n* **terrified**：形容词，感到恐惧的\n\n**近义词**\n\n* **horror**：恐怖、惊骇\n* **fear**：害怕\n* **dread**：恐惧、畏惧\n* **fright**：惊吓\n\n**注意**\n\n* **terror** 比 **fear** 语气强，常指“极度恐惧”。\n* **horror** 和 **terror** 很接近，但 **horror** 更偏“令人毛骨悚然、厌恶的恐惧”，**terror** 更偏“极度惊慌、害怕”。\n* **terror** 还常指“恐怖活动、恐怖主义”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "deceive"
+    },
+    {
+      "role": "AI",
+      "content": "**deceive** 意思是：\n\n**欺骗；蒙骗；误导**\n\n读音：/dɪˈsiːv/\n\n**常见意思**\n\n1. **欺骗某人**\n\n   * **deceive somebody**：欺骗某人\n   * He deceived his parents about his grades.  \n     他在成绩上欺骗了父母。\n2. **误导、使产生错误认识**\n\n   * **deceive oneself**：自欺\n   * Don't deceive yourself.  \n     别自欺欺人了。\n   * Appearances can deceive.  \n     外表会骗人。\n3. **通过欺骗手段得到**\n\n   * **deceive somebody into doing something**：骗某人做某事\n   * She was deceived into signing the contract.  \n     她被骗签了合同。\n\n**常见搭配**\n\n* **deceive somebody**：欺骗某人\n* **deceive oneself**：自欺\n* **deceive somebody into doing something**：骗某人做某事\n* **be deceived by**：被……欺骗\n* **practice deception**：行骗（名词搭配）\n\n**词性变化**\n\n* **deceive**：动词，欺骗\n* **deception**：名词，欺骗、骗局\n* **deceptive**：形容词，欺骗性的、误导的\n* **deceptively**：副词，看似……实则……\n\n  + deceptively simple 看似简单实则不然\n\n**近义词**\n\n* **cheat**：欺骗、作弊\n* **trick**：哄骗、捉弄\n* **fool**：愚弄\n* **mislead**：误导\n* **betray**：背叛（更重）\n\n**注意**\n\n* **deceive** 强调“让人相信不真实的事”，比 **cheat** 更正式。\n* **cheat** 更常指“作弊、占便宜、骗钱”。\n* **mislead** 更偏“误导”，不一定有恶意。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "parson"
+    },
+    {
+      "role": "AI",
+      "content": "**parson** 意思是：\n\n**牧师；教区牧师**\n\n读音：/ˈpɑːrsən/（美） /ˈpɑːsn/（英）\n\n**常见意思**\n\n1. **教区牧师**\n\n   * 尤指英国国教等教会中负责一个教区的牧师。\n   * The parson visited the villagers.  \n     牧师拜访了村民。\n2. **泛指牧师、神职人员**\n\n   * 口语或旧式用法中，可泛指牧师。\n   * the parson's house  \n     牧师住宅\n\n**常见搭配**\n\n* **parson's house**：牧师住宅\n* **parsonage**：牧师住宅（名词）\n* **the parson**：牧师（常带定冠词）\n\n**词性变化**\n\n* **parson**：名词，牧师\n* **parsonage**：名词，牧师住宅\n* **parsonic**：形容词，牧师的（较少用）\n\n**近义词**\n\n* **priest**：神父、牧师\n* **minister**：牧师、牧师\n* **clergyman**：神职人员\n* **pastor**：牧师（尤指新教）\n* **vicar**：教区牧师（英国国教）\n* **rector**：教区长、牧师\n\n**注意**\n\n* **parson** 现在不如 **priest / minister / pastor** 常用，带一点旧式或文学色彩。\n* **parsonage** 是“牧师住宅”，不是“牧师”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "funeral"
+    },
+    {
+      "role": "AI",
+      "content": "**funeral** 意思是：\n\n**葬礼；丧礼**\n\n读音：/ˈfjuːnərəl/\n\n**常见意思**\n\n1. **葬礼、丧礼**\n\n   * attend a funeral：参加葬礼\n   * a funeral service：葬礼仪式\n   * a funeral procession：送葬队伍\n2. **作形容词，葬礼的**\n\n   * funeral home：殡仪馆\n   * funeral director：殡葬承办人\n   * funeral arrangements：葬礼安排\n\n**常见搭配**\n\n* **attend a funeral**：参加葬礼\n* **go to a funeral**：去参加葬礼\n* **funeral service**：葬礼仪式\n* **funeral procession**：送葬队伍\n* **funeral home / funeral parlor**：殡仪馆\n* **funeral director**：殡葬承办人\n* **funeral arrangements**：葬礼安排\n* **state funeral**：国葬\n\n**相关词**\n\n* **bury**：埋葬\n* **burial**：埋葬、葬礼\n* **cremation**：火葬\n* **mourning**：哀悼\n* **mourner**：哀悼者\n* **eulogy**：悼词\n* **wake**：守灵\n* **grave**：坟墓\n* **cemetery**：墓地\n\n**注意**\n\n* **funeral** 指葬礼仪式本身。\n* **burial** 更强调“埋葬”这个动作或过程。\n* **funeral home / funeral parlor** 是“殡仪馆”，不是“葬礼”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "mistletoe branch在英国婚姻中有什么意义"
+    },
+    {
+      "role": "AI",
+      "content": "**mistletoe branch（槲寄生枝条）** 在英国（以及更广泛的西方）婚姻/圣诞节传统里，主要象征：\n\n**爱情、和解、祝福、生育，以及“在槲寄生下接吻”的习俗。**\n\n具体说：\n\n**1. 在槲寄生下接吻**  \n英国圣诞节传统中，若两个人站在槲寄生枝条下，就可以接吻。  \n这通常被视为：\n\n* 表达爱意\n* 祝福关系\n* 增进感情\n* 有时也带点“被允许的浪漫”意味\n\n所以婚礼或订婚相关场景里，槲寄生会象征**爱情和亲密关系**。\n\n**2. 和解与友谊**  \n槲寄生在西方传统中也常象征：\n\n* 和解\n* 停战\n* 友好\n* 摒弃前嫌\n\n在北欧神话里，槲寄生与光明神巴德尔之死有关，后来也常被看作“和平与和解”的象征。\n\n**3. 生育与生命力**  \n槲寄生是常绿植物，冬天不凋，寄生在树上仍能生长，因此在民间传统里也象征：\n\n* 生命力\n* 生育\n* 繁荣\n* 好运\n\n在婚礼语境中，这可以引申为对**婚姻长久、家庭兴旺、生育**的祝福。\n\n**4. 圣诞与婚礼结合**  \n英国婚礼不一定像美国那样流行“槲寄生下接吻”，但圣诞节期间婚礼、订婚或派对中，槲寄生很常见。  \n它更多是**圣诞传统 + 爱情象征**的结合，而不是英国婚姻法或正式婚礼仪式中的固定环节。\n\n**总结**  \n在英国婚姻/婚礼相关文化里，槲寄生枝条主要不是法律或宗教仪式的一部分，而是象征：\n\n* **爱情与亲吻**\n* **和解与和平**\n* **生育与好运**\n* **圣诞节的祝福**\n\n如果说“英国婚姻中”，更准确的说法是：  \n它属于**英国圣诞传统和西方婚恋民俗**，不是英国婚姻制度里的正式元素。"
+    },
+    {
+      "role": "User",
+      "content": "parentheses"
+    },
+    {
+      "role": "AI",
+      "content": "**parentheses** 意思是：\n\n**圆括号；插入语**\n\n读音：/pəˈrenθəsiːz/\n\n**1. 圆括号 ( )**\n\n* 单数：**parenthesis**\n* 复数：**parentheses**\n* 例：Put the extra information in parentheses.  \n  把补充信息放在圆括号里。\n\n**2. 插入语**\n\n* 指插在句子中间、用来补充说明的话。\n* 例：His wife (a doctor) works in London.  \n  这里的 **a doctor** 就是插入语。\n\n**常见搭配**\n\n* **in parentheses**：在圆括号里\n* **parentheses**：( ) 圆括号\n* **brackets**：[ ] 方括号（英式英语里有时也指圆括号，要注意）\n* **square brackets**：[ ] 方括号\n* **curly braces**：{ } 花括号\n\n**注意区别**\n\n* **parenthesis / parentheses**：( ) 圆括号\n* **bracket / brackets**：英式常指 ( )，美式常指 [ ]\n* **square bracket**：[ ] 方括号\n* **brace**：{ } 花括号\n\n**例句**\n\n* Write your answer in parentheses.  \n  把答案写在圆括号里。\n* The sentence contains a parenthesis.  \n  这个句子含有一个插入语。\n* Use parentheses to add extra information.  \n  用圆括号来补充额外信息。\n\n如果你有具体句子，我可以帮你判断它指的是“圆括号”还是“插入语”。"
+    },
+    {
+      "role": "User",
+      "content": "scenario"
+    },
+    {
+      "role": "AI",
+      "content": "**scenario** 意思是：\n\n**情景；设想；可能发生的情况；剧情概要**\n\n读音：/səˈnɑːrioʊ/（美） /sɪˈnɑːriəʊ/（英）\n\n**常见意思**\n\n1. **可能发生的情况、设想**\n\n   * **worst-case scenario**：最坏的情况\n   * **best-case scenario**：最好的情况\n   * **a likely scenario**：一种可能的情况\n\n   例：\n\n   * In the worst-case scenario, we could lose everything.  \n     最坏的情况下，我们可能失去一切。\n2. **情景、场景（用于分析、规划）**\n\n   * **business scenario**：商业情景\n   * **climate scenario**：气候情景\n   * **what-if scenario**：假设情景\n3. **电影、戏剧的剧情概要**\n\n   * the scenario of the film  \n     电影的剧情梗概\n\n**常见搭配**\n\n* **worst-case scenario**：最坏情况\n* **best-case scenario**：最好情况\n* **in this scenario**：在这种情况下\n* **a possible scenario**：一种可能的情况\n* **scenario planning**：情景规划\n* **what-if scenario**：假设情景\n\n**近义词**\n\n* **situation**：情况\n* **case**：情况、案例\n* **possibility**：可能性\n* **circumstance**：情形、环境\n* **plot**：剧情（电影/戏剧）\n\n**注意**\n\n* **scenario** 常指“设想出来的、可能发生的情况”，不一定是已经发生的事。\n* **situation** 更偏“当前实际情况”。\n* 复数：**scenarios**\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "skopos"
+    },
+    {
+      "role": "AI",
+      "content": "**skopos** 是一个比较专业的词，主要出现在翻译理论里。\n\n意思是：\n\n**目的；目标；翻译目的**\n\n它来自希腊语 **skopós**，本义就是“目标、目的”。\n\n**最常见语境：翻译理论中的 Skopos theory**\n\n**Skopos theory（目的论）** 是翻译研究里的一个重要理论，由德国学者弗米尔（Hans Vermeer）提出。核心观点是：\n\n**翻译的目的决定翻译的方法和策略。**\n\n也就是说，一个文本该怎么翻，不只看原文，而要看译文要用来做什么、给谁看、达到什么效果。\n\n**常见表达**\n\n* **skopos theory**：目的论\n* **the skopos of the translation**：翻译的目的\n* **the intended skopos**：预期的目的\n* **skopos-oriented translation**：以目的为导向的翻译\n\n**例句**\n\n* According to skopos theory, the purpose of the translation determines the translation strategy.  \n  根据目的论，翻译目的决定翻译策略。\n* The skopos of this text is to inform, not to persuade.  \n  这个文本的目的是告知，而不是说服。\n\n**注意**\n\n* **skopos** 不是日常英语常用词，一般只出现在翻译学、语言学、学术写作里。\n* 普通英语里说“目的”一般用 **purpose / aim / goal / objective**。\n\n如果你是在翻译理论里看到这个词，那它就是“翻译目的、目的论里的目的”。"
+    },
+    {
+      "role": "User",
+      "content": "feudal"
+    },
+    {
+      "role": "AI",
+      "content": "**feudal** 意思是：\n\n**封建的；封建制度的**\n\n读音：/ˈfjuːdl/\n\n**常见意思**\n\n1. **封建制度的**\n\n   * **feudal system**：封建制度\n   * **feudal society**：封建社会\n   * **feudal lord**：封建领主\n2. **与封建时代有关的**\n\n   * **feudal times**：封建时代\n   * **feudal law**：封建法律\n\n**常见搭配**\n\n* **feudal system**：封建制度\n* **feudal society**：封建社会\n* **feudal lord**：封建领主\n* **feudal era / feudal period**：封建时代\n* **feudal obligations**：封建义务\n\n**词性变化**\n\n* **feudal**：形容词，封建的\n* **feudalism**：名词，封建制度、封建主义\n* **feudalist**：名词，封建主义者\n* **feudalistic**：形容词，封建主义的\n\n**注意**\n\n* **feudal** 是形容词，**feudalism** 是名词。\n* 中文常说的“封建”，在英语历史语境里主要对应欧洲中世纪的 **feudal system**。\n* 中文口语里“封建”有时指“保守、迷信、老旧”，这种语境下英语不一定用 **feudal**，可能用 **old-fashioned / backward / conservative** 等。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "dynamic"
+    },
+    {
+      "role": "AI",
+      "content": "**dynamic** 主要有这几个意思：\n\n**1. 动态的、不断变化的**\n\n* **dynamic process**：动态过程\n* **dynamic environment**：动态环境\n* **dynamic system**：动态系统\n* 反义词：**static**（静态的）\n\n**2. 充满活力的、有干劲的**\n\n* **a dynamic person**：一个充满活力的人\n* **a dynamic leader**：一位有魄力的领导者\n* **dynamic economy**：充满活力的经济\n\n**3. 相互作用的、动力学的**\n\n* **dynamic relationship**：动态关系\n* **group dynamics**：群体动力学\n* **dynamic equilibrium**：动态平衡\n\n**4. 作名词：动力、动态**\n\n* **dynamics**：动力学；动态；变化过程\n* **group dynamics**：群体动态\n* **power dynamics**：权力关系/权力动态\n\n**常见搭配**\n\n* **dynamic system**：动态系统\n* **dynamic balance**：动态平衡\n* **dynamic programming**：动态规划\n* **dynamic pricing**：动态定价\n* **dynamic range**：动态范围\n\n**词性变化**\n\n* **dynamic**：形容词；名词（动力、动态）\n* **dynamics**：名词，动力学；动态\n* **dynamically**：副词，动态地\n* **dynamism**：名词，活力、动力\n\n**近义词**\n\n* **energetic**：精力充沛的\n* **vigorous**：有活力的\n* **active**：活跃的\n* **changing**：变化的\n* **forceful**：有力的\n\n**注意**\n\n* **dynamic** 和 **static** 常成对出现：动态 vs 静态。\n* 说人“有活力、有魄力”时，**dynamic** 是褒义。\n* **dynamics** 常指“动态关系、相互作用”，比如 **power dynamics** 权力动态。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "composition"
+    },
+    {
+      "role": "AI",
+      "content": "**composition** 主要有这几个意思：\n\n**1. 组成、构成、成分**\n\n* **the composition of the atmosphere**：大气的成分\n* **the composition of the committee**：委员会的构成\n* **chemical composition**：化学成分\n\n**2. 作文、作品**\n\n* **write a composition**：写一篇作文\n* **a musical composition**：一首乐曲\n* **a literary composition**：一篇文学作品\n\n**3. 创作、作曲**\n\n* **the composition of a poem**：一首诗的创作\n* **music composition**：音乐创作\n\n**4. 构图、画面布局**\n\n* **the composition of a painting**：一幅画的构图\n* **photographic composition**：摄影构图\n\n**5. 混合物、合成物**\n\n* 例：a composition of different materials  \n  不同材料的混合物\n\n**常见搭配**\n\n* **chemical composition**：化学成分\n* **musical composition**：音乐作品\n* **the composition of...**：……的构成/成分\n* **write a composition**：写作文\n* **composition class**：写作课\n\n**词性变化**\n\n* **compose**：动词，组成；创作；作曲\n* **composition**：名词，构成；作文；作品；构图\n* **composer**：名词，作曲家\n* **composite**：形容词/名词，复合的；合成物\n\n**近义词**\n\n* **structure**：结构\n* **makeup**：构成、成分\n* **essay**：文章、作文\n* **work**：作品\n* **piece**：作品\n\n**注意**\n\n* 说“化学成分”用 **chemical composition**。\n* 说“写作文”可以用 **write a composition**，但日常英语里更常说 **write an essay**。\n* 音乐里 **composition** 指“作品”或“作曲”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "labyrinth"
+    },
+    {
+      "role": "AI",
+      "content": "**labyrinth** 意思是：\n\n**迷宫；错综复杂的事物；难以脱身的困境**\n\n读音：/ˈlæbərɪnθ/\n\n**常见意思**\n\n1. **迷宫（建筑意义上的）**\n\n   * 尤指古代那种设计复杂、难以找到出口的迷宫。\n   * the labyrinth of Crete  \n     克里特迷宫\n   * We got lost in the labyrinth.  \n     我们在迷宫里迷路了。\n2. **错综复杂的事物、复杂的网络**\n\n   * a labyrinth of streets  \n     错综复杂的街道\n   * a labyrinth of rules  \n     繁杂的规则\n   * a labyrinth of tunnels  \n     纵横交错的隧道\n3. **比喻难以摆脱的困境**\n\n   * the labyrinth of bureaucracy  \n     官僚体系的迷宫\n   * lost in a labyrinth of lies  \n     陷入谎言的迷局\n\n**常见搭配**\n\n* **a labyrinth of**：错综复杂的……\n* **the labyrinth of...**：……的迷宫\n* **labyrinthine**：形容词，迷宫般的、错综复杂的\n\n  + labyrinthine corridors 迷宫般的走廊\n* **get lost in a labyrinth**：在迷宫中迷路\n\n**近义词**\n\n* **maze**：迷宫（更常用、更口语）\n* **tangle**：纠缠、混乱\n* **network**：网络、网状系统\n* **web**：网、错综复杂的关系\n\n**注意**\n\n* **labyrinth** 和 **maze** 都可译作“迷宫”，但：\n\n  + **maze** 更日常，常指游乐园里的迷宫。\n  + **labyrinth** 更正式、更有文学色彩，常指复杂难解的事物。\n* **labyrinthine** 是常用形容词，意思是“迷宫般的、错综复杂的”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "puzzle road"
+    },
+    {
+      "role": "AI",
+      "content": "**puzzle road** 不是一个固定的英语常用短语，通常要看具体语境来理解。\n\n直译可以理解为：\n\n**谜题之路；充满谜团的路；令人费解的道路**\n\n但在英语里，更常见的对应说法可能是：\n\n* **puzzle path**：谜题路径 / 解谜路线\n* **maze**：迷宫\n* **labyrinth**：迷宫；错综复杂的路\n* **a puzzling road**：一条令人困惑的路\n* **a road full of puzzles**：充满谜题的路\n\n如果它出现在某个游戏、小说、地图、题目里，可能是专有名称，比如：\n\n* 游戏关卡名：**Puzzle Road**\n* 解谜路线：**puzzle route**\n* 迷宫道路：**maze road / labyrinth road**\n\n所以：\n\n* 如果是普通描述“令人费解的路”：**a puzzling road**\n* 如果是游戏/关卡名：**Puzzle Road** 可以直接保留\n* 如果是“解谜之路”：**puzzle path / puzzle route**\n* 如果是“迷宫路”：**maze / labyrinth**\n\n如果你能告诉我它出现在哪里，比如游戏、文章、地图还是歌词，我可以帮你判断更准确的英文表达或翻译。"
+    },
+    {
+      "role": "User",
+      "content": "soy"
+    },
+    {
+      "role": "AI",
+      "content": "**soy** 意思是：\n\n**大豆；黄豆；酱油（口语中有时指 soy sauce）**\n\n读音：/sɔɪ/\n\n**常见意思**\n\n1. **大豆、黄豆**\n\n   * **soy beans / soybeans**：大豆\n   * **soy milk**：豆奶\n   * **soy sauce**：酱油\n   * **soy protein**：大豆蛋白\n2. **口语中可指“酱油”**\n\n   * 在美式口语里，有时说 **soy** 就是指 **soy sauce**。\n   * 例：Pass the soy. 把酱油递过来。\n\n**常见搭配**\n\n* **soy sauce**：酱油\n* **soy milk**：豆奶\n* **soybean**：大豆\n* **soy protein**：大豆蛋白\n* **soy product**：豆制品\n\n**注意**\n\n* **soy** 和 **soybean** 都可以指“大豆”，但 **soybean** 更常指具体的豆子。\n* **soy** 常作定语：soy milk, soy sauce。\n* 英式英语里也常用 **soya**：soya milk, soya bean。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "toast"
+    },
+    {
+      "role": "AI",
+      "content": "**toast** 主要有这几个意思：\n\n**1. 吐司、烤面包**\n\n* **a piece of toast**：一片吐司\n* **toast and butter**：黄油吐司\n* **French toast**：法式吐司\n\n例：I had toast for breakfast.  \n我早餐吃了吐司。\n\n**2. 烤、烘（动词）**\n\n* **toast the bread**：烤面包\n* **toasted sandwich**：烤三明治\n* **toast a bagel**：烤贝果\n\n例：She toasted the bread until it was golden.  \n她把面包烤到金黄。\n\n**3. 祝酒、干杯**\n\n* **propose a toast**：提议干杯\n* **drink a toast to somebody**：为某人干杯\n* **a toast to the bride and groom**：为新郎新娘干杯\n\n例：Let's propose a toast to the happy couple.  \n让我们为这对幸福的新人干杯。\n\n**4. 祝酒词**\n\n* **give a toast**：致祝酒词\n* **a wedding toast**：婚礼祝酒词\n\n**常见搭配**\n\n* **a piece of toast**：一片吐司\n* **French toast**：法式吐司\n* **propose a toast**：提议干杯\n* **drink a toast to**：为……干杯\n* **toast the bread**：烤面包\n* **be toast**：口语，表示“完蛋了、死定了”\n\n  + If you tell her that, you're toast.  \n    你要是告诉她那件事，你就死定了。\n\n**词性变化**\n\n* **toast**：名词；动词\n* **toaster**：名词，烤面包机\n* **toasted**：形容词，烤过的\n\n**注意**\n\n* **toast** 作“吐司”时通常不可数：**a piece of toast / two slices of toast**。\n* 作“干杯、祝酒”时是可数名词：**propose a toast**。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "sparrow"
+    },
+    {
+      "role": "AI",
+      "content": "**sparrow** 意思是：\n\n**麻雀**\n\n读音：/ˈspæroʊ/（美） /ˈspærəʊ/（英）\n\n**常见意思**\n\n1. **麻雀**\n\n   * a house sparrow：家麻雀\n   * a tree sparrow：树麻雀\n   * sparrows were chirping in the trees.  \n     麻雀在树上叽叽喳喳地叫。\n2. **泛指小型鸟类**\n\n   * 有时可指雀形目的小鸟，但日常最常见就是“麻雀”。\n\n**常见搭配**\n\n* **house sparrow**：家麻雀\n* **tree sparrow**：树麻雀\n* **sparrow hawk**：雀鹰（一种猛禽）\n* **a flock of sparrows**：一群麻雀\n\n**词性变化**\n\n* **sparrow**：名词，麻雀\n* 复数：**sparrows**\n\n**注意**\n\n* **sparrow** 是具体鸟名，不是泛指所有小鸟。\n* 英语里“小鸟”一般说 **bird** 或 **small bird**。\n* **sparrow hawk** 不是麻雀，而是一种鹰。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    },
+    {
+      "role": "User",
+      "content": "conductive"
+    },
+    {
+      "role": "AI",
+      "content": "**conductive** 意思是：\n\n**导电的；导热的；有传导性的**\n\n读音：/kənˈdʌktɪv/\n\n**常见意思**\n\n1. **导电的**\n\n   * **conductive material**：导电材料\n   * **conductive wire**：导电电线\n   * Copper is highly conductive.  \n     铜的导电性很好。\n2. **导热的**\n\n   * **conductive heat transfer**：导热\n   * Metals are usually thermally conductive.  \n     金属通常导热性好。\n3. **有传导性的（广义）**\n\n   * 可指电、热、声音等的传导。\n\n**常见搭配**\n\n* **conductive material**：导电材料\n* **electrically conductive**：导电的\n* **thermally conductive**：导热的\n* **conductive coating**：导电涂层\n* **conductive hearing loss**：传导性听力损失（医学）\n\n**词性变化**\n\n* **conduct**：动词，传导；指挥；实施\n* **conduction**：名词，传导\n* **conductive**：形容词，导电的、导热的\n* **conductivity**：名词，传导率、导电性、导热性\n* **conductor**：名词，导体；指挥；售票员\n\n**近义词**\n\n* **transmitting**：传导的\n* **transmissive**：可传导的\n\n**反义词**\n\n* **nonconductive**：不导电的\n* **insulating**：绝缘的\n* **insulative**：绝缘的\n\n**注意**\n\n* **conductive** 强调“能传导”的性质。\n* **conductivity** 是“传导率/传导性”这个名词，常搭配：\n\n  + **electrical conductivity**：导电率\n  + **thermal conductivity**：导热率\n* **conductor** 是“导体”，比如铜是导体：Copper is a good conductor.\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://chat.deepseek.com/a/chat/s/5596e55b-b63a-4758-9032-cd24d9e37e70",
+  "elapsed": 144.6752364999993,
+  "files": {}
+}

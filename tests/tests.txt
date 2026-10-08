@@ -170,18 +170,28 @@ Kimi：
 含图片：
 1. 分享链接：https://www.kimi.com/share/1a1193c2-fb82-8f03-8000-0000d0da2d0d
 网页链接：https://www.kimi.com/chat/1a0d7abb-0a12-8a88-8000-09c61ff99ff6?chat_enter_method=history
+2. 分享链接：https://www.kimi.com/share/1a11990c-a4b2-8fad-8000-0000e0eca3f7
+网页链接：https://www.kimi.com/chat/1a119905-0462-85cc-8000-09c69e96c182?chat_enter_method=new_chat
+3. 分享链接：https://www.kimi.com/share/1a11992f-5812-8b35-8000-00004620dce9
+网页链接：https://www.kimi.com/chat/1a119923-d282-821a-8000-09c65efdaff5?chat_enter_method=history
 
 含图片和文档：
 分享链接：https://www.kimi.com/share/1a119342-0b02-8dd5-8000-0000db889d12
 网页链接：https://www.kimi.com/chat/1a09fa70-b792-8c7b-8000-09c68e8832a8?chat_enter_method=history
 
 含图片和代码：
-分享链接：https://www.kimi.com/share/1a1196e2-4062-84d9-8000-00002c479606
+1. 分享链接：https://www.kimi.com/share/1a1196e2-4062-84d9-8000-00002c479606
 网页链接：https://www.kimi.com/chat/1a1196c8-4322-802b-8000-09c612b5d969?chat_enter_method=new_chat
+2. 分享链接：https://www.kimi.com/share/1a11994e-9692-8428-8000-0000aeb2b586
+网页链接：https://www.kimi.com/chat/1a11994a-47c2-8f2f-8000-09c6431edc39?chat_enter_method=new_chat
 
 含视频：
 分享链接：https://www.kimi.com/share/1a119416-e8d2-8314-8000-000013d85a92
 网页链接：https://www.kimi.com/chat/1a119344-4bb2-837c-8000-09c6b6513a74?chat_enter_method=history
+
+含代码：
+分享链接：https://www.kimi.com/share/1a119988-8752-8310-8000-0000141408f3
+网页链接：https://www.kimi.com/chat/1a119968-d062-80e6-8000-09c6f72833f0?chat_enter_method=new_chat
 
 含公式：
 分享链接：https://www.kimi.com/share/1a119330-04b2-8591-8000-0000a1abeae5

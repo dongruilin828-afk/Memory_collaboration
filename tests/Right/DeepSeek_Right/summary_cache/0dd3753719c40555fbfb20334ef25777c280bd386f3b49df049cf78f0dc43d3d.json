@@ -1,0 +1,1772 @@
+{
+  "fingerprint": "0dd3753719c40555fbfb20334ef25777c280bd386f3b49df049cf78f0dc43d3d",
+  "result": {
+    "schema_version": 8,
+    "generated_at": "2026-10-08T10:26:16.077387+00:00",
+    "provider": "deepseek",
+    "model": "deepseek-v4-pro",
+    "source": "export.md",
+    "conversation": {
+      "message_count": 114,
+      "user_messages": 57,
+      "ai_messages": 57,
+      "chunk_count": 2,
+      "conversation_types": [
+        "language_learning"
+      ],
+      "programming_mode": "not_applicable",
+      "source_fingerprint": "51b206c2e135324ac53d484a38891432e6bbfb71cf470bba940ccf5025cb9bfe"
+    },
+    "overall_summary": "用户连续进行英语词汇学习，查询了多个单词和短语的翻译、用法及搭配，包括数学集合术语、普通词汇、专业词汇等。AI 对每个查询均给出了详细解释。最后用户询问单词“conductive”，AI 已解释其导电、导热和传导性等含义。当前该问答已完成，无未决问题。",
+    "current_state": {
+      "current_activity": {
+        "content": "用户最近提出：conductive",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          113
+        ],
+        "message_range": "113"
+      },
+      "reached_stage": {
+        "content": "AI已解释“conductive”的导电、导热、传导性等含义，并给出常见搭配和词性变化",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          114
+        ],
+        "message_range": "114"
+      },
+      "completed": [
+        {
+          "content": "用户此前连续查询的多个词汇（如指数、集合、并集、差集、press、daytime、manipulate、wired、consensus、integral、soprano、genre、statistics、insert、esteem、bureaucracy、cumbersome、horror、terror、deceive、parson、skopos、feudal、dynamic、composition、labyrinth、puzzle road、soy、toast、sparrow等）均已由AI解释并提供用法说明",
+          "source": "assistant",
+          "status": "answered",
+          "message_ids": [
+            2,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            16,
+            18,
+            20,
+            22,
+            24,
+            26,
+            28,
+            30,
+            32,
+            34,
+            36,
+            38,
+            40,
+            42,
+            44,
+            46,
+            48,
+            50,
+            52,
+            54,
+            56,
+            58,
+            60,
+            62,
+            64,
+            66,
+            68,
+            70,
+            72,
+            74,
+            76,
+            78,
+            80,
+            82,
+            84,
+            86,
+            88,
+            90,
+            92,
+            94,
+            96,
+            98,
+            100,
+            102,
+            104,
+            106,
+            108,
+            110,
+            112,
+            114
+          ],
+          "message_range": "2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114"
+        }
+      ],
+      "pending": [],
+      "next_step": {
+        "content": "无明确下一步；当前问答已完成，用户可继续提出新的词汇查询",
+        "source": "inferred",
+        "status": "assumed",
+        "message_ids": [],
+        "message_range": ""
+      },
+      "last_user_message_id": 113,
+      "latest_message_id": 114,
+      "latest_message_role": "AI",
+      "last_user_turn_answered": true,
+      "last_user_intent": "conductive",
+      "breakpoint_status": "complete"
+    },
+    "topics": [
+      {
+        "topic_id": "topic_1",
+        "title": "英语词汇、翻译与表达学习",
+        "summary": "集中讨论 39 项英语词汇、翻译、语法、短语或相关表达学习；下方细节仅保留有助于续接的代表项。",
+        "memory_ids": [
+          "C001M001",
+          "C001M003",
+          "C001M004",
+          "C001M006",
+          "C001M007",
+          "C001M008",
+          "C001M009",
+          "C001M012",
+          "C001M015",
+          "C001M020",
+          "C001M021",
+          "C001M022",
+          "C001M023",
+          "C001M024",
+          "C001M025",
+          "C001M031",
+          "C001M032",
+          "C002M011",
+          "C001M005",
+          "C001M010",
+          "C001M011",
+          "C001M013",
+          "C002M001",
+          "C002M002",
+          "C002M003",
+          "C002M004",
+          "C002M006",
+          "C002M007",
+          "C002M008",
+          "C002M009",
+          "C002M010",
+          "C002M012",
+          "C002M013",
+          "C002M014",
+          "C002M015",
+          "C002M016",
+          "C002M017",
+          "C002M018",
+          "C002M019"
+        ],
+        "source_message_ids": [
+          1,
+          2,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104
+        ],
+        "message_range": "1, 2, 5~10, 13~20, 29~40, 51~56, 59~74, 77~104"
+      },
+      {
+        "topic_id": "topic_2",
+        "title": "集合",
+        "summary": "“集合”在数学中是 set，一般意义中是 gathering / collection / assembly。",
+        "memory_ids": [
+          "C001M002"
+        ],
+        "source_message_ids": [
+          3,
+          4
+        ],
+        "message_range": "3, 4"
+      },
+      {
+        "topic_id": "topic_3",
+        "title": "用户原始请求",
+        "summary": "用户提出：with less fear of the consequences form either the law or the press；用户提出：Can firm be placed by another better word?；用户提出：unprecedented；用户提出：obessesive",
+        "memory_ids": [
+          "C001M014",
+          "C001M016",
+          "C001M017",
+          "C001M018",
+          "C001M019",
+          "C001M026",
+          "C001M027",
+          "C001M028",
+          "C001M029",
+          "C001M030",
+          "C001M033",
+          "C002M020",
+          "C002M021",
+          "C002M022",
+          "C002M023",
+          "C002M024"
+        ],
+        "source_message_ids": [
+          11,
+          12,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          57,
+          58,
+          105,
+          106,
+          107,
+          108,
+          109,
+          110,
+          111,
+          112,
+          113,
+          114
+        ],
+        "message_range": "11, 12, 21~28, 41~50, 57, 58, 105~114"
+      },
+      {
+        "topic_id": "topic_4",
+        "title": "bureaucracy",
+        "summary": "bureaucracy 的常见意思包括官僚机构、官僚主义、繁琐的行政程序。",
+        "memory_ids": [
+          "C002M005"
+        ],
+        "source_message_ids": [
+          75,
+          76
+        ],
+        "message_range": "75, 76"
+      }
+    ],
+    "memory_items": [
+      {
+        "memory_id": "C001M001",
+        "topic": "指数",
+        "memory_type": "fact",
+        "content": "“指数”用英语要看语境：数学中幂的指数是 exponent；指数、指标、股票指数是 index；指数增长是 exponential。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          2
+        ],
+        "evidence_quote": "“指数”用英语要分语境：\n* 数学中幂的指数：exponent\n* 指数、指标、股票指数：index\n* 指数增长 / 指数函数：exponential",
+        "source_chunk": 1,
+        "message_range": "2"
+      },
+      {
+        "memory_id": "C001M002",
+        "topic": "集合",
+        "memory_type": "fact",
+        "content": "“集合”在数学中是 set，一般意义中是 gathering / collection / assembly。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          4
+        ],
+        "evidence_quote": "“集合”用英语通常说 set。\n不同语境下：\n* 数学中的集合：set\n* 一般意义的“集合、聚集”：gathering / collection / assembly",
+        "source_chunk": 1,
+        "message_range": "4"
+      },
+      {
+        "memory_id": "C001M003",
+        "topic": "并集",
+        "memory_type": "fact",
+        "content": "“并集”的英文是 union，常见表达包括 the union of A and B 和 ∪。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          6
+        ],
+        "evidence_quote": "“并集”的英文是 union。\n数学里常见表达：\n* 并集：union\n* A 和 B 的并集：the union of A and B\n* 并集符号：∪，读作 union",
+        "source_chunk": 1,
+        "message_range": "6"
+      },
+      {
+        "memory_id": "C001M004",
+        "topic": "差集",
+        "memory_type": "fact",
+        "content": "“差集”的英文是 difference，也可以说 set difference；常见表达包括 the difference of A and B 和 A minus B。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          8
+        ],
+        "evidence_quote": "“差集”的英文是 difference，也可以说 set difference。\n常见表达：\n* 差集：difference / set difference\n* A 和 B 的差集：the difference of A and B\n* A 减 B 的差集：A minus B",
+        "source_chunk": 1,
+        "message_range": "8"
+      },
+      {
+        "memory_id": "C001M005",
+        "topic": "press",
+        "memory_type": "fact",
+        "content": "“press” 作名词时指新闻界、媒体；作动词时指按、压、催促、熨烫等。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          10
+        ],
+        "evidence_quote": "“press” 这个词有很多意思，具体看语境：\n* 作动词：按、压、催促、熨烫\n* 作名词：新闻界、媒体、印刷机等",
+        "source_chunk": 1,
+        "message_range": "10"
+      },
+      {
+        "memory_id": "C001M006",
+        "topic": "All the troubles are gone",
+        "memory_type": "fact",
+        "content": "“All the troubles are gone” 语法正确，但更自然的说法是 “All the trouble is gone” 或 “All my troubles are gone”。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          14
+        ],
+        "evidence_quote": "All the troubles are gone.\n意思是：所有的麻烦都过去了。\n也可以更自然地说：\n* All the trouble is gone.\n* All my troubles are gone.",
+        "source_chunk": 1,
+        "message_range": "14"
+      },
+      {
+        "memory_id": "C001M007",
+        "topic": "daytime",
+        "memory_type": "fact",
+        "content": "“daytime” 前常用介词是 in，有时用 during；常见搭配包括 in the daytime 和 during the daytime。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          18
+        ],
+        "evidence_quote": "daytime 前常用介词是 in，有时用 during。\n最常见：in the daytime\n也可以说：during the daytime",
+        "source_chunk": 1,
+        "message_range": "18"
+      },
+      {
+        "memory_id": "C001M008",
+        "topic": "I hold the firm belief that...",
+        "memory_type": "fact",
+        "content": "“I hold the firm belief that...” 语法正确，但更自然的表达是 “I firmly believe that...”。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          20
+        ],
+        "evidence_quote": "I hold the firm belief that... 这个表达语法正确，意思也很清楚：我坚信……\n不过如果你想让表达更自然，可以用 I firmly believe that...",
+        "source_chunk": 1,
+        "message_range": "20"
+      },
+      {
+        "memory_id": "C001M009",
+        "topic": "manipulate",
+        "memory_type": "fact",
+        "content": "“manipulate” 有多种含义，包括操纵、控制、篡改、使倾斜等，具体取决于语境。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          52
+        ],
+        "evidence_quote": "manipulate 主要有这几个意思：\n* 操纵、控制（人、局势、市场等）\n* 获得、得到（回报、好处、结果）\n* 遭受、招致（不好的结果）\n* 使倾斜、使升高（物理）",
+        "source_chunk": 1,
+        "message_range": "52"
+      },
+      {
+        "memory_id": "C001M010",
+        "topic": "wired",
+        "memory_type": "fact",
+        "content": "“wired” 常见意思包括联网的、兴奋的、紧张的，具体取决于语境。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          60
+        ],
+        "evidence_quote": "wired 主要有这几个意思：\n* 联网的、接网的\n* 兴奋的、亢奋的（口语）\n* 紧张的、焦虑不安的（口语）",
+        "source_chunk": 1,
+        "message_range": "60"
+      },
+      {
+        "memory_id": "C001M011",
+        "topic": "consensus",
+        "memory_type": "fact",
+        "content": "“consensus” 意思是共识、一致意见，常见搭配包括 reach a consensus 和 there is a consensus that...。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          62
+        ],
+        "evidence_quote": "consensus 意思是：共识；一致意见；共同看法。\n常见用法：\n* reach a consensus\n* there is a consensus that...",
+        "source_chunk": 1,
+        "message_range": "62"
+      },
+      {
+        "memory_id": "C001M012",
+        "topic": "integral",
+        "memory_type": "fact",
+        "content": "“integral” 有多种含义，包括不可或缺的、完整的、数学中的积分。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          64
+        ],
+        "evidence_quote": "integral 主要有这几个意思：\n* 不可或缺的、构成整体所必需的\n* 完整的、整体的\n* 数学中的“积分的”",
+        "source_chunk": 1,
+        "message_range": "64"
+      },
+      {
+        "memory_id": "C001M013",
+        "topic": "soprano",
+        "memory_type": "fact",
+        "content": "“soprano” 指女高音歌手、女高音声部，也可用于音乐术语。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          66
+        ],
+        "evidence_quote": "soprano 意思是：女高音；高音部；女高音歌手。\n常见意思：\n1. 女高音（人）\n2. 女高音声部\n3. 最高音的音乐声部",
+        "source_chunk": 1,
+        "message_range": "66"
+      },
+      {
+        "memory_id": "C001M014",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：with less fear of the consequences form either the law or the press",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          11
+        ],
+        "evidence_quote": "with less fear of the consequences form either the law or the press",
+        "source_chunk": 1,
+        "message_range": "11"
+      },
+      {
+        "memory_id": "C001M015",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：这个语法真的正确吗",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          15
+        ],
+        "evidence_quote": "这个语法真的正确吗",
+        "source_chunk": 1,
+        "message_range": "15"
+      },
+      {
+        "memory_id": "C001M016",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：Can firm be placed by another better word?",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          21
+        ],
+        "evidence_quote": "Can firm be placed by another better word?",
+        "source_chunk": 1,
+        "message_range": "21"
+      },
+      {
+        "memory_id": "C001M017",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：unprecedented",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          23
+        ],
+        "evidence_quote": "unprecedented",
+        "source_chunk": 1,
+        "message_range": "23"
+      },
+      {
+        "memory_id": "C001M018",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：obessesive",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          25
+        ],
+        "evidence_quote": "obessesive",
+        "source_chunk": 1,
+        "message_range": "25"
+      },
+      {
+        "memory_id": "C001M019",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：I used to get obsessive of you.",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          27
+        ],
+        "evidence_quote": "I used to get obsessive of you.",
+        "source_chunk": 1,
+        "message_range": "27"
+      },
+      {
+        "memory_id": "C001M020",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：辅助表元的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          29
+        ],
+        "evidence_quote": "辅助表元的英文",
+        "source_chunk": 1,
+        "message_range": "29"
+      },
+      {
+        "memory_id": "C001M021",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：初始化的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          31
+        ],
+        "evidence_quote": "初始化的英文",
+        "source_chunk": 1,
+        "message_range": "31"
+      },
+      {
+        "memory_id": "C001M022",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：初始化的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          33
+        ],
+        "evidence_quote": "初始化的英文",
+        "source_chunk": 1,
+        "message_range": "33"
+      },
+      {
+        "memory_id": "C001M023",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：考察的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          35
+        ],
+        "evidence_quote": "考察的英文",
+        "source_chunk": 1,
+        "message_range": "35"
+      },
+      {
+        "memory_id": "C001M024",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：复位的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          37
+        ],
+        "evidence_quote": "复位的英文",
+        "source_chunk": 1,
+        "message_range": "37"
+      },
+      {
+        "memory_id": "C001M025",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：数据的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          39
+        ],
+        "evidence_quote": "数据的英文",
+        "source_chunk": 1,
+        "message_range": "39"
+      },
+      {
+        "memory_id": "C001M026",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：portion",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          41
+        ],
+        "evidence_quote": "portion",
+        "source_chunk": 1,
+        "message_range": "41"
+      },
+      {
+        "memory_id": "C001M027",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：uniformly",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          43
+        ],
+        "evidence_quote": "uniformly",
+        "source_chunk": 1,
+        "message_range": "43"
+      },
+      {
+        "memory_id": "C001M028",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：manipulate",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          45
+        ],
+        "evidence_quote": "manipulate",
+        "source_chunk": 1,
+        "message_range": "45"
+      },
+      {
+        "memory_id": "C001M029",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：bearer",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          47
+        ],
+        "evidence_quote": "bearer",
+        "source_chunk": 1,
+        "message_range": "47"
+      },
+      {
+        "memory_id": "C001M030",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：inclination",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          49
+        ],
+        "evidence_quote": "inclination",
+        "source_chunk": 1,
+        "message_range": "49"
+      },
+      {
+        "memory_id": "C001M031",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：“对应的”的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          53
+        ],
+        "evidence_quote": "“对应的”的英文",
+        "source_chunk": 1,
+        "message_range": "53"
+      },
+      {
+        "memory_id": "C001M032",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：反的，颠倒的英文",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          55
+        ],
+        "evidence_quote": "反的，颠倒的英文",
+        "source_chunk": 1,
+        "message_range": "55"
+      },
+      {
+        "memory_id": "C001M033",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：elevate",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          57
+        ],
+        "evidence_quote": "elevate",
+        "source_chunk": 1,
+        "message_range": "57"
+      },
+      {
+        "memory_id": "C002M001",
+        "topic": "genre",
+        "memory_type": "fact",
+        "content": "genre 的常见意思包括：体裁、类型、风格、流派。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          68
+        ],
+        "evidence_quote": "genre 意思是：体裁；类型；风格；流派",
+        "source_chunk": 2,
+        "message_range": "68"
+      },
+      {
+        "memory_id": "C002M002",
+        "topic": "statistics",
+        "memory_type": "fact",
+        "content": "statistics 作名词时可以指统计学或统计数据，作形容词时指统计的。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          70
+        ],
+        "evidence_quote": "统计的英文要看词性和语境：statistics 作名词时可以指统计学或统计数据，作形容词时指统计的。",
+        "source_chunk": 2,
+        "message_range": "70"
+      },
+      {
+        "memory_id": "C002M003",
+        "topic": "insert",
+        "memory_type": "fact",
+        "content": "insert 的常见意思包括插入、装入、加、插入语、插入语句等。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          72
+        ],
+        "evidence_quote": "‘插入’的英文要看语境，常见有：insert",
+        "source_chunk": 2,
+        "message_range": "72"
+      },
+      {
+        "memory_id": "C002M004",
+        "topic": "esteem",
+        "memory_type": "fact",
+        "content": "esteem 的常见意思包括尊重、敬重、好评、珍视。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          74
+        ],
+        "evidence_quote": "esteem 意思是：尊重；敬重；好评；珍视",
+        "source_chunk": 2,
+        "message_range": "74"
+      },
+      {
+        "memory_id": "C002M005",
+        "topic": "bureaucracy",
+        "memory_type": "fact",
+        "content": "bureaucracy 的常见意思包括官僚机构、官僚主义、繁琐的行政程序。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          76
+        ],
+        "evidence_quote": "bureaucracy 意思是：官僚机构；官僚体制；官僚主义；繁琐的行政程序",
+        "source_chunk": 2,
+        "message_range": "76"
+      },
+      {
+        "memory_id": "C002M006",
+        "topic": "cumbersome",
+        "memory_type": "fact",
+        "content": "cumbersome 的常见意思包括笨重的、繁琐的、累赘的、难以处理的。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          78
+        ],
+        "evidence_quote": "cumbersome 意思是：笨重的；繁琐的；累赘的；难以处理的",
+        "source_chunk": 2,
+        "message_range": "78"
+      },
+      {
+        "memory_id": "C002M007",
+        "topic": "horror",
+        "memory_type": "fact",
+        "content": "horror 的常见意思包括恐怖、恐惧、惊骇、恐怖片、恐怖故事。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          80
+        ],
+        "evidence_quote": "horror 意思是：恐怖；恐惧；惊骇；恐怖的事物",
+        "source_chunk": 2,
+        "message_range": "80"
+      },
+      {
+        "memory_id": "C002M008",
+        "topic": "terror",
+        "memory_type": "fact",
+        "content": "terror 的常见意思包括恐怖、恐惧、惊骇、恐怖活动、恐怖主义。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          82
+        ],
+        "evidence_quote": "terror 意思是：恐怖；恐惧；惊骇；恐怖活动",
+        "source_chunk": 2,
+        "message_range": "82"
+      },
+      {
+        "memory_id": "C002M009",
+        "topic": "deceive",
+        "memory_type": "fact",
+        "content": "deceive 的常见意思包括欺骗、误导、使产生错误认识。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          84
+        ],
+        "evidence_quote": "deceive 意思是：欺骗；蒙骗；误导",
+        "source_chunk": 2,
+        "message_range": "84"
+      },
+      {
+        "memory_id": "C002M010",
+        "topic": "parson",
+        "memory_type": "fact",
+        "content": "parson 的常见意思包括牧师、教区牧师。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          86
+        ],
+        "evidence_quote": "parson 意思是：牧师；教区牧师",
+        "source_chunk": 2,
+        "message_range": "86"
+      },
+      {
+        "memory_id": "C002M011",
+        "topic": "skopos",
+        "memory_type": "fact",
+        "content": "skopos 是翻译理论中的术语，指翻译的目的。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          88
+        ],
+        "evidence_quote": "skopos 是一个比较专业的词，主要出现在翻译理论里。",
+        "source_chunk": 2,
+        "message_range": "88"
+      },
+      {
+        "memory_id": "C002M012",
+        "topic": "dynamic",
+        "memory_type": "fact",
+        "content": "dynamic 的常见意思包括动态的、充满活力的、动力学的。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          90
+        ],
+        "evidence_quote": "dynamic 主要有这几个意思：动态的、不断变化的；充满活力的；有干劲的",
+        "source_chunk": 2,
+        "message_range": "90"
+      },
+      {
+        "memory_id": "C002M013",
+        "topic": "composition",
+        "memory_type": "fact",
+        "content": "composition 的常见意思包括组成、构成、作文、作品、构图。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          92
+        ],
+        "evidence_quote": "composition 主要有这几个意思：组成、构成、成分；作文、作品；构图",
+        "source_chunk": 2,
+        "message_range": "92"
+      },
+      {
+        "memory_id": "C002M014",
+        "topic": "labyrinth",
+        "memory_type": "fact",
+        "content": "labyrinth 的常见意思包括迷宫、错综复杂的事物、难以脱身的困境。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          94
+        ],
+        "evidence_quote": "labyrinth 意思是：迷宫；错综复杂的事物；难以脱身的困境",
+        "source_chunk": 2,
+        "message_range": "94"
+      },
+      {
+        "memory_id": "C002M015",
+        "topic": "puzzle road",
+        "memory_type": "fact",
+        "content": "puzzle road 不是一个固定短语，通常要看具体语境理解。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          96
+        ],
+        "evidence_quote": "puzzle road 不是一个固定的英语常用短语，通常要看具体语境来理解。",
+        "source_chunk": 2,
+        "message_range": "96"
+      },
+      {
+        "memory_id": "C002M016",
+        "topic": "soy",
+        "memory_type": "fact",
+        "content": "soy 的常见意思包括大豆、豆奶、酱油。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          98
+        ],
+        "evidence_quote": "soy 意思是：大豆；黄豆；酱油（口语中有时指 soy sauce）",
+        "source_chunk": 2,
+        "message_range": "98"
+      },
+      {
+        "memory_id": "C002M017",
+        "topic": "toast",
+        "memory_type": "fact",
+        "content": "toast 的常见意思包括吐司、烤面包、祝酒词。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          100
+        ],
+        "evidence_quote": "toast 主要有这几个意思：吐司、烤面包；祝酒、干杯",
+        "source_chunk": 2,
+        "message_range": "100"
+      },
+      {
+        "memory_id": "C002M018",
+        "topic": "sparrow",
+        "memory_type": "fact",
+        "content": "sparrow 的常见意思包括麻雀、树麻雀、家麻雀。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          102
+        ],
+        "evidence_quote": "sparrow 意思是：麻雀",
+        "source_chunk": 2,
+        "message_range": "102"
+      },
+      {
+        "memory_id": "C002M019",
+        "topic": "conductive",
+        "memory_type": "fact",
+        "content": "conductive 的常见意思包括导电的、导热的、有传导性的。",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          104
+        ],
+        "evidence_quote": "conductive 意思是：导电的；导热的；有传导性的",
+        "source_chunk": 2,
+        "message_range": "104"
+      },
+      {
+        "memory_id": "C002M020",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：puzzle road",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          105
+        ],
+        "evidence_quote": "puzzle road",
+        "source_chunk": 2,
+        "message_range": "105"
+      },
+      {
+        "memory_id": "C002M021",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：soy",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          107
+        ],
+        "evidence_quote": "soy",
+        "source_chunk": 2,
+        "message_range": "107"
+      },
+      {
+        "memory_id": "C002M022",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：toast",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          109
+        ],
+        "evidence_quote": "toast",
+        "source_chunk": 2,
+        "message_range": "109"
+      },
+      {
+        "memory_id": "C002M023",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：sparrow",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          111
+        ],
+        "evidence_quote": "sparrow",
+        "source_chunk": 2,
+        "message_range": "111"
+      },
+      {
+        "memory_id": "C002M024",
+        "topic": "用户原始请求",
+        "memory_type": "user_condition",
+        "content": "用户提出：conductive",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          113
+        ],
+        "evidence_quote": "conductive",
+        "source_chunk": 2,
+        "message_range": "113"
+      }
+    ],
+    "typed_records": {
+      "learning": [
+        {
+          "topic": "soprano",
+          "record_kind": "explanation",
+          "user_original": "soprano",
+          "assistant_revision": "soprano",
+          "rationale": "AI 提供了 'soprano' 的定义和常见用法，包括其作为女高音歌手、女高音声部和音乐术语的含义。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            65,
+            66
+          ],
+          "message_range": "65, 66"
+        },
+        {
+          "topic": "conductive",
+          "record_kind": "explanation",
+          "user_original": "conductive",
+          "assistant_revision": "conductive",
+          "rationale": "AI 提供了 conductive 的详细解释，包括其在物理、医学等领域的含义，以及词性变化和常见搭配。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            113,
+            114
+          ],
+          "message_range": "113, 114"
+        },
+        {
+          "topic": "toast",
+          "record_kind": "explanation",
+          "user_original": "toast",
+          "assistant_revision": "toast",
+          "rationale": "AI 解释了 toast 的多种含义，包括作为名词指吐司、作为动词指烤制，以及作为祝酒词的用法。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            109,
+            110
+          ],
+          "message_range": "109, 110"
+        },
+        {
+          "topic": "sparrow",
+          "record_kind": "explanation",
+          "user_original": "sparrow",
+          "assistant_revision": "sparrow",
+          "rationale": "AI 解释了 sparrow 的含义，包括作为名词指麻雀，以及其在不同语境下的使用。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            111,
+            112
+          ],
+          "message_range": "111, 112"
+        },
+        {
+          "topic": "dynamic",
+          "record_kind": "explanation",
+          "user_original": "dynamic",
+          "assistant_revision": "dynamic",
+          "rationale": "AI 解释了 dynamic 的多种含义，包括动态的、充满活力的、动力学的等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            99,
+            100
+          ],
+          "message_range": "99, 100"
+        },
+        {
+          "topic": "composition",
+          "record_kind": "explanation",
+          "user_original": "composition",
+          "assistant_revision": "composition",
+          "rationale": "AI 解释了 composition 的多种含义，包括组成、构成、作文、作品、构图等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            101,
+            102
+          ],
+          "message_range": "101, 102"
+        },
+        {
+          "topic": "labyrinth",
+          "record_kind": "explanation",
+          "user_original": "labyrinth",
+          "assistant_revision": "labyrinth",
+          "rationale": "AI 解释了 labyrinth 的含义，包括字面意义的迷宫和比喻意义的复杂系统，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            103,
+            104
+          ],
+          "message_range": "103, 104"
+        },
+        {
+          "topic": "puzzle road",
+          "record_kind": "explanation",
+          "user_original": "puzzle road",
+          "assistant_revision": "puzzle road",
+          "rationale": "AI 解释了 puzzle road 的可能含义，指出它不是一个固定短语，并提供了可能的替代表达。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            105,
+            106
+          ],
+          "message_range": "105, 106"
+        },
+        {
+          "topic": "soy",
+          "record_kind": "explanation",
+          "user_original": "soy",
+          "assistant_revision": "soy",
+          "rationale": "AI 解释了 soy 的多种含义，包括大豆、豆奶、酱油等，并指出英式英语中常用 soya。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            107,
+            108
+          ],
+          "message_range": "107, 108"
+        },
+        {
+          "topic": "genre",
+          "record_kind": "explanation",
+          "user_original": "genre",
+          "assistant_revision": "genre",
+          "rationale": "AI 解释了 genre 的含义，包括体裁、类型、风格、流派等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            67,
+            68
+          ],
+          "message_range": "67, 68"
+        },
+        {
+          "topic": "bureaucracy",
+          "record_kind": "explanation",
+          "user_original": "bureaucracy",
+          "assistant_revision": "bureaucracy",
+          "rationale": "AI 解释了 bureaucracy 的含义，包括官僚机构、官僚主义、繁琐程序等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            95,
+            96
+          ],
+          "message_range": "95, 96"
+        },
+        {
+          "topic": "cumbersome",
+          "record_kind": "explanation",
+          "user_original": "cumbersome",
+          "assistant_revision": "cumbersome",
+          "rationale": "AI 解释了 cumbersome 的含义，包括笨重的、繁琐的、难以处理的，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            97,
+            98
+          ],
+          "message_range": "97, 98"
+        },
+        {
+          "topic": "horror",
+          "record_kind": "explanation",
+          "user_original": "horror",
+          "assistant_revision": "horror",
+          "rationale": "AI 解释了 horror 的含义，包括恐怖、恐惧、惊骇、恐怖片等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            99,
+            100
+          ],
+          "message_range": "99, 100"
+        },
+        {
+          "topic": "terror",
+          "record_kind": "explanation",
+          "user_original": "terror",
+          "assistant_revision": "terror",
+          "rationale": "AI 解释了 terror 的含义，包括恐怖、恐惧、惊骇、恐怖活动等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            101,
+            102
+          ],
+          "message_range": "101, 102"
+        },
+        {
+          "topic": "deceive",
+          "record_kind": "explanation",
+          "user_original": "deceive",
+          "assistant_revision": "deceive",
+          "rationale": "AI 解释了 deceive 的含义，包括欺骗、误导、使产生错误认识等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            103,
+            104
+          ],
+          "message_range": "103, 104"
+        },
+        {
+          "topic": "parson",
+          "record_kind": "explanation",
+          "user_original": "parson",
+          "assistant_revision": "parson",
+          "rationale": "AI 解释了 parson 的含义，包括牧师、教区牧师等，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            105,
+            106
+          ],
+          "message_range": "105, 106"
+        },
+        {
+          "topic": "skopos",
+          "record_kind": "explanation",
+          "user_original": "skopos",
+          "assistant_revision": "skopos",
+          "rationale": "AI 解释了 skopos 的含义，主要出现在翻译理论中，指翻译的目的，并提供了常见搭配和词性变化。",
+          "adoption_status": "not_applicable",
+          "message_ids": [
+            107,
+            108
+          ],
+          "message_range": "107, 108"
+        }
+      ],
+      "calculations": [],
+      "programming": [],
+      "decisions": [],
+      "context_references": [],
+      "progressions": [],
+      "source_text_issues": []
+    },
+    "query_index": [
+      {
+        "query_id": "Q0001",
+        "message_id": 1,
+        "raw_user_message": "指数用英语怎么说"
+      },
+      {
+        "query_id": "Q0002",
+        "message_id": 3,
+        "raw_user_message": "集合的英文"
+      },
+      {
+        "query_id": "Q0003",
+        "message_id": 5,
+        "raw_user_message": "并集的英文"
+      },
+      {
+        "query_id": "Q0004",
+        "message_id": 7,
+        "raw_user_message": "差集的英文"
+      },
+      {
+        "query_id": "Q0005",
+        "message_id": 9,
+        "raw_user_message": "press"
+      },
+      {
+        "query_id": "Q0006",
+        "message_id": 11,
+        "raw_user_message": "with less fear of the consequences form either the law or the press"
+      },
+      {
+        "query_id": "Q0007",
+        "message_id": 13,
+        "raw_user_message": "All the troubles are gone"
+      },
+      {
+        "query_id": "Q0008",
+        "message_id": 15,
+        "raw_user_message": "这个语法真的正确吗"
+      },
+      {
+        "query_id": "Q0009",
+        "message_id": 17,
+        "raw_user_message": "daytime前用什么介词？"
+      },
+      {
+        "query_id": "Q0010",
+        "message_id": 19,
+        "raw_user_message": "I hold the firm belief that..."
+      },
+      {
+        "query_id": "Q0011",
+        "message_id": 21,
+        "raw_user_message": "Can firm be placed by another better word?"
+      },
+      {
+        "query_id": "Q0012",
+        "message_id": 23,
+        "raw_user_message": "unprecedented"
+      },
+      {
+        "query_id": "Q0013",
+        "message_id": 25,
+        "raw_user_message": "obessesive"
+      },
+      {
+        "query_id": "Q0014",
+        "message_id": 27,
+        "raw_user_message": "I used to get obsessive of you."
+      },
+      {
+        "query_id": "Q0015",
+        "message_id": 29,
+        "raw_user_message": "辅助表元的英文"
+      },
+      {
+        "query_id": "Q0016",
+        "message_id": 31,
+        "raw_user_message": "初始化的英文"
+      },
+      {
+        "query_id": "Q0017",
+        "message_id": 33,
+        "raw_user_message": "初始化的英文"
+      },
+      {
+        "query_id": "Q0018",
+        "message_id": 35,
+        "raw_user_message": "考察的英文"
+      },
+      {
+        "query_id": "Q0019",
+        "message_id": 37,
+        "raw_user_message": "复位的英文"
+      },
+      {
+        "query_id": "Q0020",
+        "message_id": 39,
+        "raw_user_message": "数据的英文"
+      },
+      {
+        "query_id": "Q0021",
+        "message_id": 41,
+        "raw_user_message": "portion"
+      },
+      {
+        "query_id": "Q0022",
+        "message_id": 43,
+        "raw_user_message": "uniformly"
+      },
+      {
+        "query_id": "Q0023",
+        "message_id": 45,
+        "raw_user_message": "manipulate"
+      },
+      {
+        "query_id": "Q0024",
+        "message_id": 47,
+        "raw_user_message": "bearer"
+      },
+      {
+        "query_id": "Q0025",
+        "message_id": 49,
+        "raw_user_message": "inclination"
+      },
+      {
+        "query_id": "Q0026",
+        "message_id": 51,
+        "raw_user_message": "reap"
+      },
+      {
+        "query_id": "Q0027",
+        "message_id": 53,
+        "raw_user_message": "“对应的”的英文"
+      },
+      {
+        "query_id": "Q0028",
+        "message_id": 55,
+        "raw_user_message": "反的，颠倒的英文"
+      },
+      {
+        "query_id": "Q0029",
+        "message_id": 57,
+        "raw_user_message": "elevate"
+      },
+      {
+        "query_id": "Q0030",
+        "message_id": 59,
+        "raw_user_message": "wired"
+      },
+      {
+        "query_id": "Q0031",
+        "message_id": 61,
+        "raw_user_message": "consensus"
+      },
+      {
+        "query_id": "Q0032",
+        "message_id": 63,
+        "raw_user_message": "integral"
+      },
+      {
+        "query_id": "Q0033",
+        "message_id": 65,
+        "raw_user_message": "soprano"
+      },
+      {
+        "query_id": "Q0034",
+        "message_id": 67,
+        "raw_user_message": "genre"
+      },
+      {
+        "query_id": "Q0035",
+        "message_id": 69,
+        "raw_user_message": "统计的英文"
+      },
+      {
+        "query_id": "Q0036",
+        "message_id": 71,
+        "raw_user_message": "插入的英文"
+      },
+      {
+        "query_id": "Q0037",
+        "message_id": 73,
+        "raw_user_message": "esteem"
+      },
+      {
+        "query_id": "Q0038",
+        "message_id": 75,
+        "raw_user_message": "bureaucracy"
+      },
+      {
+        "query_id": "Q0039",
+        "message_id": 77,
+        "raw_user_message": "cumbersome"
+      },
+      {
+        "query_id": "Q0040",
+        "message_id": 79,
+        "raw_user_message": "horror"
+      },
+      {
+        "query_id": "Q0041",
+        "message_id": 81,
+        "raw_user_message": "terror"
+      },
+      {
+        "query_id": "Q0042",
+        "message_id": 83,
+        "raw_user_message": "deceive"
+      },
+      {
+        "query_id": "Q0043",
+        "message_id": 85,
+        "raw_user_message": "parson"
+      },
+      {
+        "query_id": "Q0044",
+        "message_id": 87,
+        "raw_user_message": "funeral"
+      },
+      {
+        "query_id": "Q0045",
+        "message_id": 89,
+        "raw_user_message": "mistletoe branch在英国婚姻中有什么意义"
+      },
+      {
+        "query_id": "Q0046",
+        "message_id": 91,
+        "raw_user_message": "parentheses"
+      },
+      {
+        "query_id": "Q0047",
+        "message_id": 93,
+        "raw_user_message": "scenario"
+      },
+      {
+        "query_id": "Q0048",
+        "message_id": 95,
+        "raw_user_message": "skopos"
+      },
+      {
+        "query_id": "Q0049",
+        "message_id": 97,
+        "raw_user_message": "feudal"
+      },
+      {
+        "query_id": "Q0050",
+        "message_id": 99,
+        "raw_user_message": "dynamic"
+      },
+      {
+        "query_id": "Q0051",
+        "message_id": 101,
+        "raw_user_message": "composition"
+      },
+      {
+        "query_id": "Q0052",
+        "message_id": 103,
+        "raw_user_message": "labyrinth"
+      },
+      {
+        "query_id": "Q0053",
+        "message_id": 105,
+        "raw_user_message": "puzzle road"
+      },
+      {
+        "query_id": "Q0054",
+        "message_id": 107,
+        "raw_user_message": "soy"
+      },
+      {
+        "query_id": "Q0055",
+        "message_id": 109,
+        "raw_user_message": "toast"
+      },
+      {
+        "query_id": "Q0056",
+        "message_id": 111,
+        "raw_user_message": "sparrow"
+      },
+      {
+        "query_id": "Q0057",
+        "message_id": 113,
+        "raw_user_message": "conductive"
+      }
+    ],
+    "recent_context": [
+      {
+        "message_id": 95,
+        "role": "User",
+        "content": "skopos"
+      },
+      {
+        "message_id": 96,
+        "role": "AI",
+        "content": "**skopos** 是一个比较专业的词，主要出现在翻译理论里。\n\n意思是：\n\n**目的；目标；翻译目的**\n\n它来自希腊语 **skopós**，本义就是“目标、目的”。\n\n**最常见语境：翻译理论中的 Skopos theory**\n\n**Skopos theory（目的论）** 是翻译研究里的一个重要理论，由德国学者弗米尔（Hans Vermeer）提出。核心观点是：\n\n**翻译的目的决定翻译的方法和策略。**\n\n也就是说，一个文本该怎么翻，不只看原文，而要看译文要用来做什么、给谁看、达到什么效果。\n\n**常见表达**\n\n* **skopos theory**：目的论\n* **the skopos of the translation**：翻译的目的\n* **the intended skopos**：预期的目的\n* **skopos-oriented translation**：以目的为导向的翻译\n\n**例句**\n\n* According to skopos theory, the purpose of the translation determines the translation strategy.  \n  根据目的论，翻译目的决定翻译策略。\n* The skopos of this text is to inform, not to persuade.  \n  这个文本的目的是告知，而不是说服。\n\n**注意**\n\n* **skopos** 不是日常英语常用词，一般只出现在翻译学、语言学、学术写作里。\n* 普通英语里说“目的”一般用 **purpose / aim / goal / objective**。\n\n如果你是在翻译理论里看到这个词，那它就是“翻译目的、目的论里的目的”。"
+      },
+      {
+        "message_id": 97,
+        "role": "User",
+        "content": "feudal"
+      },
+      {
+        "message_id": 98,
+        "role": "AI",
+        "content": "**feudal** 意思是：\n\n**封建的；封建制度的**\n\n读音：/ˈfjuːdl/\n\n**常见意思**\n\n1. **封建制度的**\n\n   * **feudal system**：封建制度\n   * **feudal society**：封建社会\n   * **feudal lord**：封建领主\n2. **与封建时代有关的**\n\n   * **feudal times**：封建时代\n   * **feudal law**：封建法律\n\n**常见搭配**\n\n* **feudal system**：封建制度\n* **feudal society**：封建社会\n* **feudal lord**：封建领主\n* **feudal era / feudal period**：封建时代\n* **feudal obligations**：封建义务\n\n**词性变化**\n\n* **feudal**：形容词，封建的\n* **feudalism**：名词，封建制度、封建主义\n* **feudalist**：名词，封建主义者\n* **feudalistic**：形容词，封建主义的\n\n**注意**\n\n* **feudal** 是形容词，**feudalism** 是名词。\n* 中文常说的“封建”，在英语历史语境里主要对应欧洲中世纪的 **feudal system**。\n* 中文口语里“封建”有时指“保守、迷信、老旧”，这种语境下英语不一定用 **feudal**，可能用 **old-fashioned / backward / conservative** 等。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 99,
+        "role": "User",
+        "content": "dynamic"
+      },
+      {
+        "message_id": 100,
+        "role": "AI",
+        "content": "**dynamic** 主要有这几个意思：\n\n**1. 动态的、不断变化的**\n\n* **dynamic process**：动态过程\n* **dynamic environment**：动态环境\n* **dynamic system**：动态系统\n* 反义词：**static**（静态的）\n\n**2. 充满活力的、有干劲的**\n\n* **a dynamic person**：一个充满活力的人\n* **a dynamic leader**：一位有魄力的领导者\n* **dynamic economy**：充满活力的经济\n\n**3. 相互作用的、动力学的**\n\n* **dynamic relationship**：动态关系\n* **group dynamics**：群体动力学\n* **dynamic equilibrium**：动态平衡\n\n**4. 作名词：动力、动态**\n\n* **dynamics**：动力学；动态；变化过程\n* **group dynamics**：群体动态\n* **power dynamics**：权力关系/权力动态\n\n**常见搭配**\n\n* **dynamic system**：动态系统\n* **dynamic balance**：动态平衡\n* **dynamic programming**：动态规划\n* **dynamic pricing**：动态定价\n* **dynamic range**：动态范围\n\n**词性变化**\n\n* **dynamic**：形容词；名词（动力、动态）\n* **dynamics**：名词，动力学；动态\n* **dynamically**：副词，动态地\n* **dynamism**：名词，活力、动力\n\n**近义词**\n\n* **energetic**：精力充沛的\n* **vigorous**：有活力的\n* **active**：活跃的\n* **changing**：变化的\n* **forceful**：有力的\n\n**注意**\n\n* **dynamic** 和 **static** 常成对出现：动态 vs 静态。\n* 说人“有活力、有魄力”时，**dynamic** 是褒义。\n* **dynamics** 常指“动态关系、相互作用”，比如 **power dynamics** 权力动态。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 101,
+        "role": "User",
+        "content": "composition"
+      },
+      {
+        "message_id": 102,
+        "role": "AI",
+        "content": "**composition** 主要有这几个意思：\n\n**1. 组成、构成、成分**\n\n* **the composition of the atmosphere**：大气的成分\n* **the composition of the committee**：委员会的构成\n* **chemical composition**：化学成分\n\n**2. 作文、作品**\n\n* **write a composition**：写一篇作文\n* **a musical composition**：一首乐曲\n* **a literary composition**：一篇文学作品\n\n**3. 创作、作曲**\n\n* **the composition of a poem**：一首诗的创作\n* **music composition**：音乐创作\n\n**4. 构图、画面布局**\n\n* **the composition of a painting**：一幅画的构图\n* **photographic composition**：摄影构图\n\n**5. 混合物、合成物**\n\n* 例：a composition of different materials  \n  不同材料的混合物\n\n**常见搭配**\n\n* **chemical composition**：化学成分\n* **musical composition**：音乐作品\n* **the composition of...**：……的构成/成分\n* **write a composition**：写作文\n* **composition class**：写作课\n\n**词性变化**\n\n* **compose**：动词，组成；创作；作曲\n* **composition**：名词，构成；作文；作品；构图\n* **composer**：名词，作曲家\n* **composite**：形容词/名词，复合的；合成物\n\n**近义词**\n\n* **structure**：结构\n* **makeup**：构成、成分\n* **essay**：文章、作文\n* **work**：作品\n* **piece**：作品\n\n**注意**\n\n* 说“化学成分”用 **chemical composition**。\n* 说“写作文”可以用 **write a composition**，但日常英语里更常说 **write an essay**。\n* 音乐里 **composition** 指“作品”或“作曲”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 103,
+        "role": "User",
+        "content": "labyrinth"
+      },
+      {
+        "message_id": 104,
+        "role": "AI",
+        "content": "**labyrinth** 意思是：\n\n**迷宫；错综复杂的事物；难以脱身的困境**\n\n读音：/ˈlæbərɪnθ/\n\n**常见意思**\n\n1. **迷宫（建筑意义上的）**\n\n   * 尤指古代那种设计复杂、难以找到出口的迷宫。\n   * the labyrinth of Crete  \n     克里特迷宫\n   * We got lost in the labyrinth.  \n     我们在迷宫里迷路了。\n2. **错综复杂的事物、复杂的网络**\n\n   * a labyrinth of streets  \n     错综复杂的街道\n   * a labyrinth of rules  \n     繁杂的规则\n   * a labyrinth of tunnels  \n     纵横交错的隧道\n3. **比喻难以摆脱的困境**\n\n   * the labyrinth of bureaucracy  \n     官僚体系的迷宫\n   * lost in a labyrinth of lies  \n     陷入谎言的迷局\n\n**常见搭配**\n\n* **a labyrinth of**：错综复杂的……\n* **the labyrinth of...**：……的迷宫\n* **labyrinthine**：形容词，迷宫般的、错综复杂的\n\n  + labyrinthine corridors 迷宫般的走廊\n* **get lost in a labyrinth**：在迷宫中迷路\n\n**近义词**\n\n* **maze**：迷宫（更常用、更口语）\n* **tangle**：纠缠、混乱\n* **network**：网络、网状系统\n* **web**：网、错综复杂的关系\n\n**注意**\n\n* **labyrinth** 和 **maze** 都可译作“迷宫”，但：\n\n  + **maze** 更日常，常指游乐园里的迷宫。\n  + **labyrinth** 更正式、更有文学色彩，常指复杂难解的事物。\n* **labyrinthine** 是常用形容词，意思是“迷宫般的、错综复杂的”。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 105,
+        "role": "User",
+        "content": "puzzle road"
+      },
+      {
+        "message_id": 106,
+        "role": "AI",
+        "content": "**puzzle road** 不是一个固定的英语常用短语，通常要看具体语境来理解。\n\n直译可以理解为：\n\n**谜题之路；充满谜团的路；令人费解的道路**\n\n但在英语里，更常见的对应说法可能是：\n\n* **puzzle path**：谜题路径 / 解谜路线\n* **maze**：迷宫\n* **labyrinth**：迷宫；错综复杂的路\n* **a puzzling road**：一条令人困惑的路\n* **a road full of puzzles**：充满谜题的路\n\n如果它出现在某个游戏、小说、地图、题目里，可能是专有名称，比如：\n\n* 游戏关卡名：**Puzzle Road**\n* 解谜路线：**puzzle route**\n* 迷宫道路：**maze road / labyrinth road**\n\n所以：\n\n* 如果是普通描述“令人费解的路”：**a puzzling road**\n* 如果是游戏/关卡名：**Puzzle Road** 可以直接保留\n* 如果是“解谜之路”：**puzzle path / puzzle route**\n* 如果是“迷宫路”：**maze / labyrinth**\n\n如果你能告诉我它出现在哪里，比如游戏、文章、地图还是歌词，我可以帮你判断更准确的英文表达或翻译。"
+      },
+      {
+        "message_id": 107,
+        "role": "User",
+        "content": "soy"
+      },
+      {
+        "message_id": 108,
+        "role": "AI",
+        "content": "**soy** 意思是：\n\n**大豆；黄豆；酱油（口语中有时指 soy sauce）**\n\n读音：/sɔɪ/\n\n**常见意思**\n\n1. **大豆、黄豆**\n\n   * **soy beans / soybeans**：大豆\n   * **soy milk**：豆奶\n   * **soy sauce**：酱油\n   * **soy protein**：大豆蛋白\n2. **口语中可指“酱油”**\n\n   * 在美式口语里，有时说 **soy** 就是指 **soy sauce**。\n   * 例：Pass the soy. 把酱油递过来。\n\n**常见搭配**\n\n* **soy sauce**：酱油\n* **soy milk**：豆奶\n* **soybean**：大豆\n* **soy protein**：大豆蛋白\n* **soy product**：豆制品\n\n**注意**\n\n* **soy** 和 **soybean** 都可以指“大豆”，但 **soybean** 更常指具体的豆子。\n* **soy** 常作定语：soy milk, soy sauce。\n* 英式英语里也常用 **soya**：soya milk, soya bean。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 109,
+        "role": "User",
+        "content": "toast"
+      },
+      {
+        "message_id": 110,
+        "role": "AI",
+        "content": "**toast** 主要有这几个意思：\n\n**1. 吐司、烤面包**\n\n* **a piece of toast**：一片吐司\n* **toast and butter**：黄油吐司\n* **French toast**：法式吐司\n\n例：I had toast for breakfast.  \n我早餐吃了吐司。\n\n**2. 烤、烘（动词）**\n\n* **toast the bread**：烤面包\n* **toasted sandwich**：烤三明治\n* **toast a bagel**：烤贝果\n\n例：She toasted the bread until it was golden.  \n她把面包烤到金黄。\n\n**3. 祝酒、干杯**\n\n* **propose a toast**：提议干杯\n* **drink a toast to somebody**：为某人干杯\n* **a toast to the bride and groom**：为新郎新娘干杯\n\n例：Let's propose a toast to the happy couple.  \n让我们为这对幸福的新人干杯。\n\n**4. 祝酒词**\n\n* **give a toast**：致祝酒词\n* **a wedding toast**：婚礼祝酒词\n\n**常见搭配**\n\n* **a piece of toast**：一片吐司\n* **French toast**：法式吐司\n* **propose a toast**：提议干杯\n* **drink a toast to**：为……干杯\n* **toast the bread**：烤面包\n* **be toast**：口语，表示“完蛋了、死定了”\n\n  + If you tell her that, you're toast.  \n    你要是告诉她那件事，你就死定了。\n\n**词性变化**\n\n* **toast**：名词；动词\n* **toaster**：名词，烤面包机\n* **toasted**：形容词，烤过的\n\n**注意**\n\n* **toast** 作“吐司”时通常不可数：**a piece of toast / two slices of toast**。\n* 作“干杯、祝酒”时是可数名词：**propose a toast**。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 111,
+        "role": "User",
+        "content": "sparrow"
+      },
+      {
+        "message_id": 112,
+        "role": "AI",
+        "content": "**sparrow** 意思是：\n\n**麻雀**\n\n读音：/ˈspæroʊ/（美） /ˈspærəʊ/（英）\n\n**常见意思**\n\n1. **麻雀**\n\n   * a house sparrow：家麻雀\n   * a tree sparrow：树麻雀\n   * sparrows were chirping in the trees.  \n     麻雀在树上叽叽喳喳地叫。\n2. **泛指小型鸟类**\n\n   * 有时可指雀形目的小鸟，但日常最常见就是“麻雀”。\n\n**常见搭配**\n\n* **house sparrow**：家麻雀\n* **tree sparrow**：树麻雀\n* **sparrow hawk**：雀鹰（一种猛禽）\n* **a flock of sparrows**：一群麻雀\n\n**词性变化**\n\n* **sparrow**：名词，麻雀\n* 复数：**sparrows**\n\n**注意**\n\n* **sparrow** 是具体鸟名，不是泛指所有小鸟。\n* 英语里“小鸟”一般说 **bird** 或 **small bird**。\n* **sparrow hawk** 不是麻雀，而是一种鹰。\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      },
+      {
+        "message_id": 113,
+        "role": "User",
+        "content": "conductive"
+      },
+      {
+        "message_id": 114,
+        "role": "AI",
+        "content": "**conductive** 意思是：\n\n**导电的；导热的；有传导性的**\n\n读音：/kənˈdʌktɪv/\n\n**常见意思**\n\n1. **导电的**\n\n   * **conductive material**：导电材料\n   * **conductive wire**：导电电线\n   * Copper is highly conductive.  \n     铜的导电性很好。\n2. **导热的**\n\n   * **conductive heat transfer**：导热\n   * Metals are usually thermally conductive.  \n     金属通常导热性好。\n3. **有传导性的（广义）**\n\n   * 可指电、热、声音等的传导。\n\n**常见搭配**\n\n* **conductive material**：导电材料\n* **electrically conductive**：导电的\n* **thermally conductive**：导热的\n* **conductive coating**：导电涂层\n* **conductive hearing loss**：传导性听力损失（医学）\n\n**词性变化**\n\n* **conduct**：动词，传导；指挥；实施\n* **conduction**：名词，传导\n* **conductive**：形容词，导电的、导热的\n* **conductivity**：名词，传导率、导电性、导热性\n* **conductor**：名词，导体；指挥；售票员\n\n**近义词**\n\n* **transmitting**：传导的\n* **transmissive**：可传导的\n\n**反义词**\n\n* **nonconductive**：不导电的\n* **insulating**：绝缘的\n* **insulative**：绝缘的\n\n**注意**\n\n* **conductive** 强调“能传导”的性质。\n* **conductivity** 是“传导率/传导性”这个名词，常搭配：\n\n  + **electrical conductivity**：导电率\n  + **thermal conductivity**：导热率\n* **conductor** 是“导体”，比如铜是导体：Copper is a good conductor.\n\n如果你有具体句子，我可以帮你判断它在句子里是什么意思。"
+      }
+    ],
+    "media": [],
+    "processing": {
+      "chunk_char_limit": 24000,
+      "recent_context_messages": 20,
+      "warnings": [],
+      "cache_hit": false,
+      "timings_seconds": {
+        "media_discovery": 0.001,
+        "completed_cache_lookup": 0.003,
+        "media_analysis": 0.0,
+        "chunking": 0.0,
+        "chunk_extraction": 0.0,
+        "global_synthesis": 75.611,
+        "total_before_output": 75.621
+      }
+    }
+  }
+}

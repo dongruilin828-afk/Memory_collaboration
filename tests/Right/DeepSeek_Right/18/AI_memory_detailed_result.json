@@ -1,0 +1,334 @@
+{
+  "schema_version": 8,
+  "generated_at": "2026-10-08T10:39:10.340530+00:00",
+  "provider": "siliconflow",
+  "model": "Qwen/Qwen3-8B",
+  "source": "export.md",
+  "conversation": {
+    "message_count": 2,
+    "user_messages": 1,
+    "ai_messages": 1,
+    "chunk_count": 1,
+    "conversation_types": [
+      "ordinary"
+    ],
+    "programming_mode": "not_applicable",
+    "source_fingerprint": "7b05da2ce3860506425d40d30abb9ce651cfe878c536e3755d078f5578df9182"
+  },
+  "overall_summary": "用户询问行李箱尺寸与航空公司托运规定的关系，AI已完整说明不同航空公司（全服务、低成本、国际航班）的行李箱尺寸和重量限制标准，并建议核对具体航司规定。当前状态为信息提供完成，已执行动作包括提供各类型航空公司的行李箱尺寸和重量限制信息，建议包括核对机票行程单上的行李规定。",
+  "current_state": {
+    "current_activity": {
+      "content": "用户最近提出：多大的行李箱可以不托运",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        1
+      ],
+      "message_range": "1"
+    },
+    "reached_stage": {
+      "content": "信息提供完成",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        2
+      ],
+      "message_range": "2"
+    },
+    "completed": [
+      {
+        "content": "AI 已提供行李箱尺寸和重量限制的详细信息",
+        "source": "assistant",
+        "status": "delivered",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "行李箱尺寸限制取决于航空公司类型",
+        "source": "assistant",
+        "status": "answered",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "全服务航空公司允许20寸行李箱登机",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "全服务航空公司行李箱尺寸标准为55cm × 40cm × 20cm",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "全服务航空公司行李箱重量限制为5公斤至8公斤",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "低成本航空公司允许14寸行李箱登机",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "低成本航空公司行李箱尺寸限制为20cm × 30cm × 40cm",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "低成本航空公司行李箱重量限制为7公斤",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "国际航班行李箱尺寸限制为56cm × 36cm × 23cm",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "国际航班行李箱重量限制通常为7公斤",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "多数航空公司允许额外免费携带一件个人物品",
+        "source": "assistant",
+        "status": "suggested",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      }
+    ],
+    "pending": [],
+    "next_step": {
+      "content": "核对机票行程单上的行李规定",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "message_range": "2"
+    },
+    "last_user_message_id": 1,
+    "latest_message_id": 2,
+    "latest_message_role": "AI",
+    "last_user_turn_answered": true,
+    "last_user_intent": "多大的行李箱可以不托运",
+    "breakpoint_status": "complete"
+  },
+  "topics": [],
+  "memory_items": [
+    {
+      "memory_id": "C001M001",
+      "topic": "行李箱尺寸限制",
+      "memory_type": "fact",
+      "content": "行李箱尺寸限制取决于航空公司类型",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "能不能不托运，关键看你乘坐的是哪家航空公司",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M002",
+      "topic": "全服务航空公司行李箱尺寸",
+      "memory_type": "assistant_suggestion",
+      "content": "全服务航空公司允许20寸行李箱登机",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "同样一个20寸的行李箱，在全服务航司可以登机",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M003",
+      "topic": "全服务航空公司行李箱尺寸标准",
+      "memory_type": "assistant_suggestion",
+      "content": "全服务航空公司行李箱尺寸标准为55cm × 40cm × 20cm",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "长宽高分别不超过 55cm × 40cm × 20cm",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M004",
+      "topic": "全服务航空公司行李箱重量限制",
+      "memory_type": "assistant_suggestion",
+      "content": "全服务航空公司行李箱重量限制为5公斤至8公斤",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "经济舱通常限制在 5公斤至8公斤 之间",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M005",
+      "topic": "低成本航空公司行李箱尺寸",
+      "memory_type": "assistant_suggestion",
+      "content": "低成本航空公司允许14寸行李箱登机",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "通常限制在 20cm × 30cm × 40cm，大约相当于14寸的行李箱",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M006",
+      "topic": "低成本航空公司行李箱重量限制",
+      "memory_type": "assistant_suggestion",
+      "content": "低成本航空公司行李箱重量限制为7公斤",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "一般限制在 7公斤以内",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M007",
+      "topic": "国际航班行李箱尺寸限制",
+      "memory_type": "assistant_suggestion",
+      "content": "国际航班行李箱尺寸限制为56cm × 36cm × 23cm",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "国际航班的尺寸限制与国内全服务航司类似，常见标准是 56cm × 36cm × 23cm",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M008",
+      "topic": "国际航班行李箱重量限制",
+      "memory_type": "assistant_suggestion",
+      "content": "国际航班行李箱重量限制通常为7公斤",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "国际航班的尺寸限制与国内全服务航司类似，但重量限制通常为 7公斤",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M009",
+      "topic": "额外携带个人物品规定",
+      "memory_type": "assistant_suggestion",
+      "content": "多数航空公司允许额外携带一件个人物品",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "多数航司允许额外免费携带一件个人物品（如手提包、笔记本电脑包）",
+      "source_chunk": 1,
+      "message_range": "2"
+    }
+  ],
+  "typed_records": {
+    "learning": [],
+    "calculations": [],
+    "programming": [],
+    "decisions": [],
+    "context_references": [],
+    "progressions": [],
+    "source_text_issues": []
+  },
+  "query_index": [
+    {
+      "query_id": "Q0001",
+      "message_id": 1,
+      "raw_user_message": "多大的行李箱可以不托运"
+    }
+  ],
+  "recent_context": [
+    {
+      "message_id": 1,
+      "role": "User",
+      "content": "多大的行李箱可以不托运"
+    },
+    {
+      "message_id": 2,
+      "role": "AI",
+      "content": "能不能不托运，关键看**你乘坐的是哪家航空公司**。同样一个20寸的行李箱，在全服务航司可以登机，在部分低成本航司就可能被要求付费托运。\n\n### ✈️ 全服务航空公司：20寸及以下\n\n国航、南航、东航、深航等主流全服务航司，标准基本一致：\n\n* **尺寸**：长宽高分别不超过 **55cm × 40cm × 20cm**（含轮子和把手），这就是市面上常见的**20寸登机箱**。\n* **重量**：经济舱通常限制在 **5公斤至8公斤** 之间。例如国航经济舱多为5公斤，东航、南航多为8公斤。\n\n### 💰 低成本航空公司：多为14寸及以下\n\n春秋、首都、祥鹏、天津、西部等低成本航司，普通经济舱的免费随身行李标准往往更严格：\n\n* **尺寸**：通常限制在 **20cm × 30cm × 40cm**，大约相当于**14寸**的行李箱。**标准的20寸登机箱会被认定为超大，需要付费托运或升级权益**才能带入客舱。\n* **重量**：一般限制在 **7公斤**以内。\n\n### 🌍 国际航班参考\n\n国际航班的尺寸限制与国内全服务航司类似，但略有不同。常见标准是 **56cm × 36cm × 23cm**（三边之和不超过115cm），重量限制通常为 **7公斤**。具体仍需以你乘坐的航司规定为准。\n\n### 💡 补充提醒\n\n除了上述主行李，多数航司允许**额外免费携带一件个人物品**（如手提包、笔记本电脑包），放置在前排座椅下方即可，不计入随身行李额度。\n\n最稳妥的方法，是在购票后**核对机票行程单上的行李规定**，或直接在你乘坐的航司官网“行李须知”页面确认具体尺寸和重量。"
+    }
+  ],
+  "media": [],
+  "processing": {
+    "chunk_char_limit": 24000,
+    "recent_context_messages": 2,
+    "warnings": [],
+    "cache_hit": true,
+    "timings_seconds": {
+      "media_discovery": 0.0,
+      "completed_cache_lookup": 0.003,
+      "total_before_output": 0.012
+    },
+    "original_timings_seconds": {
+      "media_discovery": 0.0,
+      "completed_cache_lookup": 0.004,
+      "media_analysis": 0.0,
+      "chunking": 0.0,
+      "chunk_extraction": 66.839,
+      "global_synthesis": 54.196,
+      "total_before_output": 121.048
+    }
+  }
+}

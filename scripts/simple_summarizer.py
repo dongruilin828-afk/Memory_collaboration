@@ -385,9 +385,19 @@ def validate_simple_overview(
         if not user_completion_evidence:
             errors.append("把上一 AI 的交付物误写成用户已完成")
     if re.search(
-        r"用户.{0,8}(?:尚未|未)确认.{0,8}(?:采纳|采用)", overview
+        r"用户.{0,8}(?:尚未|未)确认.{0,8}(?:采纳|采用)"
+        r"|(?:建议|方案).{0,8}(?:尚未|未获)用户确认"
+        r"|(?:尚未|未)确认用户是否(?:采纳|采用)"
+        r"|(?:建议|方案).{0,8}(?:尚未|未)确认(?:是否)?(?:采纳|采用)",
+        overview
     ):
         errors.append("把普通回答或纠错制造成采纳待办")
+    if re.search(
+        r"(?:^|[。！？!?；;，,])\s*(?:目前|当前)?(?:但|且|而)?"
+        r"(?:用户|AI)(?:尚未|仍未|还未)?[。！？!?]?$",
+        overview
+    ):
+        errors.append("结尾包含不完整句子")
     for strengthened in ("稳定", "必然", "肯定", "确定会"):
         if strengthened in overview and strengthened not in source_text:
             errors.append(f"擅自强化不确定结论：{strengthened}")
@@ -437,10 +447,24 @@ def repair_simple_overview(
         text
     )
     text = re.sub(
-        r"，?用户(?:尚未|未)确认是否?(?:采纳|采用)[^。]*",
-        "",
+        r"(?:[，,。；;]|^)(?:目前|当前)?(?:但|且|而)?用户(?:[^。！？]*"
+        r"(?:建议|方案)[^。！？]*(?:取舍|确认|采纳|采用|接受)"
+        r"|[^。！？]*(?:确认|明确)[^。！？]*(?:采纳|采用|接受))[^。！？]*[。！？]?$"
+        r"|[，,]?(?:但|且)?用户(?:尚未|未)确认是否?(?:采纳|采用)[^。]*[。]?"
+        r"|(?:[，,]|。)?(?:但|且)?(?:修改)?(?:建议|方案)(?:尚未|未获)用户确认[^。]*[。]?"
+        r"|[，,]?(?:但|且)?(?:尚未|未)确认用户是否(?:采纳|采用)[^。]*[。]?"
+        r"|[，,]?(?:但|且)?(?:尚未|未)确认(?:是否)?(?:采纳|采用)[^。]*[。]?",
+        "。",
         text
     )
+    text = re.sub(
+        r"(?:目前|当前)?(?:但|且|而)?(?:用户|AI)(?:尚未|仍未|还未)?[。！？]",
+        "",
+        text
+    ).strip()
+    text = re.sub(r"。{2,}", "。", text)
+    if not text.strip("。！？!?；;，, "):
+        text = ""
     source_text = json.dumps(projection, ensure_ascii=False)
     if "稳定" not in source_text:
         text = re.sub(r"(?:数月|几个月)稳定在", "几个月后约为", text)
@@ -465,6 +489,7 @@ def generate_simple_overview(
             )
         response = gateway.generate_json(prompt, SIMPLE_SCHEMA)
         overview = normalize_simple_overview(response.get("overview"))
+        overview = repair_simple_overview(overview, projection)
         last_errors = validate_simple_overview(
             overview, projection, max_chars
         )

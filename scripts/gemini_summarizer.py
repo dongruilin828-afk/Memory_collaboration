@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -1397,7 +1398,18 @@ def _extract_pptx_text(path: Path, max_chars: int) -> str:
 def _extract_pdf_text(path: Path, max_chars: int) -> str:
     from pypdf import PdfReader
 
-    text = "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    logger = logging.getLogger("pypdf._reader")
+    wrong_pointer_filter = lambda record: not record.getMessage().startswith(
+        "Ignoring wrong pointing object "
+    )
+    logger.addFilter(wrong_pointer_filter)
+    try:
+        text = "\n".join(
+            page.extract_text() or ""
+            for page in PdfReader(path, strict=False).pages
+        )
+    finally:
+        logger.removeFilter(wrong_pointer_filter)
     return text[:max_chars]
 
 
@@ -1757,10 +1769,19 @@ def describe_media(
                 )
                 if not description:
                     asset.status = "unclear"
-                    asset.description = _missing_media_description(
-                        asset,
-                        "模型没有返回有效说明"
-                    )
+                    if asset.local_path is not None and asset.local_path.is_file():
+                        subject = (
+                            "图片" if asset.kind == "image" else "文档"
+                        )
+                        asset.description = (
+                            f"{subject}“{asset.label}”的本地文件仍可访问；"
+                            "但模型没有返回有效内容说明，可重新提取或验证。"
+                        )
+                    else:
+                        asset.description = _missing_media_description(
+                            asset,
+                            "模型没有返回有效说明"
+                        )
                 else:
                     asset.status = (
                         "described"

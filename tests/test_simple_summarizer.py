@@ -86,6 +86,57 @@ class SimpleSummarizerTests(unittest.TestCase):
         self.assertEqual(gateway.calls, 2)
         self.assertEqual(overview, "用户提出问题，上一 AI 已回答。")
 
+    def test_generation_repairs_false_adoption_pending(self):
+        gateway = FakeGateway([{
+            "overview": "AI 已给出修改建议但未确认采纳。"
+        }])
+        result = {
+            "overall_summary": "AI 已给出修改建议。",
+            "conversation": {},
+            "current_state": {"pending": []},
+            "topics": [],
+            "memory_items": [],
+            "typed_records": {},
+            "media": []
+        }
+        overview = simple.generate_simple_overview(
+            result,
+            [
+                {"role": "User", "content": "请给出修改建议"},
+                {"role": "AI", "content": "建议修改结构。"}
+            ],
+            gateway
+        )
+        self.assertEqual(gateway.calls, 1)
+        self.assertEqual(overview, "AI 已给出修改建议。")
+
+    def test_repair_removes_false_adoption_sentence_without_fragment(self):
+        projection = {"current_state": {"pending": []}}
+        cases = {
+            "AI 已完成检查并提出修改建议。目前用户尚未对建议进行取舍或确认。":
+                "AI 已完成检查并提出修改建议。",
+            "AI 已完成检查并提出修改建议，但用户尚未明确是否采纳。":
+                "AI 已完成检查并提出修改建议。",
+            "AI 已完成检查并提出修改建议，但用户。文档目标保持不变。":
+                "AI 已完成检查并提出修改建议，文档目标保持不变。",
+        }
+        for overview, expected in cases.items():
+            with self.subTest(overview=overview):
+                repaired = simple.repair_simple_overview(overview, projection)
+                self.assertEqual(repaired, expected)
+                self.assertEqual(
+                    simple.validate_simple_overview(repaired, projection, 220),
+                    []
+                )
+
+    def test_validation_rejects_incomplete_tail(self):
+        errors = simple.validate_simple_overview(
+            "AI 已完成检查并提出修改建议，但用户。",
+            {"current_state": {"pending": []}},
+            220
+        )
+        self.assertIn("结尾包含不完整句子", errors)
+
     def test_markdown_contains_only_overview_section(self):
         result = {
             "provider": "gemini", "model": "gemini-test",
