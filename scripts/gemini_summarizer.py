@@ -2687,7 +2687,9 @@ def _normalize_chunk_summary(
     messages: list[dict[str, str]]
 ) -> dict[str, Any]:
     message_count = len(messages)
+    allowed_ids = set(chunk.message_indices)
     memory_items = []
+    covered_user_ids = set()
     raw_items = summary.get("memory_items")
     if isinstance(raw_items, list):
         for item_index, item in enumerate(raw_items, start=1):
@@ -2696,6 +2698,13 @@ def _normalize_chunk_summary(
             content = str(item.get("content") or "").strip()
             if not content:
                 continue
+            item_message_ids = _message_ids(
+                item.get("message_ids"), message_count, allowed_ids
+            )
+            covered_user_ids.update(
+                message_id for message_id in item_message_ids
+                if messages[message_id - 1].get("role") == "User"
+            )
             memory = {
                 "memory_id": f"C{chunk.chunk_index:03d}M{item_index:03d}",
                 "topic": str(item.get("topic") or "未分类").strip(),
@@ -2709,9 +2718,7 @@ def _normalize_chunk_summary(
                 "status": _enum_value(
                     item.get("status"), STATUS_VALUES, "uncertain"
                 ),
-                "message_ids": _message_ids(
-                    item.get("message_ids"), message_count
-                ),
+                "message_ids": item_message_ids,
                 "evidence_quote": str(
                     item.get("evidence_quote") or ""
                 ).strip(),
@@ -2723,7 +2730,26 @@ def _normalize_chunk_summary(
                 )
             )
 
-    return {
+    next_memory_index = len(raw_items) if isinstance(raw_items, list) else 0
+    for message_id in chunk.message_indices:
+        message = messages[message_id - 1]
+        if message.get("role") != "User" or message_id in covered_user_ids:
+            continue
+        next_memory_index += 1
+        content = _compact_inline(message.get("content"), 240) or "未提供文本"
+        memory_items.append(_with_message_range({
+            "memory_id": f"C{chunk.chunk_index:03d}M{next_memory_index:03d}",
+            "topic": "用户原始请求",
+            "memory_type": "user_condition",
+            "content": f"用户提出：{content}",
+            "source": "user",
+            "status": "confirmed",
+            "message_ids": [message_id],
+            "evidence_quote": content,
+            "source_chunk": chunk.chunk_index
+        }))
+
+    result = {
         "chunk_index": chunk.chunk_index,
         "source_messages": list(chunk.message_indices),
         "title": str(summary.get("title") or "本批对话").strip(),
@@ -2760,6 +2786,24 @@ def _normalize_chunk_summary(
             summary.get("current_progress"), message_count
         )
     }
+    _limit_message_ids_to_chunk(result, allowed_ids)
+    return result
+
+
+def _limit_message_ids_to_chunk(value: Any, allowed_ids: set[int]) -> None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in {"message_ids", "assistant_message_ids", "context_message_ids"}:
+                if isinstance(child, list):
+                    value[key] = [item for item in child if item in allowed_ids]
+            elif key in {"message_id", "user_message_id"}:
+                if isinstance(child, int) and child not in allowed_ids:
+                    value[key] = 0
+            else:
+                _limit_message_ids_to_chunk(child, allowed_ids)
+    elif isinstance(value, list):
+        for child in value:
+            _limit_message_ids_to_chunk(child, allowed_ids)
 
 
 def _normalize_final_summary(
@@ -2843,6 +2887,7 @@ def _normalize_final_summary(
     _filter_spurious_open_state(current_state, messages)
     _reconcile_answered_state_text(current_state)
     _normalize_latest_turn_state(current_state, messages)
+    _remove_completed_open_state(current_state, messages)
 
     learning_records = _collect_records(
         chunk_summaries, "learning_records"
@@ -4158,7 +4203,10 @@ def _enum_list(value: Any, allowed: list[str]) -> list[str]:
     ))
 
 
-def _message_ids(value: Any, message_count: int) -> list[int]:
+def _message_ids(
+    value: Any, message_count: int,
+    allowed_ids: set[int] | None = None
+) -> list[int]:
     if not isinstance(value, list):
         return []
     result = []
@@ -4167,7 +4215,10 @@ def _message_ids(value: Any, message_count: int) -> list[int]:
             message_id = int(item)
         except (TypeError, ValueError):
             continue
-        if 1 <= message_id <= message_count:
+        if (
+            1 <= message_id <= message_count
+            and (allowed_ids is None or message_id in allowed_ids)
+        ):
             result.append(message_id)
     return list(dict.fromkeys(result))
 
@@ -4792,6 +4843,51 @@ def _filter_spurious_open_state(
         )
 
 
+def _claim_terms(claim: dict[str, Any]) -> set[str]:
+    text = re.sub(
+        r"(?:用户|上一?[ ]*AI|已经|已|完成|提供|生成|实现|需要|继续|"
+        r"下一步|待|进行|确认|验证|代码|任务)",
+        "", str(claim.get("content") or ""), flags=re.IGNORECASE
+    )
+    return set(re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z0-9_]{3,}", text.lower()))
+
+
+def _claims_same_work(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_ids = set(left.get("message_ids", []))
+    right_ids = set(right.get("message_ids", []))
+    left_terms = _claim_terms(left)
+    right_terms = _claim_terms(right)
+    overlap = left_terms & right_terms
+    return bool(overlap) and (
+        bool(left_ids & right_ids)
+        or len(overlap) / max(1, min(len(left_terms), len(right_terms))) >= 0.6
+    )
+
+
+def _remove_completed_open_state(
+    current_state: dict[str, Any], messages: list[dict[str, str]]
+) -> None:
+    completed = [
+        claim for claim in current_state.get("completed", [])
+        if claim.get("status") in {"executed", "verified", "answered", "delivered"}
+    ]
+    if not completed:
+        return
+    current_state["pending"] = [
+        claim for claim in current_state.get("pending", [])
+        if not any(_claims_same_work(claim, done) for done in completed)
+    ]
+    next_step = current_state.get("next_step", {})
+    if any(_claims_same_work(next_step, done) for done in completed):
+        current_state["next_step"] = _normalize_claim({}, len(messages))
+    if (
+        not current_state["pending"]
+        and current_state["next_step"].get("content") == "未明确"
+        and current_state.get("last_user_turn_answered")
+    ):
+        current_state["breakpoint_status"] = "complete"
+
+
 def _user_attempted_programming_change(
     record: dict[str, Any], messages: list[dict[str, str]]
 ) -> bool:
@@ -5381,6 +5477,29 @@ def _bind_media_results(
                     ),
                     "conclusion_status": "unavailable"
                 }]
+        if messages:
+            seen_answer = False
+            next_user_id = len(messages) + 1
+            for message_id in range(asset.message_index + 1, len(messages) + 1):
+                role = messages[message_id - 1].get("role")
+                if role == "AI":
+                    seen_answer = True
+                elif role == "User" and seen_answer:
+                    next_user_id = message_id
+                    break
+            bindings = [
+                {
+                    **binding,
+                    "user_message_id": asset.message_index,
+                    "assistant_message_ids": [
+                        message_id
+                        for message_id in binding.get("assistant_message_ids", [])
+                        if asset.message_index < message_id < next_user_id
+                        and messages[message_id - 1].get("role") == "AI"
+                    ]
+                }
+                for binding in bindings
+            ]
         item["assistant_bindings"] = bindings
         results.append(item)
     return results

@@ -372,6 +372,59 @@ class GeminiSummarizerTests(unittest.TestCase):
         )
         self.assertIn(4, containing_user.message_indices)
 
+    def test_chunk_summary_rejects_cross_chunk_ids_and_covers_each_user(self):
+        messages = [
+            {"role": "User", "content": "first"},
+            {"role": "AI", "content": "first answer"},
+            {"role": "User", "content": "conductive"},
+            {"role": "AI", "content": "conductive means able to conduct"},
+        ]
+        normalized = summary._normalize_chunk_summary(
+            {
+                "memory_items": [{
+                    "topic": "word",
+                    "memory_type": "learning_point",
+                    "content": "AI explained conductive",
+                    "source": "assistant",
+                    "status": "answered",
+                    "message_ids": [1, 4],
+                    "evidence_quote": "conductive",
+                }],
+                "learning_records": [{
+                    "topic": "conductive",
+                    "user_original": "conductive",
+                    "assistant_revision": "able to conduct",
+                    "message_ids": [1, 3, 4],
+                }],
+            },
+            summary.ConversationChunk(2, "", (3, 4)),
+            messages,
+        )
+
+        self.assertEqual(normalized["memory_items"][0]["message_ids"], [4])
+        self.assertEqual(normalized["learning_records"][0]["message_ids"], [3, 4])
+        self.assertTrue(any(
+            item["source"] == "user" and item["message_ids"] == [3]
+            for item in normalized["memory_items"]
+        ))
+
+    def test_chunk_summary_fallback_preserves_all_user_queries(self):
+        messages = [
+            {"role": "User", "content": f"query-{index}"}
+            for index in range(1, 58)
+        ]
+        normalized = summary._normalize_chunk_summary(
+            {"memory_items": []},
+            summary.ConversationChunk(1, "", tuple(range(1, 58))),
+            messages,
+        )
+        covered = {
+            message_id
+            for item in normalized["memory_items"]
+            for message_id in item["message_ids"]
+        }
+        self.assertEqual(covered, set(range(1, 58)))
+
     def test_deepseek_dense_conversation_uses_smaller_chunks_only_there(self):
         messages = [
             {
@@ -2386,6 +2439,36 @@ output = "Harry Potter_translated.pdf"</pre>
         ], message_count=2)[0]
         self.assertEqual(record['conclusion_status'], 'uncertain')
 
+    def test_media_binding_uses_asset_message_and_same_turn_ai_only(self):
+        asset = summary.MediaAsset(
+            media_id="M001",
+            message_index=3,
+            kind="image",
+            label="question.png",
+            reference="unavailable://question.png",
+        )
+        media = summary._bind_media_results(
+            [asset],
+            [{
+                "media_id": "M001",
+                "user_message_id": 1,
+                "assistant_message_ids": [2, 4, 6],
+                "assistant_conclusion": "answer",
+                "conclusion_status": "uncertain",
+            }],
+            [
+                {"role": "User", "content": "old question"},
+                {"role": "AI", "content": "old answer"},
+                {"role": "User", "content": "image question"},
+                {"role": "AI", "content": "image answer"},
+                {"role": "User", "content": "next question"},
+                {"role": "AI", "content": "next answer"},
+            ],
+        )
+        binding = media[0]["assistant_bindings"][0]
+        self.assertEqual(binding["user_message_id"], 3)
+        self.assertEqual(binding["assistant_message_ids"], [4])
+
     def test_unavailable_attachment_keeps_nearby_historical_answer(self):
         asset = summary.MediaAsset(
             media_id='M001',
@@ -2590,6 +2673,39 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertEqual(state['pending'], [])
         self.assertEqual(state['next_step']['content'], '未明确')
         self.assertEqual(state['breakpoint_status'], 'complete')
+
+    def test_completed_work_is_removed_from_pending_and_next_step(self):
+        state = {
+            "completed": [{
+                "content": "上一 AI 已生成交互网页代码",
+                "source": "assistant",
+                "status": "delivered",
+                "message_ids": [4],
+            }],
+            "pending": [{
+                "content": "继续生成交互网页",
+                "source": "inferred",
+                "status": "unresolved",
+                "message_ids": [4],
+            }],
+            "next_step": {
+                "content": "下一步生成交互网页代码",
+                "source": "inferred",
+                "status": "unresolved",
+                "message_ids": [4],
+            },
+            "last_user_turn_answered": True,
+            "breakpoint_status": "unresolved",
+        }
+        summary._remove_completed_open_state(state, [
+            {"role": "User", "content": "请生成网页"},
+            {"role": "AI", "content": "处理中"},
+            {"role": "User", "content": "继续"},
+            {"role": "AI", "content": "完整网页代码"},
+        ])
+        self.assertEqual(state["pending"], [])
+        self.assertEqual(state["next_step"]["content"], "未明确")
+        self.assertEqual(state["breakpoint_status"], "complete")
 
     def test_waiting_for_next_new_question_is_removed(self):
         messages = [
