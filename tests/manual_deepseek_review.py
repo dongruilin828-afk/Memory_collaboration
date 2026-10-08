@@ -26,6 +26,7 @@ async def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cases", nargs="*", type=int)
     parser.add_argument("--skip-summary", action="store_true")
+    parser.add_argument("--attachment-web-link")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     api_keys = WindowsCredentialStore().load_api_keys()
@@ -66,6 +67,7 @@ async def main():
                     login_ready_event=login_ready,
                     login_required_callback=lambda: logger("请在浏览器中完成 DeepSeek 登录。"),
                     login_confirmation_callback=lambda: True,
+                    attachment_web_link_callback=lambda: args.attachment_web_link,
                     logger=logger,
                     image_output_dir=target / "images",
                     image_reference_base=target,

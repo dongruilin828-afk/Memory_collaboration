@@ -11,6 +11,9 @@ import json
 import mimetypes
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import time
 import zipfile
 from dataclasses import asdict, dataclass, replace
@@ -26,6 +29,7 @@ from urllib.request import Request, urlopen
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash"
 SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3.5-397B-A17B"
+SILICONFLOW_VISION_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
 DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-pro"
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
@@ -100,6 +104,20 @@ DOCUMENT_EXTENSIONS = {
 }
 TEXT_EXTENSIONS = {".txt", ".csv", ".md", ".json", ".html", ".htm"}
 DOCX_XML_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _image_mime_type(body: bytes) -> str | None:
+    if body.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if body.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if body.startswith(b"GIF8"):
+        return "image/gif"
+    if body.startswith(b"BM"):
+        return "image/bmp"
+    if len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 SYSTEM_INSTRUCTION = """
 你是“AI 对话记忆整理器”。输入是已经发生过的历史“用户—AI”对话，
@@ -949,8 +967,13 @@ class SiliconFlowGateway:
                 ])
             user_content = content_parts
 
+        request_model = (
+            SILICONFLOW_VISION_MODEL
+            if self.config.provider == "siliconflow" and supported_assets
+            else self.config.model
+        )
         payload: dict[str, Any] = {
-            "model": self.config.model,
+            "model": request_model,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
                 {"role": "user", "content": user_content}
@@ -1233,7 +1256,7 @@ def discover_media(
                 source_platform == "deepseek"
                 and source_role == "assistant"
                 and urlparse(reference).scheme in {"http", "https"}
-                and reference_suffix in {".html", ".htm"}
+                and re.fullmatch(r"-\d+", label)
             ):
                 continue
             if (
@@ -1340,6 +1363,99 @@ def _extract_docx_text(path: Path, max_chars: int) -> str:
                     return "\n".join(paragraphs)[:max_chars]
         return "\n".join(paragraphs)[:max_chars]
 
+
+def _extract_pptx_text(path: Path, max_chars: int) -> str:
+    """按幻灯片顺序读取 PPTX 中的可见文本。"""
+    with zipfile.ZipFile(path) as archive:
+        members = [
+            info for info in archive.infolist()
+            if re.fullmatch(r"ppt/slides/slide\d+\.xml", info.filename, re.I)
+        ]
+        if not members:
+            raise ValueError("PPTX 缺少幻灯片 XML。")
+        if sum(info.file_size for info in members) > DOCX_XML_MAX_BYTES:
+            raise ValueError("PPTX 解压后的幻灯片文本超过安全限制。")
+
+        lines: list[str] = []
+        for info in sorted(
+            members,
+            key=lambda item: int(re.search(r"slide(\d+)\.xml$", item.filename, re.I).group(1)),
+        ):
+            slide_number = re.search(r"slide(\d+)\.xml$", info.filename, re.I).group(1)
+            texts = [
+                (node.text or "").strip()
+                for node in ET.fromstring(archive.read(info)).iter()
+                if str(node.tag).endswith("}t") and (node.text or "").strip()
+            ]
+            lines.append(f"[幻灯片 {slide_number}]")
+            lines.extend(texts)
+            if sum(len(item) + 1 for item in lines) >= max_chars:
+                break
+        return "\n".join(lines)[:max_chars]
+
+
+def _extract_pdf_text(path: Path, max_chars: int) -> str:
+    from pypdf import PdfReader
+
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    return text[:max_chars]
+
+
+def _extract_xlsx_text(path: Path, max_chars: int) -> str:
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        lines: list[str] = []
+        for sheet in workbook.worksheets:
+            lines.append(f"[工作表：{sheet.title}]")
+            for row in sheet.iter_rows(values_only=True):
+                line = "\t".join("" if value is None else str(value) for value in row).rstrip()
+                if line:
+                    lines.append(line)
+                if sum(len(item) + 1 for item in lines) >= max_chars:
+                    return "\n".join(lines)[:max_chars]
+        return "\n".join(lines)[:max_chars]
+    finally:
+        workbook.close()
+
+
+def _extract_doc_text(path: Path, max_chars: int) -> str:
+    soffice = shutil.which("soffice")
+    if soffice:
+        with tempfile.TemporaryDirectory() as temp:
+            subprocess.run(
+                [soffice, "--headless", "--convert-to", "txt:Text", "--outdir", temp, str(path)],
+                check=True,
+                capture_output=True,
+                timeout=60,
+            )
+            output = Path(temp) / f"{path.stem}.txt"
+            return output.read_text(encoding="utf-8", errors="replace")[:max_chars]
+
+    script = (
+        "$OutputEncoding=[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
+        "$word=New-Object -ComObject Word.Application;"
+        "$word.AutomationSecurity=3;"
+        "try{$doc=$word.Documents.Open($env:DOC_PATH);$doc.Content.Text}"
+        "finally{try{if($doc){$doc.Close($false)}}catch{};try{$word.Quit()}catch{}}"
+    )
+    env = os.environ.copy()
+    env["DOC_PATH"] = str(path)
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        env=env,
+    )
+    if not result.stdout.strip():
+        raise RuntimeError(result.stderr.strip() or "Word 未能读取 DOC")
+    return result.stdout[:max_chars]
+
+
 def _prepare_media_asset(
     asset: MediaAsset,
     project_dir: Path,
@@ -1374,8 +1490,21 @@ def _prepare_media_asset(
         or "application/octet-stream"
     )
     suffix = local_path.suffix.lower()
+    if asset.kind == "image":
+        try:
+            with local_path.open("rb") as stream:
+                asset.mime_type = _image_mime_type(stream.read(16))
+        except OSError:
+            asset.mime_type = None
+        if asset.mime_type is None:
+            asset.status = "unavailable"
+            asset.description = _missing_media_description(
+                asset,
+                "本地文件不是受支持的 PNG、JPEG、GIF、BMP 或 WEBP 图片",
+            )
+            return
 
-    if suffix in TEXT_EXTENSIONS:
+    if asset.kind == "document" and suffix in TEXT_EXTENSIONS:
         try:
             text = local_path.read_text(
                 encoding="utf-8",
@@ -1393,27 +1522,33 @@ def _prepare_media_asset(
             )
         return
 
-    if suffix == ".docx":
+    extractors = {
+        ".docx": _extract_docx_text,
+        ".doc": _extract_doc_text,
+        ".xlsx": _extract_xlsx_text,
+        ".pptx": _extract_pptx_text,
+        ".pdf": _extract_pdf_text,
+    }
+    if suffix in extractors:
         try:
-            text = _extract_docx_text(local_path, config.text_attachment_chars)
+            text = extractors[suffix](local_path, config.text_attachment_chars)
             asset.extracted_text = text or "（空文档）"
             asset.status = "ready"
-        except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError):
+        except Exception:
             asset.status = "unavailable"
-            asset.description = _missing_media_description(
-                asset,
-                "DOCX 文件损坏、加密或超过安全读取限制"
+            owner = "AI 回答中包含" if asset.source_role == "assistant" else "用户上传了"
+            asset.description = (
+                f"{owner}文档“{asset.label}”；本地原文件仍可访问，但 "
+                f"{suffix.upper()} 文件损坏、加密或无法读取。"
             )
         return
-    supported_inline = (
-        asset.mime_type.startswith("image/")
-        or asset.mime_type == "application/pdf"
-    )
+    supported_inline = asset.mime_type.startswith("image/")
     if not supported_inline:
         asset.status = "unavailable"
-        asset.description = _missing_media_description(
-            asset,
-            f"格式 {suffix or asset.mime_type} 暂未接入解析"
+        owner = "AI 回答中包含" if asset.source_role == "assistant" else "用户上传了"
+        asset.description = (
+            f"{owner}文档“{asset.label}”；本地原文件仍可访问，但格式 "
+            f"{suffix or asset.mime_type} 暂未接入文本解析。"
         )
         return
 
@@ -1519,7 +1654,7 @@ def _media_analysis_failure_description(asset: MediaAsset) -> str:
     return (
         f"{subject}“{asset.label}”的本地文件仍可访问；"
         "但本次模型媒体识别请求失败，尚未生成新的内容说明，"
-        "可在网络恢复后重试。"
+        "请检查网络、模型能力或账号配置后重试。"
     )
 
 
@@ -1654,6 +1789,34 @@ def describe_media(
                         asset.description = (
                             f"{prefix}“{asset.label}”，主要内容为：{description}"
                         )
+
+            for asset in batch:
+                if asset.kind != "image" or asset.status != "unclear":
+                    continue
+                try:
+                    retry = gateway.generate_json(
+                        "请重新识别这张图片，优先读取清晰可见的文字。无法辨认时仍返回 unclear。",
+                        MEDIA_SCHEMA,
+                        media_assets=[asset],
+                    )
+                except GeminiSummaryError:
+                    continue
+                item = next(
+                    (
+                        item for item in retry.get("items", [])
+                        if isinstance(item, dict)
+                        and item.get("media_id") == asset.media_id
+                    ),
+                    {},
+                )
+                description = str(item.get("description", "")).strip()
+                if description and item.get("status") == "described":
+                    asset.status = "described"
+                    owner = "AI 回答中包含" if asset.source_role == "assistant" else "用户上传了"
+                    asset.description = (
+                        f"{owner}一张图片“{asset.label}”；以下为模型视觉识别结果，"
+                        f"其中 OCR 字符可能存在误差：{description}"
+                    )
         except GeminiSummaryError as error:
             warning = (
                 f"第 {batch_index} 批媒体识别失败："

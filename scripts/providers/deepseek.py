@@ -60,6 +60,30 @@ def _node_to_markdown(node, image_map):
         "script, style, noscript, button, .md-code-block-banner-wrap"
     ):
         removable.decompose()
+    for citation in root.select("a:has(.ds-markdown-cite)"):
+        citation.decompose()
+    for marker in root.find_all("span"):
+        if marker.parent is None or marker.attrs is None:
+            continue
+        style = str(marker.get("style") or "").replace(" ", "").lower()
+        hidden_dash = marker.find(
+            "span",
+            style=lambda value: value
+            and "opacity:0" in value.replace(" ", "").lower(),
+            string="-",
+        )
+        if (
+            marker.find_parent("a") is None
+            and "cursor:pointer" in style
+            and hidden_dash is not None
+            and marker.find("svg") is not None
+        ):
+            previous = marker.previous_sibling
+            if isinstance(previous, str) and previous.endswith("-"):
+                previous.replace_with(previous[:-1])
+            marker.decompose()
+    for citation in root.find_all("a", string=re.compile(r"^-\d+$")):
+        citation.decompose()
     for img in root.find_all("img"):
         src = img.get("src") or img.get("data-src")
         if src in image_map:

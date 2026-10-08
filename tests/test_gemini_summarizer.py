@@ -497,6 +497,42 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertTrue(captured["payload"]["enable_thinking"])
         self.assertGreaterEqual(captured["payload"]["thinking_budget"], 128)
 
+    def test_siliconflow_gateway_uses_vision_model_for_images(self):
+        captured = {}
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'{"choices":[{"message":{"content":"{\\"ok\\":true}"}}]}'
+
+        def fake_urlopen(request, timeout):
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return FakeResponse()
+
+        with tempfile.TemporaryDirectory() as temp:
+            image = Path(temp) / "sample.png"
+            image.write_bytes(b"\x89PNG\r\n\x1a\ncontent")
+            asset = summary.MediaAsset(
+                "M001", 1, "image", "sample.png", "./sample.png",
+                local_path=image, mime_type="image/png", status="ready",
+            )
+            config = summary.SummaryConfig(
+                provider="siliconflow", model="Qwen/Qwen3-8B", retries=1
+            )
+            with patch.dict(os.environ, {"Silicon_API_KEY": "test-key"}, clear=True):
+                with patch.object(summary, "urlopen", side_effect=fake_urlopen):
+                    summary.SiliconFlowGateway(config).generate_json(
+                        "测试", {"type": "object"}, [asset]
+                    )
+
+        self.assertEqual(captured["payload"]["model"], summary.SILICONFLOW_VISION_MODEL)
+        self.assertEqual(captured["payload"]["messages"][1]["content"][2]["type"], "image_url")
+
     def test_deepseek_gateway_uses_user_key_and_thinking_payload(self):
         captured = {}
 
@@ -629,7 +665,7 @@ class GeminiSummarizerTests(unittest.TestCase):
             project = Path(temp)
             images = project / "images"
             images.mkdir()
-            (images / "sample.png").write_bytes(b"not-a-real-png")
+            (images / "sample.png").write_bytes(b"\x89PNG\r\n\x1a\ncontent")
             config = summary.SummaryConfig()
             messages = [{
                 "role": "User",
@@ -733,8 +769,8 @@ class GeminiSummarizerTests(unittest.TestCase):
             project = Path(temp)
             images = project / "images"
             images.mkdir()
-            (images / "sample.png").write_bytes(b"sample")
-            (images / "site-logo.png").write_bytes(b"logo")
+            (images / "sample.png").write_bytes(b"\x89PNG\r\n\x1a\nsample")
+            (images / "site-logo.png").write_bytes(b"\x89PNG\r\n\x1a\nlogo")
             assets = summary.discover_media(
                 messages, project, project, summary.SummaryConfig()
             )
@@ -936,6 +972,65 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("附件中的第一段正文", gateway.prompt)
         self.assertEqual(gateway.media_assets, [])
         self.assertNotIn("extracted_text", assets[0].public_dict())
+
+    def test_pdf_and_xlsx_text_are_extracted_locally(self):
+        from openpyxl import Workbook
+        from pypdf import PdfWriter
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workbook = Workbook()
+            workbook.active.append(["名称", "数量"])
+            workbook.active.append(["苹果", 3])
+            workbook.save(root / "data.xlsx")
+            writer = PdfWriter()
+            writer.add_blank_page(width=72, height=72)
+            with (root / "blank.pdf").open("wb") as output:
+                writer.write(output)
+
+            xlsx = summary.MediaAsset(
+                "M001", 1, "document", "data.xlsx", "./data.xlsx", "user"
+            )
+            pdf = summary.MediaAsset(
+                "M002", 1, "document", "blank.pdf", "./blank.pdf", "user"
+            )
+            config = summary.SummaryConfig()
+            summary._prepare_media_asset(xlsx, root, root, config)
+            summary._prepare_media_asset(pdf, root, root, config)
+
+        self.assertEqual(xlsx.status, "ready")
+        self.assertIn("苹果\t3", xlsx.extracted_text)
+        self.assertEqual(pdf.status, "ready")
+        self.assertEqual(pdf.extracted_text, "（空文档）")
+
+    def test_image_mime_uses_file_bytes_and_pptx_text_is_extracted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "wrong.png").write_bytes(b"\xff\xd8\xffcontent")
+            with zipfile.ZipFile(root / "slides.pptx", "w") as archive:
+                archive.writestr(
+                    "ppt/slides/slide2.xml",
+                    '<p:sld xmlns:p="p" xmlns:a="a"><a:t>第二页</a:t></p:sld>',
+                )
+                archive.writestr(
+                    "ppt/slides/slide1.xml",
+                    '<p:sld xmlns:p="p" xmlns:a="a"><a:t>标题</a:t><a:t>正文</a:t></p:sld>',
+                )
+            image = summary.MediaAsset(
+                "M001", 1, "image", "wrong.png", "./wrong.png", "user"
+            )
+            pptx = summary.MediaAsset(
+                "M002", 1, "document", "slides.pptx", "./slides.pptx", "user"
+            )
+            config = summary.SummaryConfig()
+            summary._prepare_media_asset(image, root, root, config)
+            summary._prepare_media_asset(pptx, root, root, config)
+
+        self.assertEqual(image.status, "ready")
+        self.assertEqual(image.mime_type, "image/jpeg")
+        self.assertEqual(pptx.status, "ready")
+        self.assertIn("[幻灯片 1]\n标题\n正文", pptx.extracted_text)
+        self.assertIn("[幻灯片 2]\n第二页", pptx.extracted_text)
 
     def test_text_document_is_summarized_before_conversation_chunks(self):
         class PipelineGateway(FakeGateway):
@@ -1261,6 +1356,7 @@ class GeminiSummarizerTests(unittest.TestCase):
             "role": "AI",
             "content": (
                 "[-1](https://example.com/reference/article.html)\n"
+                "[-7](https://example.com/reference/source.pdf#page=3)\n"
                 "[report.pdf](https://example.com/files/report.pdf)"
             ),
         }]
@@ -1277,7 +1373,10 @@ class GeminiSummarizerTests(unittest.TestCase):
                 source_platform="deepseek",
             )
 
-        self.assertEqual([asset.label for asset in regular], ["-1", "report.pdf"])
+        self.assertEqual(
+            [asset.label for asset in regular],
+            ["-1", "-7", "report.pdf"],
+        )
         self.assertEqual([asset.label for asset in deepseek_assets], ["report.pdf"])
 
     def test_doubao_collector_scrolls_every_message_for_lazy_images(self):

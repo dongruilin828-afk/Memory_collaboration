@@ -30,6 +30,8 @@ hidden_imports = sorted(set(
         "keyring.backends.Windows",
         "jaraco.classes",
         "win32ctypes",
+        "openpyxl",
+        "pypdf",
     ]
 ))
 

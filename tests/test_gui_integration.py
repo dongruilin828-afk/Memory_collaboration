@@ -48,6 +48,7 @@ class MergedGenerationTests(unittest.TestCase):
         app._show_completed_badge = Mock()
         app._on_task_finished = Mock()
         app._confirm_login_required = Mock(return_value=True)
+        app._request_attachment_web_link = Mock(return_value=None)
         app._show_login_dialog = Mock()
         app._show_summary_topic_dialog = Mock(
             side_effect=lambda topics, on_done: on_done((topics[0]["topic_id"],))
@@ -71,6 +72,10 @@ class MergedGenerationTests(unittest.TestCase):
         async def fetch(**kwargs):
             self.assertEqual(kwargs["url"], url)
             self.assertIs(kwargs["login_confirmation_callback"], app._confirm_login_required)
+            self.assertIs(
+                kwargs["attachment_web_link_callback"],
+                app._request_attachment_web_link,
+            )
             self.assertIsNotNone(kwargs["login_required_callback"])
             self.assertIsNotNone(kwargs["login_ready_event"])
             owner = paths["asset_markdown"].stem

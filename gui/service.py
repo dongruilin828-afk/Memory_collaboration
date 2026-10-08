@@ -193,7 +193,9 @@ def _collect_response_assets(
         mime_type = str(item.get("mime_type") or "").lower()
         suffix = Path(filename).suffix.lower()
 
-        signed_path = str(item.get("signed_path") or "").strip()
+        signed_path = str(
+            item.get("signed_path") or item.get("signedPath") or ""
+        ).strip()
         if (
             host == "chat.deepseek.com"
             and signed_path
@@ -1212,6 +1214,20 @@ def _image_extension(src: str) -> str:
     return "png"
 
 
+def _image_extension_from_body(body: bytes) -> str | None:
+    if body.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if body.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if body.startswith(b"GIF8"):
+        return "gif"
+    if body.startswith(b"BM"):
+        return "bmp"
+    if len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 def _is_decorative_image_candidate(src: str) -> bool:
     """识别引用卡片使用的 favicon，避免下载无关图标。"""
     parsed = urlparse(src)
@@ -1438,9 +1454,8 @@ def _is_supported_image_body(body: bytes) -> bool:
 def _existing_image_for_source(images_dir: Path, src: str) -> Optional[Path]:
     """按 URL 哈希寻找此前已成功下载的同一资源，不依赖旧顺序编号。"""
     url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
-    extension = _image_extension(src)
     matches = sorted(
-        images_dir.glob(f"img_*_{url_hash}.{extension}"),
+        images_dir.glob(f"img_*_{url_hash}.*"),
         key=lambda path: (_image_file_index(path), path.name),
     ) if images_dir.is_dir() else []
     for path in matches:
@@ -1784,7 +1799,8 @@ async def _download_image_candidates(
             continue
         url_hash = hashlib.md5(src.encode("utf-8")).hexdigest()[:8]
         existing = _existing_image_for_source(images_dir, src) if prefer_original else None
-        filename = existing.name if existing else f"img_{img_index}_{url_hash}.{_image_extension(src)}"
+        extension = _image_extension_from_body(body) or _image_extension(src)
+        filename = existing.name if existing else f"img_{img_index}_{url_hash}.{extension}"
         images_dir.mkdir(parents=True, exist_ok=True)
         (images_dir / filename).write_bytes(body)
         resolved_references[src] = f"{image_reference_prefix}/{filename}"
@@ -3415,6 +3431,7 @@ async def _download_document_candidates(
         Mapping[str, tuple[bytes, Mapping[str, str]]]
     ] = None,
     failure_collector: Optional[dict[DocumentCandidate, str]] = None,
+    authentication_required: Optional[list[bool]] = None,
 ) -> dict[str, str]:
     """使用页面登录态下载可用附件，并返回 URL/文件名到本地相对链接的映射。"""
     documents_dir = Path(documents_dir)
@@ -3661,8 +3678,11 @@ async def _download_document_candidates(
         downloaded_names: set[str] = set()
         for candidate in ordered:
             if (
-                candidate.reference.startswith(CHATGPT_CARD_REFERENCE_PREFIX)
-                and candidate.filename.lower() in downloaded_names
+                candidate.filename.lower() in downloaded_names
+                and candidate.reference.startswith((
+                    CHATGPT_CARD_REFERENCE_PREFIX,
+                    DEEPSEEK_CARD_REFERENCE_PREFIX,
+                ))
             ):
                 continue
             result = await download(candidate)
@@ -3675,6 +3695,7 @@ async def _download_document_candidates(
         ))
     resolved: dict[str, str] = {}
     failures: dict[str, int] = {}
+    failed_deepseek_names: set[str] = set()
     successful_names = {
         candidate.filename.lower()
         for candidate, body, _headers, _reason in results
@@ -3689,9 +3710,17 @@ async def _download_document_candidates(
             if candidate.filename.lower() in successful_names:
                 continue
             failure_reason = reason or "unknown_error"
-            failures[failure_reason] = failures.get(failure_reason, 0) + 1
-            if failure_collector is not None:
-                failure_collector[candidate] = failure_reason
+            is_deepseek_candidate = (
+                urlparse(candidate.url).hostname == "files.deepseeksvc.com"
+                or candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+            )
+            failed_name = candidate.filename.lower()
+            if not is_deepseek_candidate or failed_name not in failed_deepseek_names:
+                failures[failure_reason] = failures.get(failure_reason, 0) + 1
+                if failure_collector is not None:
+                    failure_collector[candidate] = failure_reason
+                if is_deepseek_candidate:
+                    failed_deepseek_names.add(failed_name)
             continue
         disposition_name = _document_filename_from_disposition(
             headers.get("content-disposition", "")
@@ -3733,15 +3762,35 @@ async def _download_document_candidates(
         local_reference = (
             f"{document_reference_prefix}/{quote(target.name, safe='')}"
         )
-        for key in {
+        aliases = {
             candidate.reference,
             candidate.url,
             candidate.filename.lower(),
             filename.lower(),
-        }:
+        }
+        if candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX):
+            for fallback in ordered:
+                if fallback.filename.lower() == candidate.filename.lower():
+                    aliases.update({fallback.reference, fallback.url})
+        for key in aliases:
             if key:
                 resolved[key] = local_reference
 
+    needs_login = any(reason in {"http_401", "http_403"} for reason in failures)
+    if (
+        not needs_login
+        and urlparse(conversation_url or "").hostname == "chat.deepseek.com"
+        and "/share/" in urlparse(conversation_url or "").path
+        and "http_404" in failures
+        and any(
+            candidate.reference.startswith(DEEPSEEK_CARD_REFERENCE_PREFIX)
+            and candidate.filename.lower().endswith(".xlsx")
+            for candidate in ordered
+        )
+    ):
+        needs_login = True
+    if needs_login and authentication_required is not None:
+        authentication_required.append(True)
     if failures and warning_collector is not None:
         reason_summary = "、".join(
             f"{reason}×{count}" for reason, count in sorted(failures.items())
@@ -3853,6 +3902,7 @@ async def fetch_chat_pipeline(
     login_ready_event: Optional[asyncio.Event] = None,
     login_required_callback: Optional[Callable[[], None]] = None,
     login_confirmation_callback: Optional[Callable[[], bool]] = None,
+    attachment_web_link_callback: Optional[Callable[[], str | None]] = None,
     logger: Optional[Callable[[str], None]] = None,
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
@@ -4633,17 +4683,11 @@ async def fetch_chat_pipeline(
                     _extract_grok_document_card_candidates(html, page.url)
                 )
                 document_candidates = list(dict.fromkeys(document_candidates))
-                existing_document_names = {
-                    candidate.filename.lower()
-                    for candidate in document_candidates
-                }
-                for candidate in _extract_deepseek_document_card_candidates(
-                    html, page.url
-                ):
-                    if candidate.filename.lower() in existing_document_names:
-                        continue
-                    document_candidates.append(candidate)
-                    existing_document_names.add(candidate.filename.lower())
+                document_candidates.extend(
+                    _extract_deepseek_document_card_candidates(html, page.url)
+                )
+                document_warnings: list[str] = []
+                document_authentication_required: list[bool] = []
                 document_failures: dict[DocumentCandidate, str] = {}
                 document_map = await _download_document_candidates(
                     page,
@@ -4651,11 +4695,48 @@ async def fetch_chat_pipeline(
                     resolved_documents_dir,
                     document_reference_prefix,
                     document_download_concurrency,
-                    fetch_warnings,
+                    document_warnings,
                     conversation_url=url,
                     captured_documents=captured_document_responses,
                     failure_collector=document_failures,
+                    authentication_required=document_authentication_required,
                 )
+                retry_url = (
+                    attachment_web_link_callback()
+                    if document_authentication_required
+                    and attachment_web_link_callback is not None
+                    else None
+                )
+                if retry_url:
+                    if logger:
+                        logger("正在使用您提供的原始会话网页链接重试附件下载...")
+                    await goto_with_retry_gui(page, retry_url, logger=logger)
+                    await page.wait_for_timeout(1800)
+                    await _drain_response_tasks(response_tasks)
+                    retry_html = await collect_virtualized_html(page)
+                    if retry_html is None:
+                        retry_html = await page.content()
+                    document_candidates.extend(
+                        _extract_deepseek_document_card_candidates(
+                            retry_html, page.url
+                        )
+                    )
+                    document_candidates = list(dict.fromkeys(document_candidates))
+                    retry_warnings: list[str] = []
+                    document_failures.clear()
+                    document_map.update(await _download_document_candidates(
+                        page,
+                        document_candidates,
+                        resolved_documents_dir,
+                        document_reference_prefix,
+                        document_download_concurrency,
+                        retry_warnings,
+                        conversation_url=retry_url,
+                        captured_documents=captured_document_responses,
+                        failure_collector=document_failures,
+                    ))
+                    document_warnings = retry_warnings if document_failures else []
+                fetch_warnings.extend(document_warnings)
                 codex_change_map = _save_codex_file_changes(
                     list({change["path"]: change for change in codex_file_changes}.values()),
                     resolved_documents_dir,

@@ -86,6 +86,24 @@ class GUIServiceTests(unittest.TestCase):
             saved = Path(temp_dir) / Path(next(iter(mapping.values()))).name
             self.assertEqual(saved.read_bytes(), body)
 
+    def test_image_extension_uses_downloaded_bytes(self):
+        body = b"\xff\xd8\xffcontent"
+        page = SimpleNamespace(
+            evaluate=AsyncMock(return_value="data:;base64,/9j/Y29udGVudA=="),
+            locator=MagicMock(),
+        )
+        page.request = SimpleNamespace(get=AsyncMock(side_effect=ValueError))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mapping = asyncio.run(_download_image_candidates(
+                page,
+                ["blob:https://example.com/wrong.png"],
+                Path(temp_dir),
+                "./images",
+            ))
+            saved = Path(temp_dir) / Path(next(iter(mapping.values()))).name
+            self.assertEqual(saved.suffix, ".jpg")
+            self.assertEqual(saved.read_bytes(), body)
+
     def test_background_browser_starts_offscreen(self):
         launcher = AsyncMock(return_value=(object(), "chromium"))
         playwright = SimpleNamespace(
@@ -1759,6 +1777,109 @@ class GUIServiceTests(unittest.TestCase):
             "file_id=xlsx-id&state=signed&ty=r",
             20000,
         )
+
+    def test_deepseek_card_falls_back_after_expired_direct_url(self):
+        direct = DocumentCandidate(
+            "/file?file_id=old&state=expired",
+            "https://files.deepseeksvc.com/api/file?file_id=old&state=expired&ty=r",
+            "result1.xlsx",
+        )
+        card = DocumentCandidate(
+            "deepseek-card:result1.xlsx",
+            "https://chat.deepseek.com/share/example",
+            "result1.xlsx",
+        )
+        expired = SimpleNamespace(ok=False, status=404, headers={})
+        fresh = SimpleNamespace(
+            ok=True,
+            status=200,
+            headers={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+            body=AsyncMock(return_value=b"PK\x03\x04xlsx"),
+        )
+        warnings = []
+        with patch(
+            "gui.service._authenticated_page_get",
+            new=AsyncMock(return_value=expired),
+        ), patch(
+            "gui.service._deepseek_document_card_get",
+            new=AsyncMock(return_value=fresh),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                mapping = asyncio.run(_download_document_candidates(
+                    SimpleNamespace(),
+                    [direct, card],
+                    Path(temp_dir),
+                    "./documents",
+                    warning_collector=warnings,
+                ))
+                self.assertEqual(
+                    (Path(temp_dir) / "result1.xlsx").read_bytes(),
+                    b"PK\x03\x04xlsx",
+                )
+        self.assertEqual(warnings, [])
+        self.assertEqual(mapping[direct.url], "./documents/result1.xlsx")
+        self.assertEqual(mapping[card.reference], "./documents/result1.xlsx")
+
+    def test_deepseek_duplicate_candidates_report_one_failed_file(self):
+        direct = DocumentCandidate(
+            "/file?file_id=old&state=expired",
+            "https://files.deepseeksvc.com/api/file?file_id=old&state=expired&ty=r",
+            "result1.xlsx",
+        )
+        card = DocumentCandidate(
+            "deepseek-card:result1.xlsx",
+            "https://chat.deepseek.com/share/example",
+            "result1.xlsx",
+        )
+        expired = SimpleNamespace(ok=False, status=404, headers={})
+        warnings = []
+        failures = {}
+        authentication_required = []
+        with patch(
+            "gui.service._authenticated_page_get",
+            new=AsyncMock(return_value=expired),
+        ), patch(
+            "gui.service._deepseek_document_card_get",
+            new=AsyncMock(return_value=expired),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                mapping = asyncio.run(_download_document_candidates(
+                    SimpleNamespace(),
+                    [direct, card],
+                    Path(temp_dir),
+                    "./documents",
+                    warning_collector=warnings,
+                    conversation_url="https://chat.deepseek.com/share/example",
+                    failure_collector=failures,
+                    authentication_required=authentication_required,
+                ))
+        self.assertEqual(mapping, {})
+        self.assertEqual(authentication_required, [True])
+        self.assertEqual(warnings, [
+            "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
+        ])
+        self.assertEqual(len(failures), 1)
+
+    def test_document_403_requests_login_but_regular_404_does_not(self):
+        forbidden = SimpleNamespace(ok=False, status=403, headers={})
+        missing = SimpleNamespace(ok=False, status=404, headers={})
+        candidate = DocumentCandidate(
+            "file", "https://example.com/report.xlsx", "report.xlsx"
+        )
+        for response, expected in ((forbidden, [True]), (missing, [])):
+            authentication_required = []
+            with patch(
+                "gui.service._authenticated_page_get",
+                new=AsyncMock(return_value=response),
+            ), tempfile.TemporaryDirectory() as temp_dir:
+                asyncio.run(_download_document_candidates(
+                    SimpleNamespace(),
+                    [candidate],
+                    Path(temp_dir),
+                    "./documents",
+                    authentication_required=authentication_required,
+                ))
+            self.assertEqual(authentication_required, expected)
 
     def test_deepseek_response_cache_does_not_collide_on_shared_path(self):
         first = _document_response_cache_keys(

@@ -63,6 +63,30 @@ class ProviderForHostTests(unittest.TestCase):
                 seen[host] = provider
 
 
+class DeepSeekProviderTests(unittest.TestCase):
+    def test_search_citations_are_removed_without_damaging_markdown(self):
+        html = """
+        <div data-virtual-list-item-key="1"><div class="ds-message">
+          <div class="ds-assistant-message-main-content">
+            <p>20寸登机箱<a href="https://example.com/a"><span class="ds-markdown-cite"><span style="opacity: 0">-</span><span style="position: absolute">7</span></span></a></p>
+            <p>限重8公斤-<span class="_2ed5dee" style="display: inline; cursor: pointer"><span style="opacity: 0">-</span><span><svg></svg></span></span><a href="https://example.com/b.pdf"><span class="ds-markdown-cite"><span style="opacity: 0">-</span><span style="position: absolute">1</span></span></a>。</p>
+            <p>以航司规定为准。-<span class="_2ed5dee" style="display: inline; cursor: pointer"><span style="opacity: 0">-</span><span><svg></svg></span></span></p>
+            <ul><li>保留列表</li></ul><p>数值范围 7-10 公斤。</p>
+          </div>
+        </div>
+        """
+        messages = deepseek.parse_messages(BeautifulSoup(html, "html.parser"))
+        content = messages[0]["content"]
+        self.assertNotIn("example.com", content)
+        self.assertNotIn("[-7]", content)
+        self.assertIn("20寸登机箱", content)
+        self.assertIn("限重8公斤。", content)
+        self.assertIn("以航司规定为准。", content)
+        self.assertNotIn("--", content)
+        self.assertIn("* 保留列表", content)
+        self.assertIn("7-10 公斤", content)
+
+
 class ParseMessagesIsolationTests(unittest.TestCase):
     def test_failed_provider_probe_cannot_mutate_later_provider_dom(self):
         html = """

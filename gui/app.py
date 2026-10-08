@@ -3201,6 +3201,36 @@ class AIMemoryGUI:
         answered.wait()
         return result["confirmed"]
 
+    def _request_attachment_web_link(self) -> str | None:
+        """附件下载失败时，请用户提供可访问原文件的会话网页链接。"""
+        answered = threading.Event()
+        result: dict[str, str | None] = {"url": None}
+
+        def ask():
+            url = simpledialog.askstring(
+                "请提供原始会话网页链接",
+                "XLSX 原文件当前无法从分享页下载。请粘贴包含该附件、且您能访问的"
+                "原始会话网页链接，程序将用该链接重试。\n\n"
+                "若取消，对话正文仍会继续生成，但只会保留文件名和“原文件未能"
+                "下载”提示；该附件无法在本地解析或复核，依赖附件内容的总结可能"
+                "不完整。",
+                parent=self.root,
+            )
+            if url:
+                parsed = urlparse(url.strip())
+                if parsed.scheme in {"http", "https"} and parsed.netloc:
+                    result["url"] = url.strip()
+                else:
+                    messagebox.showerror(
+                        "网页链接无效", "请输入完整的 http 或 https 网页链接。",
+                        parent=self.root,
+                    )
+            answered.set()
+
+        self.root.after(0, ask)
+        answered.wait()
+        return result["url"]
+
     def _show_login_dialog(
         self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event
     ):
@@ -3586,6 +3616,9 @@ class AIMemoryGUI:
                         ),
                         login_confirmation_callback=(
                             self._confirm_login_required
+                        ),
+                        attachment_web_link_callback=(
+                            self._request_attachment_web_link
                         ),
                         logger=lambda m: update_progress(0.28, m),
                         image_output_dir=image_output_dir,
