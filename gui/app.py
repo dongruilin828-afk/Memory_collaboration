@@ -3207,25 +3207,70 @@ class AIMemoryGUI:
         result: dict[str, str | None] = {"url": None}
 
         def ask():
-            url = simpledialog.askstring(
-                "请提供原始会话网页链接",
-                "XLSX 原文件当前无法从分享页下载。请粘贴包含该附件、且您能访问的"
-                "原始会话网页链接，程序将用该链接重试。\n\n"
-                "若取消，对话正文仍会继续生成，但只会保留文件名和“原文件未能"
-                "下载”提示；该附件无法在本地解析或复核，依赖附件内容的总结可能"
-                "不完整。",
-                parent=self.root,
+            dialog = tk.Toplevel(self.root)
+            dialog.title("请提供原始会话网页链接")
+            dialog.geometry("560x220")
+            dialog.resizable(False, False)
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            tk.Label(
+                dialog,
+                text=(
+                    "XLSX 原文件无法从分享页下载，将在抓取页面中仅保留文件名。\n"
+                    "请粘贴包含该文件且您能访问的原始会话网页链接，程序将重试。"
+                ),
+                justify="left",
+                wraplength=510,
+            ).pack(padx=24, pady=(24, 14), anchor="w")
+
+            url_var = tk.StringVar()
+            entry = ttk.Entry(dialog, textvariable=url_var)
+            entry.pack(fill="x", padx=24)
+            countdown = ttk.Label(dialog, text="15 秒后自动跳过")
+            countdown.pack(pady=(12, 8))
+            buttons = ttk.Frame(dialog)
+            buttons.pack()
+            timer: dict[str, str | None] = {"id": None}
+
+            def finish(url: str | None = None):
+                if answered.is_set():
+                    return
+                if timer["id"] is not None:
+                    dialog.after_cancel(timer["id"])
+                result["url"] = url
+                dialog.destroy()
+                answered.set()
+
+            def valid_url() -> str | None:
+                url = url_var.get().strip()
+                parsed = urlparse(url)
+                return url if parsed.scheme in {"http", "https"} and parsed.netloc else None
+
+            confirm = ttk.Button(
+                buttons,
+                text="确定",
+                state="disabled",
+                command=lambda: finish(valid_url()),
             )
-            if url:
-                parsed = urlparse(url.strip())
-                if parsed.scheme in {"http", "https"} and parsed.netloc:
-                    result["url"] = url.strip()
-                else:
-                    messagebox.showerror(
-                        "网页链接无效", "请输入完整的 http 或 https 网页链接。",
-                        parent=self.root,
-                    )
-            answered.set()
+            confirm.pack(side="left", padx=6)
+            ttk.Button(buttons, text="跳过", command=finish).pack(side="left", padx=6)
+
+            def update_confirm(*_args):
+                confirm.configure(state="normal" if valid_url() else "disabled")
+
+            def tick(seconds: int):
+                if seconds <= 0:
+                    finish()
+                    return
+                countdown.configure(text=f"{seconds} 秒后自动跳过")
+                timer["id"] = dialog.after(1000, tick, seconds - 1)
+
+            url_var.trace_add("write", update_confirm)
+            dialog.bind("<Return>", lambda _event: finish(valid_url()) if valid_url() else None)
+            dialog.protocol("WM_DELETE_WINDOW", finish)
+            entry.focus_set()
+            tick(15)
 
         self.root.after(0, ask)
         answered.wait()
