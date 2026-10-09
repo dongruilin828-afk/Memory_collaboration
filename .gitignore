@@ -53,3 +53,6 @@ agents.md
 # 保留 Gemini 抓取测试目录中的全部文件与附件
 !/tests/Gemini_Right/
 !/tests/Gemini_Right/**
+
+# ChatGPT 修复验证结果仅保留在本地
+tests/test_results/ChatGPT修复验证/
