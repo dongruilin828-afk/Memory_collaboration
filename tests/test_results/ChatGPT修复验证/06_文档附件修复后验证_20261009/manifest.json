@@ -1,0 +1,58 @@
+[
+  {
+    "case": "01",
+    "url": "https://chatgpt.com/share/6ac4fb8e-f9fc-83ea-a9f4-593b63ca3241",
+    "messages": 4,
+    "images": 2,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "3 个文档附件未能保存到本地（http_429×1、not_a_document×2）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 95.60707470000489
+  },
+  {
+    "case": "02",
+    "url": "https://chatgpt.com/c/6ac4fb21-f6d4-83ea-9720-821f2dc0757e",
+    "messages": 4,
+    "images": 4,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "3 个文档附件未能保存到本地（http_429×1、not_a_document×2）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 71.75726519999444
+  },
+  {
+    "case": "08",
+    "url": "https://chatgpt.com/c/6ab9c3b4-8858-83e9-a70b-b476d73169cb",
+    "messages": 4,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 30.83647710000514
+  },
+  {
+    "case": "10",
+    "url": "https://chatgpt.com/c/6aa8063f-b938-83e8-838a-23916a007d8e",
+    "messages": 10,
+    "images": 0,
+    "documents": 5,
+    "error": null,
+    "warnings": [],
+    "elapsed": 78.75363709998783
+  },
+  {
+    "case": "18",
+    "url": "https://chatgpt.com/c/6ac64cba-6f00-83ea-80be-af589a675801",
+    "messages": 2,
+    "images": 5,
+    "documents": 1,
+    "error": null,
+    "warnings": [],
+    "elapsed": 42.71456150000449
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "image_map": {},
+  "messages": [
+    {
+      "role": "User",
+      "content": "无人机视角"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 1.700012944638729e-06,
+  "url": "https://chatgpt.com/share/6ac62a93-a220-83ea-b98a-bd266708233e",
+  "elapsed": 60.513168200006476,
+  "files": {}
+}

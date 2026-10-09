@@ -7,7 +7,11 @@ from rich.console import Console
 
 
 DISPLAY_NAME = "ChatGPT"
-WAIT_SELECTOR = "[data-message-author-role]"
+WAIT_SELECTOR = (
+    "[data-message-author-role], "
+    "[data-chatgpt-search-unit-key$=':user'], "
+    "[data-chatgpt-search-unit-key$=':assistant']"
+)
 HOSTS = ("chatgpt.com", "chat.openai.com")
 
 console = Console()
@@ -151,11 +155,17 @@ async def collect_html(page):
                 const testId = turn
                     ? turn.getAttribute('data-testid') || ''
                     : '';
-                const turnMatch = testId.match(/(\\d+)$/);
+                const searchKey = element.getAttribute(
+                    'data-chatgpt-search-unit-key'
+                ) || '';
+                const turnMatch = testId.match(/(\\d+)$/)
+                    || searchKey.match(/^fallback-turn-(\\d+):/);
                 const messageId =
                     element.getAttribute('data-message-id') || '';
                 const role = element.getAttribute('data-message-author-role')
-                    || (turn ? turn.getAttribute('data-turn') : '') || '';
+                    || (turn ? turn.getAttribute('data-turn') : '')
+                    || (searchKey.match(/:(user|assistant)$/) || [])[1]
+                    || '';
                 const text =
                     element.innerText || element.textContent || '';
                 const imageScore = Array.from(
@@ -166,7 +176,7 @@ async def collect_html(page):
                     return src && !src.startsWith('data:image/svg');
                 }).length;
                 return {
-                    key: messageId || testId || role + ':' + text,
+                    key: messageId || searchKey || testId || role + ':' + text,
                     order: turnMatch ? Number(turnMatch[1]) : null,
                     text_length: text.length,
                     image_score: imageScore,
@@ -331,6 +341,14 @@ def parse_messages(soup, image_map=None):
     if image_map is None:
         image_map = {}
 
+    for message in soup.select("[data-chatgpt-search-unit-key]"):
+        match = re.search(
+            r":(user|assistant)$",
+            message.get("data-chatgpt-search-unit-key", ""),
+        )
+        if match and not message.get("data-message-author-role"):
+            message["data-message-author-role"] = match.group(1)
+
     chatgpt_messages = [
         message for message in soup.find_all(
             attrs={"data-message-author-role": True}
@@ -452,9 +470,19 @@ def parse_messages(soup, image_map=None):
             })
 
         elif role == "assistant":
+            content = msg.select_one(
+                ".markdown, [data-markdown-text-style='assistant-message']"
+            )
+            if content is None and msg.find(
+                ["p", "pre", "ol", "ul", "table", "blockquote", "img"]
+            ):
+                content = msg
+            if content is None:
+                continue
+
             # 替换本地图片路径，并移除生成图的重复展示节点。
             seen_image_sources = set()
-            for img in list(msg.find_all("img")):
+            for img in list(content.find_all("img")):
                 src = img.get("src") or img.get("data-src")
                 if src in seen_image_sources:
                     img.decompose()
@@ -464,7 +492,7 @@ def parse_messages(soup, image_map=None):
                     img["src"] = image_map[src]
 
             # 修复 ChatGPT 嵌套 <pre> 导致 markdownify 生成多重/错误代码块的问题
-            for pre in msg.find_all("pre"):
+            for pre in content.find_all("pre"):
                 inner_pre = pre.find("pre")
                 if inner_pre:
                     code_text = inner_pre.get_text()
@@ -476,11 +504,12 @@ def parse_messages(soup, image_map=None):
                     pre.replace_with(new_pre)
 
             md_text = markdownify.markdownify(
-                str(msg),
+                str(content),
                 heading_style="ATX"
             ).strip()
             md_text = _collapse_nested_markdown_fences(md_text)
             md_text = _restore_math_placeholders(md_text, math_replacements)
-            parsed_messages.append({'role': 'AI', 'content': md_text})
+            if md_text:
+                parsed_messages.append({'role': 'AI', 'content': md_text})
 
     return parsed_messages

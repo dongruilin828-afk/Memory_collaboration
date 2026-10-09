@@ -1,0 +1,125 @@
+{
+  "fingerprint": "28e9b41a57787304ad3904eec9aae31a724a2e535e2459636b3b11db5b32f0bd",
+  "result": {
+    "schema_version": 8,
+    "generated_at": "2026-10-09T03:33:43.403025+00:00",
+    "provider": "siliconflow",
+    "model": "Qwen/Qwen3-8B",
+    "source": "export.md",
+    "conversation": {
+      "message_count": 1,
+      "user_messages": 1,
+      "ai_messages": 0,
+      "chunk_count": 1,
+      "conversation_types": [
+        "ordinary"
+      ],
+      "programming_mode": "not_applicable",
+      "source_fingerprint": "50cb35f3976e5ca25722bd52546432c23193fbd977545cb6733d3b277223804e"
+    },
+    "overall_summary": "用户提出'无人机视角'主题但未明确具体需求，AI尚未提供任何回答或代码，对话处于待回应状态。当前活动为用户陈述主题，需等待用户补充详细问题或需求以继续。",
+    "current_state": {
+      "current_activity": {
+        "content": "用户最近提出：无人机视角",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          1
+        ],
+        "message_range": "1"
+      },
+      "reached_stage": {
+        "content": "初始阶段",
+        "source": "user",
+        "status": "unresolved",
+        "message_ids": [
+          1
+        ],
+        "message_range": "1"
+      },
+      "completed": [],
+      "pending": [
+        {
+          "content": "无人机视角的具体需求或问题",
+          "source": "user",
+          "status": "unresolved",
+          "message_ids": [
+            1
+          ],
+          "message_range": "1"
+        }
+      ],
+      "next_step": {
+        "content": "等待用户明确具体需求或问题",
+        "source": "inferred",
+        "status": "uncertain",
+        "message_ids": [
+          1
+        ],
+        "message_range": "1"
+      },
+      "last_user_message_id": 1,
+      "latest_message_id": 1,
+      "latest_message_role": "User",
+      "last_user_turn_answered": false,
+      "last_user_intent": "无人机视角",
+      "breakpoint_status": "ongoing"
+    },
+    "topics": [],
+    "memory_items": [
+      {
+        "memory_id": "C001M001",
+        "topic": "用户初始陈述",
+        "memory_type": "user_condition",
+        "content": "无人机视角",
+        "source": "user",
+        "status": "answered",
+        "message_ids": [
+          1
+        ],
+        "evidence_quote": "无人机视角",
+        "source_chunk": 1,
+        "message_range": "1"
+      }
+    ],
+    "typed_records": {
+      "learning": [],
+      "calculations": [],
+      "programming": [],
+      "decisions": [],
+      "context_references": [],
+      "progressions": [],
+      "source_text_issues": []
+    },
+    "query_index": [
+      {
+        "query_id": "Q0001",
+        "message_id": 1,
+        "raw_user_message": "无人机视角"
+      }
+    ],
+    "recent_context": [
+      {
+        "message_id": 1,
+        "role": "User",
+        "content": "无人机视角"
+      }
+    ],
+    "media": [],
+    "processing": {
+      "chunk_char_limit": 24000,
+      "recent_context_messages": 1,
+      "warnings": [],
+      "cache_hit": false,
+      "timings_seconds": {
+        "media_discovery": 0.0,
+        "completed_cache_lookup": 0.001,
+        "media_analysis": 0.0,
+        "chunking": 0.0,
+        "chunk_extraction": 76.562,
+        "global_synthesis": 25.677,
+        "total_before_output": 102.242
+      }
+    }
+  }
+}

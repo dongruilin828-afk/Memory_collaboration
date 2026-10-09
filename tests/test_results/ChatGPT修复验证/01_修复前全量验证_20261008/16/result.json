@@ -1,0 +1,11 @@
+{
+  "image_map": {},
+  "messages": [],
+  "document_map": {},
+  "error": "当前账号仍无法访问目标会话。请切换到有权访问该会话的账号，确认会话内容已显示后重试。",
+  "warnings": [],
+  "user_wait_seconds": 1.6999983927235007e-06,
+  "url": "https://chatgpt.com/c/6ac4fca3-28c0-83e9-9036-d134c662d2c5",
+  "elapsed": 32.933549599998514,
+  "files": {}
+}

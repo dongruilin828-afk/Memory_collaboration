@@ -1,0 +1,1 @@
+ValueError: 'C:\\Users\\Administrator\\Desktop\\Memory_collaboration-feat-ai-providers-capture-summary-2\\tests\\test_results\\ChatGPT修复验证\\03_新版分享页结构修复后验证\\01\\AI_memory_summary.md' is not in the subpath of 'tests\\test_results\\ChatGPT修复验证\\03_新版分享页结构修复后验证' OR one path is relative and the other is absolute.

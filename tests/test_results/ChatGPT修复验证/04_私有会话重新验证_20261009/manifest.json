@@ -1,0 +1,221 @@
+[
+  {
+    "case": "02",
+    "url": "https://chatgpt.com/c/6ac4fb21-f6d4-83ea-9720-821f2dc0757e",
+    "messages": 4,
+    "images": 4,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "2 个真实图片资源下载失败（not_an_image×2）；对话文字抓取继续保留。",
+      "3 个文档附件未能保存到本地（TimeoutError×3）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 634.5979747000092,
+    "outputs": [
+      "02/AI_memory_summary.md",
+      "02/AI_memory_result.json",
+      "02/AI_memory_detailed_summary.md",
+      "02/AI_memory_detailed_result.json",
+      "02/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "04",
+    "url": "https://chatgpt.com/c/6aa7b657-6ef0-83e8-a62f-7cacfc24e6c3",
+    "messages": 2,
+    "images": 3,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个真实图片资源下载失败（not_an_image×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 163.05688469999586,
+    "outputs": [
+      "04/AI_memory_summary.md",
+      "04/AI_memory_result.json",
+      "04/AI_memory_detailed_summary.md",
+      "04/AI_memory_detailed_result.json",
+      "04/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "06",
+    "url": "https://chatgpt.com/c/6ac62a48-b930-83e9-b67b-2851ce92bace",
+    "messages": 1,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 122.95905560001847,
+    "outputs": [
+      "06/AI_memory_summary.md",
+      "06/AI_memory_result.json",
+      "06/AI_memory_detailed_summary.md",
+      "06/AI_memory_detailed_result.json",
+      "06/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "08",
+    "url": "https://chatgpt.com/c/6ab9c3b4-8858-83e9-a70b-b476d73169cb",
+    "messages": 4,
+    "images": 6,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "2 个真实图片资源下载失败（Error×2）；对话文字抓取继续保留。",
+      "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 119.37339739999152,
+    "outputs": [
+      "08/AI_memory_summary.md",
+      "08/AI_memory_result.json",
+      "08/AI_memory_detailed_summary.md",
+      "08/AI_memory_detailed_result.json",
+      "08/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "10",
+    "url": "https://chatgpt.com/c/6aa8063f-b938-83e8-838a-23916a007d8e",
+    "messages": 10,
+    "images": 0,
+    "documents": 5,
+    "error": null,
+    "warnings": [],
+    "elapsed": 149.81092879999778,
+    "outputs": [
+      "10/AI_memory_summary.md",
+      "10/AI_memory_result.json",
+      "10/AI_memory_detailed_summary.md",
+      "10/AI_memory_detailed_result.json",
+      "10/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "12",
+    "url": "https://chatgpt.com/c/6ac6297f-1c6c-83ea-9f83-d857569c42c8",
+    "messages": 10,
+    "images": 1,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个真实图片资源下载失败（not_an_image×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 88.23233190001338,
+    "outputs": [
+      "12/AI_memory_summary.md",
+      "12/AI_memory_result.json",
+      "12/AI_memory_detailed_summary.md",
+      "12/AI_memory_detailed_result.json",
+      "12/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "14",
+    "url": "https://chatgpt.com/c/6ac64d3e-3ac4-83ea-9101-1a107d94579d",
+    "messages": 2,
+    "images": 3,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "3 个真实图片资源下载失败（Error×1、not_an_image×2）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 542.1941322000057,
+    "outputs": [
+      "14/AI_memory_summary.md",
+      "14/AI_memory_result.json",
+      "14/AI_memory_detailed_summary.md",
+      "14/AI_memory_detailed_result.json",
+      "14/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "16",
+    "url": "https://chatgpt.com/c/6ac4fca3-28c0-83e9-9036-d134c662d2c5",
+    "messages": 6,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 632.7652561000141,
+    "outputs": [
+      "16/AI_memory_summary.md",
+      "16/AI_memory_result.json",
+      "16/AI_memory_detailed_summary.md",
+      "16/AI_memory_detailed_result.json",
+      "16/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "18",
+    "url": "https://chatgpt.com/c/6ac64cba-6f00-83ea-80be-af589a675801",
+    "messages": 2,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "5 个真实图片资源下载失败（not_an_image×5）；对话文字抓取继续保留。",
+      "1 个文档附件未能保存到本地（unsupported_type×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 136.25909149998915,
+    "outputs": [
+      "18/AI_memory_summary.md",
+      "18/AI_memory_result.json",
+      "18/AI_memory_detailed_summary.md",
+      "18/AI_memory_detailed_result.json",
+      "18/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "20",
+    "url": "https://chatgpt.com/c/6ac4ff2d-c5d8-83ea-86f5-231443e512b0",
+    "messages": 10,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 98.74621080001816,
+    "outputs": [
+      "20/AI_memory_summary.md",
+      "20/AI_memory_result.json",
+      "20/AI_memory_detailed_summary.md",
+      "20/AI_memory_detailed_result.json",
+      "20/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "22",
+    "url": "https://chatgpt.com/c/6ac62a61-103c-83ea-ac60-71ff3b7d0318",
+    "messages": 10,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 170.71361020000768,
+    "outputs": [
+      "22/AI_memory_summary.md",
+      "22/AI_memory_result.json",
+      "22/AI_memory_detailed_summary.md",
+      "22/AI_memory_detailed_result.json",
+      "22/AI_memory_simple.md"
+    ]
+  },
+  {
+    "case": "24",
+    "url": "https://chatgpt.com/c/6ac64b2e-af9c-83e9-8244-221bc497230a",
+    "messages": 4,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 196.08378919999814,
+    "outputs": [
+      "24/AI_memory_summary.md",
+      "24/AI_memory_result.json",
+      "24/AI_memory_detailed_summary.md",
+      "24/AI_memory_detailed_result.json",
+      "24/AI_memory_simple.md"
+    ]
+  }
+]

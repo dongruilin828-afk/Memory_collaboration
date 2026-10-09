@@ -1,0 +1,88 @@
+[
+  {
+    "case": "02",
+    "url": "https://chatgpt.com/c/6ac4fb21-f6d4-83ea-9720-821f2dc0757e",
+    "messages": 4,
+    "images": 4,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "3 个文档附件未能保存到本地（http_429×1、not_a_document×2）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 61.47723029999179
+  },
+  {
+    "case": "04",
+    "url": "https://chatgpt.com/c/6aa7b657-6ef0-83e8-a62f-7cacfc24e6c3",
+    "messages": 2,
+    "images": 2,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 32.63151430001017
+  },
+  {
+    "case": "07",
+    "url": "https://chatgpt.com/share/6ac4fbda-5998-83e9-a803-d8ddcd825868",
+    "messages": 4,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 66.2477077000076
+  },
+  {
+    "case": "08",
+    "url": "https://chatgpt.com/c/6ab9c3b4-8858-83e9-a70b-b476d73169cb",
+    "messages": 4,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 31.34659259999171
+  },
+  {
+    "case": "12",
+    "url": "https://chatgpt.com/c/6ac6297f-1c6c-83ea-9f83-d857569c42c8",
+    "messages": 10,
+    "images": 1,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 50.1411941999977
+  },
+  {
+    "case": "13",
+    "url": "https://chatgpt.com/share/6ac64dc6-ef94-83e9-abd4-a700760ff2c9",
+    "messages": 2,
+    "images": 2,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 64.94734869999229
+  },
+  {
+    "case": "14",
+    "url": "https://chatgpt.com/c/6ac64d3e-3ac4-83ea-9101-1a107d94579d",
+    "messages": 2,
+    "images": 2,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 27.895155799982604
+  },
+  {
+    "case": "18",
+    "url": "https://chatgpt.com/c/6ac64cba-6f00-83ea-80be-af589a675801",
+    "messages": 2,
+    "images": 5,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个文档附件未能保存到本地（unsupported_type×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 38.05417529999977
+  }
+]

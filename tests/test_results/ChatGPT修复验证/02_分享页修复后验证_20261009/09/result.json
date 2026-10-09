@@ -1,0 +1,15 @@
+{
+  "image_map": {
+    "https://cdn.auth0.com/avatars/sl.png": "./images/img_1_c3858f4a.png"
+  },
+  "messages": [],
+  "document_map": {},
+  "error": "未能提取到有效对话内容。",
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://chatgpt.com/share/6aa93ca3-11c0-83e8-9c36-afa39378a735",
+  "elapsed": 41.66698879998876,
+  "files": {
+    "images/img_1_c3858f4a.png": "ce180851334c8915594b8d2f93ac3f2b0c767ed0425100741433c735680891ca"
+  }
+}

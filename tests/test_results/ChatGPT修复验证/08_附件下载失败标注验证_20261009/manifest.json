@@ -1,0 +1,14 @@
+[
+  {
+    "case": "08",
+    "url": "https://chatgpt.com/c/6ab9c3b4-8858-83e9-a70b-b476d73169cb",
+    "messages": 4,
+    "images": 0,
+    "documents": 0,
+    "error": null,
+    "warnings": [
+      "1 个文档附件未能保存到本地（not_a_document×1）；对话文字抓取继续保留。"
+    ],
+    "elapsed": 79.24419870000565
+  }
+]

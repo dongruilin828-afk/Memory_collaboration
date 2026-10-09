@@ -1,0 +1,22 @@
+[
+  {
+    "case": "01",
+    "url": "https://chatgpt.com/share/6ac4fb8e-f9fc-83ea-a9f4-593b63ca3241",
+    "messages": 4,
+    "images": 2,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 63.65829009999288
+  },
+  {
+    "case": "02",
+    "url": "https://chatgpt.com/c/6ac4fb21-f6d4-83ea-9720-821f2dc0757e",
+    "messages": 4,
+    "images": 4,
+    "documents": 0,
+    "error": null,
+    "warnings": [],
+    "elapsed": 26.925860999996075
+  }
+]

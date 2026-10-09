@@ -1371,6 +1371,42 @@ class GeminiSummarizerTests(unittest.TestCase):
             "content": "![已生成图片：学习桌](./images/generated.png)",
         }])
 
+    def test_chatgpt_assistant_only_parses_internal_message_body(self):
+        html = """
+        <div data-message-author-role="assistant">
+          <h5 class="sr-only">ChatGPT 说：</h5>
+          <div class="markdown"><p>真实回答</p></div>
+          <div class="actions"><button>来源</button><button>复制</button></div>
+        </div>
+        <div data-message-author-role="assistant">
+          <h5 class="sr-only">ChatGPT 说：</h5>
+          <div class="actions"><button>来源</button></div>
+        </div>
+        """
+        self.assertEqual(chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        ), [{"role": "AI", "content": "真实回答"}])
+
+    def test_chatgpt_parses_current_share_page_turns(self):
+        html = """
+        <div data-chatgpt-search-unit-key="fallback-turn-0:0:user">
+          <p>他说的对吗</p>
+        </div>
+        <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant">
+          <h4 data-conversation-role="assistant">ChatGPT 说：</h4>
+          <div data-markdown-text-style="assistant-message">
+            <p>真实回答</p>
+          </div>
+          <div class="actions"><button>来源</button><button>复制</button></div>
+        </div>
+        """
+        self.assertEqual(chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        ), [
+            {"role": "User", "content": "他说的对吗"},
+            {"role": "AI", "content": "真实回答"},
+        ])
+
     def test_chatgpt_math_nodes_restore_latex_before_markdown_conversion(self):
         html = r"""
         <div data-message-author-role="assistant">

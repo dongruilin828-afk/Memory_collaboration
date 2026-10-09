@@ -41,6 +41,7 @@ from scripts.project_paths import (
 )
 from scripts.providers import (
     WAIT_SELECTOR,
+    chatgpt,
     codex,
     collect_virtualized_html,
     doubao,
@@ -96,6 +97,7 @@ DOCUMENT_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     ".txt", ".csv", ".md", ".rtf", ".py",
 }
+CHATGPT_ATTACHMENT_EXTENSIONS = DOCUMENT_EXTENSIONS | gemini.VIDEO_EXTENSIONS
 DOCUMENT_MIME_EXTENSIONS = {
     "application/pdf": ".pdf",
     "application/msword": ".doc",
@@ -274,18 +276,14 @@ def _collect_response_assets(
                 reference = str(item.get(key) or "").strip()
                 if reference.startswith(("file_", "file-")):
                     reference_ids.append(reference)
-            if suffix and not mime_type.startswith("image/"):
-                for reference in dict.fromkeys(reference_ids):
-                    document_candidates.append(DocumentCandidate(
-                        reference,
-                        f"{origin}/backend-api/files/download/"
-                        f"{quote(reference, safe='')}{share_query}",
-                        _safe_document_filename(filename, suffix),
-                    ))
             if mime_type.startswith("image/") or suffix in {
                 ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"
             }:
-                image_references.update(reference_ids or {filename.lower()})
+                image_references.update(
+                    f"{origin}/backend-api/files/download/"
+                    f"{quote(reference, safe='')}{share_query}"
+                    for reference in reference_ids
+                )
 
 
 async def _capture_response_assets(
@@ -533,7 +531,7 @@ async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
         selector = (
             codex.WAIT_SELECTOR
             if codex.is_codex_path(urlparse(page_url).path)
-            else "[data-message-author-role]"
+            else chatgpt.WAIT_SELECTOR
         )
     elif host == "chat.deepseek.com":
         selector = "[data-virtual-list-item-key] .ds-message"
@@ -605,7 +603,8 @@ async def _chatgpt_assets_need_rehydrate(
     try:
         body_text = await page.locator("body").inner_text(timeout=3000)
         rendered_images = await page.locator(
-            "[data-message-author-role='user'] img"
+            "[data-message-author-role='user'] img, "
+            "[data-chatgpt-search-unit-key$=':user'] img"
         ).count()
     except Exception:
         return False
@@ -1235,6 +1234,9 @@ def _is_decorative_image_candidate(src: str) -> bool:
         parsed.netloc.lower() in {"google.com", "www.google.com"}
         and parsed.path.rstrip("/").lower() == "/s2/favicons"
     ) or (
+        parsed.netloc.lower() == "t0.gstatic.com"
+        and parsed.path.rstrip("/").lower() == "/faviconv2"
+    ) or (
         parsed.netloc.lower() == "cdn.deepseek.com"
         and parsed.path.lower().startswith("/site-icons/")
     )
@@ -1381,7 +1383,7 @@ async def _chatgpt_message_asset_groups(
             suffix = Path(filename).suffix.lower()
             if (
                 not re.fullmatch(r"file[_-][A-Za-z0-9_-]+", file_id)
-                or suffix not in DOCUMENT_EXTENSIONS
+                or suffix not in CHATGPT_ATTACHMENT_EXTENSIONS
             ):
                 continue
             documents.append(DocumentCandidate(
@@ -1821,7 +1823,7 @@ async def _download_image_candidates(
 
 def _document_filename_from_text(value: str) -> str:
     match = re.search(
-        r'([^\\/:*?"<>|\r\n]{1,180}\.(?:pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf))',
+        r'([^\\/:*?"<>|\r\n]{1,180}\.(?:pdf|docx?|xlsx?|pptx?|txt|csv|md|rtf|mp4|mov|webm|mkv|avi))',
         str(value or ""),
         re.IGNORECASE,
     )
@@ -1846,7 +1848,7 @@ def _document_filename_from_disposition(value: str) -> str:
 
 def _document_suffix(value: str) -> str:
     suffix = Path(unquote(urlparse(str(value or "")).path)).suffix.lower()
-    return suffix if suffix in DOCUMENT_EXTENSIONS else ""
+    return suffix if suffix in GEMINI_ATTACHMENT_EXTENSIONS else ""
 
 
 def _safe_document_filename(name: str, fallback_suffix: str = "") -> str:
@@ -2092,13 +2094,15 @@ def _extract_chatgpt_document_card_candidates(
     candidates: list[DocumentCandidate] = []
     seen_names: set[str] = set()
     soup = BeautifulSoup(html or "", "html.parser")
-    for title in soup.select("div.truncate.font-semibold"):
+    for title in soup.select(
+        '[data-message-author-role="user"] .truncate.font-semibold'
+    ):
         filename = _document_filename_from_text(
             " ".join(title.get_text(" ", strip=True).split())
         )
         if (
             not filename
-            or Path(filename).suffix.lower() not in DOCUMENT_EXTENSIONS
+            or Path(filename).suffix.lower() not in CHATGPT_ATTACHMENT_EXTENSIONS
         ):
             continue
         filename = _safe_document_filename(filename)
@@ -2499,12 +2503,21 @@ def _extract_document_candidates(
     soup = BeautifulSoup(html or "", "html.parser")
     candidates: list[DocumentCandidate] = []
     seen: set[tuple[str, str]] = set()
+    parsed_base = urlparse(base_url)
+    host = parsed_base.netloc.lower().split(":", 1)[0]
     url_attributes = (
         "href", "data-url", "data-href", "data-download-url",
         "data-file-url", "data-resource-url",
     )
     for element in soup.find_all(True):
         if element.name in {"link", "script", "style"}:
+            continue
+        if (
+            host in {"chatgpt.com", "chat.openai.com"}
+            and element.find_parent(
+                attrs={"data-message-author-role": "assistant"}
+            ) is not None
+        ):
             continue
         label = " ".join(element.get_text(" ", strip=True).split())
         declared_name = str(element.get("download") or "").strip()
@@ -2535,8 +2548,6 @@ def _extract_document_candidates(
             seen.add(key)
             candidates.append(DocumentCandidate(reference, absolute_url, filename))
 
-    parsed_base = urlparse(base_url)
-    host = parsed_base.netloc.lower().split(":", 1)[0]
     if host in {"doubao.com", "www.doubao.com"}:
         origin = f"{parsed_base.scheme or 'https'}://{parsed_base.netloc}"
         for candidate in _extract_doubao_embedded_document_candidates(html, origin):
@@ -3570,9 +3581,13 @@ async def _download_document_candidates(
                     )
                     return candidate, body, headers, None
                 elif is_chatgpt_direct_candidate:
-                    response = await _authenticated_page_get(
-                        page, candidate.url, 20000
-                    )
+                    for attempt in range(2):
+                        response = await _authenticated_page_get(
+                            page, candidate.url, 60000
+                        )
+                        if response.status != 429 or attempt:
+                            break
+                        await page.wait_for_timeout(1500)
                 elif candidate_host in {"chatgpt.com", "chat.openai.com"}:
                     async with chatgpt_card_lock:
                         file_id = await _chatgpt_document_card_file_id(
@@ -3737,11 +3752,14 @@ async def _download_document_candidates(
             disposition_name or candidate.filename,
             inferred_suffix,
         )
-        if Path(filename).suffix.lower() not in (
+        allowed_extensions = (
             GEMINI_ATTACHMENT_EXTENSIONS
             if candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
+            else CHATGPT_ATTACHMENT_EXTENSIONS
+            if urlparse(candidate.url).hostname in {"chatgpt.com", "chat.openai.com"}
             else DOCUMENT_EXTENSIONS
-        ):
+        )
+        if Path(filename).suffix.lower() not in allowed_extensions:
             failures["unsupported_type"] = failures.get("unsupported_type", 0) + 1
             if failure_collector is not None:
                 failure_collector[candidate] = "unsupported_type"
@@ -3861,6 +3879,11 @@ def _mark_unavailable_assets(
                 re.IGNORECASE,
             )
             content = marker.sub(placeholder, content)
+            content = re.sub(
+                rf"(?m)^{re.escape(name)}$",
+                placeholder,
+                content,
+            )
         content = re.sub(
             r"!\[(?P<label>[^\]]*)\]\((?P<url>https?://[^)\s]+)(?:\s+[^)]*)?\)",
             lambda match: (
@@ -3882,13 +3905,40 @@ def _mark_unavailable_assets(
         message["content"] = content
 
 
+def _merge_chatgpt_rehydrate_html(before_html: str | None, after_html: str) -> str:
+    if not before_html:
+        return after_html
+    before_soup = BeautifulSoup(before_html, "html.parser")
+    after_soup = BeautifulSoup(after_html, "html.parser")
+    selector = "[data-message-author-role]"
+    before_nodes = before_soup.select(selector)
+    after_nodes = after_soup.select(selector)
+    if len(before_nodes) > len(after_nodes):
+        return before_html
+    if len(before_nodes) != len(after_nodes):
+        return after_html
+    for before, after in zip(before_nodes, after_nodes):
+        if before.get("data-message-author-role") != after.get("data-message-author-role"):
+            return after_html
+        before_messages = chatgpt.parse_messages(
+            BeautifulSoup(str(before), "html.parser"), {}
+        ) or []
+        after_messages = chatgpt.parse_messages(
+            BeautifulSoup(str(after), "html.parser"), {}
+        ) or []
+        if before_messages and not after_messages:
+            after.replace_with(before)
+    return str(after_soup)
+
+
 def _parse_page_messages(url: str, soup: BeautifulSoup, asset_map: Mapping[str, str]):
     """已知平台链接绝不降级成页面壳文本。"""
     provider, messages = parse_messages(soup, asset_map)
     parsed_url = urlparse(url)
     if codex.is_codex_path(parsed_url.path):
         return (provider, messages) if provider is codex else (None, None)
-    if (parsed_url.hostname or "").lower() in GEMINI_HOSTS | DOUBAO_HOSTS:
+    known_hosts = GEMINI_HOSTS | DOUBAO_HOSTS | set(chatgpt.HOSTS)
+    if (parsed_url.hostname or "").lower() in known_hosts:
         return (provider, messages) if provider is not None else (None, None)
     return (provider, messages) if provider is not None else (
         None,
@@ -3948,7 +3998,13 @@ async def fetch_chat_pipeline(
     # Codex/Grok 公有页在无头 Chromium 中可能落入 Cloudflare 验证页，也要先探测
     # 真实消息节点，失败后复用现有的有头浏览器回退链。
     requires_content_probe = (
-        requires_login_probe or codex_request or requested_host in GROK_HOSTS
+        requires_login_probe
+        or codex_request
+        or requested_host in GROK_HOSTS
+        or (
+            requested_host in {"chatgpt.com", "chat.openai.com"}
+            and requested_path.startswith("/share/")
+        )
     )
     doubao_public_thread = (
         requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
@@ -4162,7 +4218,12 @@ async def fetch_chat_pipeline(
                                     headless=False,
                                     viewport=None,
                                     no_viewport=True,
-                                    start_minimized=True,
+                                    start_minimized=not (
+                                        requested_host in {
+                                            "chatgpt.com", "chat.openai.com"
+                                        }
+                                        and requested_path.startswith("/share/")
+                                    ),
                                     logger=logger,
                                     profile_root=browser_profile_root,
                                 )
@@ -4262,14 +4323,6 @@ async def fetch_chat_pipeline(
                     await _page_has_conversation_content(page, url)
                 await _drain_response_tasks(response_tasks)
                 current_host = urlparse(url).netloc.lower().split(":", 1)[0]
-                if current_host in {"chatgpt.com", "chat.openai.com"}:
-                    initial_snapshot = await page.content()
-                    response_document_candidates.extend(
-                        _extract_document_candidates(initial_snapshot, page.url)
-                    )
-                    response_document_candidates[:] = list(dict.fromkeys(
-                        response_document_candidates
-                    ))
                 if await _chatgpt_assets_need_rehydrate(
                     page,
                     url,
@@ -4325,13 +4378,6 @@ async def fetch_chat_pipeline(
 
                 current_host = urlparse(url).netloc.lower().split(":", 1)[0]
                 if current_host in {"chatgpt.com", "chat.openai.com"}:
-                    late_snapshot = await page.content()
-                    response_document_candidates.extend(
-                        _extract_document_candidates(late_snapshot, page.url)
-                    )
-                    response_document_candidates[:] = list(dict.fromkeys(
-                        response_document_candidates
-                    ))
                     if (
                         not chatgpt_assets_rehydrated
                         and await _chatgpt_assets_need_rehydrate(
@@ -4413,12 +4459,9 @@ async def fetch_chat_pipeline(
                     if kimi_ready:
                         page_snapshot_html = await page.content()
                         html = await collect_virtualized_html(page) or page_snapshot_html
-                if (
-                    pre_rehydrate_chat_html
-                    and pre_rehydrate_chat_html.count("data-message-author-role")
-                    > html.count("data-message-author-role")
-                ):
-                    html = pre_rehydrate_chat_html
+                html = _merge_chatgpt_rehydrate_html(
+                    pre_rehydrate_chat_html, html
+                )
                 chatgpt_image_groups, chatgpt_document_groups = (
                     await _chatgpt_message_asset_groups(page, url)
                 )
@@ -4662,7 +4705,9 @@ async def fetch_chat_pipeline(
                     *gemini_document_candidates,
                     *(
                         []
-                        if current_host == "chat.deepseek.com"
+                        if current_host in {
+                            "chat.deepseek.com", "chatgpt.com", "chat.openai.com"
+                        }
                         else _extract_document_candidates(
                             page_snapshot_html + chr(10) + html,
                             page.url,
@@ -4887,6 +4932,9 @@ async def fetch_chat_pipeline(
                 elif requested_host in DOUBAO_HOSTS:
                     if logger:
                         logger("豆包页面未出现真实消息节点，拒绝解析页面壳。")
+                elif requested_host in chatgpt.HOSTS:
+                    if logger:
+                        logger("ChatGPT 页面未出现真实消息节点，拒绝解析页面壳。")
                 else:
                     if logger:
                         logger("未识别出平台标志性类名，使用降级解析。")
