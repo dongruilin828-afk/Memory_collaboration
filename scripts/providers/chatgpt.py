@@ -448,7 +448,8 @@ def parse_messages(soup, image_map=None):
         math_replacements = _replace_math_with_placeholders(msg)
         if role == "user":
             for excluded in msg.select(
-                '[data-markdown-copy="exclude"], [aria-hidden="true"]'
+                '[data-markdown-copy="exclude"], [aria-hidden="true"], '
+                '.sr-only, .cdk-visually-hidden'
             ):
                 excluded.decompose()
             content_parts = []

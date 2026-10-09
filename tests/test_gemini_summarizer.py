@@ -1353,6 +1353,18 @@ class GeminiSummarizerTests(unittest.TestCase):
             BeautifulSoup(html, "html.parser"),
         ), [{"role": "User", "content": "生成一张图片给我"}])
 
+    def test_chatgpt_user_screen_reader_label_is_excluded(self):
+        html = """
+        <section data-message-author-role="user">
+          <h5 class="sr-only">你说：</h5>
+          <span class="cdk-visually-hidden">你说：</span>
+          <p>指数用英语怎么说</p>
+        </section>
+        """
+        self.assertEqual(chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+        ), [{"role": "User", "content": "指数用英语怎么说"}])
+
     def test_chatgpt_generated_image_only_answer_is_preserved(self):
         source = "https://chatgpt.com/backend-api/estuary/content?id=file_image"
         html = f"""
