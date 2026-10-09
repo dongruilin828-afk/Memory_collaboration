@@ -1112,7 +1112,7 @@ class GenerationChoiceCard(tk.Canvas):
         self, master, title: str, subtitle: str,
         badge_text: str = "", initial_checked: bool = False,
         on_toggle: callable = None, width: int = 200,
-        height: int = 108, **kwargs
+        height: int = 58, show_separator: bool = True, **kwargs
     ):
         super().__init__(
             master, width=width, height=height, bg=COLOR_CARD,
@@ -1121,6 +1121,7 @@ class GenerationChoiceCard(tk.Canvas):
         self._title = title
         self._subtitle = subtitle
         self._badge = badge_text
+        self._show_separator = show_separator
         self._checked = bool(initial_checked)
         self.checked = self._checked
         self._disabled = False
@@ -1129,8 +1130,10 @@ class GenerationChoiceCard(tk.Canvas):
         self._base_width = width
         self._base_height = height
         self._title_font = tkfont.Font(master=self, font=FONT_H2)
-        self._subtitle_font = tkfont.Font(master=self, font=FONT_SMALL)
-        self._badge_font = tkfont.Font(master=self, font=FONT_TINY)
+        self._subtitle_font = tkfont.Font(master=self, font=FONT_BODY)
+        self._badge_font = tkfont.Font(
+            root=self, family=FONT_FAMILY, size=8, weight="bold",
+        )
         self._height = height
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Enter>", self._on_enter)
@@ -1139,17 +1142,32 @@ class GenerationChoiceCard(tk.Canvas):
 
     def set_responsive_scale(self, scale: float):
         self._title_font.configure(
-            size=_scaled_font_size(self._title_font, scale, 12, 16),
+            size=_scaled_font_size(self._title_font, scale, 13, 17),
         )
         self._subtitle_font.configure(
-            size=_scaled_font_size(self._subtitle_font, scale, 8, 10),
+            size=_scaled_font_size(self._subtitle_font, scale, 9, 12),
         )
         self._badge_font.configure(
-            size=_scaled_font_size(self._badge_font, scale, 8, 10),
+            size=_scaled_font_size(self._badge_font, scale, 8, 9),
         )
-        self._height = max(96, min(132, round(self._base_height * scale)))
+        self._height = max(54, min(70, round(self._base_height * scale)))
         self.configure(height=self._height)
         self.redraw()
+
+    @staticmethod
+    def _ellipsize(text: str, font: tkfont.Font, max_width: int) -> str:
+        if max_width <= 0:
+            return ""
+        if font.measure(text) <= max_width:
+            return text
+        ellipsis = "…"
+        available = max_width - font.measure(ellipsis)
+        if available <= 0:
+            return ellipsis
+        end = len(text)
+        while end > 0 and font.measure(text[:end]) > available:
+            end -= 1
+        return text[:end].rstrip() + ellipsis
 
     def set_disabled(self, disabled: bool):
         self._disabled = bool(disabled)
@@ -1182,58 +1200,66 @@ class GenerationChoiceCard(tk.Canvas):
         height = self._height
         if self._disabled:
             background = "#F8F9FB"
-            outline = COLOR_BORDER
             title_color = COLOR_TEXT_DISABLED
-        elif self._checked:
-            background = COLOR_GENERATION_ACCENT_BG
-            outline = COLOR_GENERATION_ACCENT
-            title_color = COLOR_TEXT_PRIMARY
         elif self._hover:
-            background = "#FAF9FF"
-            outline = "#CFC5FA"
+            background = "#F8FAFD"
             title_color = COLOR_TEXT_PRIMARY
         else:
             background = COLOR_CARD
-            outline = COLOR_BORDER
             title_color = COLOR_TEXT_PRIMARY
-        _round_rectangle(
-            self, 1, 1, width - 1, height - 1, r=12,
-            fill=background, outline=outline,
-            width=2 if self._checked else 1,
+        self.create_rectangle(0, 0, width, height, fill=background, outline="")
+        content_y = height / 2 + (5 if self._badge else 0)
+        title_x = 8
+        self.create_text(
+            title_x, content_y, text=self._title, fill=title_color,
+            font=self._title_font, anchor="w",
+        )
+        copy_x = title_x + self._title_font.measure(self._title) + 18
+        indicator_size = 20
+        indicator_x = width - indicator_size - 8
+        indicator_y = (height - indicator_size) / 2
+        subtitle = self._ellipsize(
+            self._subtitle, self._subtitle_font,
+            int(indicator_x - copy_x - 16),
         )
         self.create_text(
-            16, 18, text=self._title, fill=title_color,
-            font=self._title_font, anchor="nw",
-        )
-        self.create_text(
-            16, 51, text=self._subtitle,
+            copy_x, content_y, text=subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
-            font=self._subtitle_font, anchor="nw",
-            width=max(width - 48, 1),
+            font=self._subtitle_font, anchor="w",
         )
-        if self._badge:
-            badge_width = 42
-            _round_rectangle(
-                self, width - badge_width - 13, 13,
-                width - 13, 33, r=10,
-                fill="#E8E1FF", outline="",
-            )
-            self.create_text(
-                width - badge_width / 2 - 13, 23,
-                text=self._badge, fill="#6548D8",
-                font=self._badge_font,
-            )
-        indicator_x = width - 29
         _round_rectangle(
-            self, indicator_x, height - 29,
-            indicator_x + 16, height - 13, r=4,
-            fill=(COLOR_GENERATION_ACCENT if self._checked else COLOR_CARD),
-            outline=(COLOR_GENERATION_ACCENT if self._checked else COLOR_BORDER),
+            self, indicator_x, indicator_y,
+            indicator_x + indicator_size, indicator_y + indicator_size, r=6,
+            fill=("#4F5FE7" if self._checked else COLOR_CARD),
+            outline=("#4F5FE7" if self._checked else "#C9D1DC"),
         )
         if self._checked:
+            self.create_line(
+                indicator_x + 5, indicator_y + 10,
+                indicator_x + 8.5, indicator_y + 13.5,
+                indicator_x + 15, indicator_y + 6.5,
+                fill="#FFFFFF", width=2,
+                capstyle=tk.ROUND, joinstyle=tk.ROUND,
+            )
+        if self._badge:
+            badge_width = self._badge_font.measure(self._badge) + 16
+            badge_width += badge_width % 2
+            badge_top = 2
+            badge_bottom = 22
+            _round_rectangle(
+                self, 0, badge_top, badge_width, badge_bottom, r=8,
+                fill=("#AAB1C0" if self._disabled else "#4658F5"),
+                outline="",
+            )
             self.create_text(
-                indicator_x + 8, height - 21, text="✓",
-                fill="#FFFFFF", font=self._badge_font,
+                badge_width / 2, (badge_top + badge_bottom) / 2,
+                text=self._badge,
+                fill="#FFFFFF", font=self._badge_font, anchor="center",
+            )
+        if self._show_separator:
+            self.create_line(
+                8, height - 1, width - 8, height - 1,
+                fill=COLOR_BORDER, width=1,
             )
 
 
@@ -2397,38 +2423,38 @@ class AIMemoryGUI:
         self._generation_right_column = right_column
 
         mode_panel = tk.Frame(
-            left_column, bg=COLOR_CARD, padx=12, pady=12,
+            left_column, bg=COLOR_CARD, padx=0, pady=0,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
         self._generation_mode_panel = mode_panel
         mode_panel.pack(fill=tk.X)
-        mode_header = tk.Frame(mode_panel, bg=COLOR_CARD)
-        mode_header.pack(fill=tk.X, pady=(0, 10))
-        self._generation_mode_title_label = tk.Label(
-            mode_header, text="选择生成模式", font=FONT_H2,
-            fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+        mode_header = tk.Frame(
+            mode_panel, bg="#F8FAFD", padx=20, pady=14,
         )
-        self._generation_mode_title_label._responsive_min_font_size = 12
-        self._generation_mode_title_label._responsive_max_font_size = 16
+        mode_header.pack(fill=tk.X)
+        self._generation_mode_title_label = tk.Label(
+            mode_header, text="选择生成模式", font=FONT_TITLE,
+            fg=COLOR_TEXT_PRIMARY, bg="#F8FAFD",
+        )
+        self._generation_mode_title_label._responsive_min_font_size = 16
+        self._generation_mode_title_label._responsive_max_font_size = 20
         self._generation_mode_title_label.pack(side=tk.LEFT)
         self.generation_selection_var = tk.StringVar(value="已选 1 项")
         tk.Label(
             mode_header, textvariable=self.generation_selection_var,
-            font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
+            font=FONT_BODY, fg=COLOR_TEXT_SECONDARY, bg="#F8FAFD",
         ).pack(side=tk.RIGHT)
 
-        mode_grid = tk.Frame(mode_panel, bg=COLOR_CARD)
+        tk.Frame(mode_panel, bg=COLOR_BORDER, height=1).pack(fill=tk.X)
+        mode_grid = tk.Frame(mode_panel, bg=COLOR_CARD, padx=20)
         mode_grid.pack(fill=tk.X)
-        mode_grid.grid_columnconfigure(0, weight=1, uniform="mode")
-        mode_grid.grid_columnconfigure(1, weight=1, uniform="mode")
-        mode_grid.grid_rowconfigure(0, weight=1)
-        mode_grid.grid_rowconfigure(1, weight=1)
+        mode_grid.grid_columnconfigure(0, weight=1)
 
         cards = (
             ("card_raw", "仅抓取对话", "保留原始问答，不调用 API。", "", False),
             ("card_normal", "结构化总结", "默认方式，支持选择不同话题重要程度", "推荐", True),
-            ("card_simple", "极简总结", "压缩为一段极短的总览，快速掌握关键信息", "", False),
-            ("card_detailed", "细节总结", "保留更多细节信息", "", False),
+            ("card_simple", "极简化总结", "压缩为一段极短的总览，快速掌握关键信息", "", False),
+            ("card_detailed", "细节化总结", "保留更多细节信息", "", False),
         )
         for index, card_data in enumerate(cards):
             attr, title, subtitle, badge, checked = card_data
@@ -2436,12 +2462,11 @@ class AIMemoryGUI:
                 mode_grid, title=title, subtitle=subtitle,
                 badge_text=badge,
                 initial_checked=checked, on_toggle=self._on_mode_toggled,
-                width=card_width, height=100,
+                width=card_width, height=58,
+                show_separator=index < len(cards) - 1,
             )
             card.grid(
-                row=index // 2, column=index % 2, sticky="nsew",
-                padx=(0, 4) if index % 2 == 0 else (4, 0),
-                pady=(0, 4) if index < 2 else (4, 0),
+                row=index, column=0, sticky="nsew",
             )
             setattr(self, attr, card)
 
@@ -2982,8 +3007,8 @@ class AIMemoryGUI:
         mode_cards = (
             (getattr(self, "card_raw", None), "原始对话"),
             (getattr(self, "card_normal", None), "结构化总结"),
-            (getattr(self, "card_simple", None), "极简总结"),
-            (getattr(self, "card_detailed", None), "细节总结"),
+            (getattr(self, "card_simple", None), "极简化总结"),
+            (getattr(self, "card_detailed", None), "细节化总结"),
         )
         selected_modes = [
             label for card, label in mode_cards

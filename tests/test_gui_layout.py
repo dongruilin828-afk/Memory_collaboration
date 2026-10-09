@@ -409,7 +409,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertEqual(
             {(int(card.grid_info()["row"]), int(card.grid_info()["column"]))
              for card in cards},
-            {(0, 0), (0, 1), (1, 0), (1, 1)},
+            {(0, 0), (1, 0), (2, 0), (3, 0)},
         )
         for card in cards:
             for item in card.find_all():
@@ -437,10 +437,10 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             "mode panel should keep its natural height instead of filling the column",
         )
         mode_title = app._generation_mode_title_label
-        self.assertEqual(
+        self.assertGreater(
             self._font_size(root, mode_title),
             int(app.card_raw._title_font.actual("size")),
-            "mode-panel heading should stay comparable to the mode-card titles",
+            "mode-panel heading should remain stronger than mode-card titles",
         )
         mode_title_font = tkfont.Font(root=root, font=mode_title.cget("font"))
         self.assertLessEqual(
