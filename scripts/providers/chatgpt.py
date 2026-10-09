@@ -480,6 +480,21 @@ def parse_messages(soup, image_map=None):
             if content is None:
                 continue
 
+            # ChatGPT 新版代码块把“纯文本”等工具栏和代码并列放置。
+            for block in list(content.select("[data-markdown-copy='code-block']")):
+                code = block.find("code")
+                if code is None:
+                    continue
+                new_pre = soup.new_tag("pre")
+                new_code = soup.new_tag("code")
+                new_code.string = code.get_text()
+                new_pre.append(new_code)
+                block.replace_with(new_pre)
+
+            # 引用卡片图标不是消息图片，仅保留外层引用链接。
+            for img in list(content.select("a[data-testid='chatgpt-citation'] img")):
+                img.decompose()
+
             # 替换本地图片路径，并移除生成图的重复展示节点。
             seen_image_sources = set()
             for img in list(content.find_all("img")):

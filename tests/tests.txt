@@ -204,3 +204,43 @@ Kimi：
 含公式和交互：
 分享链接：https://www.kimi.com/share/1a11985d-2622-8b86-8000-00007d85901f
 网页链接：https://www.kimi.com/chat/1a11983b-c582-8134-8000-09c6f2ced19e?chat_enter_method=new_chat
+
+
+
+千问：
+
+含图片：
+1. 分享链接：https://qianwen.my.cn/share/chat/d058af5eb1fd4f8a81db9a1567de697e?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/1446432dd5dc4cd8be9354017fc9b9c1
+2. 分享链接：https://qianwen.my.cn/share/chat/b29a8c05a0bc4bc3b6bb8971568cd68c?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/7a06400996414171853da286dfed1896
+3. 分享链接：https://qianwen.my.cn/share/chat/dc9cfa15bcca45ba889c63f9c436165a?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/7a06400996414171853da286dfed1896
+
+含图片和文档：
+分享链接：https://qianwen.my.cn/share/chat/0e5561337e93416aac71aaad3b778b95?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/5562e3046ace4ee083087f6e0907d54c
+
+含图片和代码：
+1. 分享链接：https://qianwen.my.cn/share/chat/633ea2f420f64b01a298bf7cd1e5fa74?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/cf1fa898f99b4a0d944526676bb1dfe2
+2. 分享链接：https://qianwen.my.cn/share/chat/e9839a5798e847ee9c7edd6ffd3b5123?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/8210dcb6bde741e893ea3e8c01f50fb0
+
+含公式：
+1. 分享链接：https://qianwen.my.cn/share/chat/2378b8016b7046feb2e1ec3d05cbbd6e?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/da38250d7a4848dd9657977a6ad98faf
+2. 分享链接：https://qianwen.my.cn/share/chat/d3f8a35eff82451d9abb309397a259dc?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/dec41b4a35fc4f0ca5b1a78993dae21d
+
+含代码：
+分享链接：https://qianwen.my.cn/share/chat/a3862f4baa3742aa8b625a66e0b82b86?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/d26b243d01354ec88a453eb555a51bd7
+
+含公式和代码：
+分享链接：https://qianwen.my.cn/share/chat/6a66514f04f840549233bb5b839847d7?lang=zh-CN
+网页链接：https://www.qianwen.com/chat/c0686a41ab27461795ea64f2e2f6fb4b
+
+超长对话：
+分享链接：https://qianwen.my.cn/share/chat/16591d23c61e47daab30e656a187d539?lang=zh-CN
+网页链接；https://www.qianwen.com/chat/05262e709a374870a774f97787950c21

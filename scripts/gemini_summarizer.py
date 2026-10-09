@@ -29,7 +29,7 @@ from urllib.request import Request, urlopen
 
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash"
-SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3.5-397B-A17B"
+SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3-8B"
 SILICONFLOW_VISION_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
 DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-pro"
@@ -105,6 +105,29 @@ DOCUMENT_EXTENSIONS = {
 }
 TEXT_EXTENSIONS = {".txt", ".csv", ".md", ".json", ".html", ".htm"}
 DOCX_XML_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _is_chatgpt_citation(reference: str, _source_platform: str | None = None) -> bool:
+    parsed = urlparse(reference)
+    return parsed.scheme in {"http", "https"} and "utm_source=chatgpt.com" in parsed.query.lower()
+
+
+def sanitize_summary_messages(
+    messages: list[dict[str, str]], source_platform: str | None = None
+) -> list[dict[str, str]]:
+    """复制总结输入，并移除 ChatGPT 来源引用标签。"""
+    sanitized: list[dict[str, str]] = []
+    for message in messages:
+        copied = dict(message)
+        if str(message.get("role") or "").lower() in {"ai", "assistant"}:
+            copied["content"] = FILE_LINK_PATTERN.sub(
+                lambda match: "" if _is_chatgpt_citation(
+                    match.group("reference"), source_platform
+                ) else match.group(0),
+                str(message.get("content") or ""),
+            )
+        sanitized.append(copied)
+    return sanitized
 
 
 def _image_mime_type(body: bytes) -> str | None:
@@ -1253,11 +1276,13 @@ def discover_media(
             ).name
             reference_suffix = Path(reference_name).suffix.lower()
             label_suffix = Path(label).suffix.lower()
-            if (
-                source_platform == "deepseek"
-                and source_role == "assistant"
-                and urlparse(reference).scheme in {"http", "https"}
-                and re.fullmatch(r"-\d+", label)
+            if source_role == "assistant" and (
+                _is_chatgpt_citation(reference, source_platform)
+                or (
+                    source_platform == "deepseek"
+                    and urlparse(reference).scheme in {"http", "https"}
+                    and re.fullmatch(r"-\d+", label)
+                )
             ):
                 continue
             if (
@@ -2219,6 +2244,7 @@ def summarize_conversation(
     source_dir = Path(source_dir or project_dir).resolve()
     config = config or SummaryConfig.from_env()
     message_count = len(messages)
+    summary_messages = sanitize_summary_messages(messages, source_platform)
     if (
         source_platform == "deepseek"
         and message_count >= 20
@@ -2242,7 +2268,7 @@ def summarize_conversation(
     progress(f"总结后端：{config.provider}；模型：{config.model}")
     stage_started = time.perf_counter()
     assets = discover_media(
-        messages,
+        summary_messages,
         project_dir=project_dir,
         source_dir=source_dir,
         config=config,
@@ -2320,7 +2346,7 @@ def summarize_conversation(
     timings["media_analysis"] = time.perf_counter() - stage_started
     progress(f"媒体准备完成（{timings['media_analysis']:.2f} 秒）。")
     stage_started = time.perf_counter()
-    enriched_messages = enrich_messages(messages, assets)
+    enriched_messages = enrich_messages(summary_messages, assets)
     chunks = chunk_messages(
         enriched_messages,
         max_chars=config.chunk_chars
@@ -2426,7 +2452,7 @@ def summarize_conversation(
     )
 
     stage_started = time.perf_counter()
-    recent_for_model = _build_recent_context(messages, max_messages=20)
+    recent_for_model = _build_recent_context(summary_messages, max_messages=20)
     progress("正在综合全局状态、对话断点和主题索引...")
     synthesis_prompt = (
         "以下是已经发生过的历史用户—AI对话的分批记忆。你是在生成供下一 AI"

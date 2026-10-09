@@ -515,7 +515,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         kwargs["output_markdown"].write_text("summary", encoding="utf-8")
         return {"typed_records": {}, "topics": []}
 
-    def test_only_silicon_key_selects_silicon_directly_and_keeps_fallback(self):
+    def test_only_silicon_key_selects_silicon_directly_without_duplicate_fallback(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
             model="gemini-3.5-flash",
@@ -531,10 +531,6 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
 
         def fake_summarize(**kwargs):
             attempts.append((kwargs["config"].provider, kwargs["config"].model))
-            if len(attempts) == 1:
-                raise summary.GeminiSummaryError(
-                    f"模拟额度限制：{user_key}"
-                )
             return self._write_success(**kwargs)
 
         with tempfile.TemporaryDirectory() as temp_dir, patch(
@@ -559,19 +555,11 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            [provider for provider, _model in attempts],
-            ["siliconflow", "siliconflow"],
-        )
-        self.assertEqual(
-            [model for _provider, model in attempts],
-            [
-                summary.SILICONFLOW_DEFAULT_MODEL,
-                "Qwen/Qwen3-8B",
-            ],
+            attempts,
+            [("siliconflow", summary.SILICONFLOW_DEFAULT_MODEL)],
         )
         self.assertTrue(all(key == user_key for _p, _m, key in created))
         self.assertNotIn(user_key, "\n".join(progress))
-        self.assertIn("<redacted>", "\n".join(progress))
 
     def test_configured_provider_order_drops_missing_keys(self):
         base_config = summary.SummaryConfig(

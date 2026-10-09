@@ -674,40 +674,47 @@ async def launch_browser_context(
     channels = browser_channel_candidates()
     last_error: Optional[BaseException] = None
     for index, channel in enumerate(channels):
-        try:
-            launch_options = {
-                "headless": headless,
-                "channel": channel,
-                "ignore_default_args": ["--enable-automation"],
-                "args": [
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-first-run",
-                    "--no-service-autorun",
-                    *(
-                        ["--start-minimized", "--window-position=-32000,-32000"]
-                        if start_minimized else []
-                    ),
-                ],
-            }
-            context = await playwright.chromium.launch_persistent_context(
-                user_data_dir=str(
-                    _browser_profile_directory(channel, profile_root)
+        launch_options = {
+            "headless": headless,
+            "channel": channel,
+            "ignore_default_args": ["--enable-automation"],
+            "args": [
+                "--disable-blink-features=AutomationControlled",
+                "--no-first-run",
+                "--no-service-autorun",
+                *(
+                    ["--start-minimized", "--window-position=-32000,-32000"]
+                    if start_minimized else []
                 ),
-                viewport=viewport,
-                no_viewport=no_viewport,
-                **launch_options,
-            )
-            if logger:
-                logger(f"正在使用 {BROWSER_CHANNEL_LABELS[channel]}。")
-            return context, channel
-        except Exception as error:
-            last_error = error
-            if logger and index + 1 < len(channels):
-                next_channel = channels[index + 1]
-                logger(
-                    f"未能启动 {BROWSER_CHANNEL_LABELS[channel]}，"
-                    f"正在尝试 {BROWSER_CHANNEL_LABELS[next_channel]}..."
+            ],
+        }
+        for attempt in range(2):
+            try:
+                context = await playwright.chromium.launch_persistent_context(
+                    user_data_dir=str(
+                        _browser_profile_directory(channel, profile_root)
+                    ),
+                    viewport=viewport,
+                    no_viewport=no_viewport,
+                    **launch_options,
                 )
+                if logger:
+                    logger(f"正在使用 {BROWSER_CHANNEL_LABELS[channel]}。")
+                return context, channel
+            except Exception as error:
+                last_error = error
+                if attempt == 0 and "exitCode=21" in str(error):
+                    if logger:
+                        logger("浏览器资料仍在释放，稍后重试...")
+                    await asyncio.sleep(1)
+                    continue
+                break
+        if logger and index + 1 < len(channels):
+            next_channel = channels[index + 1]
+            logger(
+                f"未能启动 {BROWSER_CHANNEL_LABELS[channel]}，"
+                f"正在尝试 {BROWSER_CHANNEL_LABELS[next_channel]}..."
+            )
 
     if channels == LITE_BROWSER_CHANNELS:
         raise RuntimeError(
@@ -789,9 +796,7 @@ MODE_FILENAME_SUFFIXES = {
 GUI_IMAGE_DOWNLOAD_CONCURRENCY = 4
 GUI_IMAGE_DOWNLOAD_ATTEMPTS = 2
 GUI_IMAGE_DOWNLOAD_TIMEOUT_MS = 10000
-SILICONFLOW_FREE_SUMMARY_MODELS = (
-    "Qwen/Qwen3-8B",
-)
+SILICONFLOW_FREE_SUMMARY_MODELS: tuple[str, ...] = ()
 
 
 def default_output_filename(modes: Mapping[str, bool]) -> str:
@@ -5092,6 +5097,7 @@ def generate_output_bundle(
         create_gateway,
         normalize_summary_sections,
         normalize_summary_topics,
+        sanitize_summary_messages,
         summarize_conversation,
         write_summary_outputs,
     )
@@ -5302,7 +5308,9 @@ def generate_output_bundle(
 
         progress("正在生成极简版总览...")
         simple_overview = generate_simple_overview(
-            base_result, messages, gateway
+            base_result,
+            sanitize_summary_messages(messages, source_platform),
+            gateway,
         )
         simple_meta = build_simple_metadata(
             base_result,

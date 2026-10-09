@@ -1400,15 +1400,12 @@ class GUIServiceTests(unittest.TestCase):
 
         silicon = SummaryConfig(
             provider="siliconflow",
-            model="Qwen/Qwen3.5-397B-A17B",
+            model="Qwen/Qwen3-8B",
         )
         silicon_candidates = gui_summary_config_candidates(silicon)
         self.assertEqual(
             [(item.provider, item.model) for item in silicon_candidates],
-            [
-                ("siliconflow", "Qwen/Qwen3.5-397B-A17B"),
-                ("siliconflow", "Qwen/Qwen3-8B"),
-            ],
+            [("siliconflow", "Qwen/Qwen3-8B")],
         )
         self.assertTrue(
             all(item.retries == 2 for item in silicon_candidates)

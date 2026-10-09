@@ -1407,6 +1407,47 @@ class GeminiSummarizerTests(unittest.TestCase):
             {"role": "AI", "content": "真实回答"},
         ])
 
+    def test_chatgpt_code_block_excludes_toolbar_label(self):
+        html = """
+        <div data-message-author-role="assistant">
+          <div data-markdown-text-style="assistant-message">
+            <div data-markdown-copy="code-block">
+              <div data-markdown-copy="exclude">纯文本</div>
+              <div><code>第一行\n第二行</code></div>
+            </div>
+          </div>
+        </div>
+        """
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        )
+        self.assertEqual(messages, [{
+            "role": "AI",
+            "content": "```\n第一行\n第二行\n```",
+        }])
+
+    def test_chatgpt_citation_keeps_link_without_icon(self):
+        favicon = "https://t0.gstatic.com/faviconV2?client=SOCIAL"
+        html = f"""
+        <div data-message-author-role="assistant">
+          <div data-markdown-text-style="assistant-message">
+            <p>参考
+              <a data-testid="chatgpt-citation" href="https://example.com/source">
+                <img alt="" src="{favicon}"><span>资料来源</span>
+              </a>
+            </p>
+            <p><img alt="正文图片" src="https://example.com/body.png"></p>
+          </div>
+        </div>
+        """
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        )
+        content = messages[0]["content"]
+        self.assertIn("[资料来源](https://example.com/source)", content)
+        self.assertNotIn("faviconV2", content)
+        self.assertIn("![正文图片](https://example.com/body.png)", content)
+
     def test_chatgpt_math_nodes_restore_latex_before_markdown_conversion(self):
         html = r"""
         <div data-message-author-role="assistant">
@@ -1519,6 +1560,47 @@ class GeminiSummarizerTests(unittest.TestCase):
             ["-1", "-7", "report.pdf"],
         )
         self.assertEqual([asset.label for asset in deepseek_assets], ["report.pdf"])
+
+    def test_chatgpt_citations_are_excluded_from_summary_input(self):
+        content = (
+            "结论[GitHub+2](https://github.com/example/tools.md?utm_source=chatgpt.com)\n"
+            "[GitHub+1](https://github.com/example/ADAPTATION.md?utm_source=chatgpt.com)\n"
+            "[report.pdf](https://example.com/files/report.pdf)"
+        )
+        messages = [{"role": "AI", "content": content}]
+        sanitized = summary.sanitize_summary_messages(messages, "ChatGPT")
+
+        self.assertEqual(
+            sanitized[0]["content"],
+            "结论\n\n[report.pdf](https://example.com/files/report.pdf)",
+        )
+        self.assertEqual(messages[0]["content"], content)
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            assets = summary.discover_media(
+                messages,
+                project,
+                project,
+                summary.SummaryConfig(),
+                source_platform="ChatGPT",
+            )
+        self.assertEqual([asset.label for asset in assets], ["report.pdf"])
+
+    def test_chatgpt_citations_are_excluded_when_platform_is_unknown(self):
+        messages = [{
+            "role": "AI",
+            "content": "结论[GitHub+2](https://github.com/example/tools.md?utm_source=chatgpt.com)",
+        }]
+
+        sanitized = summary.sanitize_summary_messages(messages)
+
+        self.assertEqual(sanitized[0]["content"], "结论")
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            assets = summary.discover_media(
+                messages, project, project, summary.SummaryConfig()
+            )
+        self.assertEqual(assets, [])
 
     def test_doubao_collector_scrolls_every_message_for_lazy_images(self):
         class FakeMessage:

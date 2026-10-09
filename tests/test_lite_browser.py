@@ -18,13 +18,17 @@ from gui.service import (
 
 
 class FakeChromium:
-    def __init__(self, failures=()):
+    def __init__(self, failures=(), transient_failures=None):
         self.failures = set(failures)
+        self.transient_failures = dict(transient_failures or {})
         self.calls = []
 
     async def launch_persistent_context(self, **kwargs):
         self.calls.append(kwargs)
         channel = kwargs["channel"]
+        if self.transient_failures.get(channel, 0):
+            self.transient_failures[channel] -= 1
+            raise RuntimeError("browser exited: exitCode=21")
         if channel in self.failures:
             raise RuntimeError(f"sensitive failure from {channel}")
         return object()
@@ -83,6 +87,15 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             chromium.calls[1]["user_data_dir"].endswith("chrome")
         )
+
+    async def test_retries_transient_profile_release_failure(self):
+        chromium = FakeChromium(transient_failures={"chromium": 1})
+        with patch("gui.service.asyncio.sleep", new=AsyncMock()) as sleep:
+            _context, channel = await self._launch(chromium, "full")
+
+        self.assertEqual(channel, "chromium")
+        self.assertEqual(len(chromium.calls), 2)
+        sleep.assert_awaited_once_with(1)
 
     async def test_lite_reports_full_download_without_leaking_errors(self):
         chromium = FakeChromium(failures={"msedge", "chrome"})
