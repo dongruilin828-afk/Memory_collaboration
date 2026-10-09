@@ -21,8 +21,12 @@ SCROLL_SECONDARY_SETTLE_MS = 150
 BOUNDARY_SETTLE_MS = 350
 BOUNDARY_CAPTURE_ROUNDS = 3
 TOP_PRELOAD_SETTLE_MS = 800
-TOP_PRELOAD_MAX_ROUNDS = 12
-TOP_PRELOAD_STABLE_ROUNDS = 4
+TOP_PRELOAD_STABLE_ROUNDS = 10
+TOP_PRELOAD_NO_GROWTH_ROUNDS = 20
+TOP_PRELOAD_SAFETY_ROUNDS = 2000
+SCROLL_BOTTOM_STABLE_ROUNDS = 10
+SCROLL_NO_GROWTH_ROUNDS = 100
+SCROLL_SAFETY_ROUNDS = 5000
 
 
 def _prefer_snapshot(candidate, existing):
@@ -161,13 +165,20 @@ async def collect_html(page):
                 const turnMatch = testId.match(/(\\d+)$/)
                     || searchKey.match(/^fallback-turn-(\\d+):/);
                 const messageId =
-                    element.getAttribute('data-message-id') || '';
+                    element.getAttribute('data-message-id')
+                    || (turn && turn.getAttribute('data-message-id'))
+                    || (turn && turn.querySelector('[data-message-id]')
+                        && turn.querySelector('[data-message-id]')
+                            .getAttribute('data-message-id'))
+                    || '';
                 const role = element.getAttribute('data-message-author-role')
                     || (turn ? turn.getAttribute('data-turn') : '')
                     || (searchKey.match(/:(user|assistant)$/) || [])[1]
                     || '';
                 const text =
                     element.innerText || element.textContent || '';
+                const stableText = (element.textContent || text)
+                    .replace(/\s+/g, ' ').trim();
                 const imageScore = Array.from(
                     element.querySelectorAll('img')
                 ).filter(image => {
@@ -175,8 +186,10 @@ async def collect_html(page):
                         || image.getAttribute('data-src') || '';
                     return src && !src.startsWith('data:image/svg');
                 }).length;
+                const stableKey = messageId || searchKey || role + ':' + stableText;
                 return {
-                    key: messageId || searchKey || testId || role + ':' + text,
+                    key: stableKey,
+                    boundary_key: stableKey,
                     order: turnMatch ? Number(turnMatch[1]) : null,
                     text_length: text.length,
                     image_score: imageScore,
@@ -214,58 +227,103 @@ async def collect_html(page):
                 if existing_order is None or message["order"] > existing_order:
                     existing["order"] = message["order"]
 
+        return [message["boundary_key"] for message in visible_messages]
+
     try:
         scroll_container = await page.locator(role_selector).first.evaluate_handle(
             """element => {
+                const messageSelector = [
+                    '[data-message-author-role]',
+                    '[data-chatgpt-search-unit-key$=":user"]',
+                    '[data-chatgpt-search-unit-key$=":assistant"]'
+                ].join(',');
+                const candidates = [];
                 let current = element;
                 while (current) {
                     const style = window.getComputedStyle(current);
                     const canScroll = current.scrollHeight > current.clientHeight + 1;
                     if (canScroll && /(auto|scroll)/.test(style.overflowY)) {
-                        return current;
+                        candidates.push(current);
                     }
                     current = current.parentElement;
                 }
-                return document.scrollingElement || document.documentElement;
+                return candidates.sort((left, right) =>
+                    right.querySelectorAll(messageSelector).length
+                    - left.querySelectorAll(messageSelector).length
+                    || (right.scrollHeight - right.clientHeight)
+                    - (left.scrollHeight - left.clientHeight)
+                )[0] || document.scrollingElement || document.documentElement;
+            }"""
+        )
+
+        is_reverse = await scroll_container.evaluate(
+            """element => {
+                const initial = element.scrollTop;
+                element.scrollTo(0, 1);
+                const positive = element.scrollTop;
+                element.scrollTo(0, -1);
+                const negative = element.scrollTop;
+                element.scrollTo(0, initial);
+                return positive === 0 && negative < 0;
             }"""
         )
 
         # ChatGPT 到达顶部后会异步补挂更早消息，并让既有 turn 编号整体后移。
-        # 先在顶部等到消息数和滚动高度连续稳定，再正式顺序采集。
+        # 虚拟列表高度会因节点换页反复变化，只以消息数连续稳定判断加载完成。
         previous_state = None
         stable_rounds = 0
-        for _ in range(TOP_PRELOAD_MAX_ROUNDS):
-            # 从顶部轻微移开再返回，确保已在顶部时也能触发分页哨兵。
+        previous_capture_count = len(captured)
+        no_growth_rounds = 0
+        for _ in range(TOP_PRELOAD_SAFETY_ROUNDS):
+            # 反向虚拟列表以负 scrollTop 表示更早消息；普通列表顶部仍为 0。
             await scroll_container.evaluate(
-                "element => element.scrollTo(0, Math.min(240, element.scrollHeight))"
+                """(element, reverse) => element.scrollTo(
+                    0, reverse ? -element.scrollHeight : Math.min(240, element.scrollHeight)
+                )""",
+                is_reverse,
             )
             await page.wait_for_timeout(100)
-            await scroll_container.evaluate(
-                "element => element.scrollTo(0, 0)"
-            )
+            if not is_reverse:
+                await scroll_container.evaluate(
+                    "element => element.scrollTo(0, 0)"
+                )
             await page.wait_for_timeout(TOP_PRELOAD_SETTLE_MS)
-            await capture_visible_messages()
-            metrics = await scroll_container.evaluate(
-                """element => ({
-                    scrollHeight: element.scrollHeight,
-                    clientHeight: element.clientHeight
-                })"""
-            )
-            state = (len(captured), int(metrics["scrollHeight"]))
+            visible_keys = await capture_visible_messages()
+            state = tuple(visible_keys[:2])
             if state == previous_state:
                 stable_rounds += 1
             else:
                 stable_rounds = 0
             previous_state = state
-            if stable_rounds >= TOP_PRELOAD_STABLE_ROUNDS:
+            capture_count = len(captured)
+            if capture_count == previous_capture_count:
+                no_growth_rounds += 1
+            else:
+                no_growth_rounds = 0
+                previous_capture_count = capture_count
+            if (
+                stable_rounds >= TOP_PRELOAD_STABLE_ROUNDS
+                or no_growth_rounds >= TOP_PRELOAD_NO_GROWTH_ROUNDS
+            ):
                 break
 
         # 保留预热阶段已经出现过的历史消息。ChatGPT 的虚拟列表在顶部
         # 补挂旧消息后，正式向下遍历时不一定会再次挂载每一个中间节点。
         # capture_visible_messages 会持续更新同一 message-id 的最终 turn 顺序。
-        scroll_top = 0
+        initial_metrics = await scroll_container.evaluate(
+            """element => ({
+                scrollTop: element.scrollTop,
+                scrollHeight: element.scrollHeight,
+                clientHeight: element.clientHeight
+            })"""
+        )
+        scroll_top = int(initial_metrics["scrollTop"])
         max_scroll_top = 0
-        for _ in range(100):
+        previous_bottom_state = None
+        bottom_stable_rounds = 0
+        previous_bottom_capture_count = len(captured)
+        bottom_no_growth_rounds = 0
+        for _ in range(SCROLL_SAFETY_ROUNDS):
             await scroll_container.evaluate(
                 "(element, top) => element.scrollTo(0, top)",
                 scroll_top
@@ -274,10 +332,20 @@ async def collect_html(page):
 
             await capture_visible_messages()
             await page.wait_for_timeout(SCROLL_SECONDARY_SETTLE_MS)
-            await capture_visible_messages()
+            visible_keys = await capture_visible_messages()
+
+            capture_count = len(captured)
+            if capture_count == previous_bottom_capture_count:
+                bottom_no_growth_rounds += 1
+            else:
+                bottom_no_growth_rounds = 0
+                previous_bottom_capture_count = capture_count
+            if bottom_no_growth_rounds >= SCROLL_NO_GROWTH_ROUNDS:
+                break
 
             metrics = await scroll_container.evaluate(
                 """element => ({
+                    scrollTop: element.scrollTop,
                     scrollHeight: element.scrollHeight,
                     clientHeight: element.clientHeight
                 })"""
@@ -286,17 +354,32 @@ async def collect_html(page):
                 0,
                 metrics["scrollHeight"] - metrics["clientHeight"]
             )
-            if scroll_top >= max_scroll_top:
-                break
+            current_top = int(metrics["scrollTop"])
+            at_bottom = current_top >= -1 if is_reverse else current_top >= max_scroll_top - 1
+            if at_bottom:
+                bottom_state = tuple(visible_keys[-2:])
+                if bottom_state == previous_bottom_state:
+                    bottom_stable_rounds += 1
+                else:
+                    bottom_stable_rounds = 0
+                previous_bottom_state = bottom_state
+                if bottom_stable_rounds >= SCROLL_BOTTOM_STABLE_ROUNDS:
+                    break
+                scroll_top = 0 if is_reverse else max_scroll_top
+                continue
 
+            previous_bottom_state = None
+            bottom_stable_rounds = 0
             step = max(int(metrics["clientHeight"] * 0.5), 800)
-            next_scroll_top = min(scroll_top + step, max_scroll_top)
-            if next_scroll_top <= scroll_top:
-                break
-            scroll_top = next_scroll_top
+            scroll_top = (
+                min(current_top + step, 0)
+                if is_reverse
+                else min(current_top + step, max_scroll_top)
+            )
 
         # 首尾媒体均可能延迟挂载；回访边界并只接受图片更完整的快照。
-        for boundary in (max_scroll_top, 0):
+        boundaries = (0, -max_scroll_top) if is_reverse else (max_scroll_top, 0)
+        for boundary in boundaries:
             await scroll_container.evaluate(
                 "(element, top) => element.scrollTo(0, top)",
                 boundary
@@ -363,6 +446,10 @@ def parse_messages(soup, image_map=None):
         role = msg.get("data-message-author-role")
         math_replacements = _replace_math_with_placeholders(msg)
         if role == "user":
+            for excluded in msg.select(
+                '[data-markdown-copy="exclude"], [aria-hidden="true"]'
+            ):
+                excluded.decompose()
             content_parts = []
             message_container = msg.find_parent(
                 attrs={"data-testid": re.compile(r"^conversation-turn-")}
@@ -386,7 +473,8 @@ def parse_messages(soup, image_map=None):
                         ext in link_text.lower()
                         for ext in [
                             '.doc', '.pdf', '.txt', '.xls', '.ppt',
-                            '.zip', '.rar', '.csv', '.md', '.rtf'
+                            '.zip', '.rar', '.csv', '.md', '.rtf',
+                            '.mp4', '.mov', '.webm', '.m4v', '.avi', '.mkv'
                         ]
                     )
                 ):
@@ -413,13 +501,14 @@ def parse_messages(soup, image_map=None):
                     ext in card_text.lower()
                     for ext in [
                         '.doc', '.pdf', '.txt', '.xls', '.ppt',
-                        '.zip', '.rar', '.csv', '.md', '.rtf'
+                        '.zip', '.rar', '.csv', '.md', '.rtf',
+                        '.mp4', '.mov', '.webm', '.m4v', '.avi', '.mkv'
                     ]
                 ):
                     # 提炼出真正文件名
                     match = re.search(
                         r'[\w\-()"\u4e00-\u9fa5\“\”]+\.'
-                        r'(?:docx|doc|pdf|txt|md|rtf|xlsx|xls|pptx|ppt|zip|rar|csv)',
+                        r'(?:docx|doc|pdf|txt|md|rtf|xlsx|xls|pptx|ppt|zip|rar|csv|mp4|mov|webm|m4v|avi|mkv)',
                         card_text,
                         re.IGNORECASE
                     )
@@ -441,6 +530,21 @@ def parse_messages(soup, image_map=None):
 
 
             text = msg.get_text(separator='\n', strip=True)
+            text_lines = {line.strip().lower() for line in text.splitlines()}
+            for filename, local_href in image_map.items():
+                lowered = str(filename).lower()
+                if (
+                    "/" not in lowered
+                    and "\\" not in lowered
+                    and lowered in text_lines
+                    and re.search(
+                        r'\.(?:docx?|pdf|txt|md|rtf|xlsx?|pptx?|csv|mp4|mov|webm|m4v|avi|mkv)$',
+                        lowered,
+                    )
+                    and lowered not in seen_document_names
+                ):
+                    content_parts.append(f"[📄 {filename}]({local_href})")
+                    seen_document_names.add(lowered)
             if seen_document_names:
                 text = '\n'.join(
                     line for line in text.splitlines()

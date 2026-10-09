@@ -132,9 +132,14 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, *_args):
                 return False
 
-        for has_conversation_content in (True, False):
+        for has_conversation_content, allow_login in (
+            (True, False),
+            (True, True),
+            (False, False),
+        ):
             with self.subTest(
-                has_conversation_content=has_conversation_content
+                has_conversation_content=has_conversation_content,
+                allow_login=allow_login,
             ):
                 contexts = [FakeContext()]
                 callback = Mock()
@@ -167,7 +172,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                         await fetch_chat_pipeline(
                             "https://chatgpt.com/c/"
                             "11111111-2222-3333-4444-555555555555",
-                            need_login=False,
+                            need_login=allow_login,
                             login_ready_event=login_event,
                             login_required_callback=callback,
                             login_confirmation_callback=confirmation_callback,
@@ -188,7 +193,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                         call.kwargs["headless"]
                         for call in launcher.await_args_list
                     ],
-                    [True],
+                    [not allow_login],
                 )
                 self.assertFalse(
                     launcher.await_args_list[0].kwargs["start_minimized"]
@@ -198,6 +203,10 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     confirmation_callback.call_count,
                     0 if has_conversation_content else 1,
                 )
+                if allow_login:
+                    self.assertTrue(
+                        launcher.await_args_list[0].kwargs["no_viewport"]
+                    )
 
     async def test_login_recheck_reports_wrong_account(self):
         class FakePage:

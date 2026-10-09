@@ -28,6 +28,8 @@ async def main():
     parser.add_argument("--skip-summary", action="store_true")
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--attachment-web-link")
+    parser.add_argument("--profile", type=Path, default=ROOT / ".browser_user_data")
+    parser.add_argument("--need-login", action="store_true")
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -89,22 +91,18 @@ async def main():
                     )
                     continue
 
-                private = "/c/" in url
                 login_ready = asyncio.Event()
-                if private:
-                    signal = args.output / "login_ready.signal"
+                signal = args.output / "login_ready.signal"
 
-                    async def wait_for_login_signal():
-                        while not signal.exists() or signal.stat().st_mtime < started:
-                            await asyncio.sleep(1)
-                        login_ready.set()
-
-                    asyncio.create_task(wait_for_login_signal())
-                else:
+                async def wait_for_login_signal():
+                    while not signal.exists() or signal.stat().st_mtime < started:
+                        await asyncio.sleep(1)
                     login_ready.set()
+
+                asyncio.create_task(wait_for_login_signal())
                 result = await fetch_chat_pipeline(
                     url,
-                    need_login=private,
+                    need_login=args.need_login,
                     login_ready_event=login_ready,
                     login_required_callback=lambda: logger("请在浏览器中完成 ChatGPT 登录。"),
                     login_confirmation_callback=lambda: True,
@@ -114,7 +112,7 @@ async def main():
                     image_reference_base=target,
                     document_output_dir=target / "documents",
                     document_reference_base=target,
-                    browser_profile_root=ROOT / ".browser_user_data",
+                    browser_profile_root=args.profile.resolve(),
                 )
                 payload = asdict(result)
                 (target / "snapshot.html").write_text(payload.pop("html") or "", encoding="utf-8")

@@ -187,6 +187,15 @@ def _collect_response_assets(
         f"?shared_conversation_id={quote(share_id, safe='')}"
         if share_id else ""
     )
+    assistant_attachments = {
+        id(attachment)
+        for item in _iter_json_mappings(payload)
+        if isinstance(item.get("author"), Mapping)
+        and item["author"].get("role") == "assistant"
+        and isinstance(item.get("metadata"), Mapping)
+        for attachment in item["metadata"].get("attachments") or ()
+        if isinstance(attachment, Mapping)
+    }
     for item in _iter_json_mappings(payload):
         filename = str(
             item.get("file_name") or item.get("fileName")
@@ -282,6 +291,16 @@ def _collect_response_assets(
                 image_references.update(
                     f"{origin}/backend-api/files/download/"
                     f"{quote(reference, safe='')}{share_query}"
+                    for reference in reference_ids
+                )
+            elif suffix in CHATGPT_ATTACHMENT_EXTENSIONS and id(item) not in assistant_attachments:
+                document_candidates.extend(
+                    DocumentCandidate(
+                        reference,
+                        f"{origin}/backend-api/files/download/"
+                        f"{quote(reference, safe='')}{share_query}",
+                        _safe_document_filename(filename, suffix),
+                    )
                     for reference in reference_ids
                 )
 
@@ -608,8 +627,6 @@ async def _chatgpt_assets_need_rehydrate(
         ).count()
     except Exception:
         return False
-    if "上传文件" in body_text:
-        return True
     if image_references and rendered_images < len(image_references):
         return True
     visible_names = {
@@ -1028,6 +1045,9 @@ def gui_summary_attempt_configs(
 
 
 async def goto_with_retry_gui(page, url: str, attempts: int = 3, logger: Optional[Callable[[str], None]] = None):
+    target_host = urlparse(url).netloc.lower().split(":", 1)[0]
+    if target_host in {"chatgpt.com", "chat.openai.com"}:
+        await page.goto("about:blank", wait_until="commit", timeout=10000)
     for attempt in range(1, attempts + 1):
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
@@ -1149,30 +1169,28 @@ async def _authenticated_page_get(page: Any, url: str, timeout: int):
             await page.evaluate(
                 """async ({resource, prepare}) => {
                     const options = {credentials: 'include'};
+                    const resourceUrl = new URL(resource, location.href);
+                    if (
+                        resourceUrl.origin === location.origin
+                        && resourceUrl.pathname.startsWith('/backend-api/')
+                    ) {
+                        const sessionResponse = await fetch(
+                            '/api/auth/session', {credentials: 'include'}
+                        );
+                        if (sessionResponse.ok) {
+                            const session = await sessionResponse.json();
+                            const token = session.accessToken || session.access_token || '';
+                            if (token) options.headers = {
+                                Authorization: `Bearer ${token}`
+                            };
+                        }
+                    }
                     if (prepare) {
-                        const resourceUrl = new URL(resource, location.href);
                         const prepareUrl = new URL(prepare, location.href);
                         if (
                             resourceUrl.origin === location.origin
                             && prepareUrl.origin === location.origin
                         ) {
-                            const sessionResponse = await fetch(
-                                '/api/auth/session',
-                                {credentials: 'include'}
-                            );
-                            if (sessionResponse.ok) {
-                                const session = await sessionResponse.json();
-                                const token = (
-                                    session.accessToken
-                                    || session.access_token
-                                    || ''
-                                );
-                                if (token) {
-                                    options.headers = {
-                                        Authorization: `Bearer ${token}`
-                                    };
-                                }
-                            }
                             const prepared = await fetch(prepareUrl, options);
                             await prepared.arrayBuffer();
                         }
@@ -1400,6 +1418,157 @@ async def _chatgpt_message_asset_groups(
         image_groups.append(list(dict.fromkeys(images)))
         document_groups.append(list(dict.fromkeys(documents)))
     return image_groups, document_groups
+
+
+async def _recover_chatgpt_shared_video_assets(
+    page: Any,
+    conversation_url: str,
+    html: str,
+    image_groups: list[list[str]],
+    document_groups: list[list[DocumentCandidate]],
+) -> tuple[list[list[str]], list[list[DocumentCandidate]]]:
+    parsed_url = urlparse(conversation_url)
+    private_match = re.fullmatch(r"/c/([^/?#]+)", parsed_url.path.rstrip("/"))
+    has_video = any(
+        Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+        for group in document_groups
+        for candidate in group
+    ) or bool(re.search(
+        r"\.(?:mp4|mov|webm|m4v|avi|mkv)\b", html or "", re.IGNORECASE
+    ))
+    if not has_video or not (
+        _chatgpt_shared_conversation_id(conversation_url) or private_match
+    ):
+        return image_groups, document_groups
+
+    soup = BeautifulSoup(html or "", "html.parser")
+    user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    query = ""
+    for index, message in enumerate(user_messages):
+        documents = document_groups[index] if index < len(document_groups) else []
+        message_text = message.get_text(" ", strip=True)
+        if not any(
+            Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+            for candidate in documents
+        ) and not re.search(
+            r"\.(?:mp4|mov|webm|m4v|avi|mkv)\b", message_text, re.IGNORECASE
+        ):
+            continue
+        query = message_text
+        for candidate in documents:
+            query = query.replace(candidate.filename, "")
+        query = re.sub(
+            r"\S+\.(?:mp4|mov|webm|m4v|avi|mkv)\b|\b文件\b",
+            " ",
+            query,
+            flags=re.IGNORECASE,
+        ).strip()
+        break
+    if not query:
+        return image_groups, document_groups
+
+    try:
+        private_groups = await page.evaluate(
+            """async query => {
+                const session = await (await fetch(
+                    '/api/auth/session', {credentials: 'include'}
+                )).json();
+                const token = session.accessToken || session.access_token || '';
+                if (!token) return [];
+                const options = {
+                    credentials: 'include',
+                    headers: {Authorization: `Bearer ${token}`},
+                };
+                const ids = [];
+                if (/^\/c\/[^/]+/.test(location.pathname)) {
+                    ids.push(location.pathname.split('/')[2]);
+                }
+                const response = await fetch(
+                    '/backend-api/conversations/search?query='
+                        + encodeURIComponent(query), options
+                );
+                if (response.ok) {
+                    const search = await response.json();
+                    ids.push(...(search.items || []).map(item => item.conversation_id));
+                }
+                for (const conversationId of [...new Set(ids.filter(Boolean))]) {
+                    const detail = await fetch(
+                        '/backend-api/conversation/' + conversationId,
+                        options
+                    );
+                    if (!detail.ok) continue;
+                    const payload = await detail.json();
+                    const nodes = payload.mapping || {};
+                    const branch = [];
+                    let node = nodes[payload.current_node];
+                    while (node) {
+                        branch.push(node);
+                        node = nodes[node.parent];
+                    }
+                    const groups = branch.reverse()
+                        .filter(entry => entry?.message?.author?.role === 'user')
+                        .map(entry => {
+                            const attachments = entry.message.metadata?.attachments;
+                            return Array.isArray(attachments) ? attachments.map(file => ({
+                                id: file.id || file.file_id || '',
+                                name: file.name || file.file_name || '',
+                            })) : [];
+                        });
+                    if (groups.flat().some(file =>
+                        /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name)
+                    )) return groups;
+                }
+                return [];
+            }""",
+            query,
+        )
+        parsed = urlparse(conversation_url)
+        origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+        private_documents: list[list[DocumentCandidate]] = []
+        for group in private_groups if isinstance(private_groups, list) else []:
+            documents = []
+            for attachment in group if isinstance(group, list) else []:
+                if not isinstance(attachment, Mapping):
+                    continue
+                file_id = str(attachment.get("id") or "").strip()
+                filename = str(attachment.get("name") or "").strip()
+                suffix = Path(filename).suffix.lower()
+                if (
+                    re.fullmatch(r"file[_-][A-Za-z0-9_-]+", file_id)
+                    and suffix in CHATGPT_ATTACHMENT_EXTENSIONS
+                ):
+                    documents.append(DocumentCandidate(
+                        file_id,
+                        f"{origin}/backend-api/files/download/"
+                        f"{quote(file_id, safe='')}",
+                        _safe_document_filename(filename, suffix),
+                    ))
+            private_documents.append(list(dict.fromkeys(documents)))
+        if any(
+            Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+            for group in private_documents
+            for candidate in group
+        ):
+            return ([[] for _ in private_documents], private_documents)
+    except Exception:
+        pass
+    return image_groups, document_groups
+
+
+def _remove_chatgpt_video_message_images(
+    html: str,
+    document_groups: list[list[DocumentCandidate]],
+) -> str:
+    soup = BeautifulSoup(html or "", "html.parser")
+    user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    for message, documents in zip(user_messages, document_groups):
+        if any(
+            Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+            for candidate in documents
+        ):
+            for image in message.find_all(["img", "source"]):
+                image.decompose()
+    return str(soup)
 
 
 def _inject_chatgpt_message_images(
@@ -2602,11 +2771,15 @@ def _inject_chatgpt_attachment_names(
             user_messages, candidates_by_message
         ):
             existing_text = target.get_text(" ", strip=True).lower()
-            for candidate in dict.fromkeys(message_candidates):
-                if (
-                    not candidate.filename
-                    or candidate.filename.lower() in existing_text
-                ):
+            visible_candidates = [
+                candidate for candidate in candidates
+                if candidate.filename
+                and candidate.filename.lower() in existing_text
+            ]
+            for candidate in dict.fromkeys([
+                *message_candidates, *visible_candidates
+            ]):
+                if not candidate.filename:
                     continue
                 marker = soup.new_tag("div")
                 marker["class"] = [
@@ -3638,8 +3811,13 @@ async def _download_document_candidates(
             if not response.ok:
                 return candidate, None, {}, f"http_{response.status}"
             headers = dict(getattr(response, "headers", {}) or {})
+            max_bytes = (
+                GUI_VIDEO_MAX_BYTES
+                if Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+                else GUI_DOCUMENT_MAX_BYTES
+            )
             length = headers.get("content-length", "").strip()
-            if length.isdigit() and int(length) > GUI_DOCUMENT_MAX_BYTES:
+            if length.isdigit() and int(length) > max_bytes:
                 return candidate, None, headers, "too_large"
             content_type = headers.get("content-type", "").split(";", 1)[0].lower()
             if content_type == "application/json":
@@ -3665,7 +3843,7 @@ async def _download_document_candidates(
                     return candidate, None, {}, f"http_{response.status}"
                 headers = dict(getattr(response, "headers", {}) or {})
                 length = headers.get("content-length", "").strip()
-                if length.isdigit() and int(length) > GUI_DOCUMENT_MAX_BYTES:
+                if length.isdigit() and int(length) > max_bytes:
                     return candidate, None, headers, "too_large"
                 content_type = headers.get("content-type", "").split(";", 1)[0].lower()
             if content_type in {"text/html", "application/json"}:
@@ -3673,7 +3851,7 @@ async def _download_document_candidates(
             body = await response.body()
             if not body:
                 return candidate, None, headers, "empty_body"
-            if len(body) > GUI_DOCUMENT_MAX_BYTES:
+            if len(body) > max_bytes:
                 return candidate, None, headers, "too_large"
             if (
                 (
@@ -4177,7 +4355,7 @@ async def fetch_chat_pipeline(
                             logger(
                                 "已读取 Codex 对话内容。"
                                 if codex_request
-                                else "已复用此前保存的登录状态，无需重复授权。"
+                                else "当前页面无需登录，已直接读取对话内容。"
                             )
                     else:
                         if chatgpt_no_login:
@@ -4470,11 +4648,30 @@ async def fetch_chat_pipeline(
                 chatgpt_image_groups, chatgpt_document_groups = (
                     await _chatgpt_message_asset_groups(page, url)
                 )
+                chatgpt_image_groups, chatgpt_document_groups = (
+                    await _recover_chatgpt_shared_video_assets(
+                        page,
+                        url,
+                        html,
+                        chatgpt_image_groups,
+                        chatgpt_document_groups,
+                    )
+                )
+                for index, documents in enumerate(chatgpt_document_groups):
+                    if any(
+                        Path(candidate.filename).suffix.lower()
+                        in gemini.VIDEO_EXTENSIONS
+                        for candidate in documents
+                    ):
+                        chatgpt_image_groups[index] = []
+                html = _remove_chatgpt_video_message_images(
+                    html, chatgpt_document_groups
+                )
                 if chatgpt_image_groups:
                     html = _inject_chatgpt_message_images(
                         html, chatgpt_image_groups
                     )
-                else:
+                elif not any(chatgpt_document_groups):
                     html = _inject_chatgpt_shared_images(
                         html,
                         _extract_chatgpt_shared_image_sources(
@@ -4482,7 +4679,12 @@ async def fetch_chat_pipeline(
                         ),
                     )
                 soup_pre = BeautifulSoup(html, "html.parser")
-                image_candidates: list[str] = list(response_image_references)
+                image_candidates: list[str] = (
+                    []
+                    if current_host in {"chatgpt.com", "chat.openai.com"}
+                    and chatgpt_image_groups
+                    else list(response_image_references)
+                )
                 if logger:
                     logger("正在检查并下载页面中的图片资产...")
 
@@ -4700,19 +4902,25 @@ async def fetch_chat_pipeline(
                         failure_collector=image_failures,
                     ))
                     fetch_warnings.extend(recovered_warnings)
+                chatgpt_group_candidates = [
+                    candidate
+                    for group in chatgpt_document_groups
+                    for candidate in group
+                ]
+                recovered_chatgpt_names = {
+                    candidate.filename.lower()
+                    for candidate in chatgpt_group_candidates
+                }
                 document_candidates = list(dict.fromkeys([
+                    *chatgpt_group_candidates,
                     *(
-                        candidate
-                        for group in chatgpt_document_groups
-                        for candidate in group
+                        candidate for candidate in response_document_candidates
+                        if candidate.filename.lower() not in recovered_chatgpt_names
                     ),
-                    *response_document_candidates,
                     *gemini_document_candidates,
                     *(
                         []
-                        if current_host in {
-                            "chat.deepseek.com", "chatgpt.com", "chat.openai.com"
-                        }
+                        if current_host == "chat.deepseek.com"
                         else _extract_document_candidates(
                             page_snapshot_html + chr(10) + html,
                             page.url,
