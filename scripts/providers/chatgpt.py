@@ -186,7 +186,8 @@ async def collect_html(page):
                         || image.getAttribute('data-src') || '';
                     return src && !src.startsWith('data:image/svg');
                 }).length;
-                const stableKey = messageId || searchKey || role + ':' + stableText;
+                // fallback-turn-* 是会被虚拟列表重复利用的槽位，不是消息 ID。
+                const stableKey = messageId || role + ':' + stableText;
                 return {
                     key: stableKey,
                     boundary_key: stableKey,

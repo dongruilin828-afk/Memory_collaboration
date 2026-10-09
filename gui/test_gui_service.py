@@ -2317,7 +2317,10 @@ class GUIServiceTests(unittest.TestCase):
         url = "https://chatgpt.com/c/conversation-id"
         with patch("gui.service._set_browser_window_state") as set_state:
             asyncio.run(_rehydrate_chatgpt_conversation(page, url))
-        self.assertEqual(page.visited, ["https://chatgpt.com/", url])
+        self.assertEqual(
+            page.visited,
+            ["https://chatgpt.com/", "about:blank", url],
+        )
         self.assertTrue(set_state.await_count >= 3)
         self.assertTrue(all(
             call.args[1] == "minimized" for call in set_state.await_args_list

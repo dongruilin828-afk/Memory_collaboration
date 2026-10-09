@@ -122,6 +122,15 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
             def __init__(self):
                 self.pages = [FakePage()]
 
+            async def new_cdp_session(self, _page):
+                session = AsyncMock()
+                session.send = AsyncMock()
+                session.detach = AsyncMock()
+                return session
+
+            async def clear_cookies(self):
+                pass
+
             async def close(self):
                 pass
 
@@ -142,6 +151,8 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                 allow_login=allow_login,
             ):
                 contexts = [FakeContext()]
+                if not has_conversation_content and not allow_login:
+                    contexts.append(FakeContext())
                 callback = Mock()
                 confirmation_callback = Mock(return_value=False)
                 login_event = asyncio.Event()
@@ -193,11 +204,19 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                         call.kwargs["headless"]
                         for call in launcher.await_args_list
                     ],
-                    [not allow_login],
+                    (
+                        [True, False]
+                        if not has_conversation_content and not allow_login
+                        else [not allow_login]
+                    ),
                 )
                 self.assertFalse(
                     launcher.await_args_list[0].kwargs["start_minimized"]
                 )
+                if not has_conversation_content and not allow_login:
+                    self.assertTrue(
+                        launcher.await_args_list[1].kwargs["start_minimized"]
+                    )
                 self.assertEqual(callback.call_count, 0)
                 self.assertEqual(
                     confirmation_callback.call_count,
@@ -219,6 +238,15 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
         class FakeContext:
             def __init__(self):
                 self.pages = [FakePage()]
+
+            async def new_cdp_session(self, _page):
+                session = AsyncMock()
+                session.send = AsyncMock()
+                session.detach = AsyncMock()
+                return session
+
+            async def clear_cookies(self):
+                pass
 
             async def close(self):
                 pass

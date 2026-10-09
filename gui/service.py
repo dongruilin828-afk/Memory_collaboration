@@ -4193,9 +4193,8 @@ async def fetch_chat_pipeline(
         requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
     )
     allow_interactive_login = need_login
-    chatgpt_no_login = (
+    chatgpt_anonymous_probe = (
         not need_login
-        and requires_login_probe
         and requested_host in {"chatgpt.com", "chat.openai.com"}
     )
     headless = not need_login
@@ -4225,14 +4224,22 @@ async def fetch_chat_pipeline(
                 profile_root=(
                     Path(browser_profile_root or BROWSER_USER_DATA_DIR)
                     / "public"
-                    if doubao_public_thread else browser_profile_root
+                    if doubao_public_thread or chatgpt_anonymous_probe
+                    else browser_profile_root
                 ),
             )
             page = context.pages[0] if context.pages else await context.new_page()
-            if doubao_public_thread:
+            anonymous_origin = (
+                "https://www.doubao.com"
+                if doubao_public_thread
+                else "https://chatgpt.com"
+                if chatgpt_anonymous_probe
+                else None
+            )
+            if anonymous_origin:
                 session = await context.new_cdp_session(page)
                 await session.send("Storage.clearDataForOrigin", {
-                    "origin": "https://www.doubao.com",
+                    "origin": anonymous_origin,
                     "storageTypes": "all",
                 })
                 await session.detach()
@@ -4358,35 +4365,7 @@ async def fetch_chat_pipeline(
                                 else "当前页面无需登录，已直接读取对话内容。"
                             )
                     else:
-                        if chatgpt_no_login:
-                            if (
-                                login_confirmation_callback is None
-                                or not login_confirmation_callback()
-                            ):
-                                raise RuntimeError(
-                                    "该 ChatGPT 私有会话需要授权登录；"
-                                    "已取消打开登录浏览器。"
-                                )
-                            allow_interactive_login = True
-                            chatgpt_no_login = False
-                            need_login = True
-                            await _close_browser_context_safely(
-                                context, fetch_warnings, logger
-                            )
-                            context, _browser_channel = await launch_browser_context(
-                                playwright,
-                                headless=False,
-                                viewport=None,
-                                no_viewport=True,
-                                start_minimized=False,
-                                logger=logger,
-                                profile_root=browser_profile_root,
-                            )
-                            page = context.pages[0] if context.pages else await context.new_page()
-                            await _set_browser_window_state(page, "maximized")
-                            page.on("response", capture_response_assets)
-                            await goto_with_retry_gui(page, url, logger=logger)
-                        elif not need_login:
+                        if not need_login:
                             if logger:
                                 logger(
                                     "该平台无法在无界面模式读取会话，"
@@ -4401,12 +4380,7 @@ async def fetch_chat_pipeline(
                                     headless=False,
                                     viewport=None,
                                     no_viewport=True,
-                                    start_minimized=not (
-                                        requested_host in {
-                                            "chatgpt.com", "chat.openai.com"
-                                        }
-                                        and requested_path.startswith("/share/")
-                                    ),
+                                    start_minimized=True,
                                     logger=logger,
                                     profile_root=browser_profile_root,
                                 )
@@ -4455,11 +4429,7 @@ async def fetch_chat_pipeline(
                                 allow_interactive_login = True
                             need_login = True
                             await _set_browser_window_state(page, "maximized")
-                        if (
-                            not content_ready
-                            and not chatgpt_no_login
-                            and allow_interactive_login
-                        ):
+                        if not content_ready and allow_interactive_login:
                             if logger:
                                 logger(
                                     "当前登录状态无法读取该会话，请在浏览器中登录或切换到"
