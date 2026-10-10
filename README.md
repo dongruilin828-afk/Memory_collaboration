@@ -143,14 +143,13 @@ JSON。本轮批量总结优先使用 3.5 Flash；其额度在超长对话中耗
 结果显式改用 3.6 Flash。模型可用性和额度会变化，运行时仍应以真实探测为准。
 
 命令行核心不会静默切换模型，以免费用、能力和输出变化在用户不知情时发生；
-上述 GUI 跨提供商回退会在进度栏明确显示每次切换。使用 SiliconFlow
-时，GUI 会在当前模型失败后尝试 2026-08-22 完整总结流水线实测通过的免费
-候选 Qwen/Qwen3-8B。连同当前模型最多尝试 2 个，不会为凑数量加入质量未
-达标的模型。
+上述 GUI 跨提供商回退会在进度栏明确显示每次切换。SiliconFlow 默认使用
+2026-08-22 完整总结流水线实测通过的免费模型 Qwen/Qwen3-8B；该模型失败后，
+GUI 会继续按设置页中的提供商顺序回退。
 
-显式使用 SiliconFlow 的 Qwen 备用模型：
+显式使用 SiliconFlow 的默认模型：
 
-    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider siliconflow --model Qwen/Qwen3.5-397B-A17B
+    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider siliconflow --model Qwen/Qwen3-8B
 
 显式使用 DeepSeek：
 
