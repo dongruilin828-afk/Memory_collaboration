@@ -115,16 +115,22 @@ def _is_chatgpt_citation(reference: str, _source_platform: str | None = None) ->
 def sanitize_summary_messages(
     messages: list[dict[str, str]], source_platform: str | None = None
 ) -> list[dict[str, str]]:
-    """复制总结输入，并移除 ChatGPT 来源引用标签。"""
+    """复制总结输入，并移除 ChatGPT 来源引用标签和装饰图。"""
     sanitized: list[dict[str, str]] = []
     for message in messages:
         copied = dict(message)
         if str(message.get("role") or "").lower() in {"ai", "assistant"}:
+            content = UNAVAILABLE_IMAGE_PATTERN.sub(
+                lambda match: "" if "favicon" in (
+                    match.group("label") or ""
+                ).lower() else match.group(0),
+                str(message.get("content") or ""),
+            )
             copied["content"] = FILE_LINK_PATTERN.sub(
                 lambda match: "" if _is_chatgpt_citation(
                     match.group("reference"), source_platform
                 ) else match.group(0),
-                str(message.get("content") or ""),
+                content,
             )
         sanitized.append(copied)
     return sanitized
@@ -1246,11 +1252,14 @@ def discover_media(
             )
 
         for match in UNAVAILABLE_IMAGE_PATTERN.finditer(content):
+            label = (match.group("label") or "图片").strip()
+            if source_role == "assistant" and "favicon" in label.lower():
+                continue
             asset = MediaAsset(
                 media_id=f"M{media_counter:03d}",
                 message_index=message_index,
                 kind="image",
-                label=(match.group("label") or "图片").strip(),
+                label=label,
                 reference="unavailable://shared-image",
                 source_role=source_role,
                 status="unavailable",

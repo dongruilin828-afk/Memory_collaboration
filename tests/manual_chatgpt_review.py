@@ -95,9 +95,14 @@ async def main():
                 signal = args.output / "login_ready.signal"
 
                 async def wait_for_login_signal():
-                    while not signal.exists() or signal.stat().st_mtime < started:
-                        await asyncio.sleep(1)
-                    login_ready.set()
+                    last_mtime = signal.stat().st_mtime if signal.exists() else 0
+                    while True:
+                        while not signal.exists() or signal.stat().st_mtime <= last_mtime:
+                            await asyncio.sleep(1)
+                        last_mtime = signal.stat().st_mtime
+                        login_ready.set()
+                        while login_ready.is_set():
+                            await asyncio.sleep(1)
 
                 asyncio.create_task(wait_for_login_signal())
                 result = await fetch_chat_pipeline(

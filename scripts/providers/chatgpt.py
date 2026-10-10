@@ -46,6 +46,48 @@ def _prefer_snapshot(candidate, existing):
     )
 
 
+def _sort_captured_messages(captured, route_message_ids):
+    """优先按路由中的稳定消息 ID 排序，缺失时退回页面观察顺序。"""
+    route_order = {}
+    for index, route_message in enumerate(route_message_ids or []):
+        ids = route_message if isinstance(route_message, list) else [route_message]
+        route_order.update((message_id, index) for message_id in ids if message_id)
+
+    def route_index(message):
+        ids = message.get("ids") or [message["key"]]
+        return min((route_order[id_] for id_ in ids if id_ in route_order), default=None)
+
+    if route_order:
+        matched = [message for message in captured.values() if route_index(message) is not None]
+        if matched:
+            ordered = sorted(matched, key=route_index)
+            for message in sorted(
+                (
+                    message for message in captured.values()
+                    if route_index(message) is None
+                ),
+                key=lambda message: message["discovery_index"],
+            ):
+                next_discovered = next((
+                    candidate for candidate in matched
+                    if candidate["discovery_index"] > message["discovery_index"]
+                ), None)
+                if next_discovered is None:
+                    ordered.append(message)
+                else:
+                    ordered.insert(ordered.index(next_discovered), message)
+            return ordered
+    return sorted(
+        captured.values(),
+        key=lambda message: (
+            message["order"] is None,
+            message["order"]
+            if message["order"] is not None
+            else message["discovery_index"],
+        ),
+    )
+
+
 def _collapse_nested_markdown_fences(text):
     """将 ChatGPT 偶发生成的双层 Markdown 代码围栏折叠为单层。"""
     fence = chr(96) * 3
@@ -164,13 +206,30 @@ async def collect_html(page):
                 ) || '';
                 const turnMatch = testId.match(/(\\d+)$/)
                     || searchKey.match(/^fallback-turn-(\\d+):/);
+                const selectionNode = element.matches(
+                    '[data-chatgpt-selection-message-id]'
+                ) ? element : element.querySelector(
+                    '[data-chatgpt-selection-message-id]'
+                );
+                const searchMessageIds = element.getAttribute(
+                    'data-chatgpt-search-message-ids'
+                ) || '';
                 const messageId =
                     element.getAttribute('data-message-id')
                     || (turn && turn.getAttribute('data-message-id'))
                     || (turn && turn.querySelector('[data-message-id]')
                         && turn.querySelector('[data-message-id]')
                             .getAttribute('data-message-id'))
+                    || (selectionNode && selectionNode.getAttribute(
+                        'data-chatgpt-selection-message-id'
+                    ))
+                    || searchMessageIds.trim().split(/\s+/)[0]
                     || '';
+                const stableIds = Array.from(new Set([
+                    messageId,
+                    turn && turn.getAttribute('data-turn-id'),
+                    turn && turn.getAttribute('data-turn-id-container'),
+                ].filter(Boolean)));
                 const role = element.getAttribute('data-message-author-role')
                     || (turn ? turn.getAttribute('data-turn') : '')
                     || (searchKey.match(/:(user|assistant)$/) || [])[1]
@@ -190,6 +249,7 @@ async def collect_html(page):
                 const stableKey = messageId || role + ':' + stableText;
                 return {
                     key: stableKey,
+                    ids: stableIds,
                     boundary_key: stableKey,
                     order: turnMatch ? Number(turnMatch[1]) : null,
                     text_length: text.length,
@@ -220,12 +280,12 @@ async def collect_html(page):
                     if order is not None
                 ]
                 if observed_orders:
-                    message["order"] = max(observed_orders)
+                    message["order"] = min(observed_orders)
                 message["discovery_index"] = existing["discovery_index"]
                 captured[key] = message
             elif message.get("order") is not None:
                 existing_order = existing.get("order")
-                if existing_order is None or message["order"] > existing_order:
+                if existing_order is None or message["order"] < existing_order:
                     existing["order"] = message["order"]
 
         return [message["boundary_key"] for message in visible_messages]
@@ -389,14 +449,71 @@ async def collect_html(page):
                 await page.wait_for_timeout(BOUNDARY_SETTLE_MS)
                 await capture_visible_messages()
 
-        ordered_messages = sorted(
-            captured.values(),
-            key=lambda message: (
-                message["order"] is None,
-                message["order"]
-                if message["order"] is not None
-                else message["discovery_index"]
-            )
+        captured_ids = list({
+            id_
+            for message in captured.values()
+            for id_ in (message.get("ids") or [message["key"]])
+        })
+        route_message_ids = await page.evaluate(
+            """(capturedIds) => {
+                const root = window.__reactRouterDataRouter?.state?.loaderData;
+                const captured = new Set(capturedIds);
+                const seen = new WeakSet();
+                let longest = [];
+                let bestMatches = -1;
+                function keep(candidate) {
+                    const messages = candidate
+                        .map(item => ({
+                            message: item?.message,
+                            nodeId: item?.id || '',
+                        }))
+                        .filter(item => item.message?.id);
+                    const matches = messages.filter(item =>
+                        captured.has(item.message.id) || captured.has(item.nodeId)
+                    ).length;
+                    if (matches < bestMatches
+                        || (matches === bestMatches
+                            && messages.length <= longest.length)) return;
+                    bestMatches = matches;
+                    longest = messages.map(({message, nodeId}) =>
+                        Array.from(new Set([
+                            message.id, nodeId,
+                        ].filter(Boolean)))
+                    );
+                }
+                function find(value) {
+                    if (!value || typeof value !== 'object' || seen.has(value)) return;
+                    seen.add(value);
+                    if (Array.isArray(value)) {
+                        for (const item of value) find(item);
+                        return;
+                    }
+                    if (Array.isArray(value.linear_conversation)) {
+                        keep(value.linear_conversation);
+                    }
+                    if (value.mapping && typeof value.mapping === 'object') {
+                        const branch = [];
+                        let nodeId = value.current_node;
+                        while (nodeId && value.mapping[nodeId]) {
+                            const node = value.mapping[nodeId];
+                            branch.push({...node, id: node?.id || nodeId});
+                            nodeId = node.parent;
+                        }
+                        keep(branch.length ? branch.reverse() : Object.entries(
+                            value.mapping
+                        ).map(([id, node]) => ({
+                            ...node, id: node?.id || id,
+                        })));
+                    }
+                    for (const item of Object.values(value)) find(item);
+                }
+                find(root);
+                return longest;
+            }""",
+            captured_ids,
+        )
+        ordered_messages = _sort_captured_messages(
+            captured, route_message_ids
         )
 
         if ordered_messages:
@@ -532,6 +649,11 @@ def parse_messages(soup, image_map=None):
 
 
             text = msg.get_text(separator='\n', strip=True)
+            if any(part.startswith("![") for part in content_parts):
+                text = '\n'.join(
+                    line for line in text.splitlines()
+                    if line.strip() != '已上传图片'
+                ).strip()
             text_lines = {line.strip().lower() for line in text.splitlines()}
             for filename, local_href in image_map.items():
                 lowered = str(filename).lower()

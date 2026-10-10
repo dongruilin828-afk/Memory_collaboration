@@ -1558,7 +1558,7 @@ class GUIServiceTests(unittest.TestCase):
                 return self.payload
 
             async def json(self):
-                return {"error_code": "safety_check_failed"}
+                return {"detail": "file is not available through shared scope"}
 
         class FakeRequest:
             def __init__(self):
@@ -1586,6 +1586,106 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(request.calls, [source, private_source])
         self.assertEqual(mapping["data.csv"], "./result_files/data.csv")
 
+    def test_chatgpt_document_retries_transient_playwright_error(self):
+        source = "https://chatgpt.com/backend-api/files/download/file_docx"
+
+        class FakeResponse:
+            ok = True
+            status = 200
+            headers = {"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+
+            async def body(self):
+                return b"docx"
+
+        Error = type("Error", (Exception,), {})
+        request = SimpleNamespace(get=AsyncMock(side_effect=[Error(), Error(), FakeResponse()]))
+        page = SimpleNamespace(
+            request=request,
+            wait_for_timeout=AsyncMock(),
+        )
+        candidate = DocumentCandidate("file_docx", source, "申请表.docx")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                page, [candidate], output_dir, "./result_files",
+            ))
+            self.assertEqual((output_dir / "申请表.docx").read_bytes(), b"docx")
+
+        self.assertEqual(request.get.await_count, 3)
+        self.assertEqual(page.wait_for_timeout.await_count, 2)
+        page.wait_for_timeout.assert_awaited_with(1500)
+        self.assertEqual(mapping["申请表.docx"], "./result_files/%E7%94%B3%E8%AF%B7%E8%A1%A8.docx")
+
+    @patch("gui.service._chatgpt_document_card_get", new_callable=AsyncMock)
+    def test_chatgpt_document_falls_back_to_card_click(self, card_get):
+        source = "https://chatgpt.com/backend-api/files/download/file_md"
+
+        class FakeResponse:
+            ok = True
+            status = 200
+
+            def __init__(self, payload, content_type):
+                self.payload = payload
+                self.headers = {"content-type": content_type}
+
+            async def body(self):
+                return self.payload
+
+            async def json(self):
+                return {"detail": "not available"}
+
+        request = SimpleNamespace(get=AsyncMock(
+            return_value=FakeResponse(b"{}", "application/json")
+        ))
+        card_get.return_value = FakeResponse(b"# content", "text/markdown")
+        candidate = DocumentCandidate("file_md", source, "notes.md")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(request=request),
+                [candidate],
+                output_dir,
+                "./result_files",
+            ))
+            self.assertEqual((output_dir / "notes.md").read_bytes(), b"# content")
+
+        card_get.assert_awaited_once()
+        self.assertEqual(mapping["notes.md"], "./result_files/notes.md")
+
+    @patch("gui.service._chatgpt_document_card_get", new_callable=AsyncMock)
+    def test_chatgpt_document_403_falls_back_to_card_click(self, card_get):
+        source = (
+            "https://chatgpt.com/backend-api/files/download/file_csv"
+            "?shared_conversation_id=shared"
+        )
+
+        class FakeResponse:
+            def __init__(self, status, payload=b"", content_type=""):
+                self.status = status
+                self.ok = status == 200
+                self.payload = payload
+                self.headers = {"content-type": content_type}
+
+            async def body(self):
+                return self.payload
+
+        request = SimpleNamespace(get=AsyncMock(return_value=FakeResponse(403)))
+        card_get.return_value = FakeResponse(200, b"a,b\n1,2\n", "text/csv")
+        candidate = DocumentCandidate("file_csv", source, "data.csv")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "result_files"
+            mapping = asyncio.run(_download_document_candidates(
+                SimpleNamespace(request=request),
+                [candidate],
+                output_dir,
+                "./result_files",
+            ))
+            self.assertEqual((output_dir / "data.csv").read_bytes(), b"a,b\n1,2\n")
+
+        self.assertEqual(request.get.await_count, 2)
+        card_get.assert_awaited_once()
+        self.assertEqual(mapping["data.csv"], "./result_files/data.csv")
+
     def test_document_candidates_reject_local_and_credential_urls(self):
         html = (
             '<a href="http://127.0.0.1/private.pdf">private.pdf</a>'
@@ -1600,6 +1700,7 @@ class GUIServiceTests(unittest.TestCase):
 
     def test_chatgpt_embedded_document_metadata_becomes_session_download(self):
         html = (
+            '<div data-message-author-role="user">课堂材料.docx</div>'
             '<script>self.__next_f.push([1,"'
             r'"file","name","课堂材料.docx",'
             r'"file_test1234567890abcdef",'
@@ -1635,6 +1736,7 @@ class GUIServiceTests(unittest.TestCase):
         _collect_response_assets(
             {
                 "messages": [{
+                    "author": {"role": "user"},
                     "metadata": {
                         "attachments": [
                             {
@@ -1668,17 +1770,36 @@ class GUIServiceTests(unittest.TestCase):
         _collect_response_assets(
             {"messages": [{
                 "author": {"role": "assistant"},
-                "metadata": {"attachments": [{
-                    "id": "file_citation123456",
-                    "name": "tools.md",
-                    "mime_type": "text/markdown",
-                }]},
+                "metadata": {
+                    "attachments": [{
+                        "id": "file_citation123456",
+                        "name": "tools.md",
+                        "mime_type": "text/markdown",
+                    }],
+                    "citations": [{
+                        "id": "file_citation654321",
+                        "name": "ADAPTATION.md",
+                        "mime_type": "text/markdown",
+                    }],
+                },
             }]},
             "https://chatgpt.com/c/conversation-id",
             assistant_documents,
             set(),
         )
         self.assertEqual(assistant_documents, [])
+
+        unscoped_documents = []
+        _collect_response_assets(
+            {"results": [{
+                "id": "file_citation789012",
+                "name": "rwmpf.py",
+            }]},
+            "https://chatgpt.com/c/conversation-id",
+            unscoped_documents,
+            set(),
+        )
+        self.assertEqual(unscoped_documents, [])
 
         video_documents = []
         _collect_response_assets(
@@ -1877,7 +1998,7 @@ class GUIServiceTests(unittest.TestCase):
         self.assertTrue(candidates[0].reference.startswith("chatgpt-card:"))
 
     def test_chatgpt_assistant_document_citations_are_not_attachments(self):
-        html = """
+        html = r"""
         <div data-message-author-role="user">
           <a href="https://files.example.com/课堂材料.docx">课堂材料.docx</a>
         </div>
@@ -1887,6 +2008,8 @@ class GUIServiceTests(unittest.TestCase):
             tools.md
           </a>
         </div>
+        <script>\"name\",\"tools.md\",\"file_citation123456\"</script>
+        <script>\"name\",\"课堂材料.docx\",\"file_document123456\"</script>
         """
         chatgpt_candidates = _extract_document_candidates(
             html,
@@ -1894,7 +2017,7 @@ class GUIServiceTests(unittest.TestCase):
         )
         self.assertEqual(
             [candidate.filename for candidate in chatgpt_candidates],
-            ["课堂材料.docx"],
+            ["课堂材料.docx", "课堂材料.docx"],
         )
         self.assertEqual(
             len(_extract_document_candidates(html, "https://example.com/chat")),
@@ -2506,6 +2629,8 @@ class GUIServiceTests(unittest.TestCase):
             [candidate.filename for candidate in document_groups[1]],
             ["课堂材料.docx", "测试视频.mp4"],
         )
+        self.assertNotIn("messagesById", page.script)
+        self.assertIn("const message = item.message", page.script)
 
     def test_chatgpt_shared_video_recovers_private_attachment_without_runtime_groups(self):
         share_id = "6ac64d05-b08c-83e9-82f6-ecb01f142770"
@@ -2568,6 +2693,60 @@ class GUIServiceTests(unittest.TestCase):
         self.assertNotIn("课堂材料.docx", messages[0].get_text())
         self.assertIn("课堂材料.docx", messages[1].get_text())
 
+    def test_chatgpt_visible_attachment_overrides_stale_group(self):
+        stale = DocumentCandidate(
+            "file_stale",
+            "https://chatgpt.com/backend-api/files/download/file_stale",
+            "旧文件.pdf",
+        )
+        visible = DocumentCandidate(
+            "file_visible",
+            "https://chatgpt.com/backend-api/files/download/file_visible",
+            "当前文件.docx",
+        )
+        html = (
+            '<div data-message-author-role="user">'
+            '<div class="truncate font-semibold">当前文件.docx</div>'
+            '</div>'
+        )
+        result = _inject_chatgpt_attachment_names(
+            html, [stale, visible], [[stale, visible]]
+        )
+        message_text = BeautifulSoup(result, "html.parser").get_text(" ")
+        self.assertIn("当前文件.docx", message_text)
+        self.assertNotIn("旧文件.pdf", message_text)
+
+    def test_chatgpt_placeholder_attachments_follow_assistant_references(self):
+        first = DocumentCandidate("file_csv", "https://x/file_csv", "数据.csv")
+        second = DocumentCandidate("file_pdf", "https://x/file_pdf", "细则.pdf")
+        html = (
+            '<section data-message-author-role="user">'
+            '<div data-message-author-role="user">已上传图片'
+            '<div class="api-attachment-name">数据.csv</div></div></section>'
+            '<div data-message-author-role="assistant">初始回答</div>'
+            '<div data-message-author-role="user">上传文件'
+            '<div class="api-attachment-name">细则.pdf</div></div>'
+            '<div data-message-author-role="assistant">已读取 数据.csv</div>'
+            '<div data-message-author-role="user">上传文件</div>'
+            '<div data-message-author-role="assistant" '
+            'data-file-id="file_pdf">已读取文件</div>'
+        )
+        duplicate_first = DocumentCandidate(
+            "file_csv", "https://x/download/file_csv", "数据.csv"
+        )
+        result = _inject_chatgpt_attachment_names(
+            html, [first, duplicate_first, second], [[first], [first, second], []]
+        )
+        messages = [
+            message for message in BeautifulSoup(result, "html.parser").find_all(
+                attrs={"data-message-author-role": "user"}
+            )
+            if not message.find(attrs={"data-message-author-role": "user"})
+        ]
+        self.assertNotIn("数据.csv", messages[0].get_text())
+        self.assertIn("数据.csv", messages[1].get_text())
+        self.assertIn("细则.pdf", messages[2].get_text())
+
     def test_chatgpt_visible_attachment_name_still_gets_download_marker(self):
         document = DocumentCandidate(
             "file_fake",
@@ -2591,6 +2770,22 @@ class GUIServiceTests(unittest.TestCase):
         self.assertIn(
             "[📄 课堂材料.docx](./documents/material.docx)",
             messages[0]["content"],
+        )
+
+    def test_chatgpt_image_placeholder_is_not_exported(self):
+        html = (
+            '<div data-message-author-role="user">'
+            '<img src="https://example.com/upload.png" alt="已上传的图片">'
+            '<span>已上传图片</span></div>'
+        )
+        _, messages = _parse_page_messages(
+            "https://chatgpt.com/c/conversation-id",
+            BeautifulSoup(html, "html.parser"),
+            {"https://example.com/upload.png": "./images/upload.png"},
+        )
+        self.assertEqual(
+            messages[0]["content"],
+            "![已上传的图片](./images/upload.png)",
         )
 
     def test_chatgpt_show_more_control_is_not_exported(self):

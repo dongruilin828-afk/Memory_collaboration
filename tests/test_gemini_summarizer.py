@@ -1904,6 +1904,89 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("./files/%E8%AF%BE%E5%A0%82.md", messages[0]["content"])
         self.assertIn("识别文档", messages[0]["content"])
 
+    def test_chatgpt_route_ids_override_dynamic_turn_numbers(self):
+        captured = {
+            "first-user-message": {
+                "key": "first-user-message", "ids": ["first-user-message", "first-user-turn"],
+                "order": 10, "discovery_index": 4,
+            },
+            "first-answer-message": {
+                "key": "first-answer-message", "ids": ["first-answer-message", "first-answer-turn"],
+                "order": 11, "discovery_index": 5,
+            },
+            "second-user-message": {
+                "key": "second-user-message", "ids": ["second-user-message", "second-user-turn"],
+                "order": 0, "discovery_index": 0,
+            },
+            "second-answer-message": {
+                "key": "second-answer-message", "ids": ["second-answer-message", "second-answer-turn"],
+                "order": 1, "discovery_index": 1,
+            },
+        }
+
+        ordered = chatgpt._sort_captured_messages(
+            captured,
+            [
+                ["route-first-user", "first-user-turn"],
+                ["route-first-answer", "first-answer-turn"],
+                ["route-second-user", "second-user-turn"],
+                ["route-second-answer", "second-answer-turn"],
+            ],
+        )
+
+        self.assertEqual(
+            [message["key"] for message in ordered],
+            [
+                "first-user-message", "first-answer-message",
+                "second-user-message", "second-answer-message",
+            ],
+        )
+
+    def test_chatgpt_link_10_missing_route_group_stays_first(self):
+        captured = {
+            "82cc41a9-e4ea-4537-861d-43dd333d2742": {
+                "key": "82cc41a9-e4ea-4537-861d-43dd333d2742",
+                "ids": ["82cc41a9-e4ea-4537-861d-43dd333d2742"],
+                "order": 10, "discovery_index": 0,
+            },
+            "4f60284a-b89a-4c47-9027-4f539bfdd6f7": {
+                "key": "4f60284a-b89a-4c47-9027-4f539bfdd6f7",
+                "ids": [
+                    "4f60284a-b89a-4c47-9027-4f539bfdd6f7",
+                    "74e48974-ef44-409c-ab4b-0ec56dab3188",
+                ],
+                "order": 11, "discovery_index": 1,
+            },
+            "81c6b45f-70f2-46bc-a97b-9cc1ff45c789": {
+                "key": "81c6b45f-70f2-46bc-a97b-9cc1ff45c789",
+                "ids": ["81c6b45f-70f2-46bc-a97b-9cc1ff45c789"],
+                "order": 0, "discovery_index": 2,
+            },
+            "9b9a2a07-12f9-4514-9ca4-708ad4ba26b9": {
+                "key": "9b9a2a07-12f9-4514-9ca4-708ad4ba26b9",
+                "ids": ["9b9a2a07-12f9-4514-9ca4-708ad4ba26b9"],
+                "order": 1, "discovery_index": 3,
+            },
+        }
+
+        ordered = chatgpt._sort_captured_messages(
+            captured,
+            [
+                ["81c6b45f-70f2-46bc-a97b-9cc1ff45c789"],
+                ["9b9a2a07-12f9-4514-9ca4-708ad4ba26b9"],
+            ],
+        )
+
+        self.assertEqual(
+            [message["key"] for message in ordered],
+            [
+                "82cc41a9-e4ea-4537-861d-43dd333d2742",
+                "4f60284a-b89a-4c47-9027-4f539bfdd6f7",
+                "81c6b45f-70f2-46bc-a97b-9cc1ff45c789",
+                "9b9a2a07-12f9-4514-9ca4-708ad4ba26b9",
+            ],
+        )
+
     def test_chatgpt_code_filenames_are_not_guessed_as_attachments(self):
         html = """
         <div data-testid="conversation-turn-0">
@@ -2154,6 +2237,21 @@ output = "Harry Potter_translated.pdf"</pre>
         self.assertEqual(assets[0].status, "unavailable")
         self.assertFalse(assets[0].public_dict()["can_reverify"])
         self.assertIn("不可重新验证", assets[0].description)
+
+    def test_unavailable_assistant_favicon_is_ignored(self):
+        messages = [{
+            "role": "AI",
+            "content": "🖼️ **[图片]** `faviconV2`（原图片未能下载）DBLP",
+        }]
+        sanitized = summary.sanitize_summary_messages(messages)
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp)
+            assets = summary.discover_media(
+                sanitized, project, project, summary.SummaryConfig()
+            )
+
+        self.assertEqual(sanitized[0]["content"], "DBLP")
+        self.assertEqual(assets, [])
 
     def test_named_unavailable_image_keeps_its_label(self):
         messages = [{
