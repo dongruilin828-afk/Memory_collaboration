@@ -2,6 +2,1070 @@
   "version": 1,
   "records": [
     {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 01:48:08",
+      "succeeded": true,
+      "program_seconds": 67.03928570001153,
+      "fetch_seconds": 67.03709449997405,
+      "generation_seconds": 0.002191200037486851,
+      "wait_seconds": 0.0,
+      "total_seconds": 67.04416910000145,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\9.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 01:44:57",
+      "succeeded": true,
+      "program_seconds": 55.99112729995977,
+      "fetch_seconds": 55.989626900001895,
+      "generation_seconds": 0.0015003999578766525,
+      "wait_seconds": 0.0,
+      "total_seconds": 55.99287420004839,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 01:32:16",
+      "succeeded": true,
+      "program_seconds": 55.42297910002526,
+      "fetch_seconds": 55.42094929999439,
+      "generation_seconds": 0.0020298000308685005,
+      "wait_seconds": 0.0,
+      "total_seconds": 55.42543539998587,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 01:16:04",
+      "succeeded": true,
+      "program_seconds": 47.640834799967706,
+      "fetch_seconds": 47.63925999996718,
+      "generation_seconds": 0.001574800000526011,
+      "wait_seconds": 0.0,
+      "total_seconds": 47.64240800001426,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:55:01",
+      "succeeded": true,
+      "program_seconds": 58.81354070006637,
+      "fetch_seconds": 58.81174540001666,
+      "generation_seconds": 0.0017953000497072935,
+      "wait_seconds": 0.0,
+      "total_seconds": 58.816514100006316,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:40:02",
+      "succeeded": true,
+      "program_seconds": 52.122569200000726,
+      "fetch_seconds": 52.12107269995613,
+      "generation_seconds": 0.0014965000445954502,
+      "wait_seconds": 0.0,
+      "total_seconds": 52.125212399987504,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:31:21",
+      "succeeded": true,
+      "program_seconds": 52.02913380000973,
+      "fetch_seconds": 52.0267104000086,
+      "generation_seconds": 0.0024234000011347234,
+      "wait_seconds": 0.0,
+      "total_seconds": 52.03735080000479,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:23:11",
+      "succeeded": true,
+      "program_seconds": 72.68986380007118,
+      "fetch_seconds": 72.6882992000319,
+      "generation_seconds": 0.0015646000392735004,
+      "wait_seconds": 0.0,
+      "total_seconds": 72.69899010000518,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:18:13",
+      "succeeded": true,
+      "program_seconds": 78.46440150000853,
+      "fetch_seconds": 78.46232809999492,
+      "generation_seconds": 0.002073400013614446,
+      "wait_seconds": 0.0,
+      "total_seconds": 78.46628039999632,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-11 00:11:04",
+      "succeeded": true,
+      "program_seconds": 144.9913190000225,
+      "fetch_seconds": 144.98921069997596,
+      "generation_seconds": 0.002108300046529621,
+      "wait_seconds": 0.0,
+      "total_seconds": 144.9952552000177,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:47:31",
+      "succeeded": true,
+      "program_seconds": 73.06806999997934,
+      "fetch_seconds": 73.06601459998637,
+      "generation_seconds": 0.002055399992968887,
+      "wait_seconds": 0.0,
+      "total_seconds": 73.07054479996441,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:41:59",
+      "succeeded": true,
+      "program_seconds": 68.14445060002618,
+      "fetch_seconds": 68.14290540001821,
+      "generation_seconds": 0.0015452000079676509,
+      "wait_seconds": 0.0,
+      "total_seconds": 68.14728219999233,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:33:24",
+      "succeeded": true,
+      "program_seconds": 54.88134149997495,
+      "fetch_seconds": 54.87980090000201,
+      "generation_seconds": 0.0015405999729409814,
+      "wait_seconds": 0.0,
+      "total_seconds": 54.883640600019135,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:25:31",
+      "succeeded": true,
+      "program_seconds": 51.31624750001356,
+      "fetch_seconds": 51.31453969998984,
+      "generation_seconds": 0.0017078000237233937,
+      "wait_seconds": 0.0,
+      "total_seconds": 51.318984999961685,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:11:30",
+      "succeeded": true,
+      "program_seconds": 74.52899620000971,
+      "fetch_seconds": 74.52708989998791,
+      "generation_seconds": 0.0019063000218011439,
+      "wait_seconds": 0.0,
+      "total_seconds": 74.53141090000281,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 23:02:08",
+      "succeeded": true,
+      "program_seconds": 194.40457559999777,
+      "fetch_seconds": 194.40206860000035,
+      "generation_seconds": 0.002506999997422099,
+      "wait_seconds": 0.0,
+      "total_seconds": 194.40777580003487,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 22:54:28",
+      "succeeded": true,
+      "program_seconds": 49.017189800040796,
+      "fetch_seconds": 49.01522570004454,
+      "generation_seconds": 0.0019640999962575734,
+      "wait_seconds": 0.0,
+      "total_seconds": 49.019741200027056,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 22:36:34",
+      "succeeded": true,
+      "program_seconds": 73.53172909998102,
+      "fetch_seconds": 73.53029999998398,
+      "generation_seconds": 0.0014290999970398843,
+      "wait_seconds": 0.0,
+      "total_seconds": 73.53347869997378,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 22:35:00",
+      "succeeded": true,
+      "program_seconds": 200.86262059997534,
+      "fetch_seconds": 79.39822919998551,
+      "generation_seconds": 121.46439139998984,
+      "wait_seconds": 20.748421799973585,
+      "total_seconds": 221.61475740000606,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\09_export.md",
+        "C:\\Users\\Administrator\\Desktop\\09_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\09_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 21:47:59",
+      "succeeded": true,
+      "program_seconds": 394.7793809999712,
+      "fetch_seconds": 304.7085828999989,
+      "generation_seconds": 90.07079809997231,
+      "wait_seconds": 3.7265471999999136,
+      "total_seconds": 398.50965270004235,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\09_export.md",
+        "C:\\Users\\Administrator\\Desktop\\09_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\09_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 21:07:20",
+      "succeeded": true,
+      "program_seconds": 270.57373529998586,
+      "fetch_seconds": 93.46317150001414,
+      "generation_seconds": 177.11056379997171,
+      "wait_seconds": 13.4927166000125,
+      "total_seconds": 284.070551999961,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\09_export.md",
+        "C:\\Users\\Administrator\\Desktop\\09_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\09_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 19:23:46",
+      "succeeded": true,
+      "program_seconds": 76.82171030004974,
+      "fetch_seconds": 76.82027770002605,
+      "generation_seconds": 0.0014326000236906111,
+      "wait_seconds": 0.0,
+      "total_seconds": 76.8238629999687,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\16.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 19:21:49",
+      "succeeded": true,
+      "program_seconds": 162.8196798999561,
+      "fetch_seconds": 68.01420099998359,
+      "generation_seconds": 94.80547889997251,
+      "wait_seconds": 316.63531400001375,
+      "total_seconds": 479.45714450004743,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\12_export.md",
+        "C:\\Users\\Administrator\\Desktop\\12_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\12_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 18:45:23",
+      "succeeded": true,
+      "program_seconds": 85.68041210004594,
+      "fetch_seconds": 85.6786751000327,
+      "generation_seconds": 0.0017370000132359564,
+      "wait_seconds": 0.0,
+      "total_seconds": 85.68193720001727,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\12.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 18:42:36",
+      "succeeded": true,
+      "program_seconds": 33.487662399944384,
+      "fetch_seconds": 33.484730599971954,
+      "generation_seconds": 0.0029317999724298716,
+      "wait_seconds": 0.0,
+      "total_seconds": 33.49263570003677,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\05.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:41:22",
+      "succeeded": true,
+      "program_seconds": 121.51229920002515,
+      "fetch_seconds": 121.5106730000116,
+      "generation_seconds": 0.0016262000135611743,
+      "wait_seconds": 0.0,
+      "total_seconds": 121.51383339997847,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\20.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:38:23",
+      "succeeded": true,
+      "program_seconds": 41.43646210001316,
+      "fetch_seconds": 41.434664400003385,
+      "generation_seconds": 0.0017977000097744167,
+      "wait_seconds": 0.0,
+      "total_seconds": 41.43963409998105,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:35:20",
+      "succeeded": true,
+      "program_seconds": 71.55297170003178,
+      "fetch_seconds": 71.55185230000643,
+      "generation_seconds": 0.001119400025345385,
+      "wait_seconds": 0.0,
+      "total_seconds": 71.55462019998231,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:33:07",
+      "succeeded": true,
+      "program_seconds": 40.83560980000766,
+      "fetch_seconds": 40.83415650000097,
+      "generation_seconds": 0.0014533000066876411,
+      "wait_seconds": 0.0,
+      "total_seconds": 40.83718050000607,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:32:02",
+      "succeeded": true,
+      "program_seconds": 55.76683400000911,
+      "fetch_seconds": 55.76501350000035,
+      "generation_seconds": 0.0018205000087618828,
+      "wait_seconds": 0.0,
+      "total_seconds": 55.77101210001274,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:30:15",
+      "succeeded": true,
+      "program_seconds": 82.68396670001675,
+      "fetch_seconds": 82.68222980000428,
+      "generation_seconds": 0.001736900012474507,
+      "wait_seconds": 0.0,
+      "total_seconds": 82.68553790001897,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 01:28:18",
+      "succeeded": true,
+      "program_seconds": 131.94328420000966,
+      "fetch_seconds": 131.9417037999956,
+      "generation_seconds": 0.0015804000140633434,
+      "wait_seconds": 14.509890599991195,
+      "total_seconds": 146.4550036000146,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\20.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 00:44:44",
+      "succeeded": true,
+      "program_seconds": 182.09435630004737,
+      "fetch_seconds": 79.90317140001571,
+      "generation_seconds": 102.19118490003166,
+      "wait_seconds": 14.24643049997394,
+      "total_seconds": 196.34666979999747,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19_export.md",
+        "C:\\Users\\Administrator\\Desktop\\19_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 00:23:34",
+      "succeeded": true,
+      "program_seconds": 129.84248550000484,
+      "fetch_seconds": 85.92145329999039,
+      "generation_seconds": 43.92103220001445,
+      "wait_seconds": 12.641259399999399,
+      "total_seconds": 142.48969010001747,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19_export.md",
+        "C:\\Users\\Administrator\\Desktop\\19_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-10 00:09:19",
+      "succeeded": true,
+      "program_seconds": 114.88105530003668,
+      "fetch_seconds": 87.37076940000406,
+      "generation_seconds": 27.510285900032613,
+      "wait_seconds": 2.4735866999835707,
+      "total_seconds": 117.35987059999024,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19_export.md",
+        "C:\\Users\\Administrator\\Desktop\\19_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 22:55:30",
+      "succeeded": true,
+      "program_seconds": 77.92070430002059,
+      "fetch_seconds": 51.67041100002825,
+      "generation_seconds": 26.250293299992336,
+      "wait_seconds": 36.00259229997755,
+      "total_seconds": 113.92587710000225,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\20_export.md",
+        "C:\\Users\\Administrator\\Desktop\\20_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\20_result.json",
+        "C:\\Users\\Administrator\\Desktop\\20_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\20_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\20_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 22:17:15",
+      "succeeded": true,
+      "program_seconds": 87.24063580000075,
+      "fetch_seconds": 67.75699680001708,
+      "generation_seconds": 19.48363899998367,
+      "wait_seconds": 11.601220699987607,
+      "total_seconds": 98.845373499993,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\18_export.md",
+        "C:\\Users\\Administrator\\Desktop\\18_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\18_result.json",
+        "C:\\Users\\Administrator\\Desktop\\18_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\18_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\18_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 22:14:56",
+      "succeeded": true,
+      "program_seconds": 276.8683953,
+      "fetch_seconds": 96.98127399999066,
+      "generation_seconds": 179.8871213000093,
+      "wait_seconds": 12.820796999993036,
+      "total_seconds": 289.69434889999684,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:48:27",
+      "succeeded": true,
+      "program_seconds": 9.710914700001013,
+      "fetch_seconds": 9.70969079999486,
+      "generation_seconds": 0.0012239000061526895,
+      "wait_seconds": 0.0,
+      "total_seconds": 9.712640999990981,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:44:23",
+      "succeeded": true,
+      "program_seconds": 85.01980799998273,
+      "fetch_seconds": 85.01859679998597,
+      "generation_seconds": 0.001211199996760115,
+      "wait_seconds": 12.625611800001934,
+      "total_seconds": 97.64712980002514,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\21.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:40:33",
+      "succeeded": true,
+      "program_seconds": 194.36803180002607,
+      "fetch_seconds": 75.39733510001679,
+      "generation_seconds": 118.97069670000928,
+      "wait_seconds": 17.247486499982188,
+      "total_seconds": 211.61810180000612,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\18_export.md",
+        "C:\\Users\\Administrator\\Desktop\\18_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\18_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:35:55",
+      "succeeded": true,
+      "program_seconds": 107.60408530000132,
+      "fetch_seconds": 107.60276360000717,
+      "generation_seconds": 0.0013216999941505492,
+      "wait_seconds": 81.22974139999133,
+      "total_seconds": 188.83569390000775,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\18.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:31:56",
+      "succeeded": true,
+      "program_seconds": 144.42008890002035,
+      "fetch_seconds": 123.74336839999887,
+      "generation_seconds": 20.676720500021474,
+      "wait_seconds": 24.02958500001114,
+      "total_seconds": 168.45231230001082,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\17_export.md",
+        "C:\\Users\\Administrator\\Desktop\\17_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\17_result.json",
+        "C:\\Users\\Administrator\\Desktop\\17_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\17_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\17_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:24:17",
+      "succeeded": true,
+      "program_seconds": 220.1080902000249,
+      "fetch_seconds": 77.7044683000131,
+      "generation_seconds": 142.40362190001179,
+      "wait_seconds": 32.27406999998493,
+      "total_seconds": 252.38765899999999,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\19_export.md",
+        "C:\\Users\\Administrator\\Desktop\\19_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\19_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\19_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:18:23",
+      "succeeded": true,
+      "program_seconds": 200.33393510000315,
+      "fetch_seconds": 77.8688506000035,
+      "generation_seconds": 122.46508449999965,
+      "wait_seconds": 0.0,
+      "total_seconds": 200.33632979998947,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\18_export.md",
+        "C:\\Users\\Administrator\\Desktop\\18_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\18_result.json",
+        "C:\\Users\\Administrator\\Desktop\\18_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\18_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\18_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:13:29",
+      "succeeded": true,
+      "program_seconds": 97.12801459999173,
+      "fetch_seconds": 97.12665729998844,
+      "generation_seconds": 0.001357300003292039,
+      "wait_seconds": 13.857478399993852,
+      "total_seconds": 110.98792760001379,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 21:08:43",
+      "succeeded": true,
+      "program_seconds": 80.88699089997681,
+      "fetch_seconds": 80.8855950999714,
+      "generation_seconds": 0.0013958000054117292,
+      "wait_seconds": 23.394208500016248,
+      "total_seconds": 104.28386640001554,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 20:59:54",
+      "succeeded": true,
+      "program_seconds": 1187.2474548000027,
+      "fetch_seconds": 79.35199530000682,
+      "generation_seconds": 1107.895459499996,
+      "wait_seconds": 17.255346299993107,
+      "total_seconds": 1204.5064864000014,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\15_export.md",
+        "C:\\Users\\Administrator\\Desktop\\15_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\15_result.json",
+        "C:\\Users\\Administrator\\Desktop\\15_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\15_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\15_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 20:36:41",
+      "succeeded": true,
+      "program_seconds": 693.0065316000546,
+      "fetch_seconds": 319.72894550004276,
+      "generation_seconds": 373.27758610001183,
+      "wait_seconds": 8.892654299968854,
+      "total_seconds": 701.9018109000172,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\10_export.md",
+        "C:\\Users\\Administrator\\Desktop\\10_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\10_result.json",
+        "C:\\Users\\Administrator\\Desktop\\10_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\10_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\10_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 20:22:33",
+      "succeeded": true,
+      "program_seconds": 419.6950466000417,
+      "fetch_seconds": 63.07583750001504,
+      "generation_seconds": 356.61920910002664,
+      "wait_seconds": 8.6893591999833,
+      "total_seconds": 428.387873700005,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 18:37:25",
+      "succeeded": true,
+      "program_seconds": 390.9550952000427,
+      "fetch_seconds": 87.3801448000304,
+      "generation_seconds": 303.5749504000123,
+      "wait_seconds": 18.467727099981857,
+      "total_seconds": 409.4261544000183,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 18:28:41",
+      "succeeded": true,
+      "program_seconds": 340.59218979999423,
+      "fetch_seconds": 36.453437399992254,
+      "generation_seconds": 304.138752400002,
+      "wait_seconds": 22.81896720000077,
+      "total_seconds": 363.41328209999483,
+      "file_count": 4,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 18:18:44",
+      "succeeded": true,
+      "program_seconds": 786.0965647000412,
+      "fetch_seconds": 70.31995100001222,
+      "generation_seconds": 715.776613700029,
+      "wait_seconds": 19.01694329996826,
+      "total_seconds": 805.1170190999983,
+      "file_count": 2,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 18:04:17",
+      "succeeded": true,
+      "program_seconds": 597.082535900001,
+      "fetch_seconds": 72.01464219999616,
+      "generation_seconds": 525.0678937000048,
+      "wait_seconds": 27.267916300013894,
+      "total_seconds": 624.3526716000051,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 16:03:12",
+      "succeeded": true,
+      "program_seconds": 408.5403895000054,
+      "fetch_seconds": 152.13760330001242,
+      "generation_seconds": 256.402786199993,
+      "wait_seconds": 44.08010589997866,
+      "total_seconds": 452.6258189000073,
+      "file_count": 6,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_detailed_result.json",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 13:34:22",
+      "succeeded": true,
+      "program_seconds": 174.5869684999925,
+      "fetch_seconds": 174.58500550000463,
+      "generation_seconds": 0.0019629999878816307,
+      "wait_seconds": 18.463938400003826,
+      "total_seconds": 193.05378630000632,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-09 10:57:05",
+      "succeeded": true,
+      "program_seconds": 107.97431570003391,
+      "fetch_seconds": 107.97218910002266,
+      "generation_seconds": 0.002126600011251867,
+      "wait_seconds": 4.740940299991053,
+      "total_seconds": 112.71713430000818,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 23:49:50",
+      "succeeded": true,
+      "program_seconds": 43.23663659999147,
+      "fetch_seconds": 43.234819599980256,
+      "generation_seconds": 0.0018170000112149864,
+      "wait_seconds": 0.0,
+      "total_seconds": 43.239252600003965,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 18:59:14",
+      "succeeded": true,
+      "program_seconds": 130.30338119999215,
+      "fetch_seconds": 13.046902899994166,
+      "generation_seconds": 117.25647829999798,
+      "wait_seconds": 0.0,
+      "total_seconds": 130.3094185999944,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 17:17:46",
+      "succeeded": true,
+      "program_seconds": 240.93385669999407,
+      "fetch_seconds": 15.08940419999999,
+      "generation_seconds": 225.84445249999408,
+      "wait_seconds": 3102.0460784000024,
+      "total_seconds": 3342.9831238000043,
+      "file_count": 3,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_summary.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_result.json"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 15:28:45",
+      "succeeded": true,
+      "program_seconds": 382.05573240001104,
+      "fetch_seconds": 13.284694300004048,
+      "generation_seconds": 368.771038100007,
+      "wait_seconds": 0.0,
+      "total_seconds": 382.05873420000717,
+      "file_count": 2,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md",
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_simple.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 10:10:15",
+      "succeeded": true,
+      "program_seconds": 37.316664500001934,
+      "fetch_seconds": 37.312228299997514,
+      "generation_seconds": 0.004436200004420243,
+      "wait_seconds": 0.0,
+      "total_seconds": 37.319415299993125,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 10:06:52",
+      "succeeded": true,
+      "program_seconds": 38.87308480001229,
+      "fetch_seconds": 38.870609200006584,
+      "generation_seconds": 0.002475600005709566,
+      "wait_seconds": 0.0,
+      "total_seconds": 38.875881700005266,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 09:54:08",
+      "succeeded": true,
+      "program_seconds": 120.51348979999602,
+      "fetch_seconds": 120.51164890000655,
+      "generation_seconds": 0.0018408999894745648,
+      "wait_seconds": 0.0,
+      "total_seconds": 120.51520199999504,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
+      "title": "链接总结",
+      "timestamp": "2026-10-08 09:45:20",
+      "succeeded": true,
+      "program_seconds": 20.061219400013215,
+      "fetch_seconds": 20.059434400012833,
+      "generation_seconds": 0.0017850000003818423,
+      "wait_seconds": 0.0,
+      "total_seconds": 20.063219599993317,
+      "file_count": 1,
+      "saved_files": [
+        "C:\\Users\\Administrator\\Desktop\\AI_memory_export.md"
+      ],
+      "output_dir": "C:\\Users\\Administrator\\Desktop"
+    },
+    {
       "title": "超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题超长历史任务标题",
       "timestamp": "2026-09-24 12:34",
       "succeeded": true,
