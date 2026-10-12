@@ -1480,8 +1480,6 @@ class FlatEntryBox(tk.Canvas):
 
     def _on_keyrelease(self, _event):
         self.redraw()
-        if self._on_change:
-            self._on_change()
 
     def _on_var_change(self, *_args):
         self.redraw()
@@ -1823,6 +1821,7 @@ GENERATION_SOURCE_LABELS = {
 AUTH_REUSE_LABEL = "复用登录状态"
 AUTH_NOT_REQUIRED_LABEL = "本地文件无需登录"
 GENERATE_BUTTON_LABEL = "开始生成  →"
+REGENERATE_BUTTON_LABEL = "重新生成  →"
 
 
 class AIMemoryGUI:
@@ -1852,6 +1851,8 @@ class AIMemoryGUI:
         root.iconphoto(True, self._window_icon)
 
         self.is_running = False
+        self._generation_completed = False
+        self._generation_progress_reset = False
         self.selected_summary_file: Path | None = None
         self._generation_url_available = False
         self._generation_sources_formed = False
@@ -2858,6 +2859,8 @@ class AIMemoryGUI:
             self._select_summary_file(Path(path))
 
     def _select_summary_file(self, selected_path: Path):
+        if getattr(self, "_generation_completed", False):
+            self._reset_generation_for_new_input()
         self.selected_summary_file = Path(selected_path).resolve()
         # 文件胶囊显示文件名 + 大小
         try:
@@ -3082,12 +3085,24 @@ class AIMemoryGUI:
 
     # ---------------- URL 变更检测 ----------------
 
+    def _reset_generation_for_new_input(self):
+        if getattr(self, "is_running", False):
+            return
+        if not getattr(self, "_generation_completed", False):
+            return
+        self._generation_completed = False
+        self._generation_progress_reset = True
+        self.progress_bar.reset()
+        self.done_badge.pack_forget()
+
     def _on_url_changed(self):
         """URL 变更：发送按钮状态 + 私有链接检测 + 登录策略自动调整。"""
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
         if getattr(self, "is_running", False):
             return
+        if getattr(self, "_generation_completed", False):
+            self._reset_generation_for_new_input()
         url = self.capsule_entry.get_text()
         try:
             host = urlparse(url).netloc.lower()
@@ -3114,6 +3129,10 @@ class AIMemoryGUI:
     # ---------------- 按钮状态 ----------------
 
     def _update_generate_button_state(self):
+        completed = getattr(self, "_generation_completed", False)
+        self.btn_generate._text = (
+            REGENERATE_BUTTON_LABEL if completed else GENERATE_BUTTON_LABEL
+        )
         if getattr(self, "is_running", False):
             self.btn_generate.set_enabled(False)
             return
@@ -3138,11 +3157,11 @@ class AIMemoryGUI:
             ])
         configuration_complete = has_source and has_mode and has_auth
 
-        if hasattr(self, "status_var"):
+        if hasattr(self, "status_var") and not completed:
             self.status_var.set(
                 "所有配置已完成" if configuration_complete else "配置未完全"
             )
-        if hasattr(self, "percent_var"):
+        if hasattr(self, "percent_var") and not completed:
             missing_items = []
             if not has_source:
                 missing_items.append("内容来源")
@@ -3151,9 +3170,12 @@ class AIMemoryGUI:
             if source == "url" and not has_auth:
                 missing_items.append("访问方式")
             self.percent_var.set(
-                "可以开始生成"
-                if configuration_complete
-                else f"还需设置：{'、'.join(missing_items)}"
+                "0%" if getattr(self, "_generation_progress_reset", False)
+                else (
+                    "可以开始生成"
+                    if configuration_complete
+                    else f"还需设置：{'、'.join(missing_items)}"
+                )
             )
         self.btn_generate.set_enabled(configuration_complete)
         if hasattr(self, "_update_send_button_state"):
@@ -3226,6 +3248,7 @@ class AIMemoryGUI:
         save_dir_path, output_filename = output_target
 
         self.is_running = True
+        self._generation_progress_reset = False
         self.done_badge.pack_forget()
         self._set_inputs_locked(True)
         self._update_generate_button_state()
@@ -3308,6 +3331,7 @@ class AIMemoryGUI:
         save_dir_path, output_filename = output_target
 
         self.is_running = True
+        self._generation_progress_reset = False
         self.done_badge.pack_forget()
         self._set_inputs_locked(True)
         self._update_generate_button_state()
@@ -3878,6 +3902,9 @@ class AIMemoryGUI:
                     ),
                 )
             run_succeeded = True
+            self.root.after(
+                0, lambda: setattr(self, "_generation_completed", True)
+            )
 
         except Exception as e:
             err_msg = "处理失败，请检查网络、额度和模型配置。"
