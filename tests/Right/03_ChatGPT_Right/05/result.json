@@ -1,0 +1,24 @@
+{
+  "image_map": {
+    "https://sdmntprwestus3.oaiusercontent.com/files/00000000-2220-81fd-827e-b0580fd1b8e6/raw?se=2026-10-12T10%3A29%3A21Z&sp=r&sv=2026-02-06&sr=b&scid=2b6a8009-824a-47fb-b227-8bf1411980cd&skoid=2d2fbb03-9efb-4ad0-a91c-1db2f5a47997&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-12T01%3A16%3A25Z&ske=2026-10-13T01%3A16%3A25Z&sks=b&skv=2026-02-06&sig=o%2BSPaQRoJrHLk4wdOXP27DglA6ZJBVf6eBAGuwRLkAA%3D": "./images/img_1_c6acd49e.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "无人机视角"
+    },
+    {
+      "role": "AI",
+      "content": "![已生成图片：航拍湖畔校园与绿意公园](./images/img_1_c6acd49e.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://chatgpt.com/share/6ac62a93-a220-83ea-b98a-bd266708233e",
+  "elapsed": 33.73423520004144,
+  "files": {
+    "images/img_1_c6acd49e.png": "c2164b63cb34774e6ca741ac6146f27ab1dd6bd8ff615add1840b7154985d572"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "image_map": {
+    "blob:https://chatgpt.com/b361d4c8-1716-4888-bd5a-325fddc42bd6": "./images/img_1_70b966b4.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "无人机视角"
+    },
+    {
+      "role": "AI",
+      "content": "![已生成图像 1](./images/img_1_70b966b4.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://chatgpt.com/c/6ac62a48-b930-83e9-b67b-2851ce92bace",
+  "elapsed": 54.78048299998045,
+  "files": {
+    "images/img_1_70b966b4.png": "c2164b63cb34774e6ca741ac6146f27ab1dd6bd8ff615add1840b7154985d572"
+  }
+}

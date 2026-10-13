@@ -39,8 +39,13 @@ from gui.service import (
     _inject_chatgpt_shared_images,
     _mark_unavailable_assets,
     _chatgpt_message_asset_groups,
+    _chatgpt_private_retry_candidates,
+    _chatgpt_assets_need_rehydrate,
+    _chatgpt_session_is_authenticated,
+    _chatgpt_video_message_indices,
     _is_decorative_image_candidate,
     _merge_chatgpt_rehydrate_html,
+    _remove_chatgpt_video_message_images,
     _normalize_doubao_ai_document_text,
     _page_has_conversation_content,
     _parse_page_messages,
@@ -68,6 +73,49 @@ from scripts.gemini_summarizer import GeminiSummaryError, SummaryConfig
 
 
 class GUIServiceTests(unittest.TestCase):
+    def test_chatgpt_private_session_requires_a_real_account_session(self):
+        logged_in = SimpleNamespace(evaluate=AsyncMock(return_value=True))
+        logged_out = SimpleNamespace(evaluate=AsyncMock(return_value=False))
+        self.assertTrue(asyncio.run(_chatgpt_session_is_authenticated(
+            logged_in, "https://chatgpt.com/c/conversation-id"
+        )))
+        self.assertFalse(asyncio.run(_chatgpt_session_is_authenticated(
+            logged_out, "https://chatgpt.com/c/conversation-id"
+        )))
+
+    def test_interactive_browser_recovery_is_not_started_minimized(self):
+        source = Path(__file__).with_name("service.py").read_text(
+            encoding="utf-8"
+        )
+        recovery = source.split(
+            "该平台无法在无界面模式读取会话", 1
+        )[1].split("if content_ready:", 1)[0]
+        self.assertIn("start_minimized=False", recovery)
+
+    def test_chatgpt_rehydrates_when_a_user_turn_has_no_assistant_turn(self):
+        class Locator:
+            def __init__(self, count, text=""):
+                self._count = count
+                self._text = text
+
+            async def count(self):
+                return self._count
+
+            async def inner_text(self, timeout):
+                return self._text
+
+        class Page:
+            def locator(self, selector):
+                if selector == "body":
+                    return Locator(1, "无人机视角")
+                if "assistant" in selector:
+                    return Locator(0)
+                return Locator(1)
+
+        self.assertTrue(asyncio.run(_chatgpt_assets_need_rehydrate(
+            Page(), "https://chatgpt.com/c/conversation-id", [], set()
+        )))
+
     def test_gemini_blob_image_is_downloaded(self):
         body = b"\x89PNG\r\n\x1a\ncontent"
         page = SimpleNamespace(
@@ -530,6 +578,72 @@ class GUIServiceTests(unittest.TestCase):
             self.assertTrue(saved.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
 
         self.assertEqual(page.fetches, [source])
+
+    def test_image_download_waits_for_lazy_loaded_chatgpt_image_before_screenshot(self):
+        source = "https://sdmntprwestus3.oaiusercontent.com/files/generated/raw?sig=test"
+
+        class FakeResponse:
+            ok = False
+            status = 403
+            headers = {}
+
+        class FakeRequest:
+            async def get(self, src, timeout):
+                return FakeResponse()
+
+        class FakeImage:
+            def __init__(self):
+                self.loaded = False
+                self.scrolled = False
+
+            async def evaluate(self, script):
+                if "img.src, img.currentSrc" in script:
+                    return [source, source, None]
+                if "new Promise(resolve" in script:
+                    self.loaded = True
+                    return True
+                return [100, 80] if self.loaded else [0, 0]
+
+            async def scroll_into_view_if_needed(self, timeout):
+                self.scrolled = True
+
+            async def screenshot(self, type, timeout):
+                return b"\x89PNG\r\n\x1a\nrendered"
+
+        class FakeImages:
+            def __init__(self):
+                self.image = FakeImage()
+
+            async def count(self):
+                return 1
+
+            def nth(self, index):
+                return self.image
+
+        class FakePage:
+            request = FakeRequest()
+
+            def __init__(self):
+                self.images = FakeImages()
+
+            def locator(self, selector):
+                return self.images
+
+            async def evaluate(self, script, src):
+                return None
+
+        page = FakePage()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_map = asyncio.run(_download_image_candidates(
+                page,
+                [source],
+                Path(temp_dir),
+                "./assets",
+            ))
+            saved = Path(temp_dir) / Path(image_map[source]).name
+            self.assertEqual(saved.read_bytes(), b"\x89PNG\r\n\x1a\nrendered")
+
+        self.assertTrue(page.images.image.scrolled)
 
     def test_unloaded_gemini_image_still_uses_network_download(self):
         source = "https://lh3.googleusercontent.com/gg/example"
@@ -1730,6 +1844,54 @@ class GUIServiceTests(unittest.TestCase):
             "?shared_conversation_id=6a60329f-c73c-83ee-a272-ea3768b04ab5",
         )
 
+    def test_chatgpt_video_frames_are_not_image_attachments(self):
+        video = {
+            "id": "file_video123456", "name": "测试视频.mp4",
+            "mime_type": "video/mp4",
+        }
+        documents = []
+        images = set()
+        _collect_response_assets(
+            {"messages": [{
+                "author": {"role": "user"},
+                "metadata": {"attachments": [video]},
+                "content": {"parts": [
+                    {"id": "file_frame1", "file_name": "frame1.jpg",
+                     "mime_type": "image/jpeg"},
+                    {"id": "file_frame2", "file_name": "frame2.jpg",
+                     "mime_type": "image/jpeg"},
+                ]},
+            }]},
+            "https://chatgpt.com/c/conversation-id",
+            documents, images,
+        )
+        self.assertEqual([item.filename for item in documents], ["测试视频.mp4"])
+        self.assertEqual(images, set())
+
+    def test_chatgpt_video_preview_is_removed_without_runtime_groups(self):
+        html = (
+            '<div data-message-author-role="user">'
+            '测试视频.mp4 文件 这个视频讲了什么'
+            '<img src="frame1.jpg"><img src="frame2.jpg"></div>'
+            '<div data-message-author-role="assistant">'
+            '<img src="generated.png"></div>'
+        )
+        video = DocumentCandidate(
+            "file_video123456",
+            "https://chatgpt.com/backend-api/files/download/file_video123456",
+            "测试视频.mp4",
+        )
+        indices = _chatgpt_video_message_indices(html, [], [video])
+        self.assertEqual(indices, {0})
+        cleaned = BeautifulSoup(
+            _remove_chatgpt_video_message_images(html, indices),
+            "html.parser",
+        )
+        self.assertEqual(
+            [img["src"] for img in cleaned.find_all("img")],
+            ["generated.png"],
+        )
+
     def test_authorized_platform_responses_produce_downloadable_documents(self):
         chatgpt_documents = []
         chatgpt_images = set()
@@ -2632,6 +2794,38 @@ class GUIServiceTests(unittest.TestCase):
         self.assertNotIn("messagesById", page.script)
         self.assertIn("const message = item.message", page.script)
 
+    def test_chatgpt_assets_align_to_user_message_ids(self):
+        class FakePage:
+            async def evaluate(self, script):
+                return [
+                    {
+                        "id": "later", "nodeId": "later",
+                        "images": ["sediment://file_later"],
+                        "attachments": [{"id": "file_laterdoc", "name": "later.csv"}],
+                    },
+                    {
+                        "id": "earlier", "nodeId": "earlier",
+                        "images": ["sediment://file_earlier"],
+                        "attachments": [{"id": "file_earlierdoc", "name": "earlier.pdf"}],
+                    },
+                ]
+
+        html = (
+            '<div data-message-author-role="user" '
+            'data-chatgpt-search-unit-key="earlier:0:user">图片</div>'
+            '<div data-message-author-role="user" '
+            'data-chatgpt-search-unit-key="later:0:user">表格</div>'
+        )
+        images, documents = asyncio.run(_chatgpt_message_asset_groups(
+            FakePage(), "https://chatgpt.com/c/conversation-id", html
+        ))
+        self.assertTrue(images[0][0].endswith("/file_earlier"))
+        self.assertTrue(images[1][0].endswith("/file_later"))
+        self.assertEqual(
+            [group[0].filename for group in documents],
+            ["earlier.pdf", "later.csv"],
+        )
+
     def test_chatgpt_shared_video_recovers_private_attachment_without_runtime_groups(self):
         share_id = "6ac64d05-b08c-83e9-82f6-ecb01f142770"
         video = DocumentCandidate(
@@ -2640,24 +2834,64 @@ class GUIServiceTests(unittest.TestCase):
             "测试视频.mp4",
         )
         page = SimpleNamespace(
-            evaluate=AsyncMock(return_value=[[{
-                "id": "file_private_video",
-                "name": "测试视频.mp4",
-            }]]),
+            url=f"https://chatgpt.com/share/{share_id}",
+            evaluate=AsyncMock(return_value={
+                "conversationId": "private-video-conversation",
+                "groups": [[{
+                    "id": "file_private_video",
+                    "name": "测试视频.mp4",
+                }]],
+            }),
         )
-        images, documents = asyncio.run(
-            _recover_chatgpt_shared_video_assets(
-                page,
-                f"https://chatgpt.com/share/{share_id}",
-                '<div data-message-author-role="user">'
-                '测试视频.mp4 文件 这个视频讲了什么</div>',
-                [],
-                [],
+        with patch("gui.service.goto_with_retry_gui", new_callable=AsyncMock) as goto:
+            images, documents = asyncio.run(
+                _recover_chatgpt_shared_video_assets(
+                    page,
+                    f"https://chatgpt.com/share/{share_id}",
+                    '<div data-message-author-role="user">'
+                    '测试视频.mp4 文件 这个视频讲了什么</div>',
+                    [],
+                    [],
+                )
             )
-        )
         self.assertEqual(images, [[]])
         self.assertEqual(documents, [[video]])
         self.assertEqual(page.evaluate.await_args.args[1], "这个视频讲了什么")
+        goto.assert_awaited_once_with(
+            page,
+            "https://chatgpt.com/c/private-video-conversation",
+            attempts=1,
+        )
+
+    def test_chatgpt_private_retry_matches_unique_name_when_file_id_changes(self):
+        shared = DocumentCandidate(
+            "file_csv", "https://chatgpt.com/backend-api/files/download/file_csv"
+            "?shared_conversation_id=share", "data.csv",
+        )
+        private = DocumentCandidate(
+            "file_private_csv", "https://chatgpt.com/backend-api/files/download/file_private_csv",
+            "data.csv",
+        )
+        wrong_name = DocumentCandidate(
+            "file_csv", "https://chatgpt.com/backend-api/files/download/file_csv",
+            "other.csv",
+        )
+        self.assertEqual(
+            _chatgpt_private_retry_candidates(
+                {shared: "http_403"}, [[wrong_name, private]]
+            ),
+            {shared: private},
+        )
+        duplicate = DocumentCandidate(
+            "file_another_csv", "https://chatgpt.com/backend-api/files/download/file_another_csv",
+            "data.csv",
+        )
+        self.assertEqual(
+            _chatgpt_private_retry_candidates(
+                {shared: "http_403"}, [[private, duplicate]]
+            ),
+            {},
+        )
 
     def test_chatgpt_placeholder_gets_real_metadata_filename(self):
         html = (
@@ -2817,6 +3051,85 @@ class GUIServiceTests(unittest.TestCase):
             messages[0]["content"],
             "[📄 problem2_moisture.csv](./documents/problem2_moisture.csv)"
             "\n\n电子表格",
+        )
+
+    def test_chatgpt_csv_preview_becomes_downloaded_file_link(self):
+        document = DocumentCandidate(
+            "file_csv", "https://chatgpt.com/download/file_csv",
+            "problem2_moisture.csv",
+        )
+        html = (
+            '<div data-message-author-role="user">'
+            '帮我分析这个数据。'
+            '<section aria-label="problem2_moisture.csv">'
+            '<header>problem2 moisture</header>'
+            '<div><div>时间/h</div><div>距中心0cm</div><div>2.5499</div></div>'
+            '</section>'
+            '</div>'
+        )
+        enriched = _inject_chatgpt_attachment_names(
+            html, [document], [[document]]
+        )
+        _, messages = _parse_page_messages(
+            "https://chatgpt.com/c/conversation-id",
+            BeautifulSoup(enriched, "html.parser"),
+            {"problem2_moisture.csv": "./documents/problem2_moisture.csv"},
+        )
+        self.assertEqual(
+            messages[0]["content"],
+            "[📄 problem2_moisture.csv](./documents/problem2_moisture.csv)"
+            "\n\n帮我分析这个数据。",
+        )
+
+    def test_chatgpt_csv_preview_uses_following_ai_filename_fallback(self):
+        document = DocumentCandidate(
+            "file_csv", "https://chatgpt.com/download/file_csv",
+            "problem2_moisture.csv",
+        )
+        html = (
+            '<div data-message-author-role="user">'
+            '<table><tr><th>时间/h</th><th>距中心0cm</th></tr>'
+            '<tr><td>1</td><td>2.5499</td></tr></table>'
+            '</div>'
+            '<div data-message-author-role="assistant">'
+            '我看到了 problem2_moisture.csv</div>'
+        )
+        enriched = _inject_chatgpt_attachment_names(
+            html, [document], [[], []]
+        )
+        _, messages = _parse_page_messages(
+            "https://chatgpt.com/c/conversation-id",
+            BeautifulSoup(enriched, "html.parser"),
+            {"problem2_moisture.csv": "./documents/problem2_moisture.csv"},
+        )
+        self.assertEqual(
+            messages[0]["content"],
+            "[📄 problem2_moisture.csv](./documents/problem2_moisture.csv)",
+        )
+
+    def test_chatgpt_csv_preview_uses_card_aria_label_without_groups(self):
+        document = DocumentCandidate(
+            "file_csv", "https://chatgpt.com/download/file_csv",
+            "problem2_moisture.csv",
+        )
+        html = (
+            '<div data-message-author-role="user">'
+            '<p>请分析这个数据。</p>'
+            '<section aria-label="problem2_moisture.csv">'
+            '<header>problem2 moisture</header>'
+            '<div><div>时间/h</div><div>距中心0cm</div><div>2.5499</div></div>'
+            '</section></div>'
+        )
+        enriched = _inject_chatgpt_attachment_names(html, [document], [])
+        _, messages = _parse_page_messages(
+            "https://chatgpt.com/c/conversation-id",
+            BeautifulSoup(enriched, "html.parser"),
+            {"problem2_moisture.csv": "./documents/problem2_moisture.csv"},
+        )
+        self.assertEqual(
+            messages[0]["content"],
+            "[📄 problem2_moisture.csv](./documents/problem2_moisture.csv)"
+            "\n\n请分析这个数据。",
         )
 
     def test_chatgpt_plain_video_name_uses_downloaded_file(self):

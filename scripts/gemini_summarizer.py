@@ -1455,12 +1455,19 @@ def _extract_xlsx_text(path: Path, max_chars: int) -> str:
         lines: list[str] = []
         for sheet in workbook.worksheets:
             lines.append(f"[工作表：{sheet.title}]")
-            for row in sheet.iter_rows(values_only=True):
+            data_cells = 0
+            for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
+                if row_index:
+                    data_cells += sum(
+                        value is not None and str(value).strip() != ""
+                        for value in row[1:]
+                    )
                 line = "\t".join("" if value is None else str(value) for value in row).rstrip()
                 if line:
                     lines.append(line)
                 if sum(len(item) + 1 for item in lines) >= max_chars:
                     return "\n".join(lines)[:max_chars]
+            lines.append(f"[第2行第2列起非空单元格：{data_cells}]")
         return "\n".join(lines)[:max_chars]
     finally:
         workbook.close()
@@ -1704,6 +1711,22 @@ def _media_analysis_failure_description(asset: MediaAsset) -> str:
     )
 
 
+def _correct_empty_xlsx_description(asset: MediaAsset) -> None:
+    if asset.kind != "document" or not asset.local_path or asset.local_path.suffix.lower() != ".xlsx":
+        return
+    sheets = re.findall(r"\[工作表：([^\]]+)\]", asset.extracted_text)
+    counts = re.findall(r"\[第2行第2列起非空单元格：(\d+)\]", asset.extracted_text)
+    if not sheets or len(sheets) != len(counts) or any(int(value) for value in counts):
+        return
+    owner = "AI 回答中包含文档" if asset.source_role == "assistant" else "用户上传了文档"
+    asset.status = "described"
+    asset.description = (
+        f"{owner}“{asset.label}”，包含工作表“{'、'.join(sheets)}”；"
+        "程序读取本地工作簿确认，每张工作表从第2行第2列起的非空单元格均为0，"
+        "该区域当前没有可分析的数值。"
+    )
+
+
 def describe_media(
     assets: list[MediaAsset],
     gateway: SummaryGateway,
@@ -1846,13 +1869,26 @@ def describe_media(
                         )
 
             for asset in batch:
-                if asset.kind != "image" or asset.status != "unclear":
+                if asset.status != "unclear":
                     continue
                 try:
+                    retry_prompt = (
+                        "请只识别下列一个媒体，严格返回其 media_id；"
+                        "文档请概括类型、主题和关键事实，无法辨认时返回 unclear。\n"
+                        + json.dumps({
+                            "media_id": asset.media_id,
+                            "kind": asset.kind,
+                            "label": asset.label,
+                            "extracted_document_text": asset.extracted_text,
+                        }, ensure_ascii=False)
+                    ) if asset.kind == "document" else (
+                        "请重新识别这张图片，优先读取清晰可见的文字。"
+                        "无法辨认时仍返回 unclear。"
+                    )
                     retry = gateway.generate_json(
-                        "请重新识别这张图片，优先读取清晰可见的文字。无法辨认时仍返回 unclear。",
+                        retry_prompt,
                         MEDIA_SCHEMA,
-                        media_assets=[asset],
+                        media_assets=[] if asset.extracted_text else [asset],
                     )
                 except GeminiSummaryError:
                     continue
@@ -1867,11 +1903,15 @@ def describe_media(
                 description = str(item.get("description", "")).strip()
                 if description and item.get("status") == "described":
                     asset.status = "described"
-                    owner = "AI 回答中包含" if asset.source_role == "assistant" else "用户上传了"
-                    asset.description = (
-                        f"{owner}一张图片“{asset.label}”；以下为模型视觉识别结果，"
-                        f"其中 OCR 字符可能存在误差：{description}"
-                    )
+                    if asset.kind == "image":
+                        owner = "AI 回答中包含" if asset.source_role == "assistant" else "用户上传了"
+                        asset.description = (
+                            f"{owner}一张图片“{asset.label}”；以下为模型视觉识别结果，"
+                            f"其中 OCR 字符可能存在误差：{description}"
+                        )
+                    else:
+                        owner = "AI 回答中包含文档" if asset.source_role == "assistant" else "用户上传了文档"
+                        asset.description = f"{owner}“{asset.label}”，主要内容为：{description}"
         except GeminiSummaryError as error:
             warning = (
                 f"第 {batch_index} 批媒体识别失败："
@@ -1882,6 +1922,8 @@ def describe_media(
                 asset.status = "analysis_failed"
                 asset.description = _media_analysis_failure_description(asset)
 
+    for asset in assets:
+        _correct_empty_xlsx_description(asset)
     return warnings
 
 def enrich_messages(
@@ -2429,7 +2471,10 @@ def summarize_conversation(
             )
             + (
                 "文档附件硬约束：文档已经先被压缩成‘附件主要内容’说明。"
-                "附件说明只是其所在消息的背景材料，不是当前对话原文。不得把"
+                "附件说明是本次程序独立读取所得，只是所在消息的背景材料，"
+                "不是当前对话原文，也不证明上一 AI 曾读取附件内容。只有原对话"
+                "中的 AI 回答明确分析了具体内容，才可写上一 AI 已分析；若 AI "
+                "仅确认收到文件并提出以后可做的分析，必须写未实际分析。不得把"
                 "文档内部的章节、案例、旧对话、代码、消息编号、状态或任务"
                 "自动拆成当前对话的独立主题、用户经历、当前状态、已完成事项"
                 "或待办。用户仅要求识别、概括、总结或审查附件时，AI 对附件"
@@ -2469,6 +2514,8 @@ def summarize_conversation(
         "任务。请综合分批记忆，重点回答用户现在在做什么、做到哪一步、哪些动作"
         "已执行或已验证、哪些只是 AI 建议或推测、还有什么未完成。"
         "overall_summary 优先写可继续工作的状态，不追求罗列所有历史话题。"
+        "总览必须写到最后一轮用户消息及其后 AI 的实际回答；不得以更早一轮"
+        "的任务或建议充当当前断点。总览每句话都要完整，避免残句。"
         "current_state 中每个 claim 必须有 source/status/message_ids；没有证据"
         "不能写 confirmed/executed/verified。topics 只按真实主题组织，并通过"
         "memory_ids 引用细粒度记忆。最后用户消息和最近上下文如下，它们的"
@@ -2491,6 +2538,8 @@ def summarize_conversation(
         + ("主题覆盖硬约束：topics 必须覆盖所有分批记忆中的实质主题，不能只总结最近上下文；多个分块属于同一主题时可以合并，但早期独立主题不能丢失。即使总字符不长，只要存在三个及以上互不相关任务，也必须分别生成主题。\n\n")
         + (
             "文档附件硬约束：topics 只能反映本次对话实际讨论的意图。文档"
+            "内容说明来自本次独立读取，不得把它归因于上一 AI。核对原对话"
+            "回答；仅确认收到文件和提出未来分析选项，不等于已分析附件。"
             "摘要中的内部章节、旧对话和任务不构成本次对话的独立主题；除非"
             "用户在附件之外明确点名某个内部议题并围绕它提问，否则即使上一 "
             "AI 在识别、概括、总结或审查附件时逐项复述了内部内容，也只能在"
@@ -4732,6 +4781,15 @@ def _normalize_latest_turn_state(
                 reached["status"] = "answered"
             reached["message_ids"] = reached_ids
         current_state["reached_stage"] = _with_message_range(reached)
+        next_step = current_state.get("next_step", {})
+        if (
+            isinstance(next_step, dict)
+            and next_step.get("status") == "suggested"
+            and next_step.get("source") == "assistant"
+            and next_step.get("message_ids")
+            and max(next_step["message_ids"]) < last_user_id
+        ):
+            current_state["next_step"] = _normalize_claim({}, len(messages))
         unresolved = any(
             claim.get("status") == "unresolved"
             for claim in current_state.get("pending", [])
@@ -4989,8 +5047,9 @@ def _qualify_unconfirmed_programming_text(
 
 
 def _clean_generated_punctuation(text: str) -> str:
-    """只清理模型生成摘要中相邻且互相冲突的句末标点。"""
+    """清理相邻冲突标点及明显未完成的短句。"""
     value = str(text or "")
+    value = re.sub(r"；[^。；]{1,60}问题也。", "。", value)
     value = re.sub(r"[、，；：]+。", "。", value)
     value = re.sub(r"。{2,}", "。", value)
     return value

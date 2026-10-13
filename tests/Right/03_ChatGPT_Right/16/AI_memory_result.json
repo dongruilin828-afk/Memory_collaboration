@@ -1,0 +1,2043 @@
+{
+  "schema_version": 8,
+  "generated_at": "2026-10-12T13:33:27.988500+00:00",
+  "provider": "deepseek",
+  "model": "deepseek-v4-pro",
+  "source": "export.md",
+  "conversation": {
+    "message_count": 6,
+    "user_messages": 3,
+    "ai_messages": 3,
+    "chunk_count": 5,
+    "conversation_types": [
+      "programming",
+      "decision"
+    ],
+    "programming_mode": "task",
+    "source_fingerprint": "eb821b79516a40da352f3eba76036e0454f97b1cf60496792b6cb3b08915c4cf"
+  },
+  "overall_summary": "用户在改进一个哈利·波特 PDF 翻译脚本。用户最初提供了带额度管理、断点续传和百度翻译 API 的原脚本并请求评价；AI 给出 7/10 并指出最严重的问题是原脚本续写 ReportLab PDF 会导致断点续传后已完成页面变成空白页，以及 API 失败页被错误标记完成等问题。用户随后请求 AI 帮助升级并明确要求保留硬编码路径。AI 先给出了采用每页缓存 + 从缓存重建 PDF 的改进版。用户进一步要求保持现有方案不变、不要再增加改动，只要求直接提供替换后的完整代码。AI 已交付完整替换脚本，并说明环境变量、依赖和路径保持不变。目前用户尚未确认是否已替换原文件或运行验证。",
+  "current_state": {
+    "current_activity": {
+      "content": "用户最近提出：保持现在这样，不要再改了，但请你直接给我替换后的代码",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        5
+      ],
+      "message_range": "5"
+    },
+    "reached_stage": {
+      "content": "AI 已交付可直接替换原脚本的完整 Python 代码，保留硬编码路径，并说明环境变量、依赖和路径不变。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "message_range": "6"
+    },
+    "completed": [
+      {
+        "content": "用户提供了完整的 PDF 翻译脚本并请求 AI 评价代码。",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          1
+        ],
+        "message_range": "1"
+      },
+      {
+        "content": "AI 给出综合评价 7/10，并列出断点续传、API 错误处理、文本切分、额度统计、PDF 排版、宽泛异常等问题。",
+        "source": "assistant",
+        "status": "delivered",
+        "message_ids": [
+          2
+        ],
+        "message_range": "2"
+      },
+      {
+        "content": "用户请求 AI 帮助升级代码，并明确要求保留硬编码路径。",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          3
+        ],
+        "message_range": "3"
+      },
+      {
+        "content": "AI 提供了改进版脚本，采用每页翻译缓存 + 从缓存重建 PDF 的方式，并保留硬编码路径。",
+        "source": "assistant",
+        "status": "delivered",
+        "message_ids": [
+          4
+        ],
+        "message_range": "4"
+      },
+      {
+        "content": "用户决定保持当前方案不变、不再增加改动，并要求直接提供替换后的完整代码。",
+        "source": "user",
+        "status": "confirmed",
+        "message_ids": [
+          5
+        ],
+        "message_range": "5"
+      },
+      {
+        "content": "AI 提供了可直接替换原脚本的完整代码，并说明环境变量、依赖和路径保持不变。",
+        "source": "assistant",
+        "status": "delivered",
+        "message_ids": [
+          6
+        ],
+        "message_range": "6"
+      }
+    ],
+    "pending": [
+      {
+        "content": "用户尚未确认是否已将原 .py 文件替换为 AI 提供的完整代码。",
+        "source": "assistant",
+        "status": "unresolved",
+        "message_ids": [
+          6
+        ],
+        "message_range": "6"
+      },
+      {
+        "content": "用户尚未反馈替换后的脚本运行结果或是否遇到问题。",
+        "source": "inferred",
+        "status": "unresolved",
+        "message_ids": [
+          6
+        ],
+        "message_range": "6"
+      }
+    ],
+    "next_step": {
+      "content": "用户运行提供的完整替换代码，根据结果反馈是否成功或需进一步修复。",
+      "source": "inferred",
+      "status": "suggested",
+      "message_ids": [
+        6
+      ],
+      "message_range": "6"
+    },
+    "last_user_message_id": 5,
+    "latest_message_id": 6,
+    "latest_message_role": "AI",
+    "last_user_turn_answered": true,
+    "last_user_intent": "保持现在这样，不要再改了，但请你直接给我替换后的代码",
+    "breakpoint_status": "waiting_verification"
+  },
+  "topics": [
+    {
+      "topic_id": "topic_1",
+      "title": "英语词汇、翻译与表达学习",
+      "summary": "集中讨论 10 项英语词汇、翻译、语法、短语或相关表达学习；下方细节仅保留有助于续接的代表项。",
+      "memory_ids": [
+        "C001M007",
+        "C001M008",
+        "C001M013",
+        "C002M005",
+        "C002M008",
+        "C002M010",
+        "C003M002",
+        "C003M003",
+        "C005M001",
+        "C005M004"
+      ],
+      "source_message_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "message_range": "1~6"
+    },
+    {
+      "topic_id": "topic_2",
+      "title": "用户后续升级请求与路径约束",
+      "summary": "用户希望 AI 帮助升级代码，但明确要求保留硬编码路径。",
+      "memory_ids": [
+        "C001M017"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_3",
+      "title": "升级方案尚未给出",
+      "summary": "截至本批结束，AI 尚未针对用户“帮助升级且保留硬编码路径”的请求给出具体修改方案或代码。",
+      "memory_ids": [
+        "C001M018"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_4",
+      "title": "用户提供的 PDF 翻译脚本",
+      "summary": "用户粘贴完整 Python 脚本，包含 pdfplumber 读取、百度翻译 API 调用、本地额度管理、断点进度保存、ReportLab 中文字体输出与 wrap_line 换行，输出到 D:\\小说\\哈利波特\\Harry Potter_translated.pdf，输入为 D:\\小说\\哈利波特\\Harry Potter.pdf。",
+      "memory_ids": [
+        "C001M001"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_5",
+      "title": "请求评价代码",
+      "summary": "用户在粘贴代码后请求 AI 评价这段代码。",
+      "memory_ids": [
+        "C001M002"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_6",
+      "title": "AI 总体评分与定性",
+      "summary": "AI 认为脚本思路完整、已具备实用雏形，但断点续传存在核心设计缺陷，综合评分 7/10。",
+      "memory_ids": [
+        "C001M003"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_7",
+      "title": "代码优点：环境变量密钥、额度记录、中文字体等",
+      "summary": "AI 指出代码的优点：密钥通过环境变量读取；本地额度记录并能按月重置；有断点续翻思路；注册 STSong-Light 字体使 ReportLab 能输出中文。",
+      "memory_ids": [
+        "C001M004"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_8",
+      "title": "断点续传核心缺陷：旧译文丢失",
+      "summary": "AI 指出每次运行 canvas.Canvas(OUTPUT_PDF) 会新建 PDF，前面 start_page-1 页只生成空白页，不会接回上次翻译内容；升级需修复此逻辑，否则最终 PDF 前段空白。",
+      "memory_ids": [
+        "C001M005"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_9",
+      "title": "额度耗尽时页码保存语义错误",
+      "summary": "AI 指出额度耗尽分支调用 save_progress(current_page_num)，但 last_finished_page 语义是最后完成的页；建议保存 current_page_num - 1 并在加载时 +1，以避免语义混乱。",
+      "memory_ids": [
+        "C001M006"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_10",
+      "title": "API 请求长度控制不准确",
+      "summary": "AI 指出 split_text 的 max_len=4500 不能保证百度 API 一定安全，涉及参数长度、字符计数规则；建议按段落→句子→每批 3000~4000 字符切分。",
+      "memory_ids": [
+        "C001M009"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_11",
+      "title": "未复用 requests.Session",
+      "summary": "AI 指出每次 requests.post 独立请求，几百页数千次调用应使用 requests.Session() 复用连接。",
+      "memory_ids": [
+        "C001M010"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_12",
+      "title": "本地额度统计不等于百度实际计费",
+      "summary": "AI 指出 total_cost += len(b.strip()) 统计本地发送字符长度，可能不等于百度实际计费；MONTHLY_FREE_QUOTA 最好理解为本程序保守估算，若 API 返回实际消耗应优先采用。",
+      "memory_ids": [
+        "C001M011"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_13",
+      "title": "PDF 段落结构被破坏",
+      "summary": "AI 指出 full_text = \" \".join(w[\"text\"] for w in words) 合并文字破坏了原 PDF 段落、章节标题等结构；小说翻译应保留段落、空行、标题、页码、首行缩进等。",
+      "memory_ids": [
+        "C001M012"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_14",
+      "title": "宽泛 except 掩盖错误",
+      "summary": "AI 指出代码中使用 except: 返回默认值太宽泛，建议至少 except (json.JSONDecodeError, OSError) 以便定位问题。",
+      "memory_ids": [
+        "C001M014"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_15",
+      "title": "重复 import 与路径管理",
+      "summary": "AI 指出 import os 出现两次，并建议用 pathlib.Path 管理路径；但这与用户后续要求保留硬编码路径存在冲突，用户最终选择保留硬编码路径。",
+      "memory_ids": [
+        "C001M015"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_16",
+      "title": "推荐架构：先保存翻译结果再生成 PDF",
+      "summary": "AI 建议改为逐页翻译后保存 page_001.json 等文件，全部翻译完成后再统一生成 PDF，使翻译与 PDF 生成相互独立，避免中断丢失。",
+      "memory_ids": [
+        "C001M016"
+      ],
+      "source_message_ids": [
+        1,
+        2
+      ],
+      "message_range": "1, 2"
+    },
+    {
+      "topic_id": "topic_17",
+      "title": "用户对路径输入的约束（硬编码）",
+      "summary": "AI 转述用户要求：所有输入/输出/状态文件路径继续硬编码，不改为命令行参数，也不让用户每次输入路径。原始用户消息不在当前批次中，无法直接确认。",
+      "memory_ids": [
+        "C002M001"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_18",
+      "title": "原脚本核心问题诊断",
+      "summary": "AI 诊断原代码最严重的问题是 PDF 输出依赖于接着上次的 ReportLab PDF 继续写，因此电脑崩溃、程序中断或额度耗尽后，已经完成的内容会变成空白页。",
+      "memory_ids": [
+        "C002M002"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_19",
+      "title": "改进方案：每页翻译结果缓存与重建PDF",
+      "summary": "改为每页翻译结果缓存，随时可以从缓存重建输出 PDF；崩溃、中断或额度耗尽后已完成内容不会变成空白页。",
+      "memory_ids": [
+        "C002M003"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_20",
+      "title": "固定路径配置",
+      "summary": "代码设置输入 PDF 为 D:\\小说\\哈利波特\\Harry Potter.pdf，输出为 D:\\小说\\哈利波特\\Harry Potter_translated.pdf；额度文件 translation_quota.json、进度文件 translation_progress.json、缓存目录 translation_cache 均固定放在小说目录。",
+      "memory_ids": [
+        "C002M004"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_21",
+      "title": "月度额度管理",
+      "summary": "月度免费额度为 1,000,000 字符；额度文件以当前月第一天字符串作为月份标识，跨月自动重置；额度文件损坏时重新初始化。",
+      "memory_ids": [
+        "C002M006"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_22",
+      "title": "断电恢复的额度校正",
+      "summary": "sync_quota_from_cache 会在启动时根据成功缓存页面的 status 和 usage_month 校正已用额度，解决 API 成功→页面缓存保存→额度文件保存前断电导致额度丢失的问题；add_used_chars 注释警告不要再次调用 sync_quota_from_cache，以免重复计算当前页。",
+      "memory_ids": [
+        "C002M007"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_23",
+      "title": "页面缓存校验",
+      "summary": "每页缓存文件为 page_XXXX.json，保存 source_hash、translated_text、cost_chars、usage_month、status 等；加载缓存时要求 status 为 completed 且 source_hash 与当前提取文本一致，避免更换 PDF 后误用旧缓存。",
+      "memory_ids": [
+        "C002M009"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_24",
+      "title": "API 重试策略",
+      "summary": "百度 API 请求最多重试 3 次，指数退避时间为 2^attempt（约 2、4、8 秒），连续失败后抛出 RuntimeError。",
+      "memory_ids": [
+        "C002M011"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_25",
+      "title": "PDF 排版与页脚",
+      "summary": "使用 STSong-Light 字体，字号 11、行高 16、边距 30、页脚字号 8；wrap_text_to_lines 根据 stringWidth 自动换行，英文优先在最近空格处断行；每页页脚显示“原 PDF 第 x 页”，续页时加“（续）”。",
+      "memory_ids": [
+        "C002M012"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_26",
+      "title": "重建 PDF 的连续性保护",
+      "summary": "rebuild_output_pdf 顺序遍历页面，一旦某一页缓存缺失就停止输出，避免出现 1、2、3、5 页有而第 4 页缺失时输出 PDF 页码错乱。",
+      "memory_ids": [
+        "C002M013"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_27",
+      "title": "主翻译流程逻辑",
+      "summary": "translate_pdf_resumable 依次检查输入文件、sync_quota_from_cache、加载进度、遍历每一页；A 提取文字失败或 D 额度不足时都会调用 rebuild_output_pdf 并保存进度后返回；B 有有效缓存跳过；C 空白页写入空缓存并更新进度。但代码在 D 额度不足处理 return 后截断，后续循环体和主函数结束未知。",
+      "memory_ids": [
+        "C002M014"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_28",
+      "title": "原版断点续传缺失导致空白页问题",
+      "summary": "AI指出原代码重新创建PDF时会将前面页面变成空白页，建议改为按页缓存到translation_cache目录（page_0001.json等），再次运行时直接读取缓存，不再浪费百度额度并从断点继续翻译。",
+      "memory_ids": [
+        "C003M001"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_29",
+      "title": "缓存增加source_hash校验",
+      "summary": "AI建议在每页缓存中加入source_hash（每页文本的SHA-256），当PDF文件版本变化但文件名相同时，通过比较hash避免错误使用旧翻译缓存。",
+      "memory_ids": [
+        "C003M004"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_30",
+      "title": "分句方法优化避免缩写切错",
+      "summary": "AI指出原代码使用text.replace('\\n',' ').split('. ')切分句子，容易把Mr. Potter、Mrs. Weasley、Dr.等缩写切错，建议先处理常见缩写，再根据句子边界和长度进行分块。",
+      "memory_ids": [
+        "C003M005"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_31",
+      "title": "保留硬编码路径",
+      "summary": "AI保留了原代码中的硬编码路径INPUT_PDF和OUTPUT_PDF，用户无需每次运行输入路径。",
+      "memory_ids": [
+        "C003M006"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_32",
+      "title": "下一步升级段落识别与章节标题",
+      "summary": "AI建议下一步升级段落识别+章节标题识别+更好的小说排版，使中文PDF更像真正的电子书。",
+      "memory_ids": [
+        "C003M007"
+      ],
+      "source_message_ids": [
+        3,
+        4
+      ],
+      "message_range": "3, 4"
+    },
+    {
+      "topic_id": "topic_33",
+      "title": "用户要求保持现状并直接提供替换代码",
+      "summary": "用户明确表示保持当前方案不变，不要再修改，并要求AI直接给出替换后的完整代码。",
+      "memory_ids": [
+        "C003M008"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_34",
+      "title": "用户对PDF翻译脚本的要求：保留硬编码路径",
+      "summary": "根据AI回答，用户此前明确要求保留硬编码路径，而不是改用环境变量或参数。",
+      "memory_ids": [
+        "C004M001"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_35",
+      "title": "AI提供完整替换代码",
+      "summary": "AI表示可以提供完整版本，直接替换用户原代码，并且保持上一版的功能，不再额外增加新的改动。",
+      "memory_ids": [
+        "C004M002"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_36",
+      "title": "代码包含的主要功能模块",
+      "summary": "AI提供的代码包含：配置（输入输出PDF路径、额度文件、进度文件、缓存目录）、百度翻译API环境变量、JSON原子写入、月度额度管理、断点进度管理、页面缓存、文本清洗、英文分块、百度翻译API调用、自动换行、页脚、PDF重建和主翻译流程。",
+      "memory_ids": [
+        "C004M003"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_37",
+      "title": "硬编码输入输出路径",
+      "summary": "AI代码中设置了硬编码输入输出路径：INPUT_PDF为D:\\小说\\哈利波特\\Harry Potter.pdf，OUTPUT_PDF为D:\\小说\\哈利波特\\Harry Potter_translated.pdf，以及状态文件路径等。",
+      "memory_ids": [
+        "C004M004"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_38",
+      "title": "百度翻译API配置",
+      "summary": "代码使用百度翻译API，通过环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET获取密钥，单次请求最大字符数4000，采用MD5签名，最多重试3次。",
+      "memory_ids": [
+        "C004M005"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_39",
+      "title": "额度不足停止并重建PDF",
+      "summary": "AI代码中，当check_quota返回本月额度不足时，打印停止翻译信息，调用rebuild_output_pdf重建已有输出PDF，保存进度并返回。",
+      "memory_ids": [
+        "C005M002"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_40",
+      "title": "翻译失败不建立完成缓存并自动重试",
+      "summary": "AI代码中，翻译页面时若捕获异常，会打印失败信息，不建立当前页完成缓存，重建输出PDF、保存进度并返回；下次运行会自动重新翻译该页。",
+      "memory_ids": [
+        "C005M003"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_41",
+      "title": "进度更新与完成检查",
+      "summary": "AI代码中，每页完成后将last_finished_page设为当前页并保存进度；所有页处理完后遍历全部页面检查是否存在有效缓存，若无有效缓存则设置all_completed为False，最终重建输出PDF。",
+      "memory_ids": [
+        "C005M005"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_42",
+      "title": "程序入口异常与手动中断处理",
+      "summary": "AI代码中，__main__入口捕获KeyboardInterrupt时重建输出PDF并提示已保存当前内容；捕获其他未处理异常时也尝试重建PDF，然后抛出异常。",
+      "memory_ids": [
+        "C005M006"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_43",
+      "title": "环境变量、依赖和路径要求",
+      "summary": "AI说明只需确保环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET存在，并安装pdfplumber requests reportlab；路径不变，输入为D:\\小说\\哈利波特\\Harry Potter.pdf，输出为D:\\小说\\哈利波特\\Harry Potter_translated.pdf，缓存目录为D:\\小说\\哈利波特\\translation_cache。",
+      "memory_ids": [
+        "C005M007"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    },
+    {
+      "topic_id": "topic_44",
+      "title": "缓存与配额进度文件保留建议",
+      "summary": "AI建议第一次运行前不要删除translation_cache、translation_quota.json和translation_progress.json；如果全新运行，它们不存在也没关系，程序会自动创建。",
+      "memory_ids": [
+        "C005M008"
+      ],
+      "source_message_ids": [
+        5,
+        6
+      ],
+      "message_range": "5, 6"
+    }
+  ],
+  "memory_items": [
+    {
+      "memory_id": "C001M001",
+      "topic": "用户提供的 PDF 翻译脚本",
+      "memory_type": "code_state",
+      "content": "用户粘贴完整 Python 脚本，包含 pdfplumber 读取、百度翻译 API 调用、本地额度管理、断点进度保存、ReportLab 中文字体输出与 wrap_line 换行，输出到 D:\\小说\\哈利波特\\Harry Potter_translated.pdf，输入为 D:\\小说\\哈利波特\\Harry Potter.pdf。",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        1
+      ],
+      "evidence_quote": "OUTPUT_PDF = \"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"",
+      "source_chunk": 1,
+      "message_range": "1"
+    },
+    {
+      "memory_id": "C001M002",
+      "topic": "请求评价代码",
+      "memory_type": "other",
+      "content": "用户在粘贴代码后请求 AI 评价这段代码。",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        1
+      ],
+      "evidence_quote": "评价一下这段代码",
+      "source_chunk": 1,
+      "message_range": "1"
+    },
+    {
+      "memory_id": "C001M003",
+      "topic": "AI 总体评分与定性",
+      "memory_type": "other",
+      "content": "AI 认为脚本思路完整、已具备实用雏形，但断点续传存在核心设计缺陷，综合评分 7/10。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "综合 | **7/10**",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M004",
+      "topic": "代码优点：环境变量密钥、额度记录、中文字体等",
+      "memory_type": "other",
+      "content": "AI 指出代码的优点：密钥通过环境变量读取；本地额度记录并能按月重置；有断点续翻思路；注册 STSong-Light 字体使 ReportLab 能输出中文。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "API 密钥没有直接写进代码",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M005",
+      "topic": "断点续传核心缺陷：旧译文丢失",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出每次运行 canvas.Canvas(OUTPUT_PDF) 会新建 PDF，前面 start_page-1 页只生成空白页，不会接回上次翻译内容；升级需修复此逻辑，否则最终 PDF 前段空白。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "canvas.Canvas(OUTPUT_PDF) 都会重新创建 PDF。",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M006",
+      "topic": "额度耗尽时页码保存语义错误",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出额度耗尽分支调用 save_progress(current_page_num)，但 last_finished_page 语义是最后完成的页；建议保存 current_page_num - 1 并在加载时 +1，以避免语义混乱。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "save_progress(current_page_num - 1)",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M007",
+      "topic": "百度 API 失败未重试且失败页被标记完成",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出百度返回错误码时代码仍会 append '[失败:error_code]'，随后 save_progress(current_page_num) 将失败页标记完成，后续不会重新翻译；应增加重试，失败时保存状态并退出。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "翻译失败以后，你仍然会把这一页当作正常完成。",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M008",
+      "topic": "split_text 切分句子破坏缩写",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 split_text 使用 .split(\". \")，会把 Mr./Mrs./Dr. 等缩写后的句点误当句号，不适合英文小说；应按段落/句子切分并必要时对超长句再切分。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "sentences = text.replace(\"\\n\", \" \").split(\". \")",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M009",
+      "topic": "API 请求长度控制不准确",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 split_text 的 max_len=4500 不能保证百度 API 一定安全，涉及参数长度、字符计数规则；建议按段落→句子→每批 3000~4000 字符切分。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "def split_text(text, max_len=4500):",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M010",
+      "topic": "未复用 requests.Session",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出每次 requests.post 独立请求，几百页数千次调用应使用 requests.Session() 复用连接。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "session = requests.Session()",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M011",
+      "topic": "本地额度统计不等于百度实际计费",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 total_cost += len(b.strip()) 统计本地发送字符长度，可能不等于百度实际计费；MONTHLY_FREE_QUOTA 最好理解为本程序保守估算，若 API 返回实际消耗应优先采用。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "total_cost += len(b.strip())",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M012",
+      "topic": "PDF 段落结构被破坏",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 full_text = \" \".join(w[\"text\"] for w in words) 合并文字破坏了原 PDF 段落、章节标题等结构；小说翻译应保留段落、空行、标题、页码、首行缩进等。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "full_text = \" \".join(w[\"text\"] for w in words)",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M013",
+      "topic": "wrap_line 超长片段溢出风险",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 wrap_line 在单个片段本身超过 max_w 时仍会生成超长行，英文 URL、特殊字符串可能溢出页面。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "if c.stringWidth(cur+s, font, size) < max_w:",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M014",
+      "topic": "宽泛 except 掩盖错误",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出代码中使用 except: 返回默认值太宽泛，建议至少 except (json.JSONDecodeError, OSError) 以便定位问题。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "except:\nreturn {\"used_chars\": 0...}",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M015",
+      "topic": "重复 import 与路径管理",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 指出 import os 出现两次，并建议用 pathlib.Path 管理路径；但这与用户后续要求保留硬编码路径存在冲突，用户最终选择保留硬编码路径。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "import os\n\n出现了两次。",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M016",
+      "topic": "推荐架构：先保存翻译结果再生成 PDF",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 建议改为逐页翻译后保存 page_001.json 等文件，全部翻译完成后再统一生成 PDF，使翻译与 PDF 生成相互独立，避免中断丢失。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        2
+      ],
+      "evidence_quote": "page_001.json\npage_002.json\npage_003.json",
+      "source_chunk": 1,
+      "message_range": "2"
+    },
+    {
+      "memory_id": "C001M017",
+      "topic": "用户后续升级请求与路径约束",
+      "memory_type": "user_condition",
+      "content": "用户希望 AI 帮助升级代码，但明确要求保留硬编码路径。",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        3
+      ],
+      "evidence_quote": "我希望你帮我升级，但要保留硬编码路径",
+      "source_chunk": 1,
+      "message_range": "3"
+    },
+    {
+      "memory_id": "C001M018",
+      "topic": "升级方案尚未给出",
+      "memory_type": "open_question",
+      "content": "截至本批结束，AI 尚未针对用户“帮助升级且保留硬编码路径”的请求给出具体修改方案或代码。",
+      "source": "inferred",
+      "status": "unresolved",
+      "message_ids": [
+        3
+      ],
+      "evidence_quote": "我希望你帮我升级，但要保留硬编码路径",
+      "source_chunk": 1,
+      "message_range": "3"
+    },
+    {
+      "memory_id": "C002M001",
+      "topic": "用户对路径输入的约束（硬编码）",
+      "memory_type": "user_condition",
+      "content": "AI 转述用户要求：所有输入/输出/状态文件路径继续硬编码，不改为命令行参数，也不让用户每次输入路径。原始用户消息不在当前批次中，无法直接确认。",
+      "source": "assistant",
+      "status": "assumed",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "按你的要求：保留硬编码路径",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M002",
+      "topic": "原脚本核心问题诊断",
+      "memory_type": "assistant_suggestion",
+      "content": "AI 诊断原代码最严重的问题是 PDF 输出依赖于接着上次的 ReportLab PDF 继续写，因此电脑崩溃、程序中断或额度耗尽后，已经完成的内容会变成空白页。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "这版重点解决了你原代码里最严重的问题：PDF 不再依赖“接着上次的 ReportLab PDF 继续写”",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M003",
+      "topic": "改进方案：每页翻译结果缓存与重建PDF",
+      "memory_type": "assistant_suggestion",
+      "content": "改为每页翻译结果缓存，随时可以从缓存重建输出 PDF；崩溃、中断或额度耗尽后已完成内容不会变成空白页。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "而是采用“每页翻译结果缓存 → 随时可以从缓存重建 PDF”的方式",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M004",
+      "topic": "固定路径配置",
+      "memory_type": "fact",
+      "content": "代码设置输入 PDF 为 D:\\小说\\哈利波特\\Harry Potter.pdf，输出为 D:\\小说\\哈利波特\\Harry Potter_translated.pdf；额度文件 translation_quota.json、进度文件 translation_progress.json、缓存目录 translation_cache 均固定放在小说目录。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "INPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M005",
+      "topic": "百度翻译 API 配置",
+      "memory_type": "fact",
+      "content": "使用百度翻译通用文本 API，URL 为 https://fanyi-api.baidu.com/api/trans/vip/translate，源语言 en，目标语言 zh；密钥从环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET 读取，缺失则抛出 RuntimeError。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "APPID = os.environ[\"BAIDU_FANYI_APPID\"]",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M006",
+      "topic": "月度额度管理",
+      "memory_type": "fact",
+      "content": "月度免费额度为 1,000,000 字符；额度文件以当前月第一天字符串作为月份标识，跨月自动重置；额度文件损坏时重新初始化。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "MONTHLY_FREE_QUOTA = 1_000_000",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M007",
+      "topic": "断电恢复的额度校正",
+      "memory_type": "fact",
+      "content": "sync_quota_from_cache 会在启动时根据成功缓存页面的 status 和 usage_month 校正已用额度，解决 API 成功→页面缓存保存→额度文件保存前断电导致额度丢失的问题；add_used_chars 注释警告不要再次调用 sync_quota_from_cache，以免重复计算当前页。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "启动时根据成功缓存的页面核对额度",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M008",
+      "topic": "断点进度管理",
+      "memory_type": "fact",
+      "content": "进度文件保存 last_finished_page 和 total_pages；每页确认完成（有效缓存、空白页或翻译成功）后更新进度，文件损坏会回退到第 0 页。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "last_finished_page / total_pages",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M009",
+      "topic": "页面缓存校验",
+      "memory_type": "fact",
+      "content": "每页缓存文件为 page_XXXX.json，保存 source_hash、translated_text、cost_chars、usage_month、status 等；加载缓存时要求 status 为 completed 且 source_hash 与当前提取文本一致，避免更换 PDF 后误用旧缓存。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "data.get(\"source_hash\") != text_hash(source_text)",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M010",
+      "topic": "文本清洗与英文分块",
+      "memory_type": "fact",
+      "content": "normalize_text 统一换行、压缩空格、最多保留一个连续空行；split_paragraph 先保护 Mr./Dr. 等缩写，按句末标点加后接大写字母规则分句；长句优先按空格切分，连续无空格时最后硬切，每块最大 4000 字符。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "protect_abbreviations(paragraph)",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M011",
+      "topic": "API 重试策略",
+      "memory_type": "fact",
+      "content": "百度 API 请求最多重试 3 次，指数退避时间为 2^attempt（约 2、4、8 秒），连续失败后抛出 RuntimeError。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "MAX_RETRIES = 3 / RETRY_BASE_SECONDS = 2",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M012",
+      "topic": "PDF 排版与页脚",
+      "memory_type": "fact",
+      "content": "使用 STSong-Light 字体，字号 11、行高 16、边距 30、页脚字号 8；wrap_text_to_lines 根据 stringWidth 自动换行，英文优先在最近空格处断行；每页页脚显示“原 PDF 第 x 页”，续页时加“（续）”。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "FONT_NAME = \"STSong-Light\"",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M013",
+      "topic": "重建 PDF 的连续性保护",
+      "memory_type": "fact",
+      "content": "rebuild_output_pdf 顺序遍历页面，一旦某一页缓存缺失就停止输出，避免出现 1、2、3、5 页有而第 4 页缺失时输出 PDF 页码错乱。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "一旦出现缺失页，就停止",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C002M014",
+      "topic": "主翻译流程逻辑",
+      "memory_type": "fact",
+      "content": "translate_pdf_resumable 依次检查输入文件、sync_quota_from_cache、加载进度、遍历每一页；A 提取文字失败或 D 额度不足时都会调用 rebuild_output_pdf 并保存进度后返回；B 有有效缓存跳过；C 空白页写入空缓存并更新进度。但代码在 D 额度不足处理 return 后截断，后续循环体和主函数结束未知。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "def translate_pdf_resumable",
+      "source_chunk": 2,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M001",
+      "topic": "原版断点续传缺失导致空白页问题",
+      "memory_type": "assistant_suggestion",
+      "content": "AI指出原代码重新创建PDF时会将前面页面变成空白页，建议改为按页缓存到translation_cache目录（page_0001.json等），再次运行时直接读取缓存，不再浪费百度额度并从断点继续翻译。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第一，真正的断点续传。程序会在：D:\\小说\\哈利波特\\translation_cache\\ 生成：page_0001.json ... 更重要的是，不会像原版那样重新创建一个 PDF，然后把前面页面变成空白页。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M002",
+      "topic": "API失败被误判为已完成的问题",
+      "memory_type": "assistant_suggestion",
+      "content": "AI诊断原代码在API失败（如54003）后仍会保存进度，导致该页永久跳过。建议增加自动重试3次，若还失败则不建立完成缓存，下一次运行重新翻译该页。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第二，API 失败不会被误判成“已经完成”。你的原代码可能产生：[失败:54003] 然后仍然：save_progress(current_page_num) 导致这一页永远被跳过去。现在改成：API失败 → 自动重试 3 次 → 还失败 → 当前页不建立完成缓存 → 下一次运行重新翻译。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M003",
+      "topic": "程序突然关闭时的数据保护",
+      "memory_type": "assistant_suggestion",
+      "content": "AI建议调整保存顺序为：百度翻译成功→保存page_xxxx.json→更新额度→更新progress，并且JSON使用临时文件+原子替换，这样突然关机时最坏只会丢失当前页，不会让前面几十页结果消失。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第三，程序突然关闭也尽量不丢翻译。我把保存顺序设计成：百度翻译成功 → 保存 page_xxxx.json → 更新额度 → 更新 progress ... 突然关机时，最坏的情况一般只是当前页需要重新尝试，不会让前面几十页的结果消失。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M004",
+      "topic": "缓存增加source_hash校验",
+      "memory_type": "assistant_suggestion",
+      "content": "AI建议在每页缓存中加入source_hash（每页文本的SHA-256），当PDF文件版本变化但文件名相同时，通过比较hash避免错误使用旧翻译缓存。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第四，缓存增加了 source_hash。例如你后来把 Harry Potter.pdf 换成另一个版本，哪怕文件名完全一样，程序也会比较每页的 SHA-256：旧页面文字 hash VS 新页面文字 hash 不一致就不会错误使用旧翻译缓存。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M005",
+      "topic": "分句方法优化避免缩写切错",
+      "memory_type": "assistant_suggestion",
+      "content": "AI指出原代码使用text.replace('\\n',' ').split('. ')切分句子，容易把Mr. Potter、Mrs. Weasley、Dr.等缩写切错，建议先处理常见缩写，再根据句子边界和长度进行分块。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第五，我改掉了原来的：text.replace(\"\\n\", \" \").split(\". \") 这种切法。因为小说里有：Mr. Potter Mrs. Weasley Dr. ... 简单 split(\". \") 很容易把句子切错。现在会先处理常见缩写，再根据句子边界和长度进行分块。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M006",
+      "topic": "保留硬编码路径",
+      "memory_type": "assistant_suggestion",
+      "content": "AI保留了原代码中的硬编码路径INPUT_PDF和OUTPUT_PDF，用户无需每次运行输入路径。",
+      "source": "assistant",
+      "status": "suggested",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "第六，保留了你原来的硬编码路径。仍然直接：INPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\" OUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\" 你不需要每次运行输入路径。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M007",
+      "topic": "下一步升级段落识别与章节标题",
+      "memory_type": "assistant_suggestion",
+      "content": "AI建议下一步升级段落识别+章节标题识别+更好的小说排版，使中文PDF更像真正的电子书。",
+      "source": "assistant",
+      "status": "rejected",
+      "message_ids": [
+        4
+      ],
+      "evidence_quote": "还有一个我建议下一步继续升级的地方 ... 下一步最值得升级的是“段落识别 + 章节标题识别 + 更好的小说排版”。",
+      "source_chunk": 3,
+      "message_range": "4"
+    },
+    {
+      "memory_id": "C003M008",
+      "topic": "用户要求保持现状并直接提供替换代码",
+      "memory_type": "user_condition",
+      "content": "用户明确表示保持当前方案不变，不要再修改，并要求AI直接给出替换后的完整代码。",
+      "source": "user",
+      "status": "confirmed",
+      "message_ids": [
+        5
+      ],
+      "evidence_quote": "保持现在这样，不要再改了，但请你直接给我替换后的代码",
+      "source_chunk": 3,
+      "message_range": "5"
+    },
+    {
+      "memory_id": "C004M001",
+      "topic": "用户对PDF翻译脚本的要求：保留硬编码路径",
+      "memory_type": "user_condition",
+      "content": "根据AI回答，用户此前明确要求保留硬编码路径，而不是改用环境变量或参数。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "同时继续保留你要求的硬编码路径",
+      "source_chunk": 4,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C004M002",
+      "topic": "AI提供完整替换代码",
+      "memory_type": "assistant_suggestion",
+      "content": "AI表示可以提供完整版本，直接替换用户原代码，并且保持上一版的功能，不再额外增加新的改动。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "可以。下面就是可直接替换你原代码的完整版本。我保持上一版的功能，不再额外增加新的改动；同时继续保留你要求的硬编码路径。",
+      "source_chunk": 4,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C004M003",
+      "topic": "代码包含的主要功能模块",
+      "memory_type": "fact",
+      "content": "AI提供的代码包含：配置（输入输出PDF路径、额度文件、进度文件、缓存目录）、百度翻译API环境变量、JSON原子写入、月度额度管理、断点进度管理、页面缓存、文本清洗、英文分块、百度翻译API调用、自动换行、页脚、PDF重建和主翻译流程。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "import os\nimport re\nimport json\nimport time\nimport random\nimport hashlib\nfrom datetime import datetime\nfrom typing import Optional, Tuple, List, Dict\n\nimport pdfplumber\nimport requests\nfrom reportlab.pdfgen import canvas\nfrom reportlab.pdfbase import pdfmetrics\nfrom reportlab.pdfbase.cidfonts import UnicodeCIDFont",
+      "source_chunk": 4,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C004M004",
+      "topic": "硬编码输入输出路径",
+      "memory_type": "fact",
+      "content": "AI代码中设置了硬编码输入输出路径：INPUT_PDF为D:\\小说\\哈利波特\\Harry Potter.pdf，OUTPUT_PDF为D:\\小说\\哈利波特\\Harry Potter_translated.pdf，以及状态文件路径等。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "INPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"\nOUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"",
+      "source_chunk": 4,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C004M005",
+      "topic": "百度翻译API配置",
+      "memory_type": "fact",
+      "content": "代码使用百度翻译API，通过环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET获取密钥，单次请求最大字符数4000，采用MD5签名，最多重试3次。",
+      "source": "assistant",
+      "status": "answered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "try:\n    APPID = os.environ[\"BAIDU_FANYI_APPID\"]\n    SECRET_KEY = os.environ[\"BAIDU_FANYI_SECRET\"]\nexcept KeyError:\n    raise RuntimeError(\n        \"请先设置环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET\"\n    )",
+      "source_chunk": 4,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M001",
+      "topic": "空白页处理逻辑",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，当页面提取文本为空（source_text为空）时，保存空白页缓存，更新last_finished_page并保存进度，然后continue跳过，避免空白页被当作待翻译页。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "if not source_text:\n\nprint(\n                    \"📄 本页没有可提取文字，\"\n                    \"记为空白页。\"\n                )\n\nsave_page_cache(\n                    page_num=idx,\n                    source_text=\"\",\n                    translated_text=\"\",\n                    cost_chars=0\n                )\n\nlast_finished_page = idx",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M002",
+      "topic": "额度不足停止并重建PDF",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，当check_quota返回本月额度不足时，打印停止翻译信息，调用rebuild_output_pdf重建已有输出PDF，保存进度并返回。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "if not enough:\n\nprint(\n                    \"\\n⛔ 本月额度不足，\"\n                    \"停止翻译。\"\n                )\n\nprint(\n                    f\"✅ 已成功完成到第 \"\n                    f\"{last_finished_page} 页\"\n                )\n\nrebuild_output_pdf(\n                    input_pdf\n                )",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M003",
+      "topic": "翻译失败不建立完成缓存并自动重试",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，翻译页面时若捕获异常，会打印失败信息，不建立当前页完成缓存，重建输出PDF、保存进度并返回；下次运行会自动重新翻译该页。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "except Exception as e:\n\nprint(\n                    f\"\\n❌ 第 {idx} 页翻译失败：\"\n                    f\"{e}\"\n                )\n\nprint(\n                    \"⚠️ 当前页不会建立完成缓存。\"\n                )\n\nprint(\n                    \"   下次运行会自动重新翻译这一页。\"\n                )",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M004",
+      "topic": "页面缓存保存与额度更新",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，翻译成功后调用save_page_cache保存页面缓存，若cost大于0则调用add_used_chars更新已用字符额度。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "save_page_cache(\n                page_num=idx,\n                source_text=source_text,\n                translated_text=translated_text,\n                cost_chars=cost\n            )\n\nprint(\n                f\"💾 第 {idx} 页翻译结果已保存到缓存\"\n            )",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M005",
+      "topic": "进度更新与完成检查",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，每页完成后将last_finished_page设为当前页并保存进度；所有页处理完后遍历全部页面检查是否存在有效缓存，若无有效缓存则设置all_completed为False，最终重建输出PDF。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "last_finished_page = idx\n\nsave_progress(\n                last_finished_page,\n                total_pages\n            )\n\nprint(\n                f\"✅ 第 {idx} 页完成\"\n            )",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M006",
+      "topic": "程序入口异常与手动中断处理",
+      "memory_type": "assistant_suggestion",
+      "content": "AI代码中，__main__入口捕获KeyboardInterrupt时重建输出PDF并提示已保存当前内容；捕获其他未处理异常时也尝试重建PDF，然后抛出异常。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "except KeyboardInterrupt:\n\nprint(\n            \"\\n\\n🛑 检测到手动中断。\"\n        )\n\nprint(\n            \"正在根据已经完成的缓存生成 PDF...\"\n        )\n\ntry:\n\nrebuild_output_pdf(\n                INPUT_PDF\n            )",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M007",
+      "topic": "环境变量、依赖和路径要求",
+      "memory_type": "assistant_suggestion",
+      "content": "AI说明只需确保环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET存在，并安装pdfplumber requests reportlab；路径不变，输入为D:\\小说\\哈利波特\\Harry Potter.pdf，输出为D:\\小说\\哈利波特\\Harry Potter_translated.pdf，缓存目录为D:\\小说\\哈利波特\\translation_cache。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "你只需要确保这两个环境变量仍然存在：\n\n```\nBAIDU_FANYI_APPID\nBAIDU_FANYI_SECRET\n```\n\n以及安装：\n\n```\npip install pdfplumber requests reportlab\n```\n\n路径方面**不用改**",
+      "source_chunk": 5,
+      "message_range": "6"
+    },
+    {
+      "memory_id": "C005M008",
+      "topic": "缓存与配额进度文件保留建议",
+      "memory_type": "assistant_suggestion",
+      "content": "AI建议第一次运行前不要删除translation_cache、translation_quota.json和translation_progress.json；如果全新运行，它们不存在也没关系，程序会自动创建。",
+      "source": "assistant",
+      "status": "delivered",
+      "message_ids": [
+        6
+      ],
+      "evidence_quote": "**建议第一次运行前不要删除 translation\\_cache、translation\\_quota.json 和 translation\\_progress.json；如果是全新运行，它们不存在也没关系，程序会自动创建。**",
+      "source_chunk": 5,
+      "message_range": "6"
+    }
+  ],
+  "typed_records": {
+    "learning": [],
+    "calculations": [],
+    "programming": [
+      {
+        "topic": "断点续传覆盖旧 PDF 导致已翻译内容丢失",
+        "code_state": "原始代码每次运行 c = canvas.Canvas(OUTPUT_PDF)，并在断点 start_page 之前的页仅调用 setPageSize/showPage，不写旧译文。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "断点续传后最终 PDF 前段是空白页，已翻译页内容丢失。",
+        "assistant_diagnosis": "canvas.Canvas(OUTPUT_PDF) 会重新创建 PDF，跳过页不会把旧译文接回。",
+        "assistant_proposed_changes": [
+          "将每页翻译结果先持久化为 page_001.json 等独立文件",
+          "所有页面翻译完成后统一生成 PDF",
+          "重新运行时检查已有翻译结果，避免重复翻译和丢页"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户尚未提供修改后的代码或确认实施"
+        ],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "将每页翻译结果先持久化为 page_001.json 等独立文件",
+          "所有页面翻译完成后统一生成 PDF",
+          "重新运行时检查已有翻译结果，避免重复翻译和丢页"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "百度 API 失败页被错误标记为完成",
+        "code_state": "baidu_translate 返回错误时拼接 '[失败:error_code]'，translate_pdf_resumable 仍继续绘制并 save_progress(current_page_num)。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "API 失败页不会被重试，错误文字会留在最终 PDF 中且事后不重新翻译。",
+        "assistant_diagnosis": "缺少自动重试；失败页不应标记完成。",
+        "assistant_proposed_changes": [
+          "增加重试（如 for retry in range(3)）",
+          "仍失败则保存当前状态并退出，不把当前页标记为完成"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "待实施"
+        ],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "增加重试（如 for retry in range(3)）",
+          "仍失败则保存当前状态并退出，不把当前页标记为完成"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "split_text 对英文小说分句不准确",
+        "code_state": "split_text 使用 text.replace(\"\\n\", \" \").split(\". \") 切割句子。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "Mr./Mrs./Dr. 等缩写中的句点被误判为句号。",
+        "assistant_diagnosis": "split('. ') 不适合文学文本，需更可靠分句及超长句再切分。",
+        "assistant_proposed_changes": [
+          "改为按段落、句子切分，每批 3000~4000 字符",
+          "对超长句单独再切分"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "改为按段落、句子切分，每批 3000~4000 字符",
+          "对超长句单独再切分"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "额度统计未使用百度官方计费",
+        "code_state": "total_cost += len(b.strip()) 用本地发送长度累计，MONTHLY_FREE_QUOTA=1000000。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "本地统计与实际扣费可能不一致。",
+        "assistant_diagnosis": "当前额度只能作为保守估算，若 API 返回实际消耗应优先采用官方值。",
+        "assistant_proposed_changes": [
+          "优先使用百度 API 返回的实际计费字符数更新已用额度"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "优先使用百度 API 返回的实际计费字符数更新已用额度"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "PDF 段落和章节结构丢失",
+        "code_state": "full_text = \" \".join(w[\"text\"] for w in words) 合并原文单词；PDF 绘制使用 wrap_line 后连续输出译文。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "原 PDF 的段落、空行、章节标题、首行缩进等丢失。",
+        "assistant_diagnosis": "直接 join 词破坏了原文结构，排版过于简陋。",
+        "assistant_proposed_changes": [
+          "保留段落、空行、章节标题、页码、合理行距和首行缩进",
+          "如需原文对照需重新设计输出"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "保留段落、空行、章节标题、页码、合理行距和首行缩进",
+          "如需原文对照需重新设计输出"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "wrap_line 对超长片段处理不足",
+        "code_state": "wrap_line 只判断 cur+s 是否小于 max_w，否则把 cur 放入 lines 并把 s 作为新行，但未对 s 本身超长做切分。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "单个片段超长时仍会生成超出行宽的内容。",
+        "assistant_diagnosis": "缺少对超出页面宽度的单个片段强制换行。",
+        "assistant_proposed_changes": [
+          "增加对单个片段超长的截断/强制切分"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "增加对单个片段超长的截断/强制切分"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "requests.Session 未复用",
+        "code_state": "每次翻译请求都用 requests.post 独立发送。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "大量 API 请求未复用连接，效率较低。",
+        "assistant_diagnosis": "建议使用 requests.Session() 复用连接。",
+        "assistant_proposed_changes": [
+          "创建 session = requests.Session() 并复用"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "创建 session = requests.Session() 并复用"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "save_progress 页码语义混乱",
+        "code_state": "load_progress 返回 last_finished_page；额度耗尽分支 save_progress(current_page_num)。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "当前页未完成却保存为 current_page_num，与 last_finished_page 语义不一致。",
+        "assistant_diagnosis": "应保存 current_page_num - 1 并加载 +1，或调整命名和逻辑。",
+        "assistant_proposed_changes": [
+          "明确 last_finished_page 为最后完成页，并在加载时 start_page = last_finished_page + 1"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "明确 last_finished_page 为最后完成页，并在加载时 start_page = last_finished_page + 1"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "宽泛 except 隐藏错误",
+        "code_state": "load_quota 等函数使用不带异常类型的 except: 返回默认值。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "真实程序错误可能被静默吞掉。",
+        "assistant_diagnosis": "太宽泛的 except 难以定位问题。",
+        "assistant_proposed_changes": [
+          "改为 except (json.JSONDecodeError, OSError) 等具体异常"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "改为 except (json.JSONDecodeError, OSError) 等具体异常"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "代码质量问题：重复 import 与路径管理",
+        "code_state": "代码中出现两次 import os；路径以硬编码字符串形式写死。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "重复导入是冗余。",
+        "assistant_diagnosis": "AI 建议清理重复导入并考虑 pathlib，但用户明确要求保留硬编码路径。",
+        "assistant_proposed_changes": [
+          "删除重复 import",
+          "（可选）使用 pathlib.Path 管理路径，但用户已决定保留硬编码路径"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "删除重复 import",
+          "（可选）使用 pathlib.Path 管理路径，但用户已决定保留硬编码路径"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "整体架构建议：翻译与 PDF 生成分离",
+        "code_state": "当前架构边翻译边写 PDF，断点续传不稳定。",
+        "constraints": [
+          "保留硬编码路径"
+        ],
+        "bug_or_issue": "翻译与 PDF 输出耦合，中断后难以恢复。",
+        "assistant_diagnosis": "逐页保存为 page_xxx.json，最后生成 PDF 更可靠。",
+        "assistant_proposed_changes": [
+          "逐页保存翻译结果为 JSON",
+          "完成全部分页后统一生成 PDF"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户已请求升级，尚未提供实施方案或修改代码"
+        ],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3",
+        "proposed_changes": [
+          "逐页保存翻译结果为 JSON",
+          "完成全部分页后统一生成 PDF"
+        ],
+        "implementation_status": "attempted_by_user"
+      },
+      {
+        "topic": "PDF自动翻译脚本替换版（缓存重建/断点续传）",
+        "code_state": "AI 提供替换原脚本的代码（消息4第1/2段），原脚本未在本批次中直接给出；AI 指出原代码依赖续写 ReportLab PDF 导致中断后空白页。新脚本采用每页缓存+从缓存重建 PDF，包含额度管理、进度管理、页面缓存、文本清洗/分块、API 重试、PDF 排版和主翻译流程。",
+        "constraints": [
+          "保留硬编码路径（输入/输出/额度/进度/缓存目录）",
+          "使用百度翻译 API，月度免费额度 1,000,000 字符",
+          "密钥从环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET 获取",
+          "每 API 请求最大 4000 字符，最多 3 次重试",
+          "字体 STSong-Light，页面大小沿用原 PDF"
+        ],
+        "bug_or_issue": "原代码依赖‘接着上次的 ReportLab PDF 继续写’，电脑崩溃、程序中断、额度耗尽后已完成内容变成空白页；缺少可靠的断电恢复和缓存/额度一致性校验。",
+        "assistant_diagnosis": "改为每页翻译结果缓存并随时从缓存重建 PDF；使用原子写入 JSON 防止状态损坏；启动时根据缓存校正额度；缓存使用 source_hash 防止换 PDF 误用。",
+        "assistant_proposed_changes": [
+          "路径继续硬编码，不改为命令行参数或用户输入",
+          "新增页面缓存 page_XXXX.json，保存翻译文本、source_hash、cost_chars、usage_month、status",
+          "新增 rebuild_output_pdf，从连续缓存重建输出 PDF，遇缺失页停止",
+          "新增 sync_quota_from_cache，启动时根据缓存校正额度，解决断电后额度不一致",
+          "使用 atomic_write_json 原子写入额度/进度/缓存，防止 JSON 损坏",
+          "进度管理 last_finished_page/total_pages，每页完成即保存",
+          "英文分块：保护缩写、按句末分割、超长按空格或硬切",
+          "API 重试：MAX_RETRIES=3，指数退避 2^attempt",
+          "PDF 排版：STSong-Light 字体，wrap_text_to_lines 自动换行，页脚显示原页码（续）",
+          "主流程 translate_pdf_resumable：提取失败或额度不足时停止并重建已缓存部分"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户是否实际替换原脚本未确认",
+          "消息中部分函数体语句缩进可能丢失，导致 Python 语法错误，需在本地恢复缩进后验证",
+          "脚本主流程在额度不足 return 后截断，后续代码未提供，需补充完整"
+        ],
+        "message_ids": [
+          4
+        ],
+        "message_range": "4",
+        "proposed_changes": [
+          "路径继续硬编码，不改为命令行参数或用户输入",
+          "新增页面缓存 page_XXXX.json，保存翻译文本、source_hash、cost_chars、usage_month、status",
+          "新增 rebuild_output_pdf，从连续缓存重建输出 PDF，遇缺失页停止",
+          "新增 sync_quota_from_cache，启动时根据缓存校正额度，解决断电后额度不一致",
+          "使用 atomic_write_json 原子写入额度/进度/缓存，防止 JSON 损坏",
+          "进度管理 last_finished_page/total_pages，每页完成即保存",
+          "英文分块：保护缩写、按句末分割、超长按空格或硬切",
+          "API 重试：MAX_RETRIES=3，指数退避 2^attempt",
+          "PDF 排版：STSong-Light 字体，wrap_text_to_lines 自动换行，页脚显示原页码（续）",
+          "主流程 translate_pdf_resumable：提取失败或额度不足时停止并重建已缓存部分"
+        ],
+        "implementation_status": "unconfirmed"
+      },
+      {
+        "topic": "PDF翻译脚本断点续传改进",
+        "code_state": "用户原始PDF翻译脚本存在断点续传缺失、API失败误判完成、异常丢失翻译、缓存未绑定源文件版本、分句切分错误等问题；AI在消息4中给出了改进方案和部分代码片段，但未提供完整替换代码。",
+        "constraints": [
+          "使用百度翻译API，环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET",
+          "依赖库：pdfplumber、requests、reportlab",
+          "硬编码路径：INPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"，OUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"",
+          "每月免费额度MONTHLY_FREE_QUOTA",
+          "需要支持断点续传和异常恢复"
+        ],
+        "bug_or_issue": "原代码重新创建PDF时前面页面变空白；API失败仍保存进度导致页面永久跳过；突然关闭丢失已完成页面；缓存未校验源PDF版本；split('. ')切分句子会切错缩写。",
+        "assistant_diagnosis": "AI诊断以上问题并给出改进：增加按页缓存、失败重试且不建缓存、调整保存顺序并使用原子替换、增加source_hash、优化分句逻辑。",
+        "assistant_proposed_changes": [
+          "在translation_cache目录生成page_xxxx.json缓存文件，实现断点续传",
+          "API失败自动重试3次，失败后不建立完成缓存，下次重新翻译该页",
+          "保存顺序为翻译成功→保存页面缓存→更新额度→更新进度，JSON使用临时文件+原子替换",
+          "每页缓存加入source_hash（SHA-256）校验PDF版本",
+          "替换split('. ')分句，先处理常见缩写再按句子边界和长度分块",
+          "保留原有硬编码路径"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户要求直接提供替换后的完整代码，AI尚未提供",
+          "所有改进点尚未被用户实际实施或验证"
+        ],
+        "message_ids": [
+          4,
+          5
+        ],
+        "message_range": "4, 5",
+        "proposed_changes": [
+          "在translation_cache目录生成page_xxxx.json缓存文件，实现断点续传",
+          "API失败自动重试3次，失败后不建立完成缓存，下次重新翻译该页",
+          "保存顺序为翻译成功→保存页面缓存→更新额度→更新进度，JSON使用临时文件+原子替换",
+          "每页缓存加入source_hash（SHA-256）校验PDF版本",
+          "替换split('. ')分句，先处理常见缩写再按句子边界和长度分块",
+          "保留原有硬编码路径"
+        ],
+        "implementation_status": "unconfirmed"
+      },
+      {
+        "topic": "PDF翻译脚本完整替换",
+        "code_state": "用户原代码未提供，但AI提供了完整替换脚本。",
+        "constraints": [
+          "保留硬编码路径",
+          "保持上一版功能",
+          "不再额外增加新的改动"
+        ],
+        "bug_or_issue": "无具体bug，用户要求提供完整代码。",
+        "assistant_diagnosis": "无",
+        "assistant_proposed_changes": [
+          "提供完整Python脚本，包含导入、配置、初始化、JSON原子写入、额度管理、进度管理、页面缓存、文本清洗、英文分块、百度翻译API调用、自动换行、页脚、PDF重建、主翻译流程等"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户是否实际运行并验证代码效果"
+        ],
+        "message_ids": [
+          6
+        ],
+        "message_range": "6",
+        "proposed_changes": [
+          "提供完整Python脚本，包含导入、配置、初始化、JSON原子写入、额度管理、进度管理、页面缓存、文本清洗、英文分块、百度翻译API调用、自动换行、页脚、PDF重建、主翻译流程等"
+        ],
+        "implementation_status": "unconfirmed"
+      },
+      {
+        "topic": "PDF翻译脚本修复与完整代码替换",
+        "code_state": "未提供用户原.py文件内容；AI提供一份完整替换脚本，要求用户直接替换原文件。",
+        "constraints": [
+          "需保持环境变量BAIDU_FANYI_APPID和BAIDU_FANYI_SECRET存在",
+          "需安装pdfplumber requests reportlab",
+          "输入路径为D:\\小说\\哈利波特\\Harry Potter.pdf",
+          "输出路径为D:\\小说\\哈利波特\\Harry Potter_translated.pdf",
+          "缓存目录为D:\\小说\\哈利波特\\translation_cache"
+        ],
+        "bug_or_issue": "未在本批消息中提供用户原脚本的具体错误；AI直接给出重写后的完整代码。",
+        "assistant_diagnosis": "AI未在消息6中说明具体bug；其提供的代码包含空白页处理、额度检查、翻译失败不回退缓存、完成检查等防御性逻辑，疑似针对之前运行中的页面处理或断点续传问题。",
+        "assistant_proposed_changes": [
+          "完整替换原.py文件为消息6提供的代码",
+          "确保环境变量BAIDU_FANYI_APPID与BAIDU_FANYI_SECRET存在",
+          "安装依赖pdfplumber requests reportlab",
+          "保持输入输出路径和缓存目录不变",
+          "首次运行前尽量保留旧translation_cache、translation_quota.json、translation_progress.json"
+        ],
+        "implemented_changes": [],
+        "pending_validation": [
+          "用户是否已用消息6代码替换原.py文件",
+          "替换后运行是否能正常完成翻译、额度检查、断点续传和PDF重建",
+          "是否保留原有缓存和进度文件"
+        ],
+        "message_ids": [
+          6
+        ],
+        "message_range": "6",
+        "proposed_changes": [
+          "完整替换原.py文件为消息6提供的代码",
+          "确保环境变量BAIDU_FANYI_APPID与BAIDU_FANYI_SECRET存在",
+          "安装依赖pdfplumber requests reportlab",
+          "保持输入输出路径和缓存目录不变",
+          "首次运行前尽量保留旧translation_cache、translation_quota.json、translation_progress.json"
+        ],
+        "implementation_status": "unconfirmed"
+      }
+    ],
+    "decisions": [
+      {
+        "topic": "升级代码时保留硬编码路径",
+        "options": [
+          "保留硬编码路径",
+          "改用 pathlib/配置文件方式管理路径"
+        ],
+        "user_choice": "保留硬编码路径",
+        "status": "confirmed",
+        "message_ids": [
+          3
+        ],
+        "message_range": "3"
+      },
+      {
+        "topic": "是否继续升级PDF翻译脚本",
+        "options": [
+          "保持当前断点续传稳定版本",
+          "进一步升级段落识别+章节标题识别+更好的小说排版"
+        ],
+        "user_choice": "保持现在这样，不要再改了，但请你直接给我替换后的代码",
+        "status": "confirmed",
+        "message_ids": [
+          4,
+          5
+        ],
+        "message_range": "4, 5"
+      }
+    ],
+    "context_references": [],
+    "progressions": [
+      {
+        "topic": "从代码评审到升级请求",
+        "steps": [
+          "用户粘贴完整 PDF 翻译脚本并请求评价。",
+          "AI 返回评价，给出 7/10，并指出断点续传、API 失败处理、split_text、额度统计、PDF 排版、wrap_line、异常处理等问题。",
+          "用户请求帮助升级代码，并附加条件：保留硬编码路径。"
+        ],
+        "message_ids": [
+          1,
+          2,
+          3
+        ],
+        "message_range": "1~3"
+      },
+      {
+        "topic": "PDF翻译脚本从续写PDF到缓存重建的演进",
+        "steps": [
+          "用户原脚本（未提供）存在续写 ReportLab PDF 问题：中断后已完成内容会空白页",
+          "AI 在消息4提出改为每页翻译结果缓存，随时从缓存重建 PDF",
+          "新增额度、进度、页面缓存三套 JSON 状态，引入原子写入和断电恢复校正",
+          "主流程改为逐页：先查有效缓存，空白页直接缓存，提取失败或额度不足时停止并重建已缓存部分"
+        ],
+        "message_ids": [
+          4
+        ],
+        "message_range": "4"
+      },
+      {
+        "topic": "PDF翻译脚本改进流程",
+        "steps": [
+          "用户此前请求改进PDF翻译脚本（历史消息1-3未提供）",
+          "AI在消息4中给出断点续传等六项改进及下一步升级建议",
+          "用户在消息5中决定保持现状、拒绝进一步升级，并要求直接给出替换后的完整代码",
+          "AI尚未响应消息5请求"
+        ],
+        "message_ids": [
+          4,
+          5
+        ],
+        "message_range": "4, 5"
+      }
+    ],
+    "source_text_issues": []
+  },
+  "query_index": [
+    {
+      "query_id": "Q0001",
+      "message_id": 1,
+      "raw_user_message": "import pdfplumber\nimport requests\nimport random\nimport hashlib\nimport re\nimport json\nimport os\nfrom datetime import datetime\nfrom reportlab.pdfgen import canvas\nfrom reportlab.pdfbase import pdfmetrics\nfrom reportlab.pdfbase.cidfonts import UnicodeCIDFont\nimport os\n\n# ===================== 【安全】从环境变量读取密钥，代码无明文 =====================\ntry:\n    APPID = os.environ[\"BAIDU_FANYI_APPID\"]\n    SECRET_KEY = os.environ[\"BAIDU_FANYI_SECRET\"]\nexcept KeyError:\n    raise Exception(\"请先设置环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET\")\n\nMONTHLY_FREE_QUOTA = 1000000  # 高级版每月100万字符\nOUTPUT_PDF = \"D:\\\\小说\\\\哈利波特\\\\Harry Potter_translated.pdf\"\n# ==============================================================================\n\n# 配置文件\nQUOTA_FILE = \"translation_quota.json\"    # 额度记录\nPROGRESS_FILE = \"translation_progress.json\"  # 翻译进度（断点）\n\n# 注册中文字体\npdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))\nCN_FONT = 'STSong-Light'\n\n# ===================== 1. 额度管理（每月自动重置） =====================\ndef load_quota():\n    if not os.path.exists(QUOTA_FILE):\n        return {\"used_chars\": 0, \"last_reset_date\": datetime.now().strftime(\"%Y-%m-01\")}\n    try:\n        with open(QUOTA_FILE, \"r\", encoding=\"utf-8\") as f:\n            return json.load(f)\n    except:\n        return {\"used_chars\": 0, \"last_reset_date\": datetime.now().strftime(\"%Y-%m-01\")}\n\ndef save_quota(used_chars, reset_date):\n    with open(QUOTA_FILE, \"w\", encoding=\"utf-8\") as f:\n        json.dump({\"used_chars\": used_chars, \"last_reset_date\": reset_date}, f, indent=2)\n\ndef check_and_reset_quota():\n    data = load_quota()\n    today = datetime.now()\n    current_month = today.strftime(\"%Y-%m-01\")\n    if data[\"last_reset_date\"] != current_month:\n        save_quota(0, current_month)\n        print(\"🔄 新月份，额度已重置为 100万字符\")\n        return 0\n    return data[\"used_chars\"]\n\ndef check_quota(text_len):\n    used = check_and_reset_quota()\n    remaining = MONTHLY_FREE_QUOTA - used\n    return remaining >= text_len, used, remaining\n\ndef add_used_chars(chars):\n    used = check_and_reset_quota()\n    new_used = used + chars\n    save_quota(new_used, datetime.now().strftime(\"%Y-%m-01\"))\n    return new_used\n\n# ===================== 2. 断点续传：记录/读取翻译进度 =====================\ndef load_progress():\n    if not os.path.exists(PROGRESS_FILE):\n        return 1  # 默认从第1页开始\n    try:\n        with open(PROGRESS_FILE, \"r\", encoding=\"utf-8\") as f:\n            return json.load(f).get(\"last_finished_page\", 1)\n    except:\n        return 1\n\ndef save_progress(page_num):\n    with open(PROGRESS_FILE, \"w\", encoding=\"utf-8\") as f:\n        json.dump({\"last_finished_page\": page_num}, f, indent=2)\n\ndef clear_progress():\n    if os.path.exists(PROGRESS_FILE):\n        os.remove(PROGRESS_FILE)\n\n# ===================== 3. 百度翻译API =====================\ndef split_text(text, max_len=4500):\n    sentences = text.replace(\"\\n\", \" \").split(\". \")\n    blocks, cur = [], \"\"\n    for s in sentences:\n        if len(cur) + len(s) + 2 <= max_len:\n            cur += s + \". \"\n        else:\n            blocks.append(cur.strip())\n            cur = s + \". \"\n    if cur:\n        blocks.append(cur.strip())\n    return blocks\n\ndef baidu_translate(q):\n    if not q.strip():\n        return \"\", 0\n    text_len = len(q.strip())\n    enough, used, remaining = check_quota(text_len)\n    if not enough:\n        return f\"[额度已用完] 本月已用{used}/{MONTHLY_FREE_QUOTA}，剩余{remaining}，下月继续\", 0\n\n    blocks = split_text(q)\n    res_list, total_cost = [], 0\n    for b in blocks:\n        if not b.strip(): continue\n        salt = str(random.randint(1,10000))\n        sign = hashlib.md5((APPID + b + salt + SECRET_KEY).encode()).hexdigest()\n        try:\n            r = requests.post(\"https://fanyi-api.baidu.com/api/trans/vip/translate\",\n                              data={\"q\":b,\"from\":\"en\",\"to\":\"zh\",\"appid\":APPID,\"salt\":salt,\"sign\":sign},\n                              timeout=10).json()\n            if \"trans_result\" in r:\n                res_list.append(r[\"trans_result\"][0][\"dst\"])\n                total_cost += len(b.strip())\n            else:\n                res_list.append(f\"[失败:{r.get('error_code')}]\")\n        except Exception as e:\n            res_list.append(f\"[异常:{str(e)}]\")\n    return \"\".join(res_list), total_cost\n\n# ===================== 4. 自动换行 =====================\ndef wrap_line(text, max_w, font, size, c):\n    if not text: return []\n    segs = re.split(r\"([。，！？；])\", text)\n    lines, cur = [], \"\"\n    for s in segs:\n        if not s: continue\n        if c.stringWidth(cur+s, font, size) < max_w:\n            cur += s\n        else:\n            lines.append(cur)\n            cur = s\n    if cur: lines.append(cur)\n    return lines\n\n# ===================== 5. 主函数：断点续翻 + 异常保存 =====================\ndef translate_pdf_resumable(input_pdf):\n    start_page = load_progress()\n    print(f\"🚀 从第 {start_page} 页开始继续翻译\")\n\n    with pdfplumber.open(input_pdf) as pdf:\n        total_pages = len(pdf.pages)\n        c = canvas.Canvas(OUTPUT_PDF)\n        font_size, line_h, margin = 11, 16, 30\n\n        # 先跳过已经翻译过的页（只创建空页，不处理）\n        for idx in range(start_page - 1):\n            page = pdf.pages[idx]\n            c.setPageSize((page.width, page.height))\n            c.showPage()\n\n        # 从断点开始翻译\n        for idx in range(start_page - 1, total_pages):\n            page = pdf.pages[idx]\n            current_page_num = idx + 1\n            print(f\"\\n正在翻译第 {current_page_num}/{total_pages} 页\")\n\n            c.setPageSize((page.width, page.height))\n            c.setFont(CN_FONT, font_size)\n            words = page.extract_words()\n            full_text = \" \".join(w[\"text\"] for w in words) if words else \"\"\n\n            # 翻译\n            cn_text, cost = baidu_translate(full_text)\n\n            # 额度用完 → 立即保存并退出\n            if \"额度已用完\" in cn_text:\n                print(f\"\\n⚠️ 额度不足，已翻译到第 {current_page_num - 1} 页\")\n                print(f\"✅ 已自动保存已翻译内容到：{OUTPUT_PDF}\")\n                print(f\"📌 下次运行将从第 {current_page_num} 页继续翻译\")\n                save_progress(current_page_num)\n                c.showPage()\n                c.save()\n                return\n\n            # 绘制译文\n            lines = wrap_line(cn_text, page.width - 2*margin, CN_FONT, font_size, c)\n            y = page.height - margin\n            for line in lines:\n                if y < margin:\n                    c.showPage()\n                    c.setFont(CN_FONT, font_size)\n                    y = page.height - margin\n                c.drawString(margin, y, line.strip())\n                y -= line_h\n\n            # 累计额度\n            if cost > 0:\n                new_used = add_used_chars(cost)\n                print(f\"📊 已用额度：{new_used}/{MONTHLY_FREE_QUOTA}\")\n\n            # 保存当前页进度\n            save_progress(current_page_num)\n            c.showPage()\n\n        # 全部翻译完成\n        c.save()\n        clear_progress()\n        print(f\"\\n🎉 全书翻译完成！已保存至：{OUTPUT_PDF}\")\n\n# ===================== 运行 =====================\nif __name__ == '__main__':\n    translate_pdf_resumable(\n        input_pdf=\"D:\\\\小说\\\\哈利波特\\\\Harry Potter.pdf\"\n    )\n评价一下这段代码"
+    },
+    {
+      "query_id": "Q0002",
+      "message_id": 3,
+      "raw_user_message": "我希望你帮我升级，但要保留硬编码路径"
+    },
+    {
+      "query_id": "Q0003",
+      "message_id": 5,
+      "raw_user_message": "保持现在这样，不要再改了，但请你直接给我替换后的代码"
+    }
+  ],
+  "recent_context": [
+    {
+      "message_id": 1,
+      "role": "User",
+      "content": "import pdfplumber\nimport requests\nimport random\nimport hashlib\nimport re\nimport json\nimport os\nfrom datetime import datetime\nfrom reportlab.pdfgen import canvas\nfrom reportlab.pdfbase import pdfmetrics\nfrom reportlab.pdfbase.cidfonts import UnicodeCIDFont\nimport os\n\n# ===================== 【安全】从环境变量读取密钥，代码无明文 =====================\ntry:\n    APPID = os.environ[\"BAIDU_FANYI_APPID\"]\n    SECRET_KEY = os.environ[\"BAIDU_FANYI_SECRET\"]\nexcept KeyError:\n    raise Exception(\"请先设置环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET\")\n\nMONTHLY_FREE_QUOTA = 1000000  # 高级版每月100万字符\nOUTPUT_PDF = \"D:\\\\小说\\\\哈利波特\\\\Harry Potter_translated.pdf\"\n# ==============================================================================\n\n# 配置文件\nQUOTA_FILE = \"translation_quota.json\"    # 额度记录\nPROGRESS_FILE = \"translation_progress.json\"  # 翻译进度（断点）\n\n# 注册中文字体\npdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))\nCN_FONT = 'STSong-Light'\n\n# ===================== 1. 额度管理（每月自动重置） =====================\ndef load_quota():\n    if not os.path.exists(QUOTA_FILE):\n        return {\"used_chars\": 0, \"last_reset_date\": datetime.now().strftime(\"%Y-%m-01\")}\n    try:\n        with open(QUOTA_FILE, \"r\", encoding=\"utf-8\") as f:\n            return json.load(f)\n    except:\n        return {\"used_chars\": 0, \"last_reset_date\": datetime.now().strftime(\"%Y-%m-01\")}\n\ndef save_quota(used_chars, reset_date):\n    with open(QUOTA_FILE, \"w\", encoding=\"utf-8\") as f:\n        json.dump({\"used_chars\": used_chars, \"last_reset_date\": reset_date}, f, indent=2)\n\ndef check_and_reset_quota():\n    data = load_quota()\n    today = datetime.now()\n    current_month = today.strftime(\"%Y-%m-01\")\n    if data[\"last_reset_date\"] != current_month:\n        save_quota(0, current_month)\n        print(\"🔄 新月份，额度已重置为 100万字符\")\n        return 0\n    return data[\"used_chars\"]\n\ndef check_quota(text_len):\n    used = check_and_reset_quota()\n    remaining = MONTHLY_FREE_QUOTA - used\n    return remaining >= text_len, used, remaining\n\ndef add_used_chars(chars):\n    used = check_and_reset_quota()\n    new_used = used + chars\n    save_quota(new_used, datetime.now().strftime(\"%Y-%m-01\"))\n    return new_used\n\n# ===================== 2. 断点续传：记录/读取翻译进度 =====================\ndef load_progress():\n    if not os.path.exists(PROGRESS_FILE):\n        return 1  # 默认从第1页开始\n    try:\n        with open(PROGRESS_FILE, \"r\", encoding=\"utf-8\") as f:\n            return json.load(f).get(\"last_finished_page\", 1)\n    except:\n        return 1\n\ndef save_progress(page_num):\n    with open(PROGRESS_FILE, \"w\", encoding=\"utf-8\") as f:\n        json.dump({\"last_finished_page\": page_num}, f, indent=2)\n\ndef clear_progress():\n    if os.path.exists(PROGRESS_FILE):\n        os.remove(PROGRESS_FILE)\n\n# ===================== 3. 百度翻译API =====================\ndef split_text(text, max_len=4500):\n    sentences = text.replace(\"\\n\", \" \").split(\". \")\n    blocks, cur = [], \"\"\n    for s in sentences:\n        if len(cur) + len(s) + 2 <= max_len:\n            cur += s + \". \"\n        else:\n            blocks.append(cur.strip())\n            cur = s + \". \"\n    if cur:\n        blocks.append(cur.strip())\n    return blocks\n\ndef baidu_translate(q):\n    if not q.strip():\n        return \"\", 0\n    text_len = len(q.strip())\n    enough, used, remaining = check_quota(text_len)\n    if not enough:\n        return f\"[额度已用完] 本月已用{used}/{MONTHLY_FREE_QUOTA}，剩余{remaining}，下月继续\", 0\n\n    blocks = split_text(q)\n    res_list, total_cost = [], 0\n    for b in blocks:\n        if not b.strip(): continue\n        salt = str(random.randint(1,10000))\n        sign = hashlib.md5((APPID + b + salt + SECRET_KEY).encode()).hexdigest()\n        try:\n            r = requests.post(\"https://fanyi-api.baidu.com/api/trans/vip/translate\",\n                              data={\"q\":b,\"from\":\"en\",\"to\":\"zh\",\"appid\":APPID,\"salt\":salt,\"sign\":sign},\n                              timeout=10).json()\n            if \"trans_result\" in r:\n                res_list.append(r[\"trans_result\"][0][\"dst\"])\n                total_cost += len(b.strip())\n            else:\n                res_list.append(f\"[失败:{r.get('error_code')}]\")\n        except Exception as e:\n            res_list.append(f\"[异常:{str(e)}]\")\n    return \"\".join(res_list), total_cost\n\n# ===================== 4. 自动换行 =====================\ndef wrap_line(text, max_w, font, size, c):\n    if not text: return []\n    segs = re.split(r\"([。，！？；])\", text)\n    lines, cur = [], \"\"\n    for s in segs:\n        if not s: continue\n        if c.stringWidth(cur+s, font, size) < max_w:\n            cur += s\n        else:\n            lines.append(cur)\n            cur = s\n    if cur: lines.append(cur)\n    return lines\n\n# ===================== 5. 主函数：断点续翻 + 异常保存 =====================\ndef translate_pdf_resumable(input_pdf):\n    start_page = load_progress()\n    print(f\"🚀 从第 {start_page} 页开始继续翻译\")\n\n    with pdfplumber.open(input_pdf) as pdf:\n        total_pages = len(pdf.pages)\n        c = canvas.Canvas(OUTPUT_PDF)\n        font_size, line_h, margin = 11, 16, 30\n\n        # 先跳过已经翻译过的页（只创建空页，不处理）\n        for idx in range(start_page - 1):\n            page = pdf.pages[idx]\n            c.setPageSize((page.width, page.height))\n            c.showPage()\n\n        # 从断点开始翻译\n        for idx in range(start_page - 1, total_pages):\n            page = pdf.pages[idx]\n            current_page_num = idx + 1\n            print(f\"\\n正在翻译第 {current_page_num}/{total_pages} 页\")\n\n            c.setPageSize((page.width, page.height))\n            c.setFont(CN_FONT, font_size)\n            words = page.extract_words()\n            full_text = \" \".join(w[\"text\"] for w in words) if words else \"\"\n\n            # 翻译\n            cn_text, cost = baidu_translate(full_text)\n\n            # 额度用完 → 立即保存并退出\n            if \"额度已用完\" in cn_text:\n                print(f\"\\n⚠️ 额度不足，已翻译到第 {current_page_num - 1} 页\")\n                print(f\"✅ 已自动保存已翻译内容到：{OUTPUT_PDF}\")\n                print(f\"📌 下次运行将从第 {current_page_num} 页继续翻译\")\n                save_progress(current_page_num)\n                c.showPage()\n                c.save()\n                return\n\n            # 绘制译文\n            lines = wrap_line(cn_text, page.width - 2*margin, CN_FONT, font_size, c)\n            y = page.height - margin\n            for line in lines:\n                if y < margin:\n                    c.showPage()\n                    c.setFont(CN_FONT, font_size)\n                    y = page.height - margin\n                c.drawString(margin, y, line.strip())\n                y -= line_h\n\n            # 累计额度\n            if cost > 0:\n                new_used = add_used_chars(cost)\n                print(f\"📊 已用额度：{new_used}/{MONTHLY_FREE_QUOTA}\")\n\n            # 保存当前页进度\n            save_progress(current_page_num)\n            c.showPage()\n\n        # 全部翻译完成\n        c.save()\n        clear_progress()\n        print(f\"\\n🎉 全书翻译完成！已保存至：{OUTPUT_PDF}\")\n\n# ===================== 运行 =====================\nif __name__ == '__main__':\n    translate_pdf_resumable(\n        input_pdf=\"D:\\\\小说\\\\哈利波特\\\\Harry Potter.pdf\"\n    )\n评价一下这段代码"
+    },
+    {
+      "message_id": 2,
+      "role": "AI",
+      "content": "整体评价：**思路不错，已经不是“简单调用翻译 API”的脚本了，而是一个带额度管理、断点续翻、异常处理和 PDF 输出的完整小工具。**  \n但如果你的目标是“稳定地把一本几百页的小说翻译完，并且中断后继续”，目前还有几个比较严重的问题。\n\n我按 **代码质量 → 功能正确性 → 断点续传 → 百度 API → PDF → 可改进方案** 来看。\n\n### 1. 总体评分\n\n| 方面 | 评价 |\n| --- | --- |\n| 整体结构 | ⭐⭐⭐⭐☆ |\n| 可读性 | ⭐⭐⭐⭐☆ |\n| 安全性 | ⭐⭐⭐⭐☆ |\n| 额度管理 | ⭐⭐⭐⭐☆ |\n| 断点续传 | ⭐⭐⭐☆☆ |\n| API 调用 | ⭐⭐⭐☆☆ |\n| PDF 生成 | ⭐⭐⭐☆☆ |\n| 大型小说长期运行稳定性 | ⭐⭐☆☆☆ |\n| 翻译质量 | ⭐⭐⭐☆☆ |\n| 综合 | **7/10** |\n\n---\n\n## 2. 做得比较好的地方\n\n### ① API 密钥没有直接写进代码\n\n这一点是对的：\n\nPython\n\n运行\n\nAPPID = os.environ[\"BAIDU\\_FANYI\\_APPID\"]\n\nSECRET\\_KEY = os.environ[\"BAIDU\\_FANYI\\_SECRET\"]\n\n比这样安全很多：\n\nPython\n\n运行\n\nAPPID = \"xxxx\"\n\nSECRET\\_KEY = \"xxxx\"\n\n尤其是如果以后把代码上传 GitHub，**绝对不要把百度 API 密钥直接提交进去**。\n\n---\n\n### ② 有额度记录\n\n你用了：\n\nPython\n\n运行\n\ntranslation\\_quota.json\n\n记录：\n\n```\n{\n  \"used_chars\": 123456,\n  \"last_reset_date\": \"2026-10-01\"\n}\n```\n\n而且：\n\nPython\n\n运行\n\ncheck\\_and\\_reset\\_quota()\n\n会自动判断月份。\n\n这个设计挺实用，因为你不是单纯依赖百度 API 返回的额度，而是自己维护一个本地计数器。\n\n---\n\n### ③ 有断点续翻\n\n这个思路非常适合翻译长 PDF。\n\n比如：\n\n```\n第 1 页\n第 2 页\n...\n第 137 页\n```\n\n程序突然崩了。\n\n下一次：\n\nPython\n\n运行\n\nstart\\_page = load\\_progress()\n\n理论上可以从第 138 页继续。\n\n这比每次都从第一页重新翻译好很多。\n\n---\n\n### ④ PDF 中文字体处理是正确方向\n\n你用了：\n\nPython\n\n运行\n\npdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))\n\n否则 ReportLab 默认字体经常无法正常显示中文。\n\n这一点是很多第一次用 ReportLab 的人容易踩的坑。\n\n---\n\n# 3. 最大的问题：你的“断点续传”实际上有严重 Bug\n\n这是我认为这份代码**最需要修改的地方**。\n\n你现在：\n\nPython\n\n运行\n\nc = canvas.Canvas(OUTPUT\\_PDF)\n\n然后：\n\nPython\n\n运行\n\nfor idx in range(start\\_page - 1):\n\npage = pdf.pages[idx]\n\nc.setPageSize((page.width, page.height))\n\nc.showPage()\n\n你的想法是：\n\n> 已经翻译过的页面不用重新翻译，前面生成几个空白页占位置。\n\n问题是：\n\n**你每次重新运行程序，canvas.Canvas(OUTPUT\\_PDF) 都会重新创建 PDF。**\n\n也就是说：\n\n假设第一次翻译：\n\n```\n1 → 100页\n```\n\n第二次运行：\n\n```\nstart_page = 101\n```\n\n程序会创建一个**全新的 PDF**，然后前 100 页只是：\n\n```\n空白页\n空白页\n空白页\n...\n```\n\n并不会把第一次生成的翻译内容接回来。\n\n所以最终 PDF 会变成：\n\n```\n第1~100页：空白\n第101页以后：翻译内容\n```\n\n而不是：\n\n```\n第1~100页：第一次翻译内容\n第101页以后：第二次翻译内容\n```\n\n### 这是当前代码最大的逻辑问题。\n\n---\n\n# 4. save\\_progress() 还有一个页码错误\n\n这里：\n\nPython\n\n运行\n\nif \"额度已用完\" in cn\\_text:\n\n...\n\nsave\\_progress(current\\_page\\_num)\n\n你实际上**没有完成当前页**。\n\n假设：\n\n```\n已经完成 100 页\n正在翻译 101 页\n```\n\n结果额度耗尽。\n\n你保存：\n\nPython\n\n运行\n\nsave\\_progress(101)\n\n下一次：\n\nPython\n\n运行\n\nstart\\_page = 101\n\n这本身看起来没问题。\n\n但你前面设计的 last\\_finished\\_page：\n\nPython\n\n运行\n\nreturn json.load(f).get(\"last\\_finished\\_page\", 1)\n\n语义上应该是：\n\n> 最后完成的是哪一页\n\n那么应该保存：\n\nPython\n\n运行\n\nsave\\_progress(current\\_page\\_num - 1)\n\n然后加载的时候：\n\nPython\n\n运行\n\nstart\\_page = last\\_finished\\_page + 1\n\n这样概念会更加清晰。\n\n---\n\n# 5. split\\_text() 对英文小说并不理想\n\n你现在：\n\nPython\n\n运行\n\nsentences = text.replace(\"\\n\", \" \").split(\". \")\n\n这会产生不少问题。\n\n例如：\n\n```\nMr. Potter went to Hogwarts.\n```\n\n会被切成：\n\n```\nMr\nPotter went to Hogwarts\n```\n\n因为：\n\nPython\n\n运行\n\n.split(\". \")\n\n把：\n\n```\nMr. Potter\n```\n\n中的 .  也当成句号了。\n\n小说里面大量存在：\n\n```\nMr.\nMrs.\nDr.\nProf.\ne.g.\netc.\n```\n\n所以这个方法不适合文学作品。\n\n---\n\n# 6. 更严重的是：你没有真正控制百度 API 的请求长度\n\n你写：\n\nPython\n\n运行\n\ndef split\\_text(text, max\\_len=4500):\n\n这看起来是在控制长度。\n\n但是百度翻译 API 的限制不是简单地：\n\n> “Python len() ≤ 4500 就一定安全”\n\n尤其还涉及 URL/POST 参数、API 版本、字符计数规则等。\n\n更稳妥的办法是：\n\n**按照句子切分 + 控制每个请求的字符数 + 超长句再次切分。**\n\n例如：\n\n```\n整页\n ↓\n段落\n ↓\n句子\n ↓\n每批 3000～4000 字符\n ↓\n百度 API\n```\n\n而不是简单：\n\nPython\n\n运行\n\n.split(\". \")\n\n---\n\n# 7. API 错误处理还不够\n\n现在：\n\nPython\n\n运行\n\nif \"trans\\_result\" in r:\n\n...\n\nelse:\n\nres\\_list.append(f\"[失败:{r.get('error\\_code')}]\")\n\n问题是：\n\n**翻译失败以后，你仍然会把这一页当作正常完成。**\n\n例如百度返回：\n\n```\n{\n    \"error_code\": \"54003\"\n}\n```\n\n你的程序会生成：\n\n```\n[失败:54003]\n```\n\n然后：\n\nPython\n\n运行\n\nsave\\_progress(current\\_page\\_num)\n\n于是这一页被标记为“已经完成”。\n\n下一次运行不会重新翻译。\n\n这会导致最终 PDF 里面出现：\n\n```\n[失败:54003]\n```\n\n而且永远不会自动修复。\n\n### 正确做法\n\n如果 API 失败：\n\n```\n重试\n ↓\n仍失败\n ↓\n保存当前状态\n ↓\n不要把当前页标记为完成\n ↓\n退出\n```\n\n例如：\n\nPython\n\n运行\n\nfor retry in range(3):\n\n...\n\n---\n\n# 8. 没有真正利用 requests.Session()\n\n现在每次：\n\nPython\n\n运行\n\nrequests.post(...)\n\n都会独立发送请求。\n\n如果一本小说有几百页、几千次 API 请求，可以考虑：\n\nPython\n\n运行\n\nsession = requests.Session()\n\n然后：\n\nPython\n\n运行\n\nsession.post(...)\n\n这样连接复用会更合理。\n\n---\n\n# 9. 你的“每月100万字符”统计有潜在误差\n\n这里：\n\nPython\n\n运行\n\ntotal\\_cost += len(b.strip())\n\n然后：\n\nPython\n\n运行\n\nadd\\_used\\_chars(cost)\n\n你统计的是**本地发送出去的字符串长度**。\n\n这不一定等于百度实际计费字符数。\n\n因此：\n\nPython\n\n运行\n\nMONTHLY\\_FREE\\_QUOTA = 1000000\n\n最好理解成：\n\n> 本程序自己的保守估算额度\n\n而不是：\n\n> 百度官方精确剩余额度\n\n如果 API 返回实际字符消耗，应该优先使用 API 返回的数据。\n\n---\n\n# 10. PDF 排版目前比较简陋\n\n现在最终 PDF 基本是：\n\n```\nHarry Potter translated.pdf\n\n第一页：\n    翻译文字\n    翻译文字\n    翻译文字\n    ...\n\n第二页：\n    翻译文字\n    ...\n```\n\n但是小说翻译最好至少保留：\n\n* 段落\n* 空行\n* 章节标题\n* 页码\n* 合理的行距\n* 首行缩进\n* 章节分页\n* 标题字体\n* 正文字体\n\n现在：\n\nPython\n\n运行\n\nfull\\_text = \" \".join(w[\"text\"] for w in words)\n\n实际上已经把原 PDF 的段落结构**破坏掉了**。\n\n例如原文：\n\n```\nHarry looked at the door.\n\nHe wondered who was outside.\n```\n\n很可能变成：\n\n```\nHarry looked at the door. He wondered who was outside.\n```\n\n翻译之后就没有原来的段落了。\n\n---\n\n# 11. 还有一个非常重要的问题：你没有保留原 PDF 的页面内容\n\n你现在生成的是：\n\n> **只有中文翻译的新 PDF**\n\n而不是：\n\n> **原版页面 + 中文翻译**\n\n如果这是你想要的效果，那没问题。\n\n但如果你想：\n\n> 左边英文、右边中文\n\n或者：\n\n> 原文下面跟中文\n\n那么目前这套 PDF 生成逻辑还需要重新设计。\n\n---\n\n# 12. wrap\\_line() 也有一个潜在 Bug\n\n这里：\n\nPython\n\n运行\n\nif c.stringWidth(cur+s, font, size) < max\\_w:\n\ncur += s\n\nelse:\n\nlines.append(cur)\n\ncur = s\n\n如果某个 s 本身就比 max\\_w 长：\n\n```\n超长字符串\n```\n\n那么：\n\nPython\n\n运行\n\nlines.append(cur)\n\ncur = s\n\n最终仍然会出现一行超出页面。\n\n虽然中文一般比较少出现这种情况，但英文 URL、特殊字符串等可能造成问题。\n\n---\n\n# 13. except: 太宽泛\n\n例如：\n\nPython\n\n运行\n\nexcept:\n\nreturn {\"used\\_chars\": 0...}\n\n这不太推荐。\n\n最好：\n\nPython\n\n运行\n\nexcept (json.JSONDecodeError, OSError):\n\n这样真正的程序 Bug 不会被悄悄吞掉。\n\n否则以后出现问题时，你会很难定位。\n\n---\n\n# 14. 有一些小的代码质量问题\n\n例如：\n\nPython\n\n运行\n\nimport os\n\n出现了两次。\n\n以及：\n\nPython\n\n运行\n\nfrom datetime import datetime\n\n这些没有问题，但可以清理。\n\n另外建议增加：\n\nPython\n\n运行\n\nfrom pathlib import Path\n\n这样路径会比：\n\nPython\n\n运行\n\n\"D:\\\\小说\\\\哈利波特\\\\Harry Potter.pdf\"\n\n更加容易管理。\n\n---\n\n# 15. 我最建议你重新设计成这个结构\n\n如果你的真实目标是：\n\n> **把《Harry Potter.pdf》完整翻译成中文，几百页甚至上千页，百度 API 每月100万字符，中断后可以继续，而且最终 PDF 不丢页。**\n\n那么我建议架构改成：\n\n```\nHarry Potter.pdf\n        │\n        ▼\n   PDF 逐页读取\n        │\n        ▼\n   提取段落/文本\n        │\n        ▼\n   文本分块\n        │\n        ▼\n  百度翻译 API\n        │\n        ├── 成功 → 保存译文\n        │\n        └── 失败 → 自动重试\n        │\n        ▼\n   page_001.json\n   page_002.json\n   page_003.json\n        ...\n        ▼\n   全部翻译完成\n        │\n        ▼\n   最后统一生成 PDF\n```\n\n这比你现在：\n\n```\n翻译一页\n ↓\n直接写 PDF\n ↓\n下一页\n```\n\n要可靠得多。\n\n---\n\n# 16. 为什么我尤其推荐“先保存翻译结果，再生成 PDF”\n\n例如翻译到第 237 页：\n\n```\npage_001.json\npage_002.json\n...\npage_237.json\n```\n\n突然电脑关机。\n\n没关系。\n\n下一次：\n\n```\n检查 page_001 ~ page_237\n```\n\n发现都有。\n\n直接：\n\n```\n从 page_238 开始\n```\n\n最终全部完成：\n\n```\nJSON翻译结果\n       ↓\nPDF生成器\n       ↓\nHarry Potter_translated.pdf\n```\n\n这样**翻译和 PDF 生成互相独立**。\n\n这会比当前代码稳定很多。\n\n---\n\n## 17. 如果让我给这份代码定性\n\n我会把它评价为：\n\n> **“一个思路完整、已经具备实用雏形，但断点续传机制存在核心设计缺陷的 PDF 自动翻译脚本。”**\n\n它不是垃圾代码，反而有不少不错的工程意识：\n\n* 环境变量密钥\n* 月度额度\n* JSON 状态\n* 断点续传\n* API 超时\n* 中文字体\n* 自动换行\n* 异常退出保存\n\n这些说明你已经开始从“写一个能跑的脚本”往“写一个能长期运行的工具”方向走了。\n\n但如果准备真的拿它去跑**整本《哈利·波特》**，我建议先不要直接运行。\n\n**最优先应该修三个东西：**\n\n1. 🔴 **修复 PDF 断点续传——目前会导致前面已经翻译的内容丢失**\n2. 🔴 **API 失败自动重试，失败页不能标记为完成**\n3. 🟠 **翻译结果独立持久化，最后再统一生成 PDF**\n\n如果这三个改完，整体可靠性会提升一个档次。"
+    },
+    {
+      "message_id": 3,
+      "role": "User",
+      "content": "我希望你帮我升级，但要保留硬编码路径"
+    },
+    {
+      "message_id": 4,
+      "role": "AI",
+      "content": "可以。下面这个版本我建议你直接替换原脚本。**所有路径继续硬编码**，不改成命令行参数，也不改成让你每次输入路径。\n\n这版重点解决了你原代码里最严重的问题：**PDF 不再依赖“接着上次的 ReportLab PDF 继续写”**，而是采用“每页翻译结果缓存 → 随时可以从缓存重建 PDF”的方式。因此电脑崩溃、程序中断、额度耗尽后，已经完成的内容不会变成空白页。\n\n```\nimport os\nimport re\nimport json\nimport time\nimport random\nimport hashlib\nfrom datetime import datetime\nfrom typing import Optional, Tuple, List, Dict\n\nimport pdfplumber\nimport requests\nfrom reportlab.pdfgen import canvas\nfrom reportlab.pdfbase import pdfmetrics\nfrom reportlab.pdfbase.cidfonts import UnicodeCIDFont\n\n# ============================================================\n# 0. 配置\n#    按你的要求：保留硬编码路径\n# ============================================================\n\nINPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"\nOUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"\n\n# 状态文件也固定放在小说目录\nQUOTA_FILE = r\"D:\\小说\\哈利波特\\translation_quota.json\"\nPROGRESS_FILE = r\"D:\\小说\\哈利波特\\translation_progress.json\"\nCACHE_DIR = r\"D:\\小说\\哈利波特\\translation_cache\"\n\n# 你原来的额度设置\nMONTHLY_FREE_QUOTA = 1_000_000\n\n# 百度翻译 API\nBAIDU_URL = \"https://fanyi-api.baidu.com/api/trans/vip/translate\"\nSOURCE_LANG = \"en\"\nTARGET_LANG = \"zh\"\n\n# 每次 API 请求的字符上限。\n# 这里故意留安全余量，不建议直接顶到接口极限。\nMAX_CHARS_PER_REQUEST = 4_000\n\n# API 重试\nMAX_RETRIES = 3\nRETRY_BASE_SECONDS = 2\n\n# PDF 排版\nFONT_NAME = \"STSong-Light\"\nFONT_SIZE = 11\nLINE_HEIGHT = 16\nMARGIN = 30\nFOOTER_SIZE = 8\n\n# ============================================================\n# 1. 初始化\n# ============================================================\n\nos.makedirs(CACHE_DIR, exist_ok=True)\n\npdfmetrics.registerFont(UnicodeCIDFont(FONT_NAME))\n\ntry:\n    APPID = os.environ[\"BAIDU_FANYI_APPID\"]\n    SECRET_KEY = os.environ[\"BAIDU_FANYI_SECRET\"]\nexcept KeyError:\n    raise RuntimeError(\n        \"请先设置环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET\"\n    )\n\n# 复用 HTTP 连接\nSESSION = requests.Session()\n\n# ============================================================\n# 2. JSON 原子写入\n# ============================================================\n\ndef atomic_write_json(path: str, data: dict) -> None:\n    \"\"\"\n    先写临时文件，再原子替换。\n    防止程序突然退出导致 JSON 文件写坏。\n    \"\"\"\n    directory = os.path.dirname(path)\n    if directory:\n        os.makedirs(directory, exist_ok=True)\n\n    temp_path = path + \".tmp\"\n\n    with open(temp_path, \"w\", encoding=\"utf-8\") as f:\n        json.dump(data, f, ensure_ascii=False, indent=2)\n\n    os.replace(temp_path, path)\n\n# ============================================================\n# 3. 月度额度管理\n# ============================================================\n\ndef current_month() -> str:\n    return datetime.now().strftime(\"%Y-%m-01\")\n\ndef load_quota() -> Dict:\n    if not os.path.exists(QUOTA_FILE):\n        return {\n            \"used_chars\": 0,\n            \"last_reset_date\": current_month(),\n        }\n\n    try:\n        with open(QUOTA_FILE, \"r\", encoding=\"utf-8\") as f:\n            data = json.load(f)\n\n        return {\n            \"used_chars\": int(data.get(\"used_chars\", 0)),\n            \"last_reset_date\": data.get(\n                \"last_reset_date\",\n                current_month()\n            ),\n        }\n\n    except (OSError, ValueError, TypeError, json.JSONDecodeError):\n        print(\"⚠️ 额度文件损坏，将重新初始化。\")\n\n        return {\n            \"used_chars\": 0,\n            \"last_reset_date\": current_month(),\n        }\n\ndef save_quota(used_chars: int) -> None:\n    atomic_write_json(\n        QUOTA_FILE,\n        {\n            \"used_chars\": int(used_chars),\n            \"last_reset_date\": current_month(),\n        }\n    )\n\ndef check_and_reset_quota() -> int:\n    data = load_quota()\n    month = current_month()\n\n    if data[\"last_reset_date\"] != month:\n        save_quota(0)\n        print(\"🔄 新月份，程序记录的额度已重置为 100 万字符\")\n        return 0\n\n    return max(0, data[\"used_chars\"])\n\ndef sync_quota_from_cache() -> int:\n    \"\"\"\n    启动时根据成功缓存的页面核对额度。\n\n    用于解决：\n    API 成功\n        ↓\n    页面缓存已经保存\n        ↓\n    电脑突然断电\n        ↓\n    quota.json 还没来得及保存\n\n    下次运行时可以根据缓存恢复额度记录。\n    \"\"\"\n    used = check_and_reset_quota()\n    month = current_month()\n    cached_cost = 0\n\n    try:\n        filenames = os.listdir(CACHE_DIR)\n    except OSError:\n        return used\n\n    for filename in filenames:\n        if not filename.endswith(\".json\"):\n            continue\n\n        path = os.path.join(CACHE_DIR, filename)\n\n        try:\n            with open(path, \"r\", encoding=\"utf-8\") as f:\n                data = json.load(f)\n\n            if (\n                data.get(\"status\") == \"completed\"\n                and data.get(\"usage_month\") == month\n            ):\n                cached_cost += int(data.get(\"cost_chars\", 0))\n\n        except (OSError, ValueError, TypeError, json.JSONDecodeError):\n            continue\n\n    corrected = max(used, cached_cost)\n\n    if corrected != used:\n        save_quota(corrected)\n        print(\n            f\"🔧 根据缓存校正额度：\"\n            f\"{corrected}/{MONTHLY_FREE_QUOTA}\"\n        )\n\n    return corrected\n\ndef check_quota(text_len: int) -> Tuple[bool, int, int]:\n    used = check_and_reset_quota()\n    remaining = max(0, MONTHLY_FREE_QUOTA - used)\n\n    return remaining >= text_len, used, remaining\n\ndef add_used_chars(chars: int) -> int:\n    \"\"\"\n    注意：\n    这里不要再调用 sync_quota_from_cache()。\n\n    因为当前页缓存已经写入后，\n    再从缓存统计一次会把当前页重复计算。\n    \"\"\"\n    used = check_and_reset_quota()\n    new_used = used + chars\n\n    save_quota(new_used)\n\n    return new_used\n\n# ============================================================\n# 4. 断点进度管理\n# ============================================================\n\ndef load_progress() -> Dict:\n    if not os.path.exists(PROGRESS_FILE):\n        return {\n            \"last_finished_page\": 0,\n            \"total_pages\": None,\n            \"input_pdf\": INPUT_PDF,\n        }\n\n    try:\n        with open(PROGRESS_FILE, \"r\", encoding=\"utf-8\") as f:\n            data = json.load(f)\n\n        return {\n            \"last_finished_page\": int(\n                data.get(\"last_finished_page\", 0)\n            ),\n            \"total_pages\": data.get(\"total_pages\"),\n            \"input_pdf\": data.get(\"input_pdf\", INPUT_PDF),\n        }\n\n    except (OSError, ValueError, TypeError, json.JSONDecodeError):\n        return {\n            \"last_finished_page\": 0,\n            \"total_pages\": None,\n            \"input_pdf\": INPUT_PDF,\n        }\n\ndef save_progress(\n    last_finished_page: int,\n    total_pages: int\n) -> None:\n\n    atomic_write_json(\n        PROGRESS_FILE,\n        {\n            \"last_finished_page\": int(last_finished_page),\n            \"total_pages\": int(total_pages),\n            \"input_pdf\": INPUT_PDF,\n            \"updated_at\": datetime.now().isoformat(\n                timespec=\"seconds\"\n            ),\n        }\n    )\n\ndef clear_progress() -> None:\n    try:\n        if os.path.exists(PROGRESS_FILE):\n            os.remove(PROGRESS_FILE)\n    except OSError:\n        pass\n\n# ============================================================\n# 5. 页面缓存\n# ============================================================\n\ndef page_cache_path(page_num: int) -> str:\n    return os.path.join(\n        CACHE_DIR,\n        f\"page_{page_num:04d}.json\"\n    )\n\ndef text_hash(text: str) -> str:\n    return hashlib.sha256(\n        text.encode(\"utf-8\")\n    ).hexdigest()\n\ndef load_page_cache(\n    page_num: int,\n    source_text: str\n) -> Optional[Dict]:\n\n    path = page_cache_path(page_num)\n\n    if not os.path.exists(path):\n        return None\n\n    try:\n        with open(path, \"r\", encoding=\"utf-8\") as f:\n            data = json.load(f)\n\n        if data.get(\"status\") != \"completed\":\n            return None\n\n        # 防止换了 PDF 后错误使用旧缓存\n        if data.get(\"source_hash\") != text_hash(source_text):\n            return None\n\n        if \"translated_text\" not in data:\n            return None\n\n        return data\n\n    except (OSError, ValueError, TypeError, json.JSONDecodeError):\n        return None\n\ndef save_page_cache(\n    page_num: int,\n    source_text: str,\n    translated_text: str,\n    cost_chars: int\n) -> None:\n\n    data = {\n        \"status\": \"completed\",\n        \"page_num\": page_num,\n        \"source_hash\": text_hash(source_text),\n        \"input_chars\": len(source_text),\n        \"cost_chars\": int(cost_chars),\n        \"translated_text\": translated_text,\n        \"usage_month\": current_month(),\n        \"completed_at\": datetime.now().isoformat(\n            timespec=\"seconds\"\n        ),\n    }\n\n    atomic_write_json(\n        page_cache_path(page_num),\n        data\n    )\n\n# ============================================================\n# 6. 文本清洗\n# ============================================================\n\ndef normalize_text(text: str) -> str:\n    if not text:\n        return \"\"\n\n    text = text.replace(\"\\r\\n\", \"\\n\")\n    text = text.replace(\"\\r\", \"\\n\")\n\n    # 压缩连续空格\n    lines = []\n\n    for line in text.split(\"\\n\"):\n        line = re.sub(r\"[ \\t]+\", \" \", line).strip()\n        lines.append(line)\n\n    # 最多保留一个连续空行\n    cleaned = []\n    blank_count = 0\n\n    for line in lines:\n\n        if line:\n            cleaned.append(line)\n            blank_count = 0\n\n        else:\n            blank_count += 1\n\n            if blank_count <= 1:\n                cleaned.append(\"\")\n\n    return \"\\n\".join(cleaned).strip()\n\n# ============================================================\n# 7. 英文文本智能分块\n# ============================================================\n\nABBREVIATIONS = [\n    \"Mr.\",\n    \"Mrs.\",\n    \"Ms.\",\n    \"Dr.\",\n    \"Prof.\",\n    \"St.\",\n    \"Jr.\",\n    \"Sr.\",\n    \"Inc.\",\n    \"Ltd.\",\n    \"e.g.\",\n    \"i.e.\",\n    \"vs.\",\n    \"No.\",\n    \"Fig.\",\n]\n\ndef protect_abbreviations(text: str) -> str:\n\n    for abbr in ABBREVIATIONS:\n        protected = abbr.replace(\".\", \"<DOT>\")\n        text = text.replace(abbr, protected)\n\n    return text\n\ndef restore_abbreviations(text: str) -> str:\n    return text.replace(\"<DOT>\", \".\")\n\ndef split_long_piece(\n    text: str,\n    max_len: int\n) -> List[str]:\n    \"\"\"\n    单个句子本身超过 API 长度时：\n    优先按空格切；\n    连续无空格时最后才硬切。\n    \"\"\"\n    text = text.strip()\n\n    if not text:\n        return []\n\n    if len(text) <= max_len:\n        return [text]\n\n    pieces = []\n    current = \"\"\n\n    tokens = re.split(r\"(\\s+)\", text)\n\n    for token in tokens:\n\n        if not token:\n            continue\n\n        if len(current) + len(token) <= max_len:\n            current += token\n            continue\n\n        if current.strip():\n            pieces.append(current.strip())\n\n        current = \"\"\n\n        # 当前 token 自身就超过限制\n        while len(token) > max_len:\n            pieces.append(token[:max_len])\n            token = token[max_len:]\n\n        current = token\n\n    if current.strip():\n        pieces.append(current.strip())\n\n    return pieces\n\ndef split_paragraph(\n    paragraph: str,\n    max_len: int\n) -> List[str]:\n\n    protected = protect_abbreviations(paragraph)\n\n    # 尽量按照句号、问号、感叹号分句\n    sentences = re.split(\n        r'(?<=[.!?][\"\\')\\]”’]?)'\n        r'\\s+'\n        r'(?=[A-Z0-9“\"\\'(])',\n        protected\n    )\n\n    sentences = [\n        restore_abbreviations(sentence).strip()\n        for sentence in sentences\n        if sentence.strip()\n    ]\n\n    chunks = []\n    current = \"\"\n\n    for sentence in sentences:\n\n        pieces = split_long_piece(\n            sentence,\n            max_len\n        )\n\n        for piece in pieces:\n\n            if len(current) + len(piece) + 1 <= max_len:\n\n                current = (\n                    f\"{current} {piece}\"\n                ).strip()\n\n            else:\n\n                if current:\n                    chunks.append(current)\n\n                current = piece\n\n    if current:\n        chunks.append(current)\n\n    return chunks\n\ndef split_text(\n    text: str,\n    max_len: int = MAX_CHARS_PER_REQUEST\n) -> List[str]:\n\n    text = normalize_text(text)\n\n    if not text:\n        return []\n\n    if len(text) <= max_len:\n        return [text]\n\n    blocks = []\n\n    # 双换行作为段落边界\n    paragraphs = re.split(\n        r\"\\n\\s*\\n\",\n        text\n    )\n\n    for paragraph in paragraphs:\n\n        paragraph = paragraph.strip()\n\n        if not paragraph:\n            continue\n\n        paragraph_blocks = split_paragraph(\n            paragraph,\n            max_len\n        )\n\n        for block in paragraph_blocks:\n\n            if len(block) <= max_len:\n                blocks.append(block)\n\n            else:\n                blocks.extend(\n                    split_long_piece(\n                        block,\n                        max_len\n                    )\n                )\n\n    return blocks\n\n# ============================================================\n# 8. 百度翻译 API\n# ============================================================\n\ndef baidu_translate_block(\n    q: str\n) -> Tuple[str, int]:\n\n    q = q.strip()\n\n    if not q:\n        return \"\", 0\n\n    salt = str(\n        random.randint(1, 10000)\n    )\n\n    sign = hashlib.md5(\n        (\n            APPID\n            + q\n            + salt\n            + SECRET_KEY\n        ).encode(\"utf-8\")\n    ).hexdigest()\n\n    last_error = None\n\n    for attempt in range(\n        1,\n        MAX_RETRIES + 1\n    ):\n\n        try:\n\n            response = SESSION.post(\n                BAIDU_URL,\n                data={\n                    \"q\": q,\n                    \"from\": SOURCE_LANG,\n                    \"to\": TARGET_LANG,\n                    \"appid\": APPID,\n                    \"salt\": salt,\n                    \"sign\": sign,\n                },\n                timeout=(10, 30),\n            )\n\n            response.raise_for_status()\n\n            try:\n                result = response.json()\n\n            except ValueError as e:\n                raise RuntimeError(\n                    \"百度 API 返回的不是合法 JSON\"\n                ) from e\n\n            if \"trans_result\" in result:\n\n                translated_parts = []\n\n                for item in result[\"trans_result\"]:\n\n                    dst = item.get(\"dst\")\n\n                    if dst is not None:\n                        translated_parts.append(dst)\n\n                translated = \"\\n\".join(\n                    translated_parts\n                ).strip()\n\n                return translated, len(q)\n\n            error_code = result.get(\n                \"error_code\",\n                \"未知\"\n            )\n\n            error_msg = result.get(\n                \"error_msg\",\n                \"\"\n            )\n\n            raise RuntimeError(\n                f\"百度 API 失败：\"\n                f\"error_code={error_code}, \"\n                f\"error_msg={error_msg}\"\n            )\n\n        except (\n            requests.RequestException,\n            RuntimeError\n        ) as e:\n\n            last_error = e\n\n            if attempt < MAX_RETRIES:\n\n                wait_seconds = (\n                    RETRY_BASE_SECONDS ** attempt\n                )\n\n                print(\n                    f\"   ⚠️ API 请求失败，\"\n                    f\"第 {attempt}/{MAX_RETRIES} 次重试\"\n                )\n\n                print(\n                    f\"   {e}\"\n                )\n\n                time.sleep(\n                    wait_seconds\n                )\n\n            else:\n                break\n\n    raise RuntimeError(\n        f\"连续 {MAX_RETRIES} 次失败：\"\n        f\"{last_error}\"\n    )\n\ndef baidu_translate(\n    text: str\n) -> Tuple[str, int]:\n\n    text = normalize_text(text)\n\n    if not text:\n        return \"\", 0\n\n    enough, used, remaining = check_quota(\n        len(text)\n    )\n\n    if not enough:\n\n        raise RuntimeError(\n            f\"本月额度不足：\"\n            f\"已用 {used}/{MONTHLY_FREE_QUOTA}，\"\n            f\"剩余 {remaining}，\"\n            f\"本页需要约 {len(text)} 字符。\"\n        )\n\n    blocks = split_text(text)\n\n    if not blocks:\n        return \"\", 0\n\n    results = []\n    total_cost = 0\n\n    for index, block in enumerate(\n        blocks,\n        start=1\n    ):\n\n        print(\n            f\"   API 请求 \"\n            f\"{index}/{len(blocks)}，\"\n            f\"本块 {len(block)} 字符\"\n        )\n\n        translated, cost = (\n            baidu_translate_block(\n                block\n            )\n        )\n\n        results.append(translated)\n        total_cost += cost\n\n        # 稍微降低连续请求过快的风险\n        if index < len(blocks):\n            time.sleep(0.3)\n\n    translated_text = \"\\n\\n\".join(\n        x for x in results\n        if x.strip()\n    )\n\n    return translated_text, total_cost\n\n# ============================================================\n# 9. 中文/英文混排自动换行\n# ============================================================\n\ndef wrap_text_to_lines(\n    text: str,\n    max_width: float,\n    font_name: str,\n    font_size: float\n) -> List[str]:\n\n    lines = []\n\n    # 保留原有换行\n    for paragraph in text.split(\"\\n\"):\n\n        paragraph = paragraph.strip()\n\n        if not paragraph:\n            lines.append(\"\")\n            continue\n\n        current = \"\"\n        last_space_pos = -1\n\n        for ch in paragraph:\n\n            test = current + ch\n\n            if pdfmetrics.stringWidth(\n                test,\n                font_name,\n                font_size\n            ) <= max_width:\n\n                current = test\n\n                if ch.isspace():\n                    last_space_pos = (\n                        len(current) - 1\n                    )\n\n                continue\n\n            # 当前行已经超宽\n            if current.strip():\n\n                # 如果是英文，优先在最近空格处换行\n                if last_space_pos > 0:\n\n                    line = (\n                        current[:last_space_pos]\n                        .rstrip()\n                    )\n\n                    remainder = (\n                        current[last_space_pos + 1:]\n                        + ch\n                    )\n\n                    lines.append(line)\n\n                    current = (\n                        remainder\n                        .lstrip()\n                    )\n\n                else:\n\n                    lines.append(\n                        current.rstrip()\n                    )\n\n                    current = ch\n\n            else:\n\n                current = ch\n\n            last_space_pos = (\n                len(current) - 1\n                if current\n                and current[-1].isspace()\n                else -1\n            )\n\n        if current.strip():\n            lines.append(\n                current.rstrip()\n            )\n\n    return lines\n\n# ============================================================\n# 10. 页脚\n# ============================================================\n\ndef draw_footer(\n    c,\n    page_width: float,\n    source_page_num: int,\n    continued: bool\n):\n\n    footer = (\n        f\"原 PDF 第 {source_page_num} 页\"\n    )\n\n    if continued:\n        footer += \"（续）\"\n\n    c.setFont(\n        FONT_NAME,\n        FOOTER_SIZE\n    )\n\n    c.drawCentredString(\n        page_width / 2,\n        12,\n        footer\n    )\n\n# ============================================================\n# 11. 从缓存重建 PDF\n# ============================================================\n\ndef rebuild_output_pdf(\n    input_pdf: str\n) -> None:\n\n    print(\"\\n📄 正在从翻译缓存生成 PDF...\")\n\n    with pdfplumber.open(input_pdf) as pdf:\n\n        c = canvas.Canvas(\n            OUTPUT_PDF\n        )\n\n        completed_pages = 0\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            source_text = normalize_text(\n                page.extract_text() or \"\"\n            )\n\n            cache = load_page_cache(\n                idx,\n                source_text\n            )\n\n            # 一旦出现缺失页，就停止。\n            # 避免 1、2、3、5 页都有，4 页没有时，\n            # 输出 PDF 出现页码错乱。\n            if cache is None:\n                print(\n                    f\"   ⏹ PDF 重建到第 \"\n                    f\"{idx - 1} 页停止\"\n                )\n                break\n\n            translated_text = (\n                cache.get(\n                    \"translated_text\",\n                    \"\"\n                ).strip()\n            )\n\n            # 空白页\n            if not translated_text:\n\n                c.setPageSize(\n                    (page.width, page.height)\n                )\n\n                draw_footer(\n                    c,\n                    page.width,\n                    idx,\n                    False\n                )\n\n                c.showPage()\n\n                completed_pages += 1\n                continue\n\n            c.setPageSize(\n                (page.width, page.height)\n            )\n\n            max_width = (\n                page.width\n                - 2 * MARGIN\n            )\n\n            y = (\n                page.height\n                - MARGIN\n            )\n\n            lines = wrap_text_to_lines(\n                translated_text,\n                max_width,\n                FONT_NAME,\n                FONT_SIZE\n            )\n\n            continued = False\n\n            for line in lines:\n\n                if y < (\n                    MARGIN\n                    + FOOTER_SIZE\n                    + 10\n                ):\n\n                    draw_footer(\n                        c,\n                        page.width,\n                        idx,\n                        continued\n                    )\n\n                    c.showPage()\n\n                    c.setPageSize(\n                        (\n                            page.width,\n                            page.height\n                        )\n                    )\n\n                    c.setFont(\n                        FONT_NAME,\n                        FONT_SIZE\n                    )\n\n                    y = (\n                        page.height\n                        - MARGIN\n                    )\n\n                    continued = True\n\n                if line == \"\":\n                    y -= LINE_HEIGHT\n                    continue\n\n                c.setFont(\n                    FONT_NAME,\n                    FONT_SIZE\n                )\n\n                c.drawString(\n                    MARGIN,\n                    y,\n                    line\n                )\n\n                y -= LINE_HEIGHT\n\n            draw_footer(\n                c,\n                page.width,\n                idx,\n                continued\n            )\n\n            c.showPage()\n\n            completed_pages += 1\n\n        c.save()\n\n    print(\n        f\"✅ PDF 已保存：{OUTPUT_PDF}\"\n    )\n\n    print(\n        f\"📄 已写入 {completed_pages} 个原 PDF 页面\"\n    )\n\n# ============================================================\n# 12. 主翻译流程\n# ============================================================\n\ndef translate_pdf_resumable(\n    input_pdf: str\n) -> None:\n\n    if not os.path.exists(input_pdf):\n        raise FileNotFoundError(\n            f\"找不到输入 PDF：{input_pdf}\"\n        )\n\n    # 程序启动时先根据缓存校正一次额度\n    current_used = sync_quota_from_cache()\n\n    progress = load_progress()\n\n    print(\"=\" * 65)\n    print(\"📚 PDF 自动翻译程序\")\n    print(\"=\" * 65)\n    print(f\"输入文件：{input_pdf}\")\n    print(f\"输出文件：{OUTPUT_PDF}\")\n    print(f\"缓存目录：{CACHE_DIR}\")\n    print(\n        f\"当前额度：\"\n        f\"{current_used}/{MONTHLY_FREE_QUOTA}\"\n    )\n    print(\n        f\"上次完成页：\"\n        f\"{progress.get('last_finished_page', 0)}\"\n    )\n    print(\"=\" * 65)\n\n    with pdfplumber.open(input_pdf) as pdf:\n\n        total_pages = len(pdf.pages)\n\n        print(\n            f\"📖 PDF 总页数：{total_pages}\"\n        )\n\n        last_finished_page = (\n            progress.get(\n                \"last_finished_page\",\n                0\n            )\n        )\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            print(\n                f\"\\n========== \"\n                f\"第 {idx}/{total_pages} 页 \"\n                f\"==========\"\n            )\n\n            # ------------------------------------------------\n            # A. 提取文字\n            # ------------------------------------------------\n\n            try:\n\n                source_text = normalize_text(\n                    page.extract_text() or \"\"\n                )\n\n            except Exception as e:\n\n                print(\n                    f\"❌ 第 {idx} 页文本提取失败：{e}\"\n                )\n\n                print(\n                    \"   当前页不会被标记为完成。\"\n                )\n\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # B. 优先检查缓存\n            # ------------------------------------------------\n\n            cached = load_page_cache(\n                idx,\n                source_text\n            )\n\n            if cached is not None:\n\n                print(\n                    \"♻️ 发现有效缓存，\"\n                    \"跳过 API 翻译。\"\n                )\n\n                last_finished_page = idx\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                continue\n\n            # ------------------------------------------------\n            # C. 空白页\n            # ------------------------------------------------\n\n            if not source_text:\n\n                print(\n                    \"📄 本页没有可提取文字，\"\n                    \"记为空白页。\"\n                )\n\n                save_page_cache(\n                    page_num=idx,\n                    source_text=\"\",\n                    translated_text=\"\",\n                    cost_chars=0\n                )\n\n                last_finished_page = idx\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                continue\n\n            # ------------------------------------------------\n            # D. 检查额度\n            # ------------------------------------------------\n\n            enough, used, remaining = (\n                check_quota(\n                    len(source_text)\n                )\n            )\n\n            print(\n                f\"本页字符数：{len(source_text)}\"\n            )\n\n            print(\n                f\"本月已用：\"\n                f\"{used}/{MONTHLY_FREE_QUOTA}\"\n            )\n\n            print(\n                f\"本月剩余：\"\n                f\"{remaining}\"\n            )\n\n            if not enough:\n\n                print(\n                    \"\\n⛔ 本月额度不足，\"\n                    \"停止翻译。\"\n                )\n\n                print(\n                    f\"✅ 已成功完成到第 \"\n                    f\"{last_finished_page} 页\"\n                )\n\n                # 根据已经成功缓存的内容更新 PDF\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # E. 翻译本页\n            # ------------------------------------------------\n\n            try:\n\n                translated_text, cost = (\n                    baidu_translate(\n                        source_text\n                    )\n                )\n\n            except Exception as e:\n\n                print(\n                    f\"\\n❌ 第 {idx} 页翻译失败：\"\n                    f\"{e}\"\n                )\n\n                print(\n                    \"⚠️ 当前页不会建立完成缓存。\"\n                )\n\n                print(\n                    \"   下次运行会自动重新翻译这一页。\"\n                )\n\n                # 已完成的部分仍然生成 PDF\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # F. 先保存页面缓存\n            # ------------------------------------------------\n            # 这是整个断点续传机制的核心\n\n            save_page_cache(\n                page_num=idx,\n                source_text=source_text,\n                translated_text=translated_text,\n                cost_chars=cost\n            )\n\n            print(\n                f\"💾 第 {idx} 页翻译结果已保存到缓存\"\n            )\n\n            # ------------------------------------------------\n            # G. 再更新额度\n            # ------------------------------------------------\n\n            if cost > 0:\n\n                new_used = add_used_chars(\n                    cost\n                )\n\n                print(\n                    f\"📊 当前额度：\"\n                    f\"{new_used}/\"\n                    f\"{MONTHLY_FREE_QUOTA}\"\n                )\n\n            # ------------------------------------------------\n            # H. 最后更新进度\n            # ------------------------------------------------\n\n            last_finished_page = idx\n\n            save_progress(\n                last_finished_page,\n                total_pages\n            )\n\n            print(\n                f\"✅ 第 {idx} 页完成\"\n            )\n\n        # ====================================================\n        # I. 检查是否全部完成\n        # ====================================================\n\n        print(\n            \"\\n🔍 正在检查是否所有页面都有有效缓存...\"\n        )\n\n        all_completed = True\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            source_text = normalize_text(\n                page.extract_text() or \"\"\n            )\n\n            if load_page_cache(\n                idx,\n                source_text\n            ) is None:\n\n                all_completed = False\n\n                print(\n                    f\"⚠️ 第 {idx} 页没有有效缓存\"\n                )\n\n                break\n\n        # ====================================================\n        # J. 生成最终 PDF\n        # ====================================================\n\n        rebuild_output_pdf(\n            input_pdf\n        )\n\n        if all_completed:\n\n            clear_progress()\n\n            print(\"\\n\" + \"=\" * 65)\n            print(\"🎉 全书翻译完成！\")\n            print(\"=\" * 65)\n\n            print(\n                f\"📄 输出：{OUTPUT_PDF}\"\n            )\n\n            print(\n                f\"📦 缓存：{CACHE_DIR}\"\n            )\n\n        else:\n\n            print(\"\\n⚠️ 当前还没有全部完成。\")\n\n            print(\n                \"   下次运行时会自动跳过已经完成的页面。\"\n            )\n\n# ============================================================\n# 13. 运行\n# ============================================================\n\nif __name__ == \"__main__\":\n\n    try:\n\n        translate_pdf_resumable(\n            INPUT_PDF\n        )\n\n    except KeyboardInterrupt:\n\n        print(\n            \"\\n\\n🛑 检测到手动中断。\"\n        )\n\n        print(\n            \"正在根据已经完成的缓存生成 PDF...\"\n        )\n\n        try:\n            rebuild_output_pdf(\n                INPUT_PDF\n            )\n\n            print(\n                \"✅ 已保存当前已完成内容。\"\n            )\n\n        except Exception as e:\n            print(\n                f\"⚠️ PDF 保存失败：{e}\"\n            )\n\n    except Exception as e:\n\n        print(\n            f\"\\n❌ 程序发生未处理异常：{e}\"\n        )\n\n        # 即使程序出现异常，\n        # 也尽量把已经成功缓存的页面做成 PDF\n        try:\n\n            rebuild_output_pdf(\n                INPUT_PDF\n            )\n\n            print(\n                \"✅ 已根据缓存保存当前已完成内容。\"\n            )\n\n        except Exception as pdf_error:\n\n            print(\n                f\"⚠️ 无法重建 PDF：{pdf_error}\"\n            )\n\n        raise\n```\n\n### 这版和你原版最大的区别\n\n**第一，真正的断点续传。**\n\n程序会在：\n\n```\nD:\\小说\\哈利波特\\translation_cache\\\n```\n\n生成：\n\n```\npage_0001.json\npage_0002.json\npage_0003.json\n...\n```\n\n例如翻译到第 237 页突然断电：\n\n```\npage_0001.json  ✅\npage_0002.json  ✅\n...\npage_0237.json  ✅\npage_0238.json  ❌\n```\n\n再次运行时，1～237 页全部直接读取缓存，不再浪费百度额度，从 238 页继续。\n\n更重要的是，**不会像原版那样重新创建一个 PDF，然后把前面页面变成空白页。**\n\n---\n\n**第二，API 失败不会被误判成“已经完成”。**\n\n你的原代码可能产生：\n\n```\n[失败:54003]\n```\n\n然后仍然：\n\n```\nsave_progress(current_page_num)\n```\n\n导致这一页永远被跳过去。\n\n现在改成：\n\n```\nAPI失败\n  ↓\n自动重试 3 次\n  ↓\n还失败\n  ↓\n当前页不建立完成缓存\n  ↓\n下一次运行重新翻译\n```\n\n这样安全很多。\n\n---\n\n**第三，程序突然关闭也尽量不丢翻译。**\n\n我把保存顺序设计成：\n\n```\n百度翻译成功\n      ↓\n保存 page_xxxx.json\n      ↓\n更新额度\n      ↓\n更新 progress\n```\n\n而且 JSON 都使用临时文件 + 原子替换。\n\n所以突然关机时，最坏的情况一般只是**当前页需要重新尝试**，不会让前面几十页的结果消失。\n\n---\n\n**第四，缓存增加了 source\\_hash。**\n\n例如你后来把：\n\n```\nHarry Potter.pdf\n```\n\n换成另一个版本，哪怕文件名完全一样：\n\n```\nD:\\小说\\哈利波特\\Harry Potter.pdf\n```\n\n程序也会比较每页的 SHA-256：\n\n```\n旧页面文字 hash\nVS\n新页面文字 hash\n```\n\n不一致就不会错误使用旧翻译缓存。\n\n---\n\n**第五，我改掉了原来的：**\n\n```\ntext.replace(\"\\n\", \" \").split(\". \")\n```\n\n这种切法。\n\n因为小说里有：\n\n```\nMr. Potter\nMrs. Weasley\nDr. ...\n```\n\n简单 split(\". \") 很容易把句子切错。\n\n现在会先处理常见缩写，再根据句子边界和长度进行分块。\n\n---\n\n**第六，保留了你原来的硬编码路径。**\n\n仍然直接：\n\n```\nINPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"\nOUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"\n```\n\n你不需要每次运行输入路径。\n\n---\n\n### 运行前要准备\n\n你原来需要的库基本不变：\n\n```\npip install pdfplumber requests reportlab\n```\n\n然后环境变量继续使用：\n\n```\nBAIDU_FANYI_APPID\nBAIDU_FANYI_SECRET\n```\n\n---\n\n### 还有一个我建议下一步继续升级的地方\n\n现在这版已经把\\*\\*“稳定翻译”\\*\\*解决得比较好了，但 PDF 的文本提取仍然依赖 pdfplumber.extract\\_text()。\n\n对于《哈利·波特》这类小说，下一步最值得升级的是\\*\\*“段落识别 + 章节标题识别 + 更好的小说排版”\\*\\*。这样最终生成的中文 PDF 会从现在的“翻译后的文字 PDF”，提升到更像一本真正的中文电子书。"
+    },
+    {
+      "message_id": 5,
+      "role": "User",
+      "content": "保持现在这样，不要再改了，但请你直接给我替换后的代码"
+    },
+    {
+      "message_id": 6,
+      "role": "AI",
+      "content": "可以。下面就是**可直接替换你原代码的完整版本**。我保持上一版的功能，不再额外增加新的改动；同时继续保留你要求的**硬编码路径**。\n\n```\nimport os\nimport re\nimport json\nimport time\nimport random\nimport hashlib\nfrom datetime import datetime\nfrom typing import Optional, Tuple, List, Dict\n\nimport pdfplumber\nimport requests\nfrom reportlab.pdfgen import canvas\nfrom reportlab.pdfbase import pdfmetrics\nfrom reportlab.pdfbase.cidfonts import UnicodeCIDFont\n\n# ============================================================\n# 0. 配置\n#    按要求：保留硬编码路径\n# ============================================================\n\nINPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter.pdf\"\nOUTPUT_PDF = r\"D:\\小说\\哈利波特\\Harry Potter_translated.pdf\"\n\n# 状态文件\nQUOTA_FILE = r\"D:\\小说\\哈利波特\\translation_quota.json\"\nPROGRESS_FILE = r\"D:\\小说\\哈利波特\\translation_progress.json\"\nCACHE_DIR = r\"D:\\小说\\哈利波特\\translation_cache\"\n\n# 每月额度\nMONTHLY_FREE_QUOTA = 1_000_000\n\n# 百度翻译 API\nBAIDU_URL = \"https://fanyi-api.baidu.com/api/trans/vip/translate\"\nSOURCE_LANG = \"en\"\nTARGET_LANG = \"zh\"\n\n# 单次 API 请求最大字符数\nMAX_CHARS_PER_REQUEST = 4_000\n\n# API 重试次数\nMAX_RETRIES = 3\nRETRY_BASE_SECONDS = 2\n\n# PDF 排版\nFONT_NAME = \"STSong-Light\"\nFONT_SIZE = 11\nLINE_HEIGHT = 16\nMARGIN = 30\nFOOTER_SIZE = 8\n\n# ============================================================\n# 1. 初始化\n# ============================================================\n\nos.makedirs(CACHE_DIR, exist_ok=True)\n\npdfmetrics.registerFont(\n    UnicodeCIDFont(FONT_NAME)\n)\n\ntry:\n    APPID = os.environ[\"BAIDU_FANYI_APPID\"]\n    SECRET_KEY = os.environ[\"BAIDU_FANYI_SECRET\"]\nexcept KeyError:\n    raise RuntimeError(\n        \"请先设置环境变量 BAIDU_FANYI_APPID 和 BAIDU_FANYI_SECRET\"\n    )\n\n# 复用 HTTP 连接\nSESSION = requests.Session()\n\n# ============================================================\n# 2. JSON 原子写入\n# ============================================================\n\ndef atomic_write_json(path: str, data: dict) -> None:\n    \"\"\"\n    先写临时文件，再原子替换。\n    防止程序突然退出导致 JSON 文件损坏。\n    \"\"\"\n    directory = os.path.dirname(path)\n\n    if directory:\n        os.makedirs(directory, exist_ok=True)\n\n    temp_path = path + \".tmp\"\n\n    with open(temp_path, \"w\", encoding=\"utf-8\") as f:\n        json.dump(\n            data,\n            f,\n            ensure_ascii=False,\n            indent=2\n        )\n\n    os.replace(temp_path, path)\n\n# ============================================================\n# 3. 月度额度管理\n# ============================================================\n\ndef current_month() -> str:\n    return datetime.now().strftime(\"%Y-%m-01\")\n\ndef load_quota() -> Dict:\n    if not os.path.exists(QUOTA_FILE):\n        return {\n            \"used_chars\": 0,\n            \"last_reset_date\": current_month()\n        }\n\n    try:\n        with open(\n            QUOTA_FILE,\n            \"r\",\n            encoding=\"utf-8\"\n        ) as f:\n            data = json.load(f)\n\n        return {\n            \"used_chars\": int(\n                data.get(\"used_chars\", 0)\n            ),\n            \"last_reset_date\": data.get(\n                \"last_reset_date\",\n                current_month()\n            )\n        }\n\n    except (\n        OSError,\n        ValueError,\n        TypeError,\n        json.JSONDecodeError\n    ):\n        print(\"⚠️ 额度文件损坏，将重新初始化。\")\n\n        return {\n            \"used_chars\": 0,\n            \"last_reset_date\": current_month()\n        }\n\ndef save_quota(used_chars: int) -> None:\n    atomic_write_json(\n        QUOTA_FILE,\n        {\n            \"used_chars\": int(used_chars),\n            \"last_reset_date\": current_month()\n        }\n    )\n\ndef check_and_reset_quota() -> int:\n    data = load_quota()\n    month = current_month()\n\n    if data[\"last_reset_date\"] != month:\n        save_quota(0)\n\n        print(\n            \"🔄 新月份，\"\n            \"程序记录的额度已重置为 100 万字符\"\n        )\n\n        return 0\n\n    return max(\n        0,\n        data[\"used_chars\"]\n    )\n\ndef sync_quota_from_cache() -> int:\n    \"\"\"\n    根据成功缓存的页面核对额度。\n\n    用于防止：\n    API 成功\n        ↓\n    页面缓存保存成功\n        ↓\n    程序突然退出\n        ↓\n    quota.json 尚未来得及更新\n    \"\"\"\n\n    used = check_and_reset_quota()\n    month = current_month()\n    cached_cost = 0\n\n    try:\n        filenames = os.listdir(\n            CACHE_DIR\n        )\n    except OSError:\n        return used\n\n    for filename in filenames:\n\n        if not filename.endswith(\".json\"):\n            continue\n\n        path = os.path.join(\n            CACHE_DIR,\n            filename\n        )\n\n        try:\n            with open(\n                path,\n                \"r\",\n                encoding=\"utf-8\"\n            ) as f:\n                data = json.load(f)\n\n            if (\n                data.get(\"status\") == \"completed\"\n                and data.get(\"usage_month\") == month\n            ):\n                cached_cost += int(\n                    data.get(\"cost_chars\", 0)\n                )\n\n        except (\n            OSError,\n            ValueError,\n            TypeError,\n            json.JSONDecodeError\n        ):\n            continue\n\n    corrected = max(\n        used,\n        cached_cost\n    )\n\n    if corrected != used:\n\n        save_quota(corrected)\n\n        print(\n            f\"🔧 根据缓存校正额度：\"\n            f\"{corrected}/{MONTHLY_FREE_QUOTA}\"\n        )\n\n    return corrected\n\ndef check_quota(\n    text_len: int\n) -> Tuple[bool, int, int]:\n\n    used = check_and_reset_quota()\n\n    remaining = max(\n        0,\n        MONTHLY_FREE_QUOTA - used\n    )\n\n    return (\n        remaining >= text_len,\n        used,\n        remaining\n    )\n\ndef add_used_chars(\n    chars: int\n) -> int:\n\n    used = check_and_reset_quota()\n\n    new_used = used + chars\n\n    save_quota(new_used)\n\n    return new_used\n\n# ============================================================\n# 4. 断点进度管理\n# ============================================================\n\ndef load_progress() -> Dict:\n\n    if not os.path.exists(PROGRESS_FILE):\n\n        return {\n            \"last_finished_page\": 0,\n            \"total_pages\": None,\n            \"input_pdf\": INPUT_PDF\n        }\n\n    try:\n\n        with open(\n            PROGRESS_FILE,\n            \"r\",\n            encoding=\"utf-8\"\n        ) as f:\n            data = json.load(f)\n\n        return {\n            \"last_finished_page\": int(\n                data.get(\n                    \"last_finished_page\",\n                    0\n                )\n            ),\n            \"total_pages\": data.get(\n                \"total_pages\"\n            ),\n            \"input_pdf\": data.get(\n                \"input_pdf\",\n                INPUT_PDF\n            )\n        }\n\n    except (\n        OSError,\n        ValueError,\n        TypeError,\n        json.JSONDecodeError\n    ):\n\n        return {\n            \"last_finished_page\": 0,\n            \"total_pages\": None,\n            \"input_pdf\": INPUT_PDF\n        }\n\ndef save_progress(\n    last_finished_page: int,\n    total_pages: int\n) -> None:\n\n    atomic_write_json(\n        PROGRESS_FILE,\n        {\n            \"last_finished_page\":\n                int(last_finished_page),\n\n            \"total_pages\":\n                int(total_pages),\n\n            \"input_pdf\":\n                INPUT_PDF,\n\n            \"updated_at\":\n                datetime.now().isoformat(\n                    timespec=\"seconds\"\n                )\n        }\n    )\n\ndef clear_progress() -> None:\n\n    try:\n\n        if os.path.exists(\n            PROGRESS_FILE\n        ):\n            os.remove(\n                PROGRESS_FILE\n            )\n\n    except OSError:\n        pass\n\n# ============================================================\n# 5. 页面缓存\n# ============================================================\n\ndef page_cache_path(\n    page_num: int\n) -> str:\n\n    return os.path.join(\n        CACHE_DIR,\n        f\"page_{page_num:04d}.json\"\n    )\n\ndef text_hash(\n    text: str\n) -> str:\n\n    return hashlib.sha256(\n        text.encode(\"utf-8\")\n    ).hexdigest()\n\ndef load_page_cache(\n    page_num: int,\n    source_text: str\n) -> Optional[Dict]:\n\n    path = page_cache_path(\n        page_num\n    )\n\n    if not os.path.exists(path):\n        return None\n\n    try:\n\n        with open(\n            path,\n            \"r\",\n            encoding=\"utf-8\"\n        ) as f:\n            data = json.load(f)\n\n        if data.get(\"status\") != \"completed\":\n            return None\n\n        # 防止换 PDF 后误用旧缓存\n        if (\n            data.get(\"source_hash\")\n            != text_hash(source_text)\n        ):\n            return None\n\n        if \"translated_text\" not in data:\n            return None\n\n        return data\n\n    except (\n        OSError,\n        ValueError,\n        TypeError,\n        json.JSONDecodeError\n    ):\n\n        return None\n\ndef save_page_cache(\n    page_num: int,\n    source_text: str,\n    translated_text: str,\n    cost_chars: int\n) -> None:\n\n    data = {\n        \"status\": \"completed\",\n        \"page_num\": page_num,\n\n        \"source_hash\":\n            text_hash(source_text),\n\n        \"input_chars\":\n            len(source_text),\n\n        \"cost_chars\":\n            int(cost_chars),\n\n        \"translated_text\":\n            translated_text,\n\n        \"usage_month\":\n            current_month(),\n\n        \"completed_at\":\n            datetime.now().isoformat(\n                timespec=\"seconds\"\n            )\n    }\n\n    atomic_write_json(\n        page_cache_path(page_num),\n        data\n    )\n\n# ============================================================\n# 6. 文本清洗\n# ============================================================\n\ndef normalize_text(\n    text: str\n) -> str:\n\n    if not text:\n        return \"\"\n\n    text = text.replace(\n        \"\\r\\n\",\n        \"\\n\"\n    )\n\n    text = text.replace(\n        \"\\r\",\n        \"\\n\"\n    )\n\n    lines = []\n\n    for line in text.split(\"\\n\"):\n\n        line = re.sub(\n            r\"[ \\t]+\",\n            \" \",\n            line\n        ).strip()\n\n        lines.append(line)\n\n    cleaned = []\n    blank_count = 0\n\n    for line in lines:\n\n        if line:\n\n            cleaned.append(line)\n            blank_count = 0\n\n        else:\n\n            blank_count += 1\n\n            if blank_count <= 1:\n                cleaned.append(\"\")\n\n    return \"\\n\".join(\n        cleaned\n    ).strip()\n\n# ============================================================\n# 7. 英文文本智能分块\n# ============================================================\n\nABBREVIATIONS = [\n    \"Mr.\",\n    \"Mrs.\",\n    \"Ms.\",\n    \"Dr.\",\n    \"Prof.\",\n    \"St.\",\n    \"Jr.\",\n    \"Sr.\",\n    \"Inc.\",\n    \"Ltd.\",\n    \"e.g.\",\n    \"i.e.\",\n    \"vs.\",\n    \"No.\",\n    \"Fig.\"\n]\n\ndef protect_abbreviations(\n    text: str\n) -> str:\n\n    for abbr in ABBREVIATIONS:\n\n        protected = abbr.replace(\n            \".\",\n            \"<DOT>\"\n        )\n\n        text = text.replace(\n            abbr,\n            protected\n        )\n\n    return text\n\ndef restore_abbreviations(\n    text: str\n) -> str:\n\n    return text.replace(\n        \"<DOT>\",\n        \".\"\n    )\n\ndef split_long_piece(\n    text: str,\n    max_len: int\n) -> List[str]:\n\n    text = text.strip()\n\n    if not text:\n        return []\n\n    if len(text) <= max_len:\n        return [text]\n\n    pieces = []\n    current = \"\"\n\n    tokens = re.split(\n        r\"(\\s+)\",\n        text\n    )\n\n    for token in tokens:\n\n        if not token:\n            continue\n\n        if (\n            len(current)\n            + len(token)\n            <= max_len\n        ):\n\n            current += token\n            continue\n\n        if current.strip():\n            pieces.append(\n                current.strip()\n            )\n\n        current = \"\"\n\n        # 如果 token 本身超过限制\n        while len(token) > max_len:\n\n            pieces.append(\n                token[:max_len]\n            )\n\n            token = token[max_len:]\n\n        current = token\n\n    if current.strip():\n\n        pieces.append(\n            current.strip()\n        )\n\n    return pieces\n\ndef split_paragraph(\n    paragraph: str,\n    max_len: int\n) -> List[str]:\n\n    protected = protect_abbreviations(\n        paragraph\n    )\n\n    sentences = re.split(\n        r'(?<=[.!?][\"\\')\\]”’]?)'\n        r'\\s+'\n        r'(?=[A-Z0-9“\"\\'(])',\n        protected\n    )\n\n    sentences = [\n        restore_abbreviations(\n            sentence\n        ).strip()\n\n        for sentence in sentences\n\n        if sentence.strip()\n    ]\n\n    chunks = []\n    current = \"\"\n\n    for sentence in sentences:\n\n        pieces = split_long_piece(\n            sentence,\n            max_len\n        )\n\n        for piece in pieces:\n\n            if (\n                len(current)\n                + len(piece)\n                + 1\n                <= max_len\n            ):\n\n                current = (\n                    f\"{current} {piece}\"\n                ).strip()\n\n            else:\n\n                if current:\n                    chunks.append(\n                        current\n                    )\n\n                current = piece\n\n    if current:\n        chunks.append(\n            current\n        )\n\n    return chunks\n\ndef split_text(\n    text: str,\n    max_len: int = MAX_CHARS_PER_REQUEST\n) -> List[str]:\n\n    text = normalize_text(text)\n\n    if not text:\n        return []\n\n    if len(text) <= max_len:\n        return [text]\n\n    blocks = []\n\n    paragraphs = re.split(\n        r\"\\n\\s*\\n\",\n        text\n    )\n\n    for paragraph in paragraphs:\n\n        paragraph = paragraph.strip()\n\n        if not paragraph:\n            continue\n\n        paragraph_blocks = split_paragraph(\n            paragraph,\n            max_len\n        )\n\n        for block in paragraph_blocks:\n\n            if len(block) <= max_len:\n\n                blocks.append(\n                    block\n                )\n\n            else:\n\n                blocks.extend(\n                    split_long_piece(\n                        block,\n                        max_len\n                    )\n                )\n\n    return blocks\n\n# ============================================================\n# 8. 百度翻译 API\n# ============================================================\n\ndef baidu_translate_block(\n    q: str\n) -> Tuple[str, int]:\n\n    q = q.strip()\n\n    if not q:\n        return \"\", 0\n\n    salt = str(\n        random.randint(\n            1,\n            10000\n        )\n    )\n\n    sign = hashlib.md5(\n        (\n            APPID\n            + q\n            + salt\n            + SECRET_KEY\n        ).encode(\"utf-8\")\n    ).hexdigest()\n\n    last_error = None\n\n    for attempt in range(\n        1,\n        MAX_RETRIES + 1\n    ):\n\n        try:\n\n            response = SESSION.post(\n                BAIDU_URL,\n\n                data={\n                    \"q\": q,\n                    \"from\": SOURCE_LANG,\n                    \"to\": TARGET_LANG,\n                    \"appid\": APPID,\n                    \"salt\": salt,\n                    \"sign\": sign\n                },\n\n                timeout=(\n                    10,\n                    30\n                )\n            )\n\n            response.raise_for_status()\n\n            try:\n\n                result = response.json()\n\n            except ValueError as e:\n\n                raise RuntimeError(\n                    \"百度 API 返回的不是合法 JSON\"\n                ) from e\n\n            if \"trans_result\" in result:\n\n                translated_parts = []\n\n                for item in result[\n                    \"trans_result\"\n                ]:\n\n                    dst = item.get(\n                        \"dst\"\n                    )\n\n                    if dst is not None:\n\n                        translated_parts.append(\n                            dst\n                        )\n\n                translated = \"\\n\".join(\n                    translated_parts\n                ).strip()\n\n                return (\n                    translated,\n                    len(q)\n                )\n\n            error_code = result.get(\n                \"error_code\",\n                \"未知\"\n            )\n\n            error_msg = result.get(\n                \"error_msg\",\n                \"\"\n            )\n\n            raise RuntimeError(\n                f\"百度 API 失败：\"\n                f\"error_code={error_code}, \"\n                f\"error_msg={error_msg}\"\n            )\n\n        except (\n            requests.RequestException,\n            RuntimeError\n        ) as e:\n\n            last_error = e\n\n            if attempt < MAX_RETRIES:\n\n                wait_seconds = (\n                    RETRY_BASE_SECONDS\n                    ** attempt\n                )\n\n                print(\n                    f\"   ⚠️ API 请求失败，\"\n                    f\"第 {attempt}/{MAX_RETRIES} 次重试\"\n                )\n\n                print(\n                    f\"   {e}\"\n                )\n\n                time.sleep(\n                    wait_seconds\n                )\n\n            else:\n                break\n\n    raise RuntimeError(\n        f\"连续 {MAX_RETRIES} 次失败：\"\n        f\"{last_error}\"\n    )\n\ndef baidu_translate(\n    text: str\n) -> Tuple[str, int]:\n\n    text = normalize_text(text)\n\n    if not text:\n        return \"\", 0\n\n    enough, used, remaining = (\n        check_quota(\n            len(text)\n        )\n    )\n\n    if not enough:\n\n        raise RuntimeError(\n            f\"本月额度不足：\"\n            f\"已用 {used}/{MONTHLY_FREE_QUOTA}，\"\n            f\"剩余 {remaining}，\"\n            f\"本页需要约 {len(text)} 字符。\"\n        )\n\n    blocks = split_text(text)\n\n    if not blocks:\n        return \"\", 0\n\n    results = []\n    total_cost = 0\n\n    for index, block in enumerate(\n        blocks,\n        start=1\n    ):\n\n        print(\n            f\"   API 请求 \"\n            f\"{index}/{len(blocks)}，\"\n            f\"本块 {len(block)} 字符\"\n        )\n\n        translated, cost = (\n            baidu_translate_block(\n                block\n            )\n        )\n\n        results.append(\n            translated\n        )\n\n        total_cost += cost\n\n        if index < len(blocks):\n            time.sleep(0.3)\n\n    translated_text = \"\\n\\n\".join(\n        x\n        for x in results\n        if x.strip()\n    )\n\n    return (\n        translated_text,\n        total_cost\n    )\n\n# ============================================================\n# 9. 自动换行\n# ============================================================\n\ndef wrap_text_to_lines(\n    text: str,\n    max_width: float,\n    font_name: str,\n    font_size: float\n) -> List[str]:\n\n    lines = []\n\n    for paragraph in text.split(\n        \"\\n\"\n    ):\n\n        paragraph = paragraph.strip()\n\n        if not paragraph:\n\n            lines.append(\"\")\n            continue\n\n        current = \"\"\n        last_space_pos = -1\n\n        for ch in paragraph:\n\n            test = current + ch\n\n            if (\n                pdfmetrics.stringWidth(\n                    test,\n                    font_name,\n                    font_size\n                )\n                <= max_width\n            ):\n\n                current = test\n\n                if ch.isspace():\n\n                    last_space_pos = (\n                        len(current) - 1\n                    )\n\n                continue\n\n            if current.strip():\n\n                # 英文优先在空格处换行\n                if last_space_pos > 0:\n\n                    line = (\n                        current[\n                            :last_space_pos\n                        ].rstrip()\n                    )\n\n                    remainder = (\n                        current[\n                            last_space_pos + 1:\n                        ]\n                        + ch\n                    )\n\n                    lines.append(\n                        line\n                    )\n\n                    current = (\n                        remainder.lstrip()\n                    )\n\n                else:\n\n                    lines.append(\n                        current.rstrip()\n                    )\n\n                    current = ch\n\n            else:\n\n                current = ch\n\n            last_space_pos = (\n                len(current) - 1\n                if current\n                and current[-1].isspace()\n                else -1\n            )\n\n        if current.strip():\n\n            lines.append(\n                current.rstrip()\n            )\n\n    return lines\n\n# ============================================================\n# 10. 页脚\n# ============================================================\n\ndef draw_footer(\n    c,\n    page_width: float,\n    source_page_num: int,\n    continued: bool\n):\n\n    footer = (\n        f\"原 PDF 第 {source_page_num} 页\"\n    )\n\n    if continued:\n        footer += \"（续）\"\n\n    c.setFont(\n        FONT_NAME,\n        FOOTER_SIZE\n    )\n\n    c.drawCentredString(\n        page_width / 2,\n        12,\n        footer\n    )\n\n# ============================================================\n# 11. 根据缓存重建 PDF\n# ============================================================\n\ndef rebuild_output_pdf(\n    input_pdf: str\n) -> None:\n\n    print(\n        \"\\n📄 正在从翻译缓存生成 PDF...\"\n    )\n\n    with pdfplumber.open(\n        input_pdf\n    ) as pdf:\n\n        c = canvas.Canvas(\n            OUTPUT_PDF\n        )\n\n        completed_pages = 0\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            source_text = normalize_text(\n                page.extract_text() or \"\"\n            )\n\n            cache = load_page_cache(\n                idx,\n                source_text\n            )\n\n            # 如果出现缺失页，\n            # 停止生成后续页面\n            if cache is None:\n\n                print(\n                    f\"   ⏹ PDF 重建到第 \"\n                    f\"{idx - 1} 页停止\"\n                )\n\n                break\n\n            translated_text = (\n                cache.get(\n                    \"translated_text\",\n                    \"\"\n                ).strip()\n            )\n\n            # 空白页\n            if not translated_text:\n\n                c.setPageSize(\n                    (\n                        page.width,\n                        page.height\n                    )\n                )\n\n                draw_footer(\n                    c,\n                    page.width,\n                    idx,\n                    False\n                )\n\n                c.showPage()\n\n                completed_pages += 1\n\n                continue\n\n            c.setPageSize(\n                (\n                    page.width,\n                    page.height\n                )\n            )\n\n            max_width = (\n                page.width\n                - 2 * MARGIN\n            )\n\n            y = (\n                page.height\n                - MARGIN\n            )\n\n            lines = wrap_text_to_lines(\n                translated_text,\n                max_width,\n                FONT_NAME,\n                FONT_SIZE\n            )\n\n            continued = False\n\n            for line in lines:\n\n                if y < (\n                    MARGIN\n                    + FOOTER_SIZE\n                    + 10\n                ):\n\n                    draw_footer(\n                        c,\n                        page.width,\n                        idx,\n                        continued\n                    )\n\n                    c.showPage()\n\n                    c.setPageSize(\n                        (\n                            page.width,\n                            page.height\n                        )\n                    )\n\n                    c.setFont(\n                        FONT_NAME,\n                        FONT_SIZE\n                    )\n\n                    y = (\n                        page.height\n                        - MARGIN\n                    )\n\n                    continued = True\n\n                if line == \"\":\n\n                    y -= LINE_HEIGHT\n                    continue\n\n                c.setFont(\n                    FONT_NAME,\n                    FONT_SIZE\n                )\n\n                c.drawString(\n                    MARGIN,\n                    y,\n                    line\n                )\n\n                y -= LINE_HEIGHT\n\n            draw_footer(\n                c,\n                page.width,\n                idx,\n                continued\n            )\n\n            c.showPage()\n\n            completed_pages += 1\n\n        c.save()\n\n    print(\n        f\"✅ PDF 已保存：{OUTPUT_PDF}\"\n    )\n\n    print(\n        f\"📄 已写入 {completed_pages} 个原 PDF 页面\"\n    )\n\n# ============================================================\n# 12. 主翻译流程\n# ============================================================\n\ndef translate_pdf_resumable(\n    input_pdf: str\n) -> None:\n\n    if not os.path.exists(\n        input_pdf\n    ):\n\n        raise FileNotFoundError(\n            f\"找不到输入 PDF：{input_pdf}\"\n        )\n\n    # 启动时校正额度\n    current_used = (\n        sync_quota_from_cache()\n    )\n\n    progress = load_progress()\n\n    print(\"=\" * 65)\n    print(\"📚 PDF 自动翻译程序\")\n    print(\"=\" * 65)\n\n    print(\n        f\"输入文件：{input_pdf}\"\n    )\n\n    print(\n        f\"输出文件：{OUTPUT_PDF}\"\n    )\n\n    print(\n        f\"缓存目录：{CACHE_DIR}\"\n    )\n\n    print(\n        f\"当前额度：\"\n        f\"{current_used}/\"\n        f\"{MONTHLY_FREE_QUOTA}\"\n    )\n\n    print(\n        f\"上次完成页：\"\n        f\"{progress.get('last_finished_page', 0)}\"\n    )\n\n    print(\"=\" * 65)\n\n    with pdfplumber.open(\n        input_pdf\n    ) as pdf:\n\n        total_pages = len(\n            pdf.pages\n        )\n\n        print(\n            f\"📖 PDF 总页数：\"\n            f\"{total_pages}\"\n        )\n\n        last_finished_page = (\n            progress.get(\n                \"last_finished_page\",\n                0\n            )\n        )\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            print(\n                f\"\\n========== \"\n                f\"第 {idx}/{total_pages} 页 \"\n                f\"==========\"\n            )\n\n            # ------------------------------------------------\n            # A. 提取文字\n            # ------------------------------------------------\n\n            try:\n\n                source_text = normalize_text(\n                    page.extract_text() or \"\"\n                )\n\n            except Exception as e:\n\n                print(\n                    f\"❌ 第 {idx} 页文本提取失败：{e}\"\n                )\n\n                print(\n                    \"   当前页不会被标记为完成。\"\n                )\n\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # B. 检查缓存\n            # ------------------------------------------------\n\n            cached = load_page_cache(\n                idx,\n                source_text\n            )\n\n            if cached is not None:\n\n                print(\n                    \"♻️ 发现有效缓存，\"\n                    \"跳过 API 翻译。\"\n                )\n\n                last_finished_page = idx\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                continue\n\n            # ------------------------------------------------\n            # C. 空白页\n            # ------------------------------------------------\n\n            if not source_text:\n\n                print(\n                    \"📄 本页没有可提取文字，\"\n                    \"记为空白页。\"\n                )\n\n                save_page_cache(\n                    page_num=idx,\n                    source_text=\"\",\n                    translated_text=\"\",\n                    cost_chars=0\n                )\n\n                last_finished_page = idx\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                continue\n\n            # ------------------------------------------------\n            # D. 检查额度\n            # ------------------------------------------------\n\n            enough, used, remaining = (\n                check_quota(\n                    len(source_text)\n                )\n            )\n\n            print(\n                f\"本页字符数：\"\n                f\"{len(source_text)}\"\n            )\n\n            print(\n                f\"本月已用：\"\n                f\"{used}/\"\n                f\"{MONTHLY_FREE_QUOTA}\"\n            )\n\n            print(\n                f\"本月剩余：\"\n                f\"{remaining}\"\n            )\n\n            if not enough:\n\n                print(\n                    \"\\n⛔ 本月额度不足，\"\n                    \"停止翻译。\"\n                )\n\n                print(\n                    f\"✅ 已成功完成到第 \"\n                    f\"{last_finished_page} 页\"\n                )\n\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # E. 翻译\n            # ------------------------------------------------\n\n            try:\n\n                translated_text, cost = (\n                    baidu_translate(\n                        source_text\n                    )\n                )\n\n            except Exception as e:\n\n                print(\n                    f\"\\n❌ 第 {idx} 页翻译失败：\"\n                    f\"{e}\"\n                )\n\n                print(\n                    \"⚠️ 当前页不会建立完成缓存。\"\n                )\n\n                print(\n                    \"   下次运行会自动重新翻译这一页。\"\n                )\n\n                rebuild_output_pdf(\n                    input_pdf\n                )\n\n                save_progress(\n                    last_finished_page,\n                    total_pages\n                )\n\n                return\n\n            # ------------------------------------------------\n            # F. 保存页面缓存\n            # ------------------------------------------------\n\n            save_page_cache(\n                page_num=idx,\n                source_text=source_text,\n                translated_text=translated_text,\n                cost_chars=cost\n            )\n\n            print(\n                f\"💾 第 {idx} 页翻译结果已保存到缓存\"\n            )\n\n            # ------------------------------------------------\n            # G. 更新额度\n            # ------------------------------------------------\n\n            if cost > 0:\n\n                new_used = add_used_chars(\n                    cost\n                )\n\n                print(\n                    f\"📊 当前额度：\"\n                    f\"{new_used}/\"\n                    f\"{MONTHLY_FREE_QUOTA}\"\n                )\n\n            # ------------------------------------------------\n            # H. 更新进度\n            # ------------------------------------------------\n\n            last_finished_page = idx\n\n            save_progress(\n                last_finished_page,\n                total_pages\n            )\n\n            print(\n                f\"✅ 第 {idx} 页完成\"\n            )\n\n        # ====================================================\n        # I. 检查是否全部完成\n        # ====================================================\n\n        print(\n            \"\\n🔍 正在检查是否所有页面都有有效缓存...\"\n        )\n\n        all_completed = True\n\n        for idx, page in enumerate(\n            pdf.pages,\n            start=1\n        ):\n\n            source_text = normalize_text(\n                page.extract_text() or \"\"\n            )\n\n            if load_page_cache(\n                idx,\n                source_text\n            ) is None:\n\n                all_completed = False\n\n                print(\n                    f\"⚠️ 第 {idx} 页没有有效缓存\"\n                )\n\n                break\n\n        # ====================================================\n        # J. 生成 PDF\n        # ====================================================\n\n        rebuild_output_pdf(\n            input_pdf\n        )\n\n        if all_completed:\n\n            clear_progress()\n\n            print(\n                \"\\n\" + \"=\" * 65\n            )\n\n            print(\n                \"🎉 全书翻译完成！\"\n            )\n\n            print(\n                \"=\" * 65\n            )\n\n            print(\n                f\"📄 输出：{OUTPUT_PDF}\"\n            )\n\n            print(\n                f\"📦 缓存：{CACHE_DIR}\"\n            )\n\n        else:\n\n            print(\n                \"\\n⚠️ 当前还没有全部完成。\"\n            )\n\n            print(\n                \"   下次运行时会自动跳过\"\n                \"已经完成的页面。\"\n            )\n\n# ============================================================\n# 13. 运行\n# ============================================================\n\nif __name__ == \"__main__\":\n\n    try:\n\n        translate_pdf_resumable(\n            INPUT_PDF\n        )\n\n    except KeyboardInterrupt:\n\n        print(\n            \"\\n\\n🛑 检测到手动中断。\"\n        )\n\n        print(\n            \"正在根据已经完成的缓存生成 PDF...\"\n        )\n\n        try:\n\n            rebuild_output_pdf(\n                INPUT_PDF\n            )\n\n            print(\n                \"✅ 已保存当前已完成内容。\"\n            )\n\n        except Exception as e:\n\n            print(\n                f\"⚠️ PDF 保存失败：{e}\"\n            )\n\n    except Exception as e:\n\n        print(\n            f\"\\n❌ 程序发生未处理异常：{e}\"\n        )\n\n        try:\n\n            rebuild_output_pdf(\n                INPUT_PDF\n            )\n\n            print(\n                \"✅ 已根据缓存保存当前已完成内容。\"\n            )\n\n        except Exception as pdf_error:\n\n            print(\n                f\"⚠️ 无法重建 PDF：{pdf_error}\"\n            )\n\n        raise\n```\n\n直接把你原来的 .py 文件**全部替换成上面这份**即可。\n\n你只需要确保这两个环境变量仍然存在：\n\n```\nBAIDU_FANYI_APPID\nBAIDU_FANYI_SECRET\n```\n\n以及安装：\n\n```\npip install pdfplumber requests reportlab\n```\n\n路径方面**不用改**，仍然是：\n\n```\nD:\\小说\\哈利波特\\Harry Potter.pdf\n```\n\n输出仍然是：\n\n```\nD:\\小说\\哈利波特\\Harry Potter_translated.pdf\n```\n\n缓存会自动放到：\n\n```\nD:\\小说\\哈利波特\\translation_cache\n```\n\n**建议第一次运行前不要删除 translation\\_cache、translation\\_quota.json 和 translation\\_progress.json；如果是全新运行，它们不存在也没关系，程序会自动创建。**"
+    }
+  ],
+  "media": [],
+  "processing": {
+    "chunk_char_limit": 24000,
+    "recent_context_messages": 6,
+    "warnings": [],
+    "cache_hit": false,
+    "timings_seconds": {
+      "media_discovery": 0.001,
+      "completed_cache_lookup": 0.001,
+      "media_analysis": 0.0,
+      "chunking": 0.002,
+      "chunk_extraction": 519.937,
+      "global_synthesis": 60.258,
+      "total_before_output": 580.201
+    }
+  }
+}

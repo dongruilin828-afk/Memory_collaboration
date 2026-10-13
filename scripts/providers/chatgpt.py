@@ -13,6 +13,10 @@ WAIT_SELECTOR = (
     "[data-chatgpt-search-unit-key$=':assistant']"
 )
 HOSTS = ("chatgpt.com", "chat.openai.com")
+GENERATED_IMAGE_MESSAGE_SELECTOR = (
+    '[data-chatgpt-search-message-ids]'
+    ':has([data-testid="generated-image-gallery"])'
+)
 
 console = Console()
 
@@ -59,33 +63,47 @@ def _sort_captured_messages(captured, route_message_ids):
 
     if route_order:
         matched = [message for message in captured.values() if route_index(message) is not None]
-        if matched:
+        if len(matched) == len(captured):
             ordered = sorted(matched, key=route_index)
-            for message in sorted(
-                (
-                    message for message in captured.values()
-                    if route_index(message) is None
-                ),
-                key=lambda message: message["discovery_index"],
-            ):
-                next_discovered = next((
-                    candidate for candidate in matched
-                    if candidate["discovery_index"] > message["discovery_index"]
-                ), None)
-                if next_discovered is None:
-                    ordered.append(message)
-                else:
-                    ordered.insert(ordered.index(next_discovered), message)
             return ordered
     return sorted(
         captured.values(),
         key=lambda message: (
-            message["order"] is None,
-            message["order"]
-            if message["order"] is not None
+            message.get("observed_index", message.get("order")) is None,
+            message.get("observed_index", message.get("order"))
+            if message.get("observed_index", message.get("order")) is not None
             else message["discovery_index"],
         ),
     )
+
+
+def _merge_observed_message_order(observed, visible, prepend_disconnected=False):
+    """用同屏相邻消息定位新加载的虚拟列表节点。"""
+    visible = list(dict.fromkeys(visible))
+    if not any(key in observed for key in visible):
+        if prepend_disconnected:
+            observed[:0] = visible
+        else:
+            observed.extend(visible)
+        return
+    for index, key in enumerate(visible):
+        if key in observed:
+            continue
+        following = next((
+            candidate for candidate in visible[index + 1:]
+            if candidate in observed
+        ), None)
+        if following is not None:
+            observed.insert(observed.index(following), key)
+            continue
+        preceding = next((
+            candidate for candidate in reversed(visible[:index])
+            if candidate in observed
+        ), None)
+        observed.insert(
+            observed.index(preceding) + 1 if preceding is not None else len(observed),
+            key,
+        )
 
 
 def _collapse_nested_markdown_fences(text):
@@ -180,17 +198,18 @@ async def collect_html(page):
     """逐屏收集 ChatGPT 虚拟列表中的消息，避免长对话首尾丢失。"""
     role_selector = (
         f'{WAIT_SELECTOR}, '
-        '[data-testid^="conversation-turn-"][data-turn="assistant"]'
-        ':not(:has([data-message-author-role]))'
+        '[data-testid^="conversation-turn-"][data-turn="assistant"], '
+        f'{GENERATED_IMAGE_MESSAGE_SELECTOR}'
     )
     if await page.locator(role_selector).count() == 0:
         return None
 
     scroll_container = None
     captured = {}
+    observed_keys = []
     discovery_index = 0
 
-    async def capture_visible_messages():
+    async def capture_visible_messages(prepend_disconnected=False, update_order=True):
         """复采当前消息；保留文本和真实图片均不退步的较完整快照。"""
         nonlocal discovery_index
         visible_messages = await page.locator(role_selector).evaluate_all(
@@ -214,6 +233,7 @@ async def collect_html(page):
                 const searchMessageIds = element.getAttribute(
                     'data-chatgpt-search-message-ids'
                 ) || '';
+                const searchMessageId = searchKey.split(':', 1)[0] || '';
                 const messageId =
                     element.getAttribute('data-message-id')
                     || (turn && turn.getAttribute('data-message-id'))
@@ -227,12 +247,16 @@ async def collect_html(page):
                     || '';
                 const stableIds = Array.from(new Set([
                     messageId,
+                    searchMessageId,
                     turn && turn.getAttribute('data-turn-id'),
                     turn && turn.getAttribute('data-turn-id-container'),
                 ].filter(Boolean)));
                 const role = element.getAttribute('data-message-author-role')
                     || (turn ? turn.getAttribute('data-turn') : '')
                     || (searchKey.match(/:(user|assistant)$/) || [])[1]
+                    || (element.matches('[data-chatgpt-search-message-ids]')
+                        && element.querySelector('[data-testid="generated-image-gallery"]')
+                        ? 'assistant' : '')
                     || '';
                 const text =
                     element.innerText || element.textContent || '';
@@ -288,7 +312,12 @@ async def collect_html(page):
                 if existing_order is None or message["order"] < existing_order:
                     existing["order"] = message["order"]
 
-        return [message["boundary_key"] for message in visible_messages]
+        visible_keys = [message["boundary_key"] for message in visible_messages]
+        if update_order:
+            _merge_observed_message_order(
+                observed_keys, visible_keys, prepend_disconnected
+            )
+        return visible_keys
 
     try:
         scroll_container = await page.locator(role_selector).first.evaluate_handle(
@@ -296,7 +325,8 @@ async def collect_html(page):
                 const messageSelector = [
                     '[data-message-author-role]',
                     '[data-chatgpt-search-unit-key$=":user"]',
-                    '[data-chatgpt-search-unit-key$=":assistant"]'
+                    '[data-chatgpt-search-unit-key$=":assistant"]',
+                    '[data-chatgpt-search-message-ids]:has([data-testid="generated-image-gallery"])'
                 ].join(',');
                 const candidates = [];
                 let current = element;
@@ -349,7 +379,7 @@ async def collect_html(page):
                     "element => element.scrollTo(0, 0)"
                 )
             await page.wait_for_timeout(TOP_PRELOAD_SETTLE_MS)
-            visible_keys = await capture_visible_messages()
+            visible_keys = await capture_visible_messages(prepend_disconnected=True)
             state = tuple(visible_keys[:2])
             if state == previous_state:
                 stable_rounds += 1
@@ -362,15 +392,24 @@ async def collect_html(page):
             else:
                 no_growth_rounds = 0
                 previous_capture_count = capture_count
-            if (
+            loading_older = await page.evaluate(
+                """() => /正在加载更早的消息|Loading (?:older|earlier) messages/i
+                    .test(document.body.innerText)"""
+            )
+            if loading_older and no_growth_rounds >= SCROLL_NO_GROWTH_ROUNDS:
+                raise RuntimeError("ChatGPT 更早消息持续加载，未完成顶部采集")
+            if not loading_older and (
                 stable_rounds >= TOP_PRELOAD_STABLE_ROUNDS
                 or no_growth_rounds >= TOP_PRELOAD_NO_GROWTH_ROUNDS
             ):
                 break
+        else:
+            raise RuntimeError("ChatGPT 顶部采集超过安全轮数")
 
-        # 保留预热阶段已经出现过的历史消息。ChatGPT 的虚拟列表在顶部
-        # 补挂旧消息后，正式向下遍历时不一定会再次挂载每一个中间节点。
-        # capture_visible_messages 会持续更新同一 message-id 的最终 turn 顺序。
+        # 顶部预热会反复插入更早的批次；从最后一次顶部画面重新建立顺序，
+        # 再顺着列表向下遍历。预热中仅出现一次的消息在遍历后补回。
+        preload_observed_keys = observed_keys
+        observed_keys = list(dict.fromkeys(visible_keys))
         initial_metrics = await scroll_container.evaluate(
             """element => ({
                 scrollTop: element.scrollTop,
@@ -401,9 +440,6 @@ async def collect_html(page):
             else:
                 bottom_no_growth_rounds = 0
                 previous_bottom_capture_count = capture_count
-            if bottom_no_growth_rounds >= SCROLL_NO_GROWTH_ROUNDS:
-                break
-
             metrics = await scroll_container.evaluate(
                 """element => ({
                     scrollTop: element.scrollTop,
@@ -417,6 +453,8 @@ async def collect_html(page):
             )
             current_top = int(metrics["scrollTop"])
             at_bottom = current_top >= -1 if is_reverse else current_top >= max_scroll_top - 1
+            if bottom_no_growth_rounds >= SCROLL_NO_GROWTH_ROUNDS and not at_bottom:
+                raise RuntimeError("ChatGPT 尚未滚动到底部，消息采集已停止增长")
             if at_bottom:
                 bottom_state = tuple(visible_keys[-2:])
                 if bottom_state == previous_bottom_state:
@@ -437,6 +475,12 @@ async def collect_html(page):
                 if is_reverse
                 else min(current_top + step, max_scroll_top)
             )
+        else:
+            raise RuntimeError("ChatGPT 向下遍历超过安全轮数")
+
+        _merge_observed_message_order(
+            observed_keys, preload_observed_keys, prepend_disconnected=True
+        )
 
         # 首尾媒体均可能延迟挂载；回访边界并只接受图片更完整的快照。
         boundaries = (0, -max_scroll_top) if is_reverse else (max_scroll_top, 0)
@@ -447,7 +491,7 @@ async def collect_html(page):
             )
             for _ in range(BOUNDARY_CAPTURE_ROUNDS):
                 await page.wait_for_timeout(BOUNDARY_SETTLE_MS)
-                await capture_visible_messages()
+                await capture_visible_messages(update_order=False)
 
         captured_ids = list({
             id_
@@ -512,9 +556,10 @@ async def collect_html(page):
             }""",
             captured_ids,
         )
-        ordered_messages = _sort_captured_messages(
-            captured, route_message_ids
-        )
+        for index, key in enumerate(observed_keys):
+            if key in captured:
+                captured[key]["observed_index"] = index
+        ordered_messages = _sort_captured_messages(captured, route_message_ids)
 
         if ordered_messages:
             console.print(
@@ -526,6 +571,8 @@ async def collect_html(page):
             )
             return f"<!DOCTYPE html><html><body>{message_html}</body></html>"
 
+    except RuntimeError:
+        raise
     except Exception as e:
         console.print(
             f"[dim]提示: ChatGPT 虚拟列表收集失败，将使用当前页面快照: {e}[/dim]"
@@ -549,6 +596,9 @@ def parse_messages(soup, image_map=None):
         )
         if match and not message.get("data-message-author-role"):
             message["data-message-author-role"] = match.group(1)
+    for message in soup.select(GENERATED_IMAGE_MESSAGE_SELECTOR):
+        if message.find_parent(attrs={"data-message-author-role": True}) is None:
+            message["data-message-author-role"] = "assistant"
 
     chatgpt_messages = [
         message for message in soup.find_all(
@@ -701,12 +751,23 @@ def parse_messages(soup, image_map=None):
             content = msg.select_one(
                 ".markdown, [data-markdown-text-style='assistant-message']"
             )
+            if content is None:
+                content = msg.select_one('[data-testid="generated-image-gallery"]')
             if content is None and msg.find(
                 ["p", "pre", "ol", "ul", "table", "blockquote", "img"]
             ):
                 content = msg
             if content is None:
                 continue
+
+            for excluded in content.select(
+                ".sr-only, .cdk-visually-hidden"
+            ):
+                excluded.decompose()
+            if content.get("data-testid") == "generated-image-gallery":
+                for button in content.find_all("button"):
+                    if button.find("img") is None:
+                        button.decompose()
 
             # ChatGPT 新版代码块把“纯文本”等工具栏和代码并列放置。
             for block in list(content.select("[data-markdown-copy='code-block']")):

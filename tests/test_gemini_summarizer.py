@@ -784,6 +784,67 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("可重新提取或验证", asset.description)
         self.assertNotIn("无法访问文档原件", asset.description)
 
+    def test_missing_document_description_is_retried_with_extracted_text(self):
+        class Gateway:
+            def __init__(self):
+                self.calls = []
+
+            def generate_json(self, prompt, schema, media_assets=None):
+                self.calls.append((prompt, media_assets))
+                if len(self.calls) == 1:
+                    return {"items": []}
+                return {"items": [{
+                    "media_id": "M001", "status": "described",
+                    "description": "测试报告记录了温度数据。",
+                }]}
+
+        asset = summary.MediaAsset(
+            media_id="M001", message_index=1, kind="document",
+            label="report.md", reference="./report.md",
+            local_path=Path(__file__), mime_type="text/markdown",
+            status="ready", extracted_text="温度数据",
+        )
+        gateway = Gateway()
+        summary.describe_media(
+            [asset], gateway, summary.SummaryConfig(), lambda _: None
+        )
+        self.assertEqual(asset.status, "described")
+        self.assertIn("温度数据", gateway.calls[1][0])
+        self.assertEqual(gateway.calls[1][1], [])
+        self.assertIn("测试报告记录了温度数据", asset.description)
+
+    def test_xlsx_extraction_reports_empty_data_region(self):
+        class Sheet:
+            title = "温度"
+
+            def iter_rows(self, values_only=False):
+                return iter([("时间", 0, 0.1), (1, None, None)])
+
+        class Workbook:
+            worksheets = [Sheet()]
+
+            def close(self):
+                pass
+
+        with patch("openpyxl.load_workbook", return_value=Workbook()):
+            extracted = summary._extract_xlsx_text(Path(__file__), 1000)
+        self.assertIn("[第2行第2列起非空单元格：0]", extracted)
+
+    def test_empty_xlsx_description_uses_verified_cell_count(self):
+        asset = summary.MediaAsset(
+            media_id="M001", message_index=1, kind="document",
+            label="data.xlsx", reference="./data.xlsx",
+            local_path=Path("data.xlsx"), status="unclear",
+            extracted_text=(
+                "[工作表：温度]\n[第2行第2列起非空单元格：0]\n"
+                "[工作表：水分浓度]\n[第2行第2列起非空单元格：0]"
+            ),
+        )
+        summary._correct_empty_xlsx_description(asset)
+        self.assertEqual(asset.status, "described")
+        self.assertIn("没有可分析的数值", asset.description)
+        self.assertNotIn("记录数值数据", asset.description)
+
     def test_media_api_failure_keeps_local_file_reverifiable_and_retryable(self):
         class FailingGateway:
             def generate_json(self, prompt, schema, media_assets=None):
@@ -1399,6 +1460,19 @@ class GeminiSummarizerTests(unittest.TestCase):
             BeautifulSoup(html, "html.parser"), {}
         ), [{"role": "AI", "content": "真实回答"}])
 
+    def test_chatgpt_assistant_screen_reader_label_inside_body_is_excluded(self):
+        html = """
+        <div data-message-author-role="assistant">
+          <div class="markdown">
+            <h5 class="sr-only">ChatGPT 说：</h5>
+            <p>真实回答</p>
+          </div>
+        </div>
+        """
+        self.assertEqual(chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"), {}
+        ), [{"role": "AI", "content": "真实回答"}])
+
     def test_chatgpt_parses_current_share_page_turns(self):
         html = """
         <div data-chatgpt-search-unit-key="fallback-turn-0:0:user">
@@ -1986,6 +2060,45 @@ class GeminiSummarizerTests(unittest.TestCase):
                 "9b9a2a07-12f9-4514-9ca4-708ad4ba26b9",
             ],
         )
+
+    def test_chatgpt_late_loaded_earlier_image_precedes_route_matched_csv(self):
+        observed = []
+        chatgpt._merge_observed_message_order(observed, ["csv", "reply"])
+        chatgpt._merge_observed_message_order(
+            observed, ["image", "image-reply", "csv"],
+            prepend_disconnected=True,
+        )
+        self.assertEqual(observed, ["image", "image-reply", "csv", "reply"])
+        captured = {
+            key: {
+                "key": key, "ids": [key], "order": None,
+                "discovery_index": discovery,
+                "observed_index": observed.index(key),
+            }
+            for discovery, key in enumerate(["csv", "reply", "image", "image-reply"])
+        }
+        ordered = chatgpt._sort_captured_messages(
+            captured, [["csv"], ["reply"]]
+        )
+        self.assertEqual([item["key"] for item in ordered], observed)
+
+    def test_chatgpt_generated_image_gallery_is_an_assistant_message(self):
+        src = "https://example.com/generated.png"
+        html = (
+            '<div data-chatgpt-search-unit-key="first:0:user">无人机视角</div>'
+            '<div data-chatgpt-search-message-ids="second">'
+            '<div data-testid="generated-image-gallery">'
+            f'<button><img alt="已生成图像 1" src="{src}"></button>'
+            '<button>编辑生成的图像 1</button>'
+            '</div></div>'
+        )
+        messages = chatgpt.parse_messages(
+            BeautifulSoup(html, "html.parser"),
+            {src: "./images/generated.png"},
+        )
+        self.assertEqual([item["role"] for item in messages], ["User", "AI"])
+        self.assertIn("./images/generated.png", messages[1]["content"])
+        self.assertNotIn("编辑生成的图像", messages[1]["content"])
 
     def test_chatgpt_code_filenames_are_not_guessed_as_attachments(self):
         html = """
@@ -4011,6 +4124,37 @@ output = "Harry Potter_translated.pdf"</pre>
             "AI 已完整解答，当前处于任务完成、。"
         )
         self.assertEqual(cleaned, "AI 已完整解答，当前处于任务完成。")
+
+    def test_generated_summary_removes_dangling_short_clause(self):
+        self.assertEqual(
+            summary._clean_generated_punctuation(
+                "Excel 数据为空；同时奖学金申请表合计错误问题也。下一步需补数据。"
+            ),
+            "Excel 数据为空。下一步需补数据。",
+        )
+        self.assertEqual(
+            summary._clean_generated_punctuation("甲已完成；乙也。"),
+            "甲已完成；乙也。",
+        )
+
+    def test_latest_turn_discards_older_unaccepted_suggestion(self):
+        state = {
+            "last_user_message_id": 3,
+            "next_step": summary._normalize_claim({
+                "content": "建议核对申请表", "source": "assistant",
+                "status": "suggested", "message_ids": [2],
+            }, 4),
+            "pending": [],
+        }
+        messages = [
+            {"role": "User", "content": "申请表"},
+            {"role": "AI", "content": "建议核对申请表"},
+            {"role": "User", "content": "数据表"},
+            {"role": "AI", "content": "数据表为空"},
+        ]
+        summary._normalize_latest_turn_state(state, messages)
+        self.assertEqual(state["next_step"]["content"], "未明确")
+        self.assertEqual(state["reached_stage"]["message_ids"], [4])
 
 
 if __name__ == "__main__":

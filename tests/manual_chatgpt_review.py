@@ -30,14 +30,19 @@ async def main():
     parser.add_argument("--attachment-web-link")
     parser.add_argument("--profile", type=Path, default=ROOT / ".browser_user_data")
     parser.add_argument("--need-login", action="store_true")
+    parser.add_argument("--provider", choices=("gemini", "siliconflow", "deepseek"))
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
     api_keys = WindowsCredentialStore().load_api_keys()
+    if args.provider:
+        if not api_keys.get(args.provider):
+            parser.error(f"未配置 {args.provider} API KEY")
+        api_keys = {args.provider: api_keys[args.provider]}
     manifest_path = args.output / "manifest.json"
     manifest = (
         json.loads(manifest_path.read_text(encoding="utf-8"))
-        if args.summary_only and manifest_path.exists()
+        if manifest_path.exists()
         else []
     )
     selected = set(args.cases or range(1, len(CASES) + 1))
@@ -82,6 +87,7 @@ async def main():
                         outputs=[path.relative_to(args.output).as_posix() for path in bundle.saved_files],
                         elapsed=time.perf_counter() - started,
                     )
+                    record.pop("exception", None)
                     logger(f"总结完成：{len(messages)} 条消息")
                     manifest = [item for item in manifest if item.get("case") != case]
                     manifest.append(record)
@@ -162,12 +168,15 @@ async def main():
                     f"完成：{record['messages']} 条消息，{record['images']} 张图片，"
                     f"{record['documents']} 个文档；错误 {result.error}；警告 {result.warnings}"
                 )
+                record.pop("exception", None)
             except Exception as error:
                 record["exception"] = f"{type(error).__name__}: {error}"
                 (target / "error.txt").write_text(record["exception"], encoding="utf-8")
                 logger(f"异常：{record['exception']}")
             record["elapsed"] = time.perf_counter() - started
+            manifest = [item for item in manifest if item.get("case") != case]
             manifest.append(record)
+            manifest.sort(key=lambda item: item["case"])
             (args.output / "manifest.json").write_text(
                 json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
             )

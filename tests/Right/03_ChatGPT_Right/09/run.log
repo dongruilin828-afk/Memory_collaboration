@@ -1,0 +1,12 @@
+正在调用 deepseek/deepseek-v4-pro 生成结构化分层总结...
+总结后端：deepseek；模型：deepseek-v4-pro
+正在识别媒体内容：第 1/1 批（6 个文件）
+媒体准备完成（50.20 秒）。
+正在提取细粒度记忆：第 1/1 批
+细粒度记忆提取完成：1 批（123.75 秒）。
+正在综合全局状态、对话断点和主题索引...
+全局综合完成（67.87 秒）。
+结构化总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\101_09附件下载修复_20261013\09\AI_memory_result.json
+可读总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\101_09附件下载修复_20261013\09\AI_memory_summary.md
+正在生成极简版总览...
+总结完成：12 条消息

@@ -27,7 +27,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
 from gui.credential_store import normalize_provider_order
@@ -299,11 +299,15 @@ def _collect_response_assets(
             if mime_type.startswith("image/") or suffix in {
                 ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"
             }:
-                image_references.update(
-                    f"{origin}/backend-api/files/download/"
-                    f"{quote(reference, safe='')}{share_query}"
-                    for reference in reference_ids
-                )
+                if (
+                    id(item) in user_attachments
+                    or (not authored_messages and id(item) in top_level_attachments)
+                ):
+                    image_references.update(
+                        f"{origin}/backend-api/files/download/"
+                        f"{quote(reference, safe='')}{share_query}"
+                        for reference in reference_ids
+                    )
             elif (
                 suffix in CHATGPT_ATTACHMENT_EXTENSIONS
                 and (
@@ -638,12 +642,24 @@ async def _chatgpt_assets_need_rehydrate(
         return False
     try:
         body_text = await page.locator("body").inner_text(timeout=3000)
+        rendered_users = await page.locator(
+            "[data-message-author-role='user'], "
+            "[data-chatgpt-search-unit-key$=':user']"
+        ).count()
+        rendered_assistants = await page.locator(
+            "[data-message-author-role='assistant'], "
+            "[data-chatgpt-search-unit-key$=':assistant'], "
+            "[data-testid^='conversation-turn-'][data-turn='assistant'], "
+            + chatgpt.GENERATED_IMAGE_MESSAGE_SELECTOR
+        ).count()
         rendered_images = await page.locator(
             "[data-message-author-role='user'] img, "
             "[data-chatgpt-search-unit-key$=':user'] img"
         ).count()
     except Exception:
         return False
+    if rendered_users and not rendered_assistants:
+        return True
     if image_references and rendered_images < len(image_references):
         return True
     visible_names = {
@@ -652,6 +668,36 @@ async def _chatgpt_assets_need_rehydrate(
         if candidate.filename and candidate.filename.lower() in body_text.lower()
     }
     return bool(document_candidates and not visible_names)
+
+
+async def _chatgpt_session_is_authenticated(
+    page: Any,
+    conversation_url: str = "",
+) -> bool:
+    """私有会话必须确认令牌及其实际会话访问权。"""
+    try:
+        return bool(await page.evaluate(
+            """async conversationUrl => {
+                const response = await fetch(
+                    '/api/auth/session', {credentials: 'include'}
+                );
+                if (!response.ok) return false;
+                const session = await response.json();
+                const token = session.accessToken || session.access_token;
+                if (!token) return false;
+                const match = new URL(conversationUrl || location.href).pathname
+                    .match(/^\\/c\\/([^/?#]+)/);
+                if (!match) return true;
+                const detail = await fetch('/backend-api/conversation/' + match[1], {
+                    credentials: 'include',
+                    headers: {Authorization: `Bearer ${token}`},
+                });
+                return detail.ok;
+            }""",
+            conversation_url,
+        ))
+    except Exception:
+        return False
 
 
 def requires_authenticated_browser(url: str) -> bool:
@@ -1323,6 +1369,7 @@ def _extract_chatgpt_shared_image_sources(
 async def _chatgpt_message_asset_groups(
     page: Any,
     conversation_url: str,
+    message_html: str = "",
 ) -> tuple[list[list[str]], list[list[DocumentCandidate]]]:
     """读取 ChatGPT 已解码的线性对话，保留每条用户消息的附件归属。"""
     parsed = urlparse(str(conversation_url or ""))
@@ -1385,22 +1432,6 @@ async def _chatgpt_message_asset_groups(
                     }
                 }
                 return conversation
-                    .map((item, index) => ({
-                        item,
-                        time: item?.message?.create_time == null
-                            ? NaN : Number(item.message.create_time),
-                        index,
-                    }))
-                    .sort((left, right) => {
-                        const leftTimed = Number.isFinite(left.time);
-                        const rightTimed = Number.isFinite(right.time);
-                        if (leftTimed && rightTimed && left.time !== right.time) {
-                            return left.time - right.time;
-                        }
-                        if (leftTimed !== rightTimed) return leftTimed ? -1 : 1;
-                        return left.index - right.index;
-                    })
-                    .map(entry => entry.item)
                     .filter(item => item?.message?.author?.role === "user")
                     .map(item => {
                         const message = item.message;
@@ -1411,6 +1442,8 @@ async def _chatgpt_message_asset_groups(
                             message.metadata?.attachments
                         ) ? message.metadata.attachments : [];
                         return {
+                            id: message.id || '',
+                            nodeId: item.id || '',
                             images: parts
                                 .filter(part => part && typeof part === "object"
                                     && part.content_type === "image_asset_pointer")
@@ -1426,6 +1459,39 @@ async def _chatgpt_message_asset_groups(
         )
     except Exception:
         return [], []
+
+    if message_html and isinstance(groups, list):
+        by_id = {
+            str(identifier): group
+            for group in groups if isinstance(group, Mapping)
+            for identifier in (group.get("id"), group.get("nodeId"))
+            if identifier
+        }
+        user_messages = BeautifulSoup(message_html, "html.parser").find_all(
+            attrs={"data-message-author-role": "user"}
+        )
+        aligned = []
+        matches = 0
+        for message in user_messages:
+            search = message.get("data-chatgpt-search-unit-key")
+            if not search:
+                nested = message.select_one(
+                    '[data-chatgpt-search-unit-key$=":user"]'
+                )
+                search = nested.get("data-chatgpt-search-unit-key") if nested else ""
+            identifiers = (
+                message.get("data-message-id"),
+                str(search or "").split(":", 1)[0],
+                message.get("data-chatgpt-selection-message-id"),
+            )
+            group = next((
+                by_id[identifier] for identifier in identifiers
+                if identifier in by_id
+            ), None)
+            matches += group is not None
+            aligned.append(group or {"images": [], "attachments": []})
+        if matches:
+            groups = aligned
 
     origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
     share_id = _chatgpt_shared_conversation_id(conversation_url)
@@ -1552,14 +1618,22 @@ async def _recover_chatgpt_shared_video_assets(
                         });
                     if (groups.flat().some(file =>
                         file.name.toLowerCase() === query.toLowerCase()
-                    )) return groups;
+                    )) return {conversationId, groups};
                 }
-                return [];
+                return {conversationId: '', groups: []};
             }""",
             query,
         )
         parsed = urlparse(conversation_url)
         origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
+        private_conversation_id = (
+            str(private_groups.get("conversationId") or "")
+            if isinstance(private_groups, Mapping) else ""
+        )
+        private_groups = (
+            private_groups.get("groups")
+            if isinstance(private_groups, Mapping) else private_groups
+        )
         private_documents: list[list[DocumentCandidate]] = []
         for group in private_groups if isinstance(private_groups, list) else []:
             documents = []
@@ -1581,25 +1655,67 @@ async def _recover_chatgpt_shared_video_assets(
                     ))
             private_documents.append(list(dict.fromkeys(documents)))
         if any(private_documents):
+            if private_conversation_id:
+                private_url = f"{origin}/c/{quote(private_conversation_id, safe='')}"
+                try:
+                    if page.url.split("?", 1)[0] != private_url:
+                        await goto_with_retry_gui(page, private_url, attempts=1)
+                except Exception:
+                    pass
             return ([[] for _ in private_documents], private_documents)
     except Exception:
         pass
     return image_groups, document_groups
 
 
-def _remove_chatgpt_video_message_images(
+def _chatgpt_video_message_indices(
     html: str,
     document_groups: list[list[DocumentCandidate]],
-) -> str:
+    fallback_documents: list[DocumentCandidate],
+) -> set[int]:
     soup = BeautifulSoup(html or "", "html.parser")
     user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
-    for message, documents in zip(user_messages, document_groups):
+    video_names = {
+        candidate.filename.casefold()
+        for candidate in fallback_documents
+        if Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+    }
+    indices = set()
+    for index, message in enumerate(user_messages):
+        documents = document_groups[index] if index < len(document_groups) else []
         if any(
             Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
             for candidate in documents
-        ):
-            for image in message.find_all(["img", "source"]):
-                image.decompose()
+        ) or any(name in message.get_text(" ", strip=True).casefold()
+                 for name in video_names):
+            indices.add(index)
+    return indices
+
+
+def _chatgpt_private_retry_candidates(
+    failed: Mapping[DocumentCandidate, str],
+    groups: list[list[DocumentCandidate]],
+) -> dict[DocumentCandidate, DocumentCandidate]:
+    """分享页可能重新分配文件 ID，只匹配原会话中名称唯一的附件。"""
+    private_by_name: dict[str, set[DocumentCandidate]] = {}
+    for group in groups:
+        for item in group:
+            private_by_name.setdefault(item.filename.casefold(), set()).add(item)
+    return {
+        item: next(iter(matches))
+        for item in failed
+        if len(matches := private_by_name.get(item.filename.casefold(), set())) == 1
+    }
+
+
+def _remove_chatgpt_video_message_images(html: str, indices: set[int]) -> str:
+    soup = BeautifulSoup(html or "", "html.parser")
+    user_messages = soup.find_all(attrs={"data-message-author-role": "user"})
+    for index in indices:
+        if index >= len(user_messages):
+            continue
+        for image in user_messages[index].find_all(["img", "source"]):
+            image.decompose()
     return str(soup)
 
 
@@ -1900,9 +2016,25 @@ async def _download_image_candidates(
                     )
                     if src not in sources:
                         continue
+                    await image.scroll_into_view_if_needed(
+                        timeout=GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
+                    )
                     dimensions = await image.evaluate(
                         "img => [img.naturalWidth, img.naturalHeight]"
                     )
+                    if not all(dimensions):
+                        await image.evaluate(
+                            """img => img.complete && img.naturalWidth
+                                ? true
+                                : new Promise(resolve => {
+                                    img.addEventListener('load', () => resolve(true), {once: true});
+                                    img.addEventListener('error', () => resolve(false), {once: true});
+                                    setTimeout(() => resolve(false), 10000);
+                                })"""
+                        )
+                        dimensions = await image.evaluate(
+                            "img => [img.naturalWidth, img.naturalHeight]"
+                        )
                     if not all(dimensions):
                         continue
                     if is_gemini_upload:
@@ -2812,6 +2944,29 @@ def _inject_chatgpt_attachment_names(
     unique_candidates = list({
         candidate.filename.lower(): candidate for candidate in candidates
     }.values())
+
+    def hide_csv_preview(target: Tag, candidate: DocumentCandidate) -> None:
+        """排除 CSV 表格预览，保留同一消息里的提问和文件标记。"""
+        if Path(candidate.filename).suffix.lower() != ".csv":
+            return
+        filename = candidate.filename.lower()
+        cards = [
+            node for node in target.select("[aria-label]")
+            if filename in str(node.get("aria-label") or "").lower()
+        ]
+        previews = [
+            card
+            for card in cards
+            if any(
+                child.name != "header"
+                and len(child.get_text("\n", strip=True).splitlines()) >= 3
+                for child in card.find_all(recursive=False)
+            )
+        ]
+        if not previews:
+            previews = target.select("table, [role='grid']")
+        for preview in previews:
+            preview["data-markdown-copy"] = "exclude"
     placeholders = [
         message for message in user_messages
         if "上传文件" in message.get_text(" ", strip=True)
@@ -2857,6 +3012,8 @@ def _inject_chatgpt_attachment_names(
             marker.string = assignments[index].filename
             target.append(marker)
         return str(soup)
+    marked_names = set()
+    csv_marker_added = False
     if candidates_by_message:
         for target, message_candidates in zip(
             user_messages, candidates_by_message
@@ -2872,12 +3029,53 @@ def _inject_chatgpt_attachment_names(
             ):
                 if not candidate.filename:
                     continue
+                if not visible_candidates:
+                    hide_csv_preview(target, candidate)
                 marker = soup.new_tag("div")
                 marker["class"] = [
                     "attachment", "document", "api-attachment-name"
                 ]
                 marker.string = candidate.filename
                 target.append(marker)
+                marked_names.add(candidate.filename.lower())
+    # 部分私有会话不会在线性消息状态中保留附件分组。CSV 卡片仍在 DOM
+    # 中以 aria-label 给出原始文件名，或由紧随其后的 AI 回复引用该文件名。
+    for candidate in unique_candidates:
+        if (
+            Path(candidate.filename).suffix.lower() != ".csv"
+            or candidate.filename.lower() in marked_names
+        ):
+            continue
+        for target in user_messages:
+            target_text = target.get_text(" ", strip=True).lower()
+            target_html = str(target).lower()
+            if candidate.filename.lower() in target_text:
+                continue
+            assistant = target.find_next(
+                attrs={"data-message-author-role": "assistant"}
+            )
+            referenced_by_next_answer = (
+                assistant is not None
+                and candidate.filename.lower()
+                in assistant.get_text(" ", strip=True).lower()
+            )
+            if (
+                candidate.filename.lower() not in target_html
+                and not referenced_by_next_answer
+            ):
+                continue
+            hide_csv_preview(target, candidate)
+            marker = soup.new_tag("div")
+            marker["class"] = [
+                "attachment", "document", "api-attachment-name"
+            ]
+            marker.string = candidate.filename
+            target.append(marker)
+            csv_marker_added = True
+            break
+    if candidates_by_message:
+        return str(soup)
+    if csv_marker_added:
         return str(soup)
     placeholders = [
         message for message in user_messages
@@ -4468,6 +4666,14 @@ async def fetch_chat_pipeline(
                         await _page_has_conversation_content(page, url)
                         or (codex_request and bool(authorized_content_responses))
                     )
+                    if (
+                        content_ready
+                        and requested_host in {"chatgpt.com", "chat.openai.com"}
+                        and requires_authenticated_browser(url)
+                    ):
+                        content_ready = await _chatgpt_session_is_authenticated(
+                            page, url
+                        )
                     if content_ready:
                         if need_login and requested_host in {
                             "chatgpt.com", "chat.openai.com"
@@ -4495,7 +4701,9 @@ async def fetch_chat_pipeline(
                                     headless=False,
                                     viewport=None,
                                     no_viewport=True,
-                                    start_minimized=True,
+                                    # 无头探测失败后可能需要用户登录；不能先把
+                                    # 浏览器移到屏幕外，否则窗口恢复失败时用户无法操作。
+                                    start_minimized=False,
                                     logger=logger,
                                     profile_root=(
                                         Path(
@@ -4522,6 +4730,16 @@ async def fetch_chat_pipeline(
                                 await _page_has_conversation_content(page, url)
                                 or (codex_request and bool(authorized_content_responses))
                             )
+                            if (
+                                content_ready
+                                and requested_host in {
+                                    "chatgpt.com", "chat.openai.com"
+                                }
+                                and requires_authenticated_browser(url)
+                            ):
+                                content_ready = await _chatgpt_session_is_authenticated(
+                                    page, url
+                                )
                             if content_ready:
                                 if logger:
                                     logger(
@@ -4578,6 +4796,16 @@ async def fetch_chat_pipeline(
                                 await _page_has_conversation_content(page, url)
                                 or (codex_request and bool(authorized_content_responses))
                             )
+                            if (
+                                content_ready
+                                and requested_host in {
+                                    "chatgpt.com", "chat.openai.com"
+                                }
+                                and requires_authenticated_browser(url)
+                            ):
+                                content_ready = await _chatgpt_session_is_authenticated(
+                                    page, url
+                                )
                             if not content_ready:
                                 raise RuntimeError(
                                     "当前账号仍无法访问目标会话。请切换到有权访问该会话的账号，"
@@ -4739,7 +4967,7 @@ async def fetch_chat_pipeline(
                     pre_rehydrate_chat_html, html
                 )
                 chatgpt_image_groups, chatgpt_document_groups = (
-                    await _chatgpt_message_asset_groups(page, url)
+                    await _chatgpt_message_asset_groups(page, url, html)
                 )
                 chatgpt_image_groups, chatgpt_document_groups = (
                     await _recover_chatgpt_shared_video_assets(
@@ -4750,15 +4978,16 @@ async def fetch_chat_pipeline(
                         chatgpt_document_groups,
                     )
                 )
-                for index, documents in enumerate(chatgpt_document_groups):
-                    if any(
-                        Path(candidate.filename).suffix.lower()
-                        in gemini.VIDEO_EXTENSIONS
-                        for candidate in documents
-                    ):
+                video_message_indices = _chatgpt_video_message_indices(
+                    html,
+                    chatgpt_document_groups,
+                    response_document_candidates,
+                )
+                for index in video_message_indices:
+                    if index < len(chatgpt_image_groups):
                         chatgpt_image_groups[index] = []
                 html = _remove_chatgpt_video_message_images(
-                    html, chatgpt_document_groups
+                    html, video_message_indices
                 )
                 if chatgpt_image_groups:
                     html = _inject_chatgpt_message_images(
@@ -4772,10 +5001,17 @@ async def fetch_chat_pipeline(
                         ),
                     )
                 soup_pre = BeautifulSoup(html, "html.parser")
+                chatgpt_video_only = (
+                    current_host in {"chatgpt.com", "chat.openai.com"}
+                    and bool(video_message_indices)
+                    and len(video_message_indices) == len(soup_pre.find_all(
+                        attrs={"data-message-author-role": "user"}
+                    ))
+                )
                 image_candidates: list[str] = (
                     []
                     if current_host in {"chatgpt.com", "chat.openai.com"}
-                    and chatgpt_image_groups
+                    and (chatgpt_image_groups or chatgpt_video_only)
                     else list(response_image_references)
                 )
                 if logger:
@@ -4872,18 +5108,9 @@ async def fetch_chat_pipeline(
                     await _set_browser_window_state(page, "maximized")
                     page.on("response", capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
-                    chatgpt_logged_in = current_host in {"chatgpt.com", "chat.openai.com"} and await page.evaluate(
-                        """async () => {
-                            const response = await fetch(
-                                '/api/auth/session', {credentials: 'include'}
-                            );
-                            if (!response.ok) return false;
-                            const session = await response.json();
-                            return Boolean(
-                                session.accessToken || session.access_token
-                                || session.user
-                            );
-                        }"""
+                    chatgpt_logged_in = (
+                        current_host in {"chatgpt.com", "chat.openai.com"}
+                        and await _chatgpt_session_is_authenticated(page, url)
                     )
                     if not chatgpt_logged_in:
                         login_ready_event.clear()
@@ -5114,26 +5341,71 @@ async def fetch_chat_pipeline(
                     retry_html = await collect_virtualized_html(page)
                     if retry_html is None:
                         retry_html = await page.content()
-                    document_candidates.extend(
-                        _extract_deepseek_document_card_candidates(
-                            retry_html, page.url
-                        )
+                    retry_parsed = urlparse(retry_url)
+                    chatgpt_private_retry = (
+                        current_host in {"chatgpt.com", "chat.openai.com"}
+                        and retry_parsed.hostname in {
+                            "chatgpt.com", "chat.openai.com"
+                        }
+                        and re.fullmatch(r"/c/[^/]+/?", retry_parsed.path)
                     )
-                    document_candidates = list(dict.fromkeys(document_candidates))
-                    retry_warnings: list[str] = []
-                    document_failures.clear()
-                    document_map.update(await _download_document_candidates(
-                        page,
-                        document_candidates,
-                        resolved_documents_dir,
-                        document_reference_prefix,
-                        document_download_concurrency,
-                        retry_warnings,
-                        conversation_url=retry_url,
-                        captured_documents=captured_document_responses,
-                        failure_collector=document_failures,
-                    ))
-                    document_warnings = retry_warnings if document_failures else []
+                    if chatgpt_private_retry:
+                        _, private_groups = await _chatgpt_message_asset_groups(
+                            page, retry_url, retry_html
+                        )
+                        matched = _chatgpt_private_retry_candidates(
+                            document_failures, private_groups
+                        )
+                        private_candidates = list(dict.fromkeys(matched.values()))
+                        if private_candidates:
+                            private_map = await _download_document_candidates(
+                                page,
+                                private_candidates,
+                                resolved_documents_dir,
+                                document_reference_prefix,
+                                document_download_concurrency,
+                                conversation_url=retry_url,
+                            )
+                            document_map.update(private_map)
+                            document_candidates.extend(private_candidates)
+                            for failed, private in matched.items():
+                                local = private_map.get(private.reference)
+                                if not local:
+                                    continue
+                                document_map[failed.url] = local
+                                document_map[failed.reference] = local
+                                for item in list(document_failures):
+                                    if item.filename.casefold() == failed.filename.casefold():
+                                        document_failures.pop(item)
+                        reasons: dict[str, int] = {}
+                        for reason in document_failures.values():
+                            reasons[reason] = reasons.get(reason, 0) + 1
+                        document_warnings = [
+                            f"{sum(reasons.values())} 个文档附件未能保存到本地"
+                            f"（{'、'.join(f'{reason}×{count}' for reason, count in sorted(reasons.items()))}）；"
+                            "对话文字抓取继续保留。"
+                        ] if reasons else []
+                    else:
+                        document_candidates.extend(
+                            _extract_deepseek_document_card_candidates(
+                                retry_html, page.url
+                            )
+                        )
+                        document_candidates = list(dict.fromkeys(document_candidates))
+                        retry_warnings: list[str] = []
+                        document_failures.clear()
+                        document_map.update(await _download_document_candidates(
+                            page,
+                            document_candidates,
+                            resolved_documents_dir,
+                            document_reference_prefix,
+                            document_download_concurrency,
+                            retry_warnings,
+                            conversation_url=retry_url,
+                            captured_documents=captured_document_responses,
+                            failure_collector=document_failures,
+                        ))
+                        document_warnings = retry_warnings if document_failures else []
                 fetch_warnings.extend(document_warnings)
                 codex_change_map = _save_codex_file_changes(
                     list({change["path"]: change for change in codex_file_changes}.values()),
