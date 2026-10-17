@@ -326,7 +326,8 @@ def normalize_simple_overview(value: Any) -> str:
 
 
 def validate_simple_overview(
-    overview: str, projection: dict[str, Any], max_chars: int
+    overview: str, projection: dict[str, Any], max_chars: int,
+    *, source_platform: str | None = None,
 ) -> list[str]:
     errors: list[str] = []
     if not overview:
@@ -422,6 +423,9 @@ def validate_simple_overview(
     for topic in projection.get("topics", []):
         summary = str(topic.get("summary") or "")
         if re.search(r"(?:预测|估算|推算)", summary):
+            if source_platform in {"doubao", "豆包"}:
+                # 论文第5.3节是位置编号，不是“按预测分配储位”的数值预测。
+                summary = re.sub(r"第\s*\d+(?:\.\d+)*\s*(?:章|节|部分|条)", "", summary)
             estimate_numbers.update(re.findall(r"\d+(?:\.\d+)?", summary))
     if estimate_numbers and not any(
         number in overview for number in estimate_numbers
@@ -475,7 +479,8 @@ def repair_simple_overview(
 def generate_simple_overview(
     result: dict[str, Any],
     messages: list[dict[str, str]],
-    gateway: SummaryGateway
+    gateway: SummaryGateway,
+    *, source_platform: str | None = None,
 ) -> str:
     projection = build_simple_projection(result, messages)
     max_chars = simple_char_limit(len(messages))
@@ -491,7 +496,8 @@ def generate_simple_overview(
         overview = normalize_simple_overview(response.get("overview"))
         overview = repair_simple_overview(overview, projection)
         last_errors = validate_simple_overview(
-            overview, projection, max_chars
+            overview, projection, max_chars,
+            **({"source_platform": source_platform} if source_platform in {"doubao", "豆包"} else {}),
         )
         if not last_errors:
             return overview

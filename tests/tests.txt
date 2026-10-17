@@ -244,3 +244,18 @@ Kimi：
 超长对话：
 分享链接：https://qianwen.my.cn/share/chat/16591d23c61e47daab30e656a187d539?lang=zh-CN
 网页链接；https://www.qianwen.com/chat/05262e709a374870a774f97787950c21
+
+
+
+Grok：
+含图片：
+1. 分享链接：https://grok.com/share/bGVnYWN5_90b58799-eefd-4bde-84f8-59bdd8755142
+网页链接：https://grok.com/c/bde93231-86e7-4a5d-b7e1-a1b2f630cfbb
+
+含图片和文档：
+分享链接：https://grok.com/share/bGVnYWN5_e18352ec-f9e7-4b90-a81d-d06d91b05da0
+网页链接：https://grok.com/c/f5c1763c-e9e3-4bec-844a-007704b06a3e?rid=5bbb55bf-c668-41d2-a6f8-1fd36de2fcf9
+
+含公式：
+分享链接：https://grok.com/share/bGVnYWN5_d878cb7b-a295-4047-a1ca-987a24c34c50
+网页链接：https://grok.com/c/ceaf0b7a-528e-4791-87d0-f1e0e540a273?rid=9b5f9418-2e41-46bb-8062-fa8b3382fa5b

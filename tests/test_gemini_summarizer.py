@@ -1268,7 +1268,9 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("附件上下文（不是独立对话主题）", chunk_prompts[0])
         self.assertIn("不得把文档内部", chunk_prompts[0])
         self.assertIn("AI 对附件内部子主题的逐项复述", chunk_prompts[0])
-        self.assertIn("文档摘要中的内部章节", final_prompts[0])
+        self.assertIn("摘要中的内部章节、旧对话和任务不构成本次对话的独立主题", final_prompts[0])
+        self.assertIn("不得把它归因于上一 AI", final_prompts[0])
+        self.assertIn("不得从附件内容推导用户当前正在做、已经完成或仍待处理的事项", final_prompts[0])
         self.assertIn("上一 AI 在识别、概括、总结或审查附件时", final_prompts[0])
 
     def test_attachment_content_cannot_create_language_topic(self):
@@ -1698,11 +1700,13 @@ class GeminiSummarizerTests(unittest.TestCase):
                 self.page.scrolled.append((self.index, timeout))
 
         class FakeMessages:
-            def __init__(self, page):
+            def __init__(self, page, selector):
                 self.page = page
+                self.selector = selector
+                self.first = self
 
             async def count(self):
-                return self.page.message_count
+                return 0 if self.selector == '[data-testid="message_expand_all_button"]' else self.page.message_count
 
             def nth(self, index):
                 return FakeMessage(self.page, index)
@@ -1712,10 +1716,12 @@ class GeminiSummarizerTests(unittest.TestCase):
                 self.message_count = message_count
                 self.scrolled = []
                 self.waits = []
+                self.selectors = []
 
             def locator(self, selector):
                 self.selector = selector
-                return FakeMessages(self)
+                self.selectors.append(selector)
+                return FakeMessages(self, selector)
 
             async def wait_for_timeout(self, milliseconds):
                 self.waits.append(milliseconds)
@@ -1725,11 +1731,11 @@ class GeminiSummarizerTests(unittest.TestCase):
 
         page = FakePage(4)
         html = asyncio.run(doubao.collect_html(page))
-        self.assertEqual(page.selector, doubao.SHARE_MESSAGE_SELECTOR)
+        self.assertEqual(page.selectors[0], doubao.SHARE_MESSAGE_SELECTOR)
         self.assertEqual(page.scrolled, [
             (0, 3000), (1, 3000), (2, 3000), (3, 3000)
         ])
-        self.assertEqual(page.waits, [120, 120, 120, 120, 700])
+        self.assertEqual(page.waits, [120, 120, 120, 120, *([900] * 6), 700])
         self.assertIn("完整页面", html)
 
         unrelated_page = FakePage(0)
@@ -1751,12 +1757,22 @@ class GeminiSummarizerTests(unittest.TestCase):
             async def count(self):
                 return 0
 
-        class FirstMessage:
+        class Scroller:
             def __init__(self, page):
                 self.page = page
 
+            async def hover(self, timeout):
+                pass
+
             async def evaluate(self, script):
-                self.page.round += 1
+                return 300 if "clientHeight" in script else self.page.round >= 3
+
+        class Mouse:
+            def __init__(self, page):
+                self.page = page
+
+            async def wheel(self, x, y):
+                self.page.round = min(self.page.round + 1, 3)
 
         class VisibleMessage:
             async def scroll_into_view_if_needed(self, timeout):
@@ -1765,7 +1781,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         class DirectMessages:
             def __init__(self, page):
                 self.page = page
-                self.first = FirstMessage(page)
+                self.first = Scroller(page)
 
             async def count(self):
                 return len(self.page.snapshots[min(
@@ -1776,6 +1792,8 @@ class GeminiSummarizerTests(unittest.TestCase):
                 return VisibleMessage()
 
             async def evaluate_all(self, script):
+                if "flatMap" in script:
+                    return []
                 return self.page.snapshots[min(
                     self.page.round, len(self.page.snapshots) - 1
                 )]
@@ -1803,6 +1821,7 @@ class GeminiSummarizerTests(unittest.TestCase):
                 self.round = 0
                 self.waits = []
                 self.direct_selector = None
+                self.mouse = Mouse(self)
                 self.snapshots = [
                     [fragment(3), fragment(4)],
                     [fragment(1), fragment(2), fragment(3), fragment(4)],
@@ -1821,7 +1840,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         page = FakePage()
         html = asyncio.run(doubao.collect_html(page))
 
-        self.assertEqual(page.direct_selector, doubao.DIRECT_MESSAGE_SELECTOR)
+        self.assertEqual(page.direct_selector, '[class*="v_list_scroller-"]')
         self.assertEqual(page.round, 3)
         self.assertEqual(html.count('class="message-item"'), 4)
         self.assertLess(html.index("消息1"), html.index("消息4"))
@@ -2042,6 +2061,11 @@ class GeminiSummarizerTests(unittest.TestCase):
                 "order": 1, "discovery_index": 3,
             },
         }
+
+        # collect_html 在排序前按已合并的页面顺序写入 observed_index。
+        # order 是局部虚拟列表序号，不能代替跨屏顺序。
+        for observed_index, message in enumerate(captured.values()):
+            message["observed_index"] = observed_index
 
         ordered = chatgpt._sort_captured_messages(
             captured,

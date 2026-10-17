@@ -3201,15 +3201,24 @@ class AIMemoryGUI:
         answered.wait()
         return result["confirmed"]
 
-    def _request_attachment_web_link(self) -> str | None:
+    def _request_attachment_web_link(self, missing_names: list[str] | None = None) -> str | None:
         """附件下载失败时，请用户提供可访问原文件的会话网页链接。"""
         answered = threading.Event()
         result: dict[str, str | None] = {"url": None}
+        detail = (
+            "、".join(missing_names[:5])
+            + (f" 等共 {len(missing_names)} 个" if len(missing_names) > 5 else "")
+            if missing_names else "附件"
+        )
+        missing_types = "、".join(sorted({
+            Path(name).suffix.lower().lstrip(".") or "无扩展名"
+            for name in missing_names or []
+        })) or "未知"
 
         def ask():
             dialog = tk.Toplevel(self.root)
             dialog.title("请提供原始会话网页链接")
-            dialog.geometry("560x220")
+            dialog.geometry("560x300")
             dialog.resizable(False, False)
             dialog.transient(self.root)
             dialog.grab_set()
@@ -3217,8 +3226,10 @@ class AIMemoryGUI:
             tk.Label(
                 dialog,
                 text=(
-                    "XLSX 原文件无法从分享页下载，将在抓取页面中仅保留文件名。\n"
-                    "请粘贴包含该文件且您能访问的原始会话网页链接，程序将重试。"
+                    f"以下原文件无法从分享页下载：{detail}。\n"
+                    f"未下载类型：{missing_types}。\n"
+                    "请粘贴包含这些附件且您能访问的原始会话网页链接，程序将重试；"
+                    "未能下载的附件会在导出中标明。"
                 ),
                 justify="left",
                 wraplength=510,
@@ -3699,6 +3710,14 @@ class AIMemoryGUI:
                     return
 
                 messages = fetch_res.messages
+                if fetch_warnings:
+                    warning_text = _format_fetch_warnings(fetch_warnings)
+                    self.root.after(
+                        0,
+                        lambda text=warning_text: messagebox.showwarning(
+                            "抓取完成，但部分附件未下载", text,
+                        ),
+                    )
                 login_wait_detail = (
                     f"，等待登录 {login_wait_seconds:.1f} 秒"
                     if login_wait_seconds >= 0.1 else ""
@@ -3736,7 +3755,12 @@ class AIMemoryGUI:
                         not direct_summary
                         and urlparse(url).hostname == "chat.deepseek.com"
                     )
-                    else None
+                    else (
+                        "doubao"
+                        if not direct_summary and urlparse(url).hostname
+                        in {"doubao.com", "www.doubao.com"}
+                        else None
+                    )
                 ),
                 source_name=source_name,
                 source_dir=source_dir,
@@ -3803,15 +3827,6 @@ class AIMemoryGUI:
             self.root.after(
                 0, lambda r=history_record: self._add_history_record(r)
             )
-            if fetch_warnings:
-                warning_text = _format_fetch_warnings(fetch_warnings)
-                self.root.after(
-                    0,
-                    lambda text=warning_text: messagebox.showwarning(
-                        "生成完成，但部分附件未下载",
-                        text,
-                    ),
-                )
             run_succeeded = True
 
         except Exception as e:

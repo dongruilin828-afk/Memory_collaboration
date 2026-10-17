@@ -17,6 +17,7 @@ import re
 import shutil
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
@@ -114,6 +115,7 @@ DOCUMENT_MIME_EXTENSIONS = {
 }
 GEMINI_ATTACHMENT_EXTENSIONS = DOCUMENT_EXTENSIONS | gemini.VIDEO_EXTENSIONS
 GUI_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024
+DOUBAO_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024
 GUI_VIDEO_MAX_BYTES = 250 * 1024 * 1024
 UTF8_TEXT_DOCUMENT_EXTENSIONS = {".txt", ".csv", ".md", ".py"}
 DOUBAO_DOCUMENT_API_PATH = "/alice/message/get_file_url"
@@ -2296,12 +2298,59 @@ def _extract_doubao_embedded_document_candidates(
     )
     candidates: list[DocumentCandidate] = []
     seen: set[tuple[str, str]] = set()
+    structured_names: set[str] = set()
+    for file_block in re.finditer(
+        r'"file"\s*:\s*\{(?P<body>[^{}]{1,2000})\}',
+        decoded,
+        re.IGNORECASE,
+    ):
+        body = file_block.group("body")
+        filename_match = re.search(
+            rf'"(?:name|file_name)"\s*:\s*"([^"\r\n]{{1,240}}\.{extension_pattern})"',
+            body, re.IGNORECASE,
+        )
+        uri_match = re.search(
+            rf'"(?:uri|key)"\s*:\s*"(tos-[A-Za-z0-9_./-]+\.{extension_pattern})"',
+            body, re.IGNORECASE,
+        )
+        if not filename_match or not uri_match:
+            continue
+        filename = _safe_document_filename(filename_match.group(1))
+        uri = uri_match.group(1)
+        if (
+            not _is_safe_doubao_file_uri(uri)
+            or Path(uri).suffix.lower() != Path(filename).suffix.lower()
+        ):
+            continue
+        key = (uri, filename.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        structured_names.add(filename.lower())
+        url_match = re.search(
+            r'"url"\s*:\s*"(https?://[^"\r\n]+)"', body,
+            re.IGNORECASE,
+        )
+        signed_url = url_match.group(1) if url_match else ""
+        candidates.append(DocumentCandidate(
+            uri,
+            signed_url if (
+                _is_safe_document_url(signed_url)
+                and _document_suffix(signed_url) == Path(filename).suffix.lower()
+            ) else f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
+            filename,
+        ))
     for pattern in patterns:
         for match in pattern.finditer(decoded):
             uri = match.group("uri")
             filename = _safe_document_filename(match.group("filename"))
             key = (uri, filename.lower())
-            if key in seen or not _is_safe_doubao_file_uri(uri):
+            if (
+                key in seen
+                or filename.lower() in structured_names
+                or not _is_safe_doubao_file_uri(uri)
+                or Path(uri).suffix.lower() != Path(filename).suffix.lower()
+            ):
                 continue
             seen.add(key)
             block = decoded[match.start():match.start() + 2500]
@@ -2313,11 +2362,37 @@ def _extract_doubao_embedded_document_candidates(
             signed_url = url_match.group("url") if url_match else ""
             candidates.append(DocumentCandidate(
                 uri,
-                signed_url if _is_safe_document_url(signed_url)
+                signed_url if (
+                    _is_safe_document_url(signed_url)
+                    and _document_suffix(signed_url) == Path(filename).suffix.lower()
+                )
                 else f"{origin}{DOUBAO_DOCUMENT_API_PATH}",
                 filename,
             ))
     return candidates
+
+
+def _doubao_unavailable_attachment_names(
+    html: str,
+    document_map: Mapping[str, str],
+) -> list[str]:
+    """分享页可见但没有原文件地址的附件也必须进入失败报告。"""
+    soup = BeautifulSoup(html or "", "html.parser")
+    names = []
+    for node in soup.select(
+            '[data-testid="attachment_file_item"] '
+            '[data-testid="message_nested_content_file_name"]'
+    ):
+        message = node.find_parent(class_="message-item")
+        if message and not (message.get("data-doubao-role") == "user" or "justify-end" in message.get("class", [])):
+            continue
+        names.append(node.get_text(" ", strip=True))
+    return list(dict.fromkeys(
+        name for name in names
+        if name
+        and urlparse(name).scheme.lower() not in {"http", "https"}
+        and name.lower() not in document_map
+    ))
 
 
 def _extract_doubao_ai_document_titles(
@@ -2358,15 +2433,80 @@ def _extract_doubao_ai_document_resources(
     html: str,
     base_url: str,
 ) -> dict[str, str]:
-    """从分享页状态提取豆包在线文档的公开资源地址。"""
+    """兼容旧调用方，返回每个标题的首个资源地址。"""
+    resources: dict[str, str] = {}
+    for title, resource_url, _message_id in _extract_doubao_ai_document_entries(html, base_url):
+        if resource_url:
+            resources.setdefault(title, resource_url)
+    return resources
+
+
+def _doubao_document_groups(payload: str) -> dict[str, list[DocumentCandidate]]:
+    decoded = _decode_doubao_embedded_text(payload)
+    records = list(re.finditer(r'"message_id"\s*:\s*"?(\d+)', decoded))
+    groups: dict[str, list[DocumentCandidate]] = {}
+    for index, record in enumerate(records):
+        end = records[index + 1].start() if index + 1 < len(records) else len(decoded)
+        candidates = _extract_doubao_embedded_document_candidates(
+            decoded[record.end():end], "https://www.doubao.com"
+        )
+        body = decoded[record.end():end]
+        if re.search(r'"user_type"\s*:\s*2', body):
+            for filename, href in re.findall(r'\[([^\]\n]+\.pdf)\]\((https?://[^)\s]+)\)', body, re.IGNORECASE):
+                if urlparse(href).hostname == "pan.baidu.com" and _is_safe_document_url(href):
+                    candidates.append(DocumentCandidate(href, href, filename))
+        if candidates:
+            groups.setdefault(record.group(1), []).extend(candidates)
+    return groups
+
+
+def _inject_doubao_document_names(html: str, groups: Mapping[str, list[DocumentCandidate]]) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for message_id, candidates in groups.items():
+        target = soup.find(attrs={"data-message-id": message_id})
+        if target is None:
+            continue
+        wrapper = target.find_parent(class_="message-item") or target
+        if not (wrapper.get("data-doubao-role") == "user" or "justify-end" in target.get("class", []) or "justify-end" in wrapper.get("class", [])):
+            for candidate in dict.fromkeys(candidates):
+                if urlparse(candidate.url).hostname != "pan.baidu.com":
+                    continue
+                note = soup.new_tag("div")
+                note.append("外部网盘文件未下载，请从原始链接核对：")
+                anchor = soup.new_tag("a", href=candidate.url)
+                anchor.string = candidate.filename
+                note.append(anchor)
+                card = next((node for node in target.select('[data-testid="attachment_file_item"]') if candidate.filename in node.get_text()), None)
+                if card:
+                    card.replace_with(note)
+                elif not target.find("a", href=candidate.url):
+                    target.append(note)
+            continue
+        for filename in dict.fromkeys(candidate.filename for candidate in candidates):
+            if filename and not target.find(attrs={"data-doubao-file-name": filename}):
+                card = soup.new_tag("div", attrs={"class": "attachment"})
+                card["data-doubao-file-name"] = filename
+                card.string = filename
+                target.append(card)
+    return str(soup)
+
+
+def _extract_doubao_ai_document_entries(
+    html: str, base_url: str,
+) -> list[tuple[str, str, str]]:
+    """按资源 ID 和消息 ID 保留同名在线文档的各个版本。"""
     parsed = urlparse(str(base_url or ""))
     host = parsed.netloc.lower().split(":", 1)[0]
     if host not in {"doubao.com", "www.doubao.com"}:
-        return {}
+        return []
     origin = f"{parsed.scheme or 'https'}://{parsed.netloc}"
     decoded = _decode_doubao_embedded_text(html)
-    resources: dict[str, str] = {}
+    entries: list[tuple[str, str, str]] = []
+    message_ids = list(re.finditer(r'"message_id"\s*:\s*"?(\d+)', decoded))
+    message_index = -1
     for marker in re.finditer(r'"artifact_block"\s*:\s*\{', decoded):
+        while message_index + 1 < len(message_ids) and message_ids[message_index + 1].start() < marker.start():
+            message_index += 1
         block = decoded[marker.end():marker.end() + 12000]
         finish = block.find('"is_finish"')
         if finish >= 0:
@@ -2385,11 +2525,27 @@ def _extract_doubao_ai_document_resources(
             continue
         title = " ".join(title_match.group("title").split())
         if title:
-            resources.setdefault(
+            entry = (
                 title,
                 f"{origin}/docx/{resource_match.group('id')}",
+                message_ids[message_index].group(1) if message_index >= 0 else "",
             )
-    return resources
+            if entry not in entries:
+                entries.append(entry)
+    known_messages = {message_id for _, _, message_id in entries if message_id}
+    soup = BeautifulSoup(html or "", "html.parser")
+    for card in soup.find_all("div", class_=re.compile(r"^product-card-")):
+        if "创建时间" not in card.get_text(" ", strip=True):
+            continue
+        title_node = card.find("div", class_=re.compile(r"^card-content-info-title-text-"))
+        parent = card.find_parent(attrs={"data-message-id": True})
+        title = " ".join(title_node.get_text(" ", strip=True).split()) if title_node else ""
+        message_id = str(parent.get("data-message-id") or "") if parent else ""
+        if title and message_id not in known_messages:
+            entry = (title, "", message_id)
+            if entry not in entries:
+                entries.append(entry)
+    return entries[:DOUBAO_AI_DOCUMENT_MAX_COUNT]
 
 
 def _is_safe_document_url(value: str) -> bool:
@@ -3469,11 +3625,15 @@ async def _doubao_document_api_get(
         return None
     try:
         payload = await page.evaluate(
-            """async ({endpoint, uri}) => {
+            """async ({endpoint, uri, timeout}) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeout);
+                try {
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     credentials: 'include',
                     headers: {'content-type': 'application/json'},
+                    signal: controller.signal,
                     body: JSON.stringify({
                         uris: [uri],
                         type: 'file',
@@ -3482,8 +3642,10 @@ async def _doubao_document_api_get(
                 });
                 if (!response.ok) return null;
                 return await response.json();
+                } finally { clearTimeout(timer); }
             }""",
-            {"endpoint": candidate.url, "uri": candidate.reference},
+            {"endpoint": candidate.url, "uri": candidate.reference,
+             "timeout": timeout},
         )
     except Exception:
         return None
@@ -3491,6 +3653,152 @@ async def _doubao_document_api_get(
     if not download_url:
         return None
     return await _authenticated_page_get(page, download_url, timeout)
+
+
+async def _doubao_private_file_card_download(
+    page: Any,
+    filename: str,
+) -> Optional[tuple[bytes, dict[str, str]]]:
+    """Use the logged-in conversation's own download control when its URI API fails."""
+    parsed = urlparse(page.url)
+    if (
+        parsed.hostname not in DOUBAO_HOSTS
+        or not DOUBAO_PRIVATE_CONVERSATION_PATTERN.match(parsed.path)
+    ):
+        return None
+    scroller = page.locator(".scroller").first
+    if not await scroller.count():
+        return None
+    card = page.locator('[data-testid="message_nested_content_file_name"]').filter(
+        has_text=re.compile(rf"^{re.escape(filename)}$")
+    )
+    # Doubao loads older messages from wheel events. Direct scrollTop changes
+    # bypass that loader, so walk both directions with its normal wheel path.
+    await scroller.hover(timeout=3000)
+    step = await scroller.evaluate("element => Math.max(300, element.clientHeight * 0.8)")
+    for direction in (1, -1):
+        stagnant = 0
+        previous_state: tuple[int, int, str] | None = None
+        for _ in range(120):
+            if await card.count():
+                break
+            await page.mouse.wheel(0, direction * step)
+            await page.wait_for_timeout(80)
+            state = await scroller.evaluate(
+                "element => [Math.round(element.scrollTop), element.scrollHeight, "
+                "element.querySelector('[data-message-id]')?.getAttribute('data-message-id') || '']"
+            )
+            current_state = (int(state[0]), int(state[1]), str(state[2]))
+            stagnant = stagnant + 1 if current_state == previous_state else 0
+            previous_state = current_state
+            if stagnant >= 10:
+                break
+        if await card.count():
+            break
+    if not await card.count():
+        return None
+    try:
+        await card.first.scroll_into_view_if_needed(timeout=5000)
+        await card.first.click(timeout=5000)
+        close = page.locator('[data-testid="container_inner_close_btn"]').first
+        await close.wait_for(state="visible", timeout=5000)
+        controls = page.locator('[data-testid="top_control_bar_action_item"]')
+        await controls.last.click(timeout=5000)
+        original = page.get_by_role("menuitem", name="下载原文件")
+        async with page.expect_download(timeout=30000) as download_info:
+            await original.click(timeout=5000)
+        download = await download_info.value
+        path = await download.path()
+        if path is None:
+            return None
+        body = Path(path).read_bytes()
+        suffix = Path(filename).suffix.lower()
+        if not body or len(body) > DOUBAO_DOCUMENT_MAX_BYTES:
+            return None
+        if suffix == ".pdf" and not body.startswith(b"%PDF-"):
+            return None
+        if suffix in {".docx", ".xlsx", ".pptx"} and not body.startswith(b"PK"):
+            return None
+        return body, {
+            "content-disposition": (
+                f"attachment; filename*=UTF-8''{quote(download.suggested_filename, safe='')}"
+            )
+        }
+    except Exception:
+        return None
+    finally:
+        close = page.locator('[data-testid="container_inner_close_btn"]').first
+        if await close.count():
+            try:
+                await close.click(timeout=3000)
+            except Exception:
+                pass
+
+
+async def _save_doubao_videos(
+    page: Any,
+    html: str,
+    documents_dir: Path,
+    reference_prefix: str,
+    warnings: list[str],
+) -> dict[str, str]:
+    """播放分享页视频卡片以取得真实媒体地址，保存原视频而非封面。"""
+    soup = BeautifulSoup(html, "html.parser")
+    covers = [
+        image.get("src")
+        for image in soup.select('[class*="block-video-"] img[class*="cover-"]')
+        if image.get("src")
+    ]
+    resolved: dict[str, str] = {}
+    for index, cover in enumerate(dict.fromkeys(covers), 1):
+        try:
+            card = page.locator('[class*="block-video-"]', has=page.locator(
+                f'img[src="{cover}"]'
+            )).first
+            if not await card.count():
+                card = page.locator('[class*="block-video-"]').nth(index - 1)
+            await card.scroll_into_view_if_needed(timeout=10000)
+            await card.click(timeout=10000)
+            await page.locator('video').last.wait_for(state="attached", timeout=12000)
+            source = await page.evaluate(
+                """() => {
+                    const videos = Array.from(document.querySelectorAll('video'));
+                    const urls = videos.map(video => video.currentSrc || video.src ||
+                        video.querySelector('source')?.src || '').filter(Boolean);
+                    return urls.find(url => url.includes('download=true')) || urls.at(-1) || '';
+                }"""
+            )
+            if not source or not _is_safe_document_url(source):
+                raise ValueError("未取得安全的视频地址")
+            response = await _authenticated_page_get(page, source, 45000)
+            if not response.ok:
+                raise ValueError(f"视频 HTTP {response.status}")
+            headers = dict(response.headers or {})
+            length = headers.get("content-length", "")
+            if length.isdigit() and int(length) > GUI_VIDEO_MAX_BYTES:
+                raise ValueError("视频超过大小限制")
+            body = await response.body()
+            content_type = headers.get("content-type", "").split(";", 1)[0].lower()
+            if (
+                not body or len(body) > GUI_VIDEO_MAX_BYTES
+                or content_type not in {"video/mp4", "application/octet-stream"}
+                or body[4:8] != b"ftyp"
+            ):
+                raise ValueError("视频内容无效")
+            documents_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"doubao_video_{index}_{hashlib.sha256(body).hexdigest()[:8]}.mp4"
+            target = documents_dir / filename
+            if not target.exists():
+                target.write_bytes(body)
+            resolved[f"doubao-video:{cover}"] = f"{reference_prefix}/{filename}"
+        except Exception as error:
+            warnings.append(f"第 {index} 个豆包视频未能下载（{type(error).__name__}）；已在正文标明。")
+        finally:
+            try:
+                await page.keyboard.press("Escape")
+            except Exception:
+                pass
+    return resolved
 
 
 def _normalize_doubao_ai_document_text(parts: Collection[str]) -> str:
@@ -3535,6 +3843,106 @@ async def _read_doubao_ai_document_body(document_page: Any) -> str:
     return ""
 
 
+async def _download_doubao_ai_document_markdown(document_page: Any) -> bytes:
+    """从豆包在线文档的下载菜单取得完整 Markdown。"""
+    # 原生按钮已显示不代表首次菜单动作已就绪，保留当前页面再重试一次。
+    for attempt in range(2):
+        try:
+            button = document_page.get_by_role("button", name="下载", exact=True)
+            await button.wait_for(state="visible", timeout=15000)
+            async with document_page.expect_download(timeout=20000) as download_info:
+                await button.click(timeout=5000)
+                await document_page.get_by_text("Markdown", exact=True).click(timeout=5000)
+            download = await download_info.value
+            if not download.suggested_filename.lower().endswith(".md"):
+                continue
+            payload = Path(await download.path()).read_bytes()
+            if not 0 < len(payload) <= GUI_DOCUMENT_MAX_BYTES:
+                continue
+            text = payload.decode("utf-8-sig")
+            if text.strip() and not text.lstrip().lower().startswith("<!doctype html"):
+                return text.encode("utf-8")
+        except Exception:
+            pass
+        if not attempt:
+            try:
+                await document_page.keyboard.press("Escape")
+            except Exception:
+                pass
+    return b""
+
+
+async def _reveal_doubao_document_message(
+    page: Any, message_id: str, title: str = "",
+) -> bool:
+    """等待私有列表就绪，按消息ID恢复卡片；补充加载至多一次。"""
+    deadline = time.monotonic() + 120.0
+
+    async def search() -> bool:
+        target = page.locator(f'[data-message-id="{message_id}"]')
+        card = target.get_by_text(title, exact=True).first if title else target.first
+        scroller = page.locator(
+            f'{doubao.DIRECT_LIST_SELECTOR}:visible [class*="v_list_scroller-"]:visible'
+        ).first
+        # 可见列表与实际消息均出现后再滚动，避免把未挂载当成列表末尾。
+        await scroller.wait_for(state="visible", timeout=15000)
+        await scroller.locator('[data-message-id]').first.wait_for(
+            state="attached", timeout=15000,
+        )
+        if await card.is_visible():
+            return True
+        # 通常卡片就在首尾，先检查两端，只有中间卡片才逐屏查找。
+        for end in (False, True):
+            await scroller.evaluate(
+                '(e, end) => { e.scrollTop = end ? e.scrollHeight : 0; }', end,
+            )
+            await page.wait_for_timeout(300)
+            if await card.is_visible():
+                return True
+        await scroller.evaluate('e => { e.scrollTop = 0; }')
+        previous_end = None
+        stable_rounds = 0
+        # ponytail: 保留400屏上限；稳定末尾复查及外层120秒总时限限制慢网等待。
+        for _ in range(400):
+            await page.wait_for_timeout(150)
+            if await card.is_visible():
+                return True
+            state = await scroller.evaluate('''e => {
+                const before = e.scrollTop;
+                e.scrollTop += Math.max(300, e.clientHeight * 0.8);
+                return {blocked: e.scrollTop === before, top: e.scrollTop,
+                    height: e.scrollHeight, ids: Array.from(e.querySelectorAll(
+                        '[data-message-id]')).map(n => n.getAttribute('data-message-id'))};
+            }''')
+            if state["blocked"]:
+                stable_rounds = stable_rounds + 1 if state == previous_end else 1
+                if stable_rounds >= 3:
+                    return False
+                previous_end = state
+                await page.wait_for_timeout(500)
+            else:
+                previous_end = None
+                stable_rounds = 0
+        return False
+
+    for attempt in range(2):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            if await asyncio.wait_for(search(), timeout=min(60.0, remaining)):
+                return True
+        except Exception:
+            pass
+        remaining = deadline - time.monotonic()
+        if not attempt and remaining > 0:
+            try:
+                await asyncio.wait_for(doubao.collect_html(page), timeout=min(30.0, remaining))
+            except Exception:
+                pass
+    return False
+
+
 async def _save_doubao_ai_documents(
     page: Any,
     html: str,
@@ -3542,39 +3950,64 @@ async def _save_doubao_ai_documents(
     document_reference_prefix: str,
     warning_collector: Optional[list[str]] = None,
     logger: Optional[Callable[[str], None]] = None,
+    entries: Optional[list[tuple[str, str, str]]] = None,
+    _card_retry: bool = False,
 ) -> tuple[dict[str, str], int]:
     """打开豆包 AI 在线文档卡片，将可见正文保存为本地 Markdown。"""
     titles = _extract_doubao_ai_document_titles(html, page.url)
-    resource_urls = _extract_doubao_ai_document_resources(html, page.url)
-    known_titles = {title.lower() for title in titles}
-    titles.extend(
-        title for title in resource_urls if title.lower() not in known_titles
-    )
-    if not titles:
+    entries = list(entries if entries is not None else _extract_doubao_ai_document_entries(html, page.url))
+    known_titles = {title.lower() for title, _, _ in entries}
+    entries.extend((title, "", "") for title in titles if title.lower() not in known_titles)
+    if not entries:
         return {}, 0
+    title_counts = Counter(title.lower() for title, _, _ in entries)
     if logger:
-        logger(f"检测到 {len(titles)} 个豆包 AI 生成文档，正在读取正文...")
+        logger(f"检测到 {len(entries)} 个豆包 AI 生成文档，正在读取正文...")
 
     resolved: dict[str, str] = {}
     failures = 0
     documents_dir = Path(documents_dir)
-    for title in titles:
+    for title, direct_document_url, message_id in entries:
         document_page = None
         inline_document_opened = False
         document_url = ""
+        direct_navigation_failed = False
         try:
-            direct_document_url = resource_urls.get(title, "")
-            if direct_document_url:
+            if direct_document_url and direct_document_url in resolved:
+                if message_id:
+                    resolved[f"doubao-ai-doc-message:{message_id}"] = resolved[direct_document_url]
+                continue
+            if direct_document_url and not _card_retry:
                 document_page = await page.context.new_page()
-                await document_page.goto(
-                    direct_document_url,
-                    wait_until="domcontentloaded",
-                    timeout=10000,
-                )
-                document_url = str(document_page.url or "")
-                body_source = document_page
+                try:
+                    await document_page.goto(
+                        direct_document_url,
+                        wait_until="domcontentloaded",
+                        timeout=10000,
+                    )
+                    document_url = str(document_page.url or "")
+                except Exception:
+                    direct_navigation_failed = True
+                    document_url = direct_document_url
             else:
-                title_nodes = page.get_by_text(title, exact=True)
+                # 编辑器使用同一预热iframe，Escape不会清除上个文档的路由。
+                # 卡片缺少资源URL时，先重载自己的采集页再点击，避免同名版本串档。
+                if urlparse(str(page.url or '')).path.startswith('/chat/') and any(
+                    re.fullmatch(r'/partner/ccm-docx/docx/[A-Za-z0-9_-]{8,128}', urlparse(str(frame.url or '')).path)
+                    for frame in page.frames
+                ):
+                    await page.reload(wait_until='domcontentloaded', timeout=15000)
+                    await page.locator('[data-message-id]').first.wait_for(state='attached', timeout=15000)
+                scope = page.locator(f'[data-message-id="{message_id}"]') if message_id else page
+                title_nodes = scope.get_by_text(title, exact=True)
+                if (
+                    message_id
+                    and urlparse(str(page.url or '')).path.startswith('/chat/')
+                    and (await scope.count() == 0 or await title_nodes.count() == 0)
+                ):
+                    if logger:
+                        logger('在线文档卡片尚未加载，正在等待并按消息ID恢复...')
+                    await _reveal_doubao_document_message(page, message_id, title)
                 if await title_nodes.count() == 0:
                     failures += 1
                     continue
@@ -3593,7 +4026,31 @@ async def _save_doubao_ai_documents(
                     )
                     await title_nodes.first.click(timeout=5000)
                     inline_document_opened = True
-                    body_source = page
+                    # 私有会话使用内嵌编辑器；其 DOM 只含当前已渲染的块。
+                    # 等待真实文档地址，再用同一登录态打开完整导出页面。
+                    deadline = time.monotonic() + 15.0
+                    while time.monotonic() < deadline:
+                        for frame in page.frames:
+                            frame_url = urlparse(str(frame.url or ""))
+                            match = re.fullmatch(
+                                r"/partner/ccm-docx/docx/([A-Za-z0-9_-]{8,128})",
+                                frame_url.path,
+                            )
+                            if frame_url.hostname in DOUBAO_HOSTS and match:
+                                document_url = (
+                                    f"https://www.doubao.com/docx/{match.group(1)}"
+                                )
+                                break
+                        if document_url:
+                            break
+                        await page.wait_for_timeout(300)
+                    if not document_url:
+                        failures += 1
+                        continue
+                    document_page = await page.context.new_page()
+                    await document_page.goto(
+                        document_url, wait_until="domcontentloaded", timeout=10000
+                    )
                 else:
                     async with page.expect_popup(timeout=10000) as popup_info:
                         await card.click(force=True, timeout=5000)
@@ -3606,31 +4063,47 @@ async def _save_doubao_ai_documents(
                         "domcontentloaded", timeout=10000
                     )
                     document_url = str(document_page.url or "")
-                    body_source = document_page
 
             parsed_document_url = urlparse(document_url)
             if document_url and (
                 parsed_document_url.netloc.lower().split(":", 1)[0]
                 not in {"doubao.com", "www.doubao.com"}
                 or not parsed_document_url.path.startswith("/docx/")
+                or (direct_document_url and parsed_document_url.path != urlparse(direct_document_url).path)
             ):
-                failures += 1
-                continue
+                if direct_document_url and not _card_retry:
+                    direct_navigation_failed = True
+                else:
+                    failures += 1
+                    continue
 
-            body = await _read_doubao_ai_document_body(body_source)
-            if not body:
+            payload = b'' if direct_navigation_failed else await _download_doubao_ai_document_markdown(document_page)
+            if (
+                not payload and direct_document_url and not _card_retry and message_id
+                and urlparse(str(page.url or '')).hostname in DOUBAO_HOSTS
+                and urlparse(str(page.url or '')).path.startswith('/chat/')
+            ):
+                # 已知地址不可导出时也要试原卡片；资源路径必须保持一致。
+                if document_page is not None:
+                    await document_page.close()
+                    document_page = None
+                if logger:
+                    logger('在线文档地址未能完整导出，正在从对应原会话卡片重试...')
+                fallback, _ = await _save_doubao_ai_documents(
+                    page, '', documents_dir, document_reference_prefix, [], logger,
+                    entries=[(title, direct_document_url, message_id)], _card_retry=True,
+                )
+                local = fallback.get(f'doubao-ai-doc-message:{message_id}')
+                if local:
+                    for key, value in fallback.items():
+                        if key not in {title.lower(), f'doubao-ai-doc:{title}'} or title_counts[title.lower()] == 1:
+                            resolved[key] = value
+                    resolved[direct_document_url] = local
+                    resolved[f'doubao-ai-doc-resource:{direct_document_url}'] = local
+                    continue
+            if not payload:
                 failures += 1
                 continue
-            if not document_url:
-                document_url = next((
-                    str(frame.url or "")
-                    for frame in page.frames
-                    if re.match(
-                        r"^/partner/ccm-docx/docx/[^/]+$",
-                        urlparse(str(frame.url or "")).path,
-                    )
-                ), "")
-            payload = f"# {title}\n\n{body}\n".encode("utf-8")
             if len(payload) > GUI_DOCUMENT_MAX_BYTES:
                 failures += 1
                 continue
@@ -3655,11 +4128,12 @@ async def _save_doubao_ai_documents(
             local_reference = (
                 f"{document_reference_prefix}/{quote(target.name, safe='')}"
             )
-            for key in {
-                title.lower(),
-                f"doubao-ai-doc:{title}",
-                document_url,
-            }:
+            keys = {document_url, f"doubao-ai-doc-resource:{document_url}"}
+            if message_id:
+                keys.add(f"doubao-ai-doc-message:{message_id}")
+            if title_counts[title.lower()] == 1:
+                keys.update({title.lower(), f"doubao-ai-doc:{title}"})
+            for key in keys:
                 if key:
                     resolved[key] = local_reference
         except Exception:
@@ -3671,7 +4145,7 @@ async def _save_doubao_ai_documents(
                         await document_page.close()
                 except Exception:
                     pass
-            elif inline_document_opened:
+            if inline_document_opened:
                 try:
                     await page.keyboard.press("Escape")
                     await page.wait_for_timeout(300)
@@ -3680,15 +4154,15 @@ async def _save_doubao_ai_documents(
 
     if failures and warning_collector is not None:
         warning_collector.append(
-            f"{failures} 个豆包 AI 生成文档未能读取正文；"
+            f"{failures} 个豆包 AI 生成文档未能下载完整正文；"
             "对话文字与其余附件仍已保留。"
         )
     if logger:
         logger(
-            f"豆包 AI 生成文档处理完成：发现 {len(titles)} 个，"
+            f"豆包 AI 生成文档处理完成：发现 {len(entries)} 个，"
             f"成功保存 {len(set(resolved.values()))} 个。"
         )
-    return resolved, len(titles)
+    return resolved, len(entries)
 
 
 async def _kimi_document_card_download(
@@ -3920,9 +4394,7 @@ async def _download_document_candidates(
         for candidate in ordered
     )
     has_doubao_candidates = any(
-        urlparse(candidate.url).netloc.lower().split(":", 1)[0]
-        in {"doubao.com", "www.doubao.com"}
-        and urlparse(candidate.url).path == DOUBAO_DOCUMENT_API_PATH
+        _is_safe_doubao_file_uri(candidate.reference)
         for candidate in ordered
     )
     has_deepseek_card_candidates = any(
@@ -3990,8 +4462,8 @@ async def _download_document_candidates(
                 parsed_candidate = urlparse(candidate.url)
                 candidate_host = parsed_candidate.netloc.lower().split(":", 1)[0]
                 is_doubao_candidate = (
-                    candidate_host in {"doubao.com", "www.doubao.com"}
-                    and parsed_candidate.path == DOUBAO_DOCUMENT_API_PATH
+                    _is_safe_doubao_file_uri(candidate.reference)
+                    and urlparse(page.url).hostname in DOUBAO_HOSTS
                 )
                 is_deepseek_card_candidate = (
                     candidate_host == "chat.deepseek.com"
@@ -4016,8 +4488,11 @@ async def _download_document_candidates(
                     ))
                 )
                 if is_doubao_candidate:
+                    # 分享快照里的 CDN 签名可能已过期，甚至返回 HTTP 200
+                    # 的错误页。每次按对象标识兑换新的下载地址。
+                    origin = urlparse(page.url)
                     response = await _doubao_document_api_get(
-                        page, candidate, 20000
+                        page, replace(candidate, url=f"{origin.scheme}://{origin.netloc}{DOUBAO_DOCUMENT_API_PATH}"), 20000
                     )
                 elif is_deepseek_card_candidate:
                     response = await _deepseek_document_card_get(
@@ -4097,6 +4572,21 @@ async def _download_document_candidates(
                     response = await _authenticated_page_get(
                         page, candidate.url, 20000
                     )
+            if (
+                not response.ok
+                and _is_safe_doubao_file_uri(candidate.reference)
+                and urlparse(page.url).hostname in DOUBAO_HOSTS
+            ):
+                response = await _doubao_document_api_get(
+                    page,
+                    DocumentCandidate(
+                        candidate.reference,
+                        f"{urlparse(page.url).scheme}://{urlparse(page.url).netloc}"
+                        f"{DOUBAO_DOCUMENT_API_PATH}",
+                        candidate.filename,
+                    ),
+                    20000,
+                ) or response
             if not response.ok and is_chatgpt_direct_candidate:
                 private_url = parsed_candidate._replace(
                     query="post_id=&inline=false&download_intent=false"
@@ -4116,7 +4606,10 @@ async def _download_document_candidates(
                 return candidate, None, {}, f"http_{response.status}"
             headers = dict(getattr(response, "headers", {}) or {})
             max_bytes = (
-                GUI_VIDEO_MAX_BYTES
+                DOUBAO_DOCUMENT_MAX_BYTES
+                if _is_safe_doubao_file_uri(candidate.reference)
+                and urlparse(page.url).hostname in DOUBAO_HOSTS
+                else GUI_VIDEO_MAX_BYTES
                 if Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
                 else GUI_DOCUMENT_MAX_BYTES
             )
@@ -4161,6 +4654,14 @@ async def _download_document_candidates(
                 return candidate, None, headers, "empty_body"
             if len(body) > max_bytes:
                 return candidate, None, headers, "too_large"
+            if _is_safe_doubao_file_uri(candidate.reference):
+                suffix = Path(candidate.filename).suffix.lower()
+                if (
+                    suffix == ".pdf" and not body.startswith(b"%PDF-")
+                    or suffix in {".docx", ".xlsx", ".pptx"}
+                    and not body.startswith(b"PK")
+                ):
+                    return candidate, None, headers, "unexpected_type"
             if (
                 (
                     candidate_host == "files.deepseeksvc.com"
@@ -4204,6 +4705,25 @@ async def _download_document_candidates(
         results = await asyncio.gather(*(
             download(candidate) for candidate in ordered
         ))
+    if (
+        any(_is_safe_doubao_file_uri(candidate.reference) for candidate in ordered)
+        and DOUBAO_PRIVATE_CONVERSATION_PATTERN.match(urlparse(page.url).path)
+    ):
+        recovered_names: dict[str, Optional[tuple[bytes, dict[str, str]]]] = {}
+        for index, (candidate, body, _headers, _reason) in enumerate(results):
+            if body is not None or not _is_safe_doubao_file_uri(candidate.reference):
+                continue
+            key = candidate.filename.casefold()
+            if key not in recovered_names:
+                try:
+                    recovered_names[key] = await _doubao_private_file_card_download(
+                        page, candidate.filename
+                    )
+                except Exception:
+                    recovered_names[key] = None
+            recovered = recovered_names[key]
+            if recovered is not None:
+                results[index] = (candidate, *recovered, None)
     resolved: dict[str, str] = {}
     failures: dict[str, int] = {}
     failed_deepseek_names: set[str] = set()
@@ -4401,6 +4921,56 @@ def _mark_unavailable_assets(
         message["content"] = content
 
 
+def _clean_attachment_display(messages: list[dict[str, str]], warnings: list[str]) -> None:
+    """统一清理附件区重复文件名，并把正文中的资源失败标记传给 GUI。"""
+    missing_images = 0
+    external_files = 0
+    for message in messages:
+        names: set[str] = set()
+        lines = []
+        fence = ""
+        for line in message.get("content", "").splitlines():
+            stripped = line.strip()
+            marker = re.match(r"^(`{3,}|~{3,})", stripped)
+            if marker:
+                if not fence:
+                    fence = marker.group(1)[0] * 3
+                elif marker.group(1).startswith(fence):
+                    fence = ""
+            if fence or marker:
+                names.clear()
+                lines.append(line)
+                continue
+            link = re.fullmatch(r"\[([^\]]+)\]\(([^)]+)\)", stripped)
+            if link and Path(unquote(urlparse(link.group(2)).path)).suffix.lower() in DOCUMENT_EXTENSIONS:
+                names.add(Path(unquote(urlparse(link.group(2)).path)).name)
+                names.add(link.group(1).removeprefix("📄 ").strip())
+            else:
+                placeholder = re.match(r"📎\s*\*\*\[(?:上传文档|上传文件)\]\*\*\s*`([^`]+)`", stripped)
+                if placeholder:
+                    names.add(placeholder.group(1))
+                elif stripped in names:
+                    continue
+                elif stripped:
+                    names.clear()
+            lines.append(line)
+        content = "\n".join(lines)
+        message["content"] = content
+        external_files += content.count("外部网盘文件未下载")
+        missing_images += sum(
+            "🖼️" in line and any(word in line for word in ("失效", "未能下载", "加载失败", "未能加载"))
+            for line in lines
+        )
+    if missing_images:
+        warning = f"{missing_images} 张图片已失效或未能下载，已在正文标明；请核对缺失图片。"
+        if warning not in warnings:
+            warnings.append(warning)
+    if external_files:
+        warning = f"{external_files} 个 AI 回答中的外部网盘文件未下载，已保留原始链接；请从原始链接核对。"
+        if warning not in warnings:
+            warnings.append(warning)
+
+
 def _merge_chatgpt_rehydrate_html(before_html: str | None, after_html: str) -> str:
     if not before_html:
         return after_html
@@ -4448,7 +5018,7 @@ async def fetch_chat_pipeline(
     login_ready_event: Optional[asyncio.Event] = None,
     login_required_callback: Optional[Callable[[], None]] = None,
     login_confirmation_callback: Optional[Callable[[], bool]] = None,
-    attachment_web_link_callback: Optional[Callable[[], str | None]] = None,
+    attachment_web_link_callback: Optional[Callable[..., str | None]] = None,
     logger: Optional[Callable[[str], None]] = None,
     image_output_dir: Optional[Path] = None,
     image_reference_base: Optional[Path] = None,
@@ -4491,19 +5061,20 @@ async def fetch_chat_pipeline(
     requested_path = urlparse(url).path
     requested_host = urlparse(url).netloc.lower().split(":", 1)[0]
     codex_request = codex.is_codex_path(requested_path)
+    doubao_public_thread = (
+        requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
+    )
     # Codex/Grok 公有页在无头 Chromium 中可能落入 Cloudflare 验证页，也要先探测
     # 真实消息节点，失败后复用现有的有头浏览器回退链。
     requires_content_probe = (
         requires_login_probe
         or codex_request
         or requested_host in GROK_HOSTS
+        or doubao_public_thread
         or (
             requested_host in {"chatgpt.com", "chat.openai.com"}
             and requested_path.startswith("/share/")
         )
-    )
-    doubao_public_thread = (
-        requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
     )
     allow_interactive_login = need_login
     chatgpt_anonymous_probe = (
@@ -4560,6 +5131,8 @@ async def fetch_chat_pipeline(
             if need_login:
                 await _set_browser_window_state(page, "maximized")
             response_document_candidates: list[DocumentCandidate] = []
+            response_doubao_ai_documents: list[tuple[str, str, str]] = []
+            response_doubao_document_groups: dict[str, list[DocumentCandidate]] = {}
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
             captured_document_responses: dict[
@@ -4583,6 +5156,11 @@ async def fetch_chat_pipeline(
                         "https://www.doubao.com",
                     )
                 )
+                response_doubao_ai_documents.extend(
+                    _extract_doubao_ai_document_entries(body, "https://www.doubao.com")
+                )
+                for message_id, candidates in _doubao_document_groups(body).items():
+                    response_doubao_document_groups.setdefault(message_id, []).extend(candidates)
 
             async def capture_grok_payload(response: Any) -> None:
                 try:
@@ -4605,6 +5183,15 @@ async def fetch_chat_pipeline(
                     and response.status == 200
                     and response_url.hostname in DOUBAO_HOSTS
                     and response_url.path == requested_path
+                ):
+                    task = asyncio.create_task(
+                        capture_doubao_share_document(response)
+                    )
+                elif (
+                    requested_host in DOUBAO_HOSTS
+                    and response.status == 200
+                    and response_url.hostname in DOUBAO_HOSTS
+                    and response_url.path == "/im/chain/single"
                 ):
                     task = asyncio.create_task(
                         capture_doubao_share_document(response)
@@ -4730,6 +5317,17 @@ async def fetch_chat_pipeline(
                                 await _page_has_conversation_content(page, url)
                                 or (codex_request and bool(authorized_content_responses))
                             )
+                            if not content_ready and doubao_public_thread:
+                                try:
+                                    await page.wait_for_selector(
+                                        ".message-item", state="attached", timeout=30000
+                                    )
+                                    content_ready = True
+                                except Exception as error:
+                                    raise RuntimeError(
+                                        "豆包分享页在有界面浏览器中仍未加载消息，"
+                                        "请稍后重试或人工抓取。"
+                                    ) from error
                             if (
                                 content_ready
                                 and requested_host in {
@@ -4920,6 +5518,15 @@ async def fetch_chat_pipeline(
                 html = await collect_virtualized_html(page)
                 if html is None:
                     html = page_snapshot_html
+                if current_host in DOUBAO_HOSTS:
+                    pending = re.search(
+                        r'data-doubao-pending-messages="(\d+)"', html
+                    )
+                    if pending and int(pending.group(1)):
+                        fetch_warnings.append(
+                            f"豆包有 {pending.group(1)} 条历史消息仍未加载完成；"
+                            "本次抓取可能不完整。"
+                        )
                 kimi_private_url = _kimi_private_conversation_url(page_snapshot_html)
                 if requested_host in KIMI_HOSTS and kimi_private_url:
                     await goto_with_retry_gui(page, kimi_private_url, logger=logger)
@@ -5001,6 +5608,16 @@ async def fetch_chat_pipeline(
                         ),
                     )
                 soup_pre = BeautifulSoup(html, "html.parser")
+                if current_host in DOUBAO_HOSTS:
+                    for picture in soup_pre.find_all("picture"):
+                        image = picture.find("img")
+                        source = picture.find("source")
+                        if image and source:
+                            original = source.get("src") or source.get("data-src") or (source.get("srcset") or "").split(" ", 1)[0]
+                            if original and original.startswith(("http://", "https://")):
+                                image["src"] = original
+                            for duplicate in picture.find_all("source"):
+                                duplicate.decompose()
                 chatgpt_video_only = (
                     current_host in {"chatgpt.com", "chat.openai.com"}
                     and bool(video_message_indices)
@@ -5043,6 +5660,10 @@ async def fetch_chat_pipeline(
                             src = src.rsplit("/", 1)[0] + "/content"
                         if (
                             alt == "asset cover"
+                            or (
+                                current_host in DOUBAO_HOSTS
+                                and img.find_parent(class_=re.compile(r"block-video-"))
+                            )
                             or "doc-canvas-card-fallback" in src.lower()
                             or "drive-thirdparty.googleusercontent.com" in src.lower()
                         ):
@@ -5050,8 +5671,19 @@ async def fetch_chat_pipeline(
                         image_candidates.append(src)
 
                 if current_host in DOUBAO_HOSTS:
+                    decorations = doubao.decorative_image_sources(soup_pre)
+                    covers = {
+                        image.get("src") for image in soup_pre.select(
+                            '[class*="block-video-"] img[class*="cover-"]'
+                        )
+                    }
                     image_candidates = doubao.prefer_original_generated_images(
-                        image_candidates
+                        [source for source in image_candidates if source not in covers and source not in decorations],
+                        preferred_sources=[
+                            image.get("src") or image.get("data-src")
+                            for image in soup_pre.find_all("img")
+                            if image.get("src") or image.get("data-src")
+                        ],
                     )
 
                 download_started = time.perf_counter()
@@ -5155,6 +5787,17 @@ async def fetch_chat_pipeline(
                     )
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
+                doubao_ai_document_entries = _extract_doubao_ai_document_entries(html, url)
+                if current_host in DOUBAO_HOSTS:
+                    frozen_message_ids = set(re.findall(r'data-message-id=["\'](\d+)', html))
+                    for entry in response_doubao_ai_documents:
+                        if entry[2] in frozen_message_ids:
+                            doubao_ai_document_entries = [
+                                item for item in doubao_ai_document_entries
+                                if item[1] or item[2] != entry[2]
+                            ]
+                            if entry not in doubao_ai_document_entries:
+                                doubao_ai_document_entries.append(entry)
                 gemini_document_candidates: list[DocumentCandidate] = []
                 gemini_recovered_content = False
                 gemini_copied_recovered = False
@@ -5326,21 +5969,171 @@ async def fetch_chat_pipeline(
                     failure_collector=document_failures,
                     authentication_required=document_authentication_required,
                 )
+                missing_doubao_attachments = (
+                    _doubao_unavailable_attachment_names(html, document_map)
+                    if current_host in DOUBAO_HOSTS else []
+                )
+                if missing_doubao_attachments:
+                    failed_names = {
+                        candidate.filename.lower() for candidate in document_failures
+                    }
+                    names_without_url = []
+                    for name in missing_doubao_attachments:
+                        if name.lower() not in failed_names:
+                            document_failures[DocumentCandidate(
+                                name, f"doubao-missing:{name}", name
+                            )] = "missing_source"
+                            names_without_url.append(name)
+                    if names_without_url:
+                        document_warnings.append(
+                            f"{len(names_without_url)} 个豆包附件在分享页未提供可下载地址。"
+                        )
+                    if doubao_public_thread:
+                        document_authentication_required.append(True)
+                saved_doubao_videos = None
+                doubao_authenticated_documents = False
+                if doubao_public_thread and document_failures:
+                    if logger:
+                        logger("正在使用已保存的豆包登录状态刷新附件下载凭证...")
+                    saved_doubao_videos = await _save_doubao_videos(
+                        page, html, resolved_documents_dir,
+                        document_reference_prefix, fetch_warnings,
+                    )
+                    await _close_browser_context_safely(context, fetch_warnings, logger)
+                    context, _browser_channel = await launch_browser_context(
+                        playwright, headless=headless, viewport=viewport_config,
+                        no_viewport=need_login, logger=logger,
+                        profile_root=browser_profile_root,
+                    )
+                    page = await context.new_page()
+                    page.on("response", capture_response_assets)
+                    await goto_with_retry_gui(page, url, logger=logger)
+                    await _page_has_conversation_content(page, url)
+                    if (
+                        await page.get_by_role("button", name="登录", exact=True).first.is_visible()
+                        and login_ready_event is not None
+                        and login_required_callback is not None
+                        and login_confirmation_callback is not None
+                        and login_confirmation_callback()
+                    ):
+                        await _close_browser_context_safely(context, fetch_warnings, logger)
+                        context, _browser_channel = await launch_browser_context(
+                            playwright, headless=False, viewport=None,
+                            no_viewport=True, logger=logger, profile_root=browser_profile_root,
+                        )
+                        page = await context.new_page()
+                        await goto_with_retry_gui(page, url, logger=logger)
+                        await _set_browser_window_state(page, "maximized")
+                        login_ready_event.clear()
+                        login_required_callback()
+                        login_wait_started = time.perf_counter()
+                        await login_ready_event.wait()
+                        user_wait_seconds += time.perf_counter() - login_wait_started
+                        await goto_with_retry_gui(page, url, logger=logger)
+                    doubao_authenticated_documents = True
+                    fresh_candidates = _extract_document_candidates(await page.content(), url)
+                    document_candidates = list(dict.fromkeys([*document_candidates, *fresh_candidates]))
+                    document_failures.clear()
+                    document_warnings.clear()
+                    document_map.update(await _download_document_candidates(
+                        page, document_candidates, resolved_documents_dir,
+                        document_reference_prefix, document_download_concurrency,
+                        document_warnings, conversation_url=url,
+                        captured_documents=captured_document_responses,
+                        failure_collector=document_failures,
+                    ))
+                    for name in _doubao_unavailable_attachment_names(html, document_map):
+                        if not any(candidate.filename.lower() == name.lower() for candidate in document_failures):
+                            document_failures[DocumentCandidate(name, f"doubao-missing:{name}", name)] = "missing_source"
+                    if not document_failures:
+                        document_warnings.clear()
+                        document_authentication_required.clear()
+                    else:
+                        document_authentication_required.append(True)
+                        if not document_warnings:
+                            document_warnings.append(f"{len(document_failures)} 个豆包附件仍未能下载原文件。")
+                failed_doubao_names = (
+                    list(dict.fromkeys(
+                        candidate.filename
+                        for candidate in document_failures
+                        if candidate.filename.lower() not in document_map
+                    ))
+                    if current_host in DOUBAO_HOSTS else []
+                )
                 retry_url = (
-                    attachment_web_link_callback()
+                    (
+                        attachment_web_link_callback(failed_doubao_names)
+                        if failed_doubao_names
+                        else attachment_web_link_callback()
+                    )
                     if document_authentication_required
                     and attachment_web_link_callback is not None
                     else None
                 )
+                doubao_private_retry = bool(
+                    retry_url
+                    and doubao_public_thread
+                    and urlparse(retry_url).hostname in DOUBAO_HOSTS
+                    and DOUBAO_PRIVATE_CONVERSATION_PATTERN.match(
+                        urlparse(retry_url).path
+                    )
+                )
+                if doubao_private_retry:
+                    if saved_doubao_videos is None:
+                        saved_doubao_videos = await _save_doubao_videos(
+                            page, html, resolved_documents_dir,
+                            document_reference_prefix, fetch_warnings,
+                        )
+                    response_document_candidates.clear()
+                    await _close_browser_context_safely(
+                        context, fetch_warnings, logger
+                    )
+                    context, _browser_channel = await launch_browser_context(
+                        playwright, headless=False, viewport=None,
+                        no_viewport=True, logger=logger,
+                        profile_root=browser_profile_root,
+                    )
+                    page = context.pages[0] if context.pages else await context.new_page()
+                    await _set_browser_window_state(page, "maximized")
+                    page.on("response", capture_response_assets)
+                    await goto_with_retry_gui(page, retry_url, logger=logger)
+                    ready = await _page_has_conversation_content(page, retry_url)
+                    if not ready and (
+                        login_confirmation_callback is None
+                        or login_confirmation_callback()
+                    ):
+                        if login_ready_event is not None:
+                            login_ready_event.clear()
+                        if login_required_callback is not None:
+                            login_required_callback()
+                        if login_ready_event is not None:
+                            login_wait_started = time.perf_counter()
+                            await login_ready_event.wait()
+                            user_wait_seconds += time.perf_counter() - login_wait_started
+                        await goto_with_retry_gui(page, retry_url, logger=logger)
+                        ready = await _page_has_conversation_content(page, retry_url)
+                    if not ready:
+                        fetch_warnings.append(
+                            "豆包原始会话仍不可访问，附件保持不可下载提示。"
+                        )
+                        retry_url = None
                 if retry_url:
                     if logger:
                         logger("正在使用您提供的原始会话网页链接重试附件下载...")
-                    await goto_with_retry_gui(page, retry_url, logger=logger)
+                    if not doubao_private_retry:
+                        await goto_with_retry_gui(page, retry_url, logger=logger)
                     await page.wait_for_timeout(1800)
-                    await _drain_response_tasks(response_tasks)
-                    retry_html = await collect_virtualized_html(page)
-                    if retry_html is None:
-                        retry_html = await page.content()
+                    if doubao_private_retry:
+                        retry_html = await collect_virtualized_html(page)
+                        if retry_html is None:
+                            retry_html = await page.content()
+                        if response_tasks:
+                            await asyncio.wait(tuple(response_tasks), timeout=10)
+                    else:
+                        await _drain_response_tasks(response_tasks)
+                        retry_html = await collect_virtualized_html(page)
+                        if retry_html is None:
+                            retry_html = await page.content()
                     retry_parsed = urlparse(retry_url)
                     chatgpt_private_retry = (
                         current_host in {"chatgpt.com", "chat.openai.com"}
@@ -5386,11 +6179,17 @@ async def fetch_chat_pipeline(
                             "对话文字抓取继续保留。"
                         ] if reasons else []
                     else:
-                        document_candidates.extend(
-                            _extract_deepseek_document_card_candidates(
-                                retry_html, page.url
+                        if current_host in DOUBAO_HOSTS:
+                            document_candidates = [
+                                *_extract_document_candidates(retry_html, page.url),
+                                *response_document_candidates,
+                            ]
+                        else:
+                            document_candidates.extend(
+                                _extract_deepseek_document_card_candidates(
+                                    retry_html, page.url
+                                )
                             )
-                        )
                         document_candidates = list(dict.fromkeys(document_candidates))
                         retry_warnings: list[str] = []
                         document_failures.clear()
@@ -5405,6 +6204,22 @@ async def fetch_chat_pipeline(
                             captured_documents=captured_document_responses,
                             failure_collector=document_failures,
                         ))
+                        if current_host in DOUBAO_HOSTS:
+                            failed_names = {
+                                candidate.filename.lower()
+                                for candidate in document_failures
+                            }
+                            for name in _doubao_unavailable_attachment_names(
+                                html, document_map
+                            ):
+                                if name.lower() not in failed_names:
+                                    document_failures[DocumentCandidate(
+                                        name, f"doubao-missing:{name}", name
+                                    )] = "missing_source"
+                            if document_failures and not retry_warnings:
+                                retry_warnings.append(
+                                    f"{len(document_failures)} 个豆包附件仍未能下载原文件。"
+                                )
                         document_warnings = retry_warnings if document_failures else []
                 fetch_warnings.extend(document_warnings)
                 codex_change_map = _save_codex_file_changes(
@@ -5415,6 +6230,70 @@ async def fetch_chat_pipeline(
                 document_map.update(codex_change_map)
                 doubao_ai_document_count = 0
                 if current_host in {"doubao.com", "www.doubao.com"}:
+                    if saved_doubao_videos is None:
+                        saved_doubao_videos = await _save_doubao_videos(
+                            page, html, resolved_documents_dir,
+                            document_reference_prefix, fetch_warnings,
+                        )
+                    document_map.update(saved_doubao_videos)
+                    doubao_online_resources = _extract_doubao_ai_document_resources(
+                        html, url
+                    )
+                    if (
+                        doubao_public_thread
+                        and not doubao_private_retry
+                        and not doubao_authenticated_documents
+                        and (
+                            doubao_online_resources
+                            or _extract_doubao_ai_document_titles(html, url)
+                        )
+                    ):
+                        # 分享正文继续使用已经冻结的匿名快照；在线文档导出
+                        # 单独复用项目登录态，不能从匿名编辑器读取局部预览。
+                        if logger:
+                            logger("豆包在线文档需要账号导出，正在检查已保存的登录状态...")
+                        await _close_browser_context_safely(
+                            context, fetch_warnings, logger
+                        )
+                        context, _browser_channel = await launch_browser_context(
+                            playwright, headless=headless,
+                            viewport=viewport_config, no_viewport=need_login,
+                            logger=logger, profile_root=browser_profile_root,
+                        )
+                        page = await context.new_page()
+                        document_entry = next(iter(doubao_online_resources.values()), url)
+                        await goto_with_retry_gui(page, document_entry, logger=logger)
+                        try:
+                            await page.get_by_role(
+                                "button", name=re.compile(r"^(下载|登录)$")
+                            ).first.wait_for(state="visible", timeout=10000)
+                        except Exception:
+                            pass
+                        if (
+                            await page.get_by_role("button", name="登录", exact=True).first.is_visible()
+                            and login_required_callback is not None
+                            and login_ready_event is not None
+                            and login_confirmation_callback is not None
+                            and login_confirmation_callback()
+                        ):
+                            await _close_browser_context_safely(
+                                context, fetch_warnings, logger
+                            )
+                            context, _browser_channel = await launch_browser_context(
+                                playwright, headless=False, viewport=None,
+                                no_viewport=True, logger=logger,
+                                profile_root=browser_profile_root,
+                            )
+                            page = await context.new_page()
+                            await goto_with_retry_gui(page, document_entry, logger=logger)
+                            await _set_browser_window_state(page, "maximized")
+                            login_ready_event.clear()
+                            login_required_callback()
+                            login_wait_started = time.perf_counter()
+                            await login_ready_event.wait()
+                            user_wait_seconds += time.perf_counter() - login_wait_started
+                            await goto_with_retry_gui(page, document_entry, logger=logger)
+                        page.on("response", capture_response_assets)
                     ai_document_map, doubao_ai_document_count = (
                         await _save_doubao_ai_documents(
                             page,
@@ -5423,6 +6302,7 @@ async def fetch_chat_pipeline(
                             document_reference_prefix,
                             fetch_warnings,
                             logger,
+                            entries=doubao_ai_document_entries,
                         )
                     )
                     document_map.update(ai_document_map)
@@ -5497,6 +6377,8 @@ async def fetch_chat_pipeline(
                     document_candidates,
                     chatgpt_document_groups,
                 )
+                if current_host in DOUBAO_HOSTS:
+                    html = _inject_doubao_document_names(html, response_doubao_document_groups)
                 soup = BeautifulSoup(html, "html.parser")
                 parser_asset_map = {**image_map, **document_map}
                 if _chatgpt_shared_conversation_id(url):
@@ -5516,6 +6398,15 @@ async def fetch_chat_pipeline(
                 provider, parsed_messages = _parse_page_messages(
                     url, soup, parser_asset_map
                 )
+                if provider is doubao and parsed_messages:
+                    missing_online_docs = sum(
+                        message['content'].count('📄 **[AI生成文档未下载]**')
+                        for message in parsed_messages
+                    )
+                    if missing_online_docs and not any('豆包 AI 生成文档未能下载' in text for text in fetch_warnings):
+                        fetch_warnings.append(
+                            f'{missing_online_docs} 个豆包 AI 生成文档未能下载完整正文，已在对应消息标明。'
+                        )
                 if codex_request and codex_payload_messages:
                     parsed_messages = codex_payload_messages
                     provider = codex
@@ -5586,6 +6477,7 @@ async def fetch_chat_pipeline(
                 _mark_unavailable_assets(
                     parsed_messages, image_failures, document_failures
                 )
+                _clean_attachment_display(parsed_messages, fetch_warnings)
 
                 if provider is gemini:
                     unavailable = sum(
@@ -5810,12 +6702,47 @@ def generate_output_bundle(
     base_result = None
     last_error: Optional[BaseException] = None
     timed_out_providers: set[str] = set()
+    doubao_media_gateway = None
+    if source_platform in {"doubao", "豆包"} and user_api_keys and user_api_keys.get("siliconflow"):
+        # 文字切换到 DeepSeek 时，已配置的视觉后端继续承担图片/PDF页面/视频抽帧。
+        vision_config = SummaryConfig.from_env(
+            provider_override="siliconflow", model_override="Qwen/Qwen3-8B",
+        )
+        vision_config = replace(vision_config, max_output_tokens=min(8192, vision_config.max_output_tokens))
+        doubao_media_gateway = create_gateway(vision_config, api_key=user_api_keys["siliconflow"])
 
     def next_usable_config(start_index: int) -> Optional[Any]:
         for later_config, _later_gateway in attempts[start_index:]:
             if later_config.provider not in timed_out_providers:
                 return later_config
         return None
+
+    def smaller_doubao_chunks(candidate: Any, next_index: int) -> Optional[Any]:
+        if not (
+            source_platform in {"doubao", "豆包"}
+            and getattr(candidate, "chunk_chars", 0) > 12_000
+            and sum(len(item.get("content", "")) for item in messages) > candidate.chunk_chars
+        ):
+            return None
+        from scripts.gemini_summarizer import (
+            _load_summary_cache, _save_summary_cache,
+            _summary_cache_path, _summary_fingerprint,
+        )
+        smaller = replace(candidate, chunk_chars=12_000, thinking_level="minimal")
+        cache_path = _summary_cache_path(primary_json)
+        cached = _load_summary_cache(
+            cache_path, _summary_fingerprint(messages, candidate, source_platform),
+        )
+        # 分块边界变化只重做文字记忆；媒体仍绑定同一份抓取输入。
+        cached["fingerprint"] = _summary_fingerprint(messages, smaller, source_platform)
+        cached["chunks"] = {}
+        _save_summary_cache(cache_path, cached)
+        attempts[next_index:] = [
+            (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level="minimal"), later_gateway)
+            for later, later_gateway in attempts[next_index:]
+        ]
+        progress("豆包长对话已自动改为 12000 字符分块；复用本次有效媒体分析。")
+        return smaller
 
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
@@ -5860,6 +6787,7 @@ def generate_output_bundle(
                     else default_summary_result_cache_dir()
                 ),
                 source_platform=source_platform,
+                **({"media_gateway": doubao_media_gateway} if doubao_media_gateway is not None else {}),
             )
             config = candidate_config
             gateway = candidate_gateway
@@ -5872,6 +6800,8 @@ def generate_output_bundle(
             next_config = next_usable_config(attempt_index)
             if next_config is None:
                 raise
+            smaller_doubao_chunks(candidate_config, attempt_index)
+            next_config = next_usable_config(attempt_index)
             safe_message = safe_error_message(
                 error,
                 tuple(user_api_keys.values()) if user_api_keys else (),
@@ -5882,6 +6812,16 @@ def generate_output_bundle(
             )
         except GeminiSummaryError as error:
             last_error = error
+            smaller_config = (
+                smaller_doubao_chunks(candidate_config, attempt_index)
+                if "JSONDecodeError" in str(error) else None
+            )
+            if smaller_config is not None:
+                attempts.insert(attempt_index, (
+                    smaller_config,
+                    candidate_gateway if gateway_was_provided else None,
+                ))
+                continue
             next_config = next_usable_config(attempt_index)
             if next_config is None:
                 raise
@@ -5931,6 +6871,7 @@ def generate_output_bundle(
             base_result,
             sanitize_summary_messages(messages, source_platform),
             gateway,
+            **({"source_platform": source_platform} if source_platform in {"doubao", "豆包"} else {}),
         )
         simple_meta = build_simple_metadata(
             base_result,

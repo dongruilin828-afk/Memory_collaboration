@@ -141,17 +141,20 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, *_args):
                 return False
 
-        for has_conversation_content, allow_login in (
-            (True, False),
-            (True, True),
-            (False, False),
+        for has_conversation_content, authenticated, allow_login in (
+            (True, True, False),
+            (True, True, True),
+            (False, False, False),
+            (True, False, False),
         ):
             with self.subTest(
                 has_conversation_content=has_conversation_content,
+                authenticated=authenticated,
                 allow_login=allow_login,
             ):
+                content_ready = has_conversation_content and authenticated
                 contexts = [FakeContext()]
-                if not has_conversation_content and not allow_login:
+                if not content_ready and not allow_login:
                     contexts.append(FakeContext())
                 callback = Mock()
                 confirmation_callback = Mock(return_value=False)
@@ -176,10 +179,13 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     "gui.service._page_has_conversation_content",
                     new=AsyncMock(return_value=has_conversation_content),
                 ), patch(
+                    "gui.service._chatgpt_session_is_authenticated",
+                    new=AsyncMock(return_value=authenticated),
+                ), patch(
                     "gui.service._set_browser_window_state",
                     new=AsyncMock(),
-                ):
-                    if has_conversation_content:
+                ) as set_window_state:
+                    if content_ready:
                         await fetch_chat_pipeline(
                             "https://chatgpt.com/c/"
                             "11111111-2222-3333-4444-555555555555",
@@ -206,21 +212,24 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     ],
                     (
                         [True, False]
-                        if not has_conversation_content and not allow_login
+                        if not content_ready and not allow_login
                         else [not allow_login]
                     ),
                 )
                 self.assertFalse(
                     launcher.await_args_list[0].kwargs["start_minimized"]
                 )
-                if not has_conversation_content and not allow_login:
-                    self.assertTrue(
+                if not content_ready and not allow_login:
+                    self.assertFalse(
                         launcher.await_args_list[1].kwargs["start_minimized"]
+                    )
+                    set_window_state.assert_awaited_once_with(
+                        contexts[1].pages[0], "minimized"
                     )
                 self.assertEqual(callback.call_count, 0)
                 self.assertEqual(
                     confirmation_callback.call_count,
-                    0 if has_conversation_content else 1,
+                    0 if content_ready else 1,
                 )
                 if allow_login:
                     self.assertTrue(

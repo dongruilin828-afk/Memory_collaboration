@@ -1219,7 +1219,8 @@ def discover_media(
             asset,
             project_dir=project_dir,
             source_dir=source_dir,
-            config=config
+            config=config,
+            source_platform=source_platform,
         )
         assets.append(asset)
 
@@ -1285,6 +1286,9 @@ def discover_media(
             ).name
             reference_suffix = Path(reference_name).suffix.lower()
             label_suffix = Path(label).suffix.lower()
+            if source_platform in {"doubao", "豆包"} and reference_suffix in {".mp4", ".webm", ".mov"}:
+                add_asset(message_index, "video", label, reference, source_role)
+                continue
             if source_role == "assistant" and (
                 _is_chatgpt_citation(reference, source_platform)
                 or (
@@ -1513,7 +1517,8 @@ def _prepare_media_asset(
     asset: MediaAsset,
     project_dir: Path,
     source_dir: Path,
-    config: SummaryConfig
+    config: SummaryConfig,
+    source_platform: str | None = None,
 ) -> None:
     reference = asset.reference
     if reference.lower().startswith(("http://", "https://")):
@@ -1543,6 +1548,19 @@ def _prepare_media_asset(
         or "application/octet-stream"
     )
     suffix = local_path.suffix.lower()
+    if source_platform in {"doubao", "豆包"} and (suffix == ".pdf" or asset.kind == "video"):
+        try:
+            if asset.kind == "video":
+                if local_path.stat().st_size > config.max_media_bytes:
+                    raise ValueError("视频超过内联分析大小限制")
+                asset.status = "ready"
+            else:
+                from scripts.doubao_media import prepare_pdf
+                prepare_pdf(asset, config)
+        except Exception as error:
+            asset.status = "unavailable"
+            asset.description = f"本地原文件仍可访问，但媒体准备失败（{type(error).__name__}）。"
+        return
     if asset.kind == "image":
         try:
             with local_path.open("rb") as stream:
@@ -1864,6 +1882,8 @@ def describe_media(
                             f"其中 OCR 字符可能存在误差：{description}"
                         )
                     else:
+                        if asset.kind == "video":
+                            prefix = "AI 回答中包含视频" if asset.source_role == "assistant" else "用户上传了视频"
                         asset.description = (
                             f"{prefix}“{asset.label}”，主要内容为：{description}"
                         )
@@ -2103,7 +2123,10 @@ def _summary_fingerprint(
 ) -> str:
     payload = json.dumps(
         {
-            "cache_schema_version": 15 if source_platform == "deepseek" else 14,
+            "cache_schema_version": (
+                18 if source_platform in {"doubao", "豆包"}
+                else 15 if source_platform == "deepseek" else 14
+            ),
             "chunk_chars": config.chunk_chars,
             "messages": messages
         },
@@ -2116,7 +2139,7 @@ def _summary_fingerprint(
 def _summary_implementation_fingerprint() -> str:
     """让提示词、规范化和渲染代码的任意更新自动使完成缓存失效。"""
     try:
-        payload = Path(__file__).read_bytes()
+        payload = Path(__file__).read_bytes() + Path(__file__).with_name("doubao_media.py").read_bytes()
     except OSError:
         payload = (
             f"schema={SCHEMA_VERSION};cache={SUMMARY_RESULT_CACHE_VERSION};"
@@ -2284,6 +2307,7 @@ def summarize_conversation(
     topic_selector: Callable[[dict[str, Any]], Collection[str] | str] | None = None,
     result_cache_dir: Path | None = None,
     source_platform: str | None = None,
+    media_gateway: SummaryGateway | None = None,
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
     pipeline_started = time.perf_counter()
@@ -2377,18 +2401,36 @@ def summarize_conversation(
         isinstance(item, dict) and item.get("status") == "analysis_failed"
         for item in cache["media"]
     )
-    _apply_cached_media(assets, cache["media"])
+    is_doubao = source_platform in {"doubao", "豆包"}
+    if is_doubao:
+        # 只复用成功说明；失败或 unclear 必须重新分析，并重做依赖旧说明的文字分块。
+        retry_ids = {asset.media_id for asset in assets if asset.status == "ready"}
+        cached_media_analysis_failed |= any(
+            item.get("media_id") in retry_ids and item.get("status") != "described"
+            for item in cache["media"] if isinstance(item, dict)
+        )
+        _apply_cached_media(assets, [item for item in cache["media"]
+                                   if isinstance(item, dict) and item.get("status") == "described"])
+    else:
+        _apply_cached_media(assets, cache["media"])
     if cached_media_analysis_failed:
         cache["chunks"] = {}
         progress("上次媒体识别因网络失败，本次将重新识别并刷新分块缓存。")
     if any(asset.status == "ready" for asset in assets):
+        analysis_gateway = gateway
+        if is_doubao:
+            from scripts.doubao_media import MediaGateway
+            analysis_gateway = MediaGateway(gateway, media_gateway, config, progress=progress)
         warnings = describe_media(
             assets,
-            gateway=gateway,
+            gateway=analysis_gateway,
             config=config,
             progress=progress
         )
         cache["media"] = [asset.public_dict() for asset in assets]
+        if is_doubao:
+            warnings.extend(f"媒体未有效识别：{asset.label}（{asset.media_id}）"
+                            for asset in assets if asset.status in {"unclear", "analysis_failed"})
         _save_summary_cache(cache_path, cache)
     else:
         warnings = []
@@ -2488,6 +2530,9 @@ def summarize_conversation(
             )
             + chunk.text
         )
+        if is_doubao:
+            from scripts.doubao_media import EVIDENCE_INSTRUCTION
+            prompt += EVIDENCE_INSTRUCTION
         summary = gateway.generate_json(prompt, CHUNK_SCHEMA)
         normalized_chunk = _attach_message_ranges(
             _normalize_chunk_summary(
@@ -2552,6 +2597,9 @@ def summarize_conversation(
         + "\n\n最近上下文：\n"
         + json.dumps(recent_for_model, ensure_ascii=False)
     )
+    if is_doubao:
+        from scripts.doubao_media import EVIDENCE_INSTRUCTION
+        synthesis_prompt += EVIDENCE_INSTRUCTION
     final_summary = gateway.generate_json(
         synthesis_prompt,
         FINAL_SCHEMA
@@ -2561,6 +2609,7 @@ def summarize_conversation(
         chunk_summaries=chunk_summaries,
         messages=messages,
         assets=assets,
+        source_platform=source_platform,
         short_conversation=(
             message_count <= 2
             and sum(len(message.get("content", "")) for message in messages)
@@ -2665,7 +2714,8 @@ def write_summary_outputs(
 
 def renormalize_result(
     result: dict[str, Any],
-    messages: list[dict[str, str]] | None = None
+    messages: list[dict[str, str]] | None = None,
+    source_platform: str | None = None,
 ) -> dict[str, Any]:
     """对已生成 JSON 应用无需模型参与的展示与聚合修复。"""
     message_count = int(
@@ -2721,7 +2771,8 @@ def renormalize_result(
             _filter_spurious_open_state(current_state, messages)
             _normalize_latest_turn_state(current_state, messages)
             result["overall_summary"] = _sanitize_overall_completion(
-                str(result.get("overall_summary") or ""), current_state
+                str(result.get("overall_summary") or ""), current_state,
+                source_platform=source_platform,
             )
             result["overall_summary"] = _qualify_unconfirmed_learning_text(
                 result["overall_summary"], messages
@@ -2916,7 +2967,8 @@ def _normalize_final_summary(
     chunk_summaries: list[dict[str, Any]],
     messages: list[dict[str, str]],
     assets: list[MediaAsset],
-    short_conversation: bool = False
+    short_conversation: bool = False,
+    source_platform: str | None = None,
 ) -> dict[str, Any]:
     message_count = len(messages)
     all_memory = _collect_records(chunk_summaries, "memory_items")
@@ -3144,7 +3196,7 @@ def _normalize_final_summary(
         chunk_summaries
     )
     overall_summary = _sanitize_overall_completion(
-        overall_summary, current_state
+        overall_summary, current_state, source_platform=source_platform,
     )
     overall_summary = _qualify_unconfirmed_programming_text(
         overall_summary, programming_records
@@ -4823,23 +4875,31 @@ def _faithful_last_user_intent(raw_value: Any, model_intent: str) -> str:
 
 
 def _sanitize_overall_completion(
-    text: str, current_state: dict[str, Any]
+    text: str, current_state: dict[str, Any],
+    source_platform: str | None = None,
 ) -> str:
     if (
         not current_state.get("last_user_turn_answered")
         or current_state.get("breakpoint_status") != "complete"
     ):
         return text
+    # 豆包总览删除礼貌性等待状态时，连同依赖它的句子主干一起清理。
+    breakpoint_prefix = (
+        r"(?:(?:当前)?(?:对话)?断点(?:停留)?在)?"
+        if source_platform in {"doubao", "豆包"} else ""
+    )
     cleaned = re.sub(
         r"(?:，|。)?(?:当前)?(?:对话)?(?:正|仍)?(?:处于)?"
-        r"等待用户(?:后续)?(?:执行|确认|反馈|回复|提问|选择新任务|"
+        + breakpoint_prefix
+        + r"等待用户(?:后续)?(?:执行|确认|反馈|回复|提问|选择新任务|"
         r"是否了解)[^。；]*[。；]?",
         "。",
         str(text or "")
     )
     cleaned = re.sub(
-        r"(?:，|；)?(?:目前|当前|现)?(?:正|仍)?(?:处于)?等待(?:用户)?"
-        r"[^。；，]{0,20}(?:新(?:话题|问题|提问|任务|指令)|开启其他|"
+        r"(?:，|；)?(?:目前|当前|现)?(?:正|仍)?(?:处于)?"
+        + breakpoint_prefix
+        + r"等待(?:用户)?[^。；，]{0,20}(?:新(?:话题|问题|提问|任务|指令)|开启其他|"
         r"开启新|提出新|发送新)[^。；]*",
         "",
         cleaned
