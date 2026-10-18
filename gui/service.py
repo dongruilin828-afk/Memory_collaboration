@@ -6871,7 +6871,7 @@ def generate_output_bundle(
             base_result,
             sanitize_summary_messages(messages, source_platform),
             gateway,
-            **({"source_platform": source_platform} if source_platform in {"doubao", "豆包"} else {}),
+            **({"source_platform": source_platform} if source_platform in {"doubao", "豆包", "ChatGPT", "chatgpt"} else {}),
         )
         simple_meta = build_simple_metadata(
             base_result,

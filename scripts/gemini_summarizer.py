@@ -2124,7 +2124,8 @@ def _summary_fingerprint(
     payload = json.dumps(
         {
             "cache_schema_version": (
-                18 if source_platform in {"doubao", "豆包"}
+                19 if source_platform in {"doubao", "豆包"}
+                else 17 if str(source_platform or "").lower() == "chatgpt"
                 else 15 if source_platform == "deepseek" else 14
             ),
             "chunk_chars": config.chunk_chars,
@@ -2139,7 +2140,10 @@ def _summary_fingerprint(
 def _summary_implementation_fingerprint() -> str:
     """让提示词、规范化和渲染代码的任意更新自动使完成缓存失效。"""
     try:
-        payload = Path(__file__).read_bytes() + Path(__file__).with_name("doubao_media.py").read_bytes()
+        payload = (Path(__file__).read_bytes()
+                   + Path(__file__).with_name("doubao_media.py").read_bytes()
+                   + Path(__file__).with_name("summary_grounding.py").read_bytes())
+        payload += Path(__file__).with_name("chatgpt_history.py").read_bytes()
     except OSError:
         payload = (
             f"schema={SCHEMA_VERSION};cache={SUMMARY_RESULT_CACHE_VERSION};"
@@ -2160,6 +2164,7 @@ def _completed_result_fingerprint(
     messages: list[dict[str, str]],
     config: SummaryConfig,
     assets: list[MediaAsset],
+    source_platform: str | None = None,
 ) -> str:
     media_inputs: list[dict[str, Any]] = []
     for asset in assets:
@@ -2190,6 +2195,7 @@ def _completed_result_fingerprint(
             "implementation_sha256": _summary_implementation_fingerprint(),
             "schema_version": SCHEMA_VERSION,
             "config": asdict(config),
+            "source_platform": source_platform,
             "messages": messages,
             "media_inputs": media_inputs,
         },
@@ -2355,11 +2361,16 @@ def summarize_conversation(
         messages,
         config,
         assets,
+        source_platform,
     )
     completed_result = _load_completed_result_cache(
         result_cache_dir,
         completed_fingerprint,
     )
+    is_chatgpt = str(source_platform or "").lower() == "chatgpt"
+    if is_chatgpt and completed_result is not None:
+        if completed_result.get("processing", {}).get("history_verification", {}).get("version") != 1:
+            completed_result = None
     timings["completed_cache_lookup"] = time.perf_counter() - stage_started
     if completed_result is not None:
         result = completed_result
@@ -2439,7 +2450,11 @@ def summarize_conversation(
     timings["media_analysis"] = time.perf_counter() - stage_started
     progress(f"媒体准备完成（{timings['media_analysis']:.2f} 秒）。")
     stage_started = time.perf_counter()
-    enriched_messages = enrich_messages(summary_messages, assets)
+    enriched_messages = summary_messages if is_chatgpt else enrich_messages(summary_messages, assets)
+    history_evidence = None
+    if is_chatgpt:
+        from scripts.chatgpt_history import build_evidence
+        history_evidence = build_evidence(summary_messages, assets)
     chunks = chunk_messages(
         enriched_messages,
         max_chars=config.chunk_chars
@@ -2451,6 +2466,9 @@ def summarize_conversation(
     for chunk in chunks:
         cache_key = str(chunk.chunk_index)
         cached_chunk = cache["chunks"].get(cache_key)
+        if is_chatgpt and isinstance(cached_chunk, dict):
+            if cached_chunk.get("history_verification", {}).get("version") != 1:
+                cached_chunk = None
         if isinstance(cached_chunk, dict):
             progress(
                 f"已从进度缓存恢复细粒度记忆："
@@ -2533,7 +2551,19 @@ def summarize_conversation(
         if is_doubao:
             from scripts.doubao_media import EVIDENCE_INSTRUCTION
             prompt += EVIDENCE_INSTRUCTION
-        summary = gateway.generate_json(prompt, CHUNK_SCHEMA)
+        from scripts.summary_grounding import ROLE_INSTRUCTION, scoped_source
+        if scoped_source(source_platform):
+            prompt += ROLE_INSTRUCTION
+        history_verification = None
+        if is_chatgpt:
+            from scripts.chatgpt_history import generate_chunk, HistoryEvidenceError
+            progress(f"正在核对历史分块附件、轮次及事实：第 {chunk.chunk_index}/{len(chunks)} 批")
+            try:
+                summary, history_verification = generate_chunk(prompt, gateway, history_evidence, set(chunk.message_indices), progress=progress)
+            except HistoryEvidenceError as error:
+                raise GeminiSummaryError(f"ChatGPT历史分块证据校验失败：{error}") from error
+        else:
+            summary = gateway.generate_json(prompt, CHUNK_SCHEMA)
         normalized_chunk = _attach_message_ranges(
             _normalize_chunk_summary(
                 summary,
@@ -2541,6 +2571,10 @@ def summarize_conversation(
                 messages=messages
             )
         )
+        if is_chatgpt:
+            from scripts.chatgpt_history import attach_memory_evidence
+            attach_memory_evidence(normalized_chunk, summary)
+            normalized_chunk["history_verification"] = history_verification
         chunk_summaries.append(normalized_chunk)
         cache["chunks"][cache_key] = normalized_chunk
         _save_summary_cache(cache_path, cache)
@@ -2600,22 +2634,30 @@ def summarize_conversation(
     if is_doubao:
         from scripts.doubao_media import EVIDENCE_INSTRUCTION
         synthesis_prompt += EVIDENCE_INSTRUCTION
-    final_summary = gateway.generate_json(
-        synthesis_prompt,
-        FINAL_SCHEMA
-    )
-    normalized = _normalize_final_summary(
-        final_summary,
-        chunk_summaries=chunk_summaries,
-        messages=messages,
-        assets=assets,
-        source_platform=source_platform,
-        short_conversation=(
-            message_count <= 2
-            and sum(len(message.get("content", "")) for message in messages)
-            <= config.short_conversation_chars
+    from scripts.summary_grounding import ROLE_INSTRUCTION, scoped_source
+    if scoped_source(source_platform):
+        synthesis_prompt += ROLE_INSTRUCTION
+    final_history_verification = None
+    for history_attempt in range(2 if is_chatgpt else 1):
+        final_summary = gateway.generate_json(synthesis_prompt, FINAL_SCHEMA)
+        normalized = _normalize_final_summary(
+            final_summary, chunk_summaries=chunk_summaries, messages=messages, assets=assets,
+            source_platform=source_platform,
+            short_conversation=(message_count <= 2 and sum(len(message.get("content", "")) for message in messages) <= config.short_conversation_chars),
         )
-    )
+        if not is_chatgpt:
+            break
+        from scripts.chatgpt_history import review_records, HistoryEvidenceError
+        progress("正在核对历史主题与已完成清单的原文证据...")
+        try:
+            final_history_verification = review_records(normalized, history_evidence, gateway, final=True)
+            final_history_verification.update(version=1, attempts=history_attempt+1)
+            break
+        except HistoryEvidenceError as error:
+            if history_attempt:
+                raise GeminiSummaryError(f"ChatGPT历史综合证据校验失败：{error}") from error
+            synthesis_prompt += ("\n上次综合JSON：" + json.dumps(final_summary, ensure_ascii=False)
+                                 + "\n上次综合未通过原文事实检查，修正下面的问题，不能改动已经核对的记忆或把未来建议写成完成事项："+str(error))
     timings["global_synthesis"] = time.perf_counter() - stage_started
     progress(f"全局综合完成（{timings['global_synthesis']:.2f} 秒）。")
     timings["total_before_output"] = time.perf_counter() - pipeline_started
@@ -2661,7 +2703,16 @@ def summarize_conversation(
     }
 
     _attach_message_ranges(result)
+    if is_chatgpt:
+        result["processing"]["history_verification"] = final_history_verification
     _correct_media_role_attribution(result, assets)
+    from scripts.summary_grounding import apply_latest_turn_grounding, ground_latest_turn, scoped_source
+    if scoped_source(source_platform):
+        progress("正在按用户原文与随后 AI 回复核对最后轮次总览...")
+        try:
+            apply_latest_turn_grounding(result, ground_latest_turn(messages, gateway))
+        except ValueError as error:
+            raise GeminiSummaryError(str(error)) from error
     cacheable_media = all(
         asset.status not in {"unclear", "analysis_failed"}
         for asset in assets
@@ -2718,6 +2769,15 @@ def renormalize_result(
     source_platform: str | None = None,
 ) -> dict[str, Any]:
     """对已生成 JSON 应用无需模型参与的展示与聚合修复。"""
+    if (
+        str(source_platform or "").lower() == "chatgpt"
+        and messages is not None
+        and result.get("processing", {}).get("history_verification", {}).get("version") == 1
+        and result.get("conversation", {}).get("source_fingerprint") == messages_fingerprint(messages)
+    ):
+        # Checked ChatGPT records must not be reassigned by generic heuristics
+        # when the same completed result is loaded from cache.
+        return _attach_message_ranges(result)
     message_count = int(
         result.get("conversation", {}).get("message_count") or 0
     )
@@ -2834,6 +2894,11 @@ def renormalize_result(
         )
         topic["summary"] = _clean_generated_punctuation(topic["summary"])
     _correct_media_role_attribution(result, result.get("media", []))
+    if messages is not None and result.get("latest_turn_grounding"):
+        from scripts.summary_grounding import apply_latest_turn_grounding, scoped_source
+        if (scoped_source(source_platform)
+                and result.get("conversation", {}).get("source_fingerprint") == messages_fingerprint(messages)):
+            apply_latest_turn_grounding(result, result["latest_turn_grounding"])
     return result
 
 

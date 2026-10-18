@@ -89,6 +89,12 @@ class MergedGenerationTests(unittest.TestCase):
 
         def summarize(**kwargs):
             self.assertEqual(kwargs["messages"], messages)
+            expected_platform = (
+                "ChatGPT" if url.startswith("https://chatgpt.com/share/")
+                else "doubao" if "doubao.com/" in url
+                else "deepseek" if "chat.deepseek.com/" in url else None
+            )
+            self.assertEqual(kwargs.get("source_platform"), expected_platform)
             self.assertEqual(kwargs["source_dir"], save_dir.resolve())
             self.assertEqual(kwargs["result_cache_dir"], settings.summary_cache_dir.resolve())
             selected = ()

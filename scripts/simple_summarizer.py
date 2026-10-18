@@ -426,6 +426,21 @@ def validate_simple_overview(
             if source_platform in {"doubao", "豆包"}:
                 # 论文第5.3节是位置编号，不是“按预测分配储位”的数值预测。
                 summary = re.sub(r"第\s*\d+(?:\.\d+)*\s*(?:章|节|部分|条)", "", summary)
+                # 数量与预测须属于同一分句；不能跨过教材介绍去收集页数、章数。
+                clauses = re.split(r"[，。；;!?！？\n]", summary)
+                prediction_clauses = []
+                for index, clause in enumerate(clauses):
+                    if re.search(r"(?:预测|估算|推算)", clause):
+                        prediction_clauses.append(clause)
+                        if (not re.search(r"\d", clause) and index + 1 < len(clauses)
+                                and re.match(r"\s*(?:约|大约|结果|为|每|可达|达到)", clauses[index + 1])):
+                            prediction_clauses.append(clauses[index + 1])
+                summary = "，".join(prediction_clauses)
+                # 页数是附件元数据；只有同一分句明确预测页数时才是预测量值。
+                def page_count(match):
+                    prefix = re.split(r"[，。；;!?！？\n]", summary[:match.start()])[-1]
+                    return match.group() if re.search(r"(?:预测|估算|推算|预计|估计)", prefix) else ""
+                summary = re.sub(r"\d+\s*(?:页|章|节)", page_count, summary)
             estimate_numbers.update(re.findall(r"\d+(?:\.\d+)?", summary))
     if estimate_numbers and not any(
         number in overview for number in estimate_numbers
@@ -484,6 +499,13 @@ def generate_simple_overview(
 ) -> str:
     projection = build_simple_projection(result, messages)
     max_chars = simple_char_limit(len(messages))
+    from .summary_grounding import render_grounded_overview, scoped_source
+    if scoped_source(source_platform) and result.get("latest_turn_grounding"):
+        grounded = render_grounded_overview(result["latest_turn_grounding"], max_chars)
+        errors = validate_simple_overview(grounded, projection, max_chars, source_platform=source_platform)
+        if not errors:
+            return grounded
+        projection["latest_turn_grounding"] = result["latest_turn_grounding"]
     prompt = build_simple_prompt(projection, max_chars)
     last_errors: list[str] = []
     for attempt in range(2):

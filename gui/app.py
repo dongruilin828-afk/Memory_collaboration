@@ -3759,7 +3759,13 @@ class AIMemoryGUI:
                         "doubao"
                         if not direct_summary and urlparse(url).hostname
                         in {"doubao.com", "www.doubao.com"}
-                        else None
+                        else (
+                            "ChatGPT"
+                            if not direct_summary
+                            and urlparse(url).hostname in {"chatgpt.com", "chat.openai.com"}
+                            and urlparse(url).path.startswith(("/c/", "/share/"))
+                            else None
+                        )
                     )
                 ),
                 source_name=source_name,

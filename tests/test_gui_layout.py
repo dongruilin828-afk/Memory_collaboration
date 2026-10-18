@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import tempfile
 import tkinter as tk
 import tkinter.font as tkfont
 import unittest
@@ -11,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY, SummaryTopicCard
-from gui.settings_store import default_app_settings
+from gui.settings_store import AppSettings, default_app_settings
 
 
 class _CredentialStore:
@@ -35,9 +36,10 @@ class _CredentialStore:
 class _SettingsStore:
     def __init__(self):
         self.saved = []
+        self.scratch = tempfile.TemporaryDirectory()
 
     def load(self):
-        return default_app_settings()
+        return AppSettings(runtime_data_dir=Path(self.scratch.name))
 
     def save(self, settings):
         self.saved.append(settings)
