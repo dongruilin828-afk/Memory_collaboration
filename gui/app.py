@@ -1835,6 +1835,8 @@ class AIMemoryGUI:
         self.root = root
         self._responsive_after_id = None
         self._responsive_window_size = None
+        self._resize_in_progress = False
+        self._responsive_target_size = None
         self._responsive_scale = 1.0
         self._scrollregion_after_id = None
         self._minimum_layout_after_id = None
@@ -2070,17 +2072,22 @@ class AIMemoryGUI:
         available_width = max(1, screen_width - 32)
         self.layout_requires_wider_screen = min_width > available_width
         self.minimum_window_width = min_width
-        self.root.minsize(min_width, 560)
-
         current_width = self.root.winfo_width()
+        if current_width < min_width:
+            self._responsive_target_size = (min_width, max(560, self.root.winfo_height()))
+        if self.root.minsize() != (min_width, 560):
+            self.root.minsize(min_width, 560)
+
         if not self._responsive_layout_initialized:
             target_width = max(current_width, min_width + 48)
             if min_width <= available_width:
                 target_width = min(target_width, available_width)
             target_height = max(680, self.root.winfo_height())
+            self._responsive_target_size = (target_width, target_height)
             self.root.geometry(f"{target_width}x{target_height}")
             self._responsive_layout_initialized = True
         elif current_width < min_width:
+            self._responsive_target_size = (min_width, max(560, self.root.winfo_height()))
             self.root.geometry(
                 f"{min_width}x{max(560, self.root.winfo_height())}",
             )
@@ -2096,20 +2103,34 @@ class AIMemoryGUI:
         if size == self._responsive_window_size:
             return
         self._responsive_window_size = size
+        self._resize_in_progress = True
         if self._responsive_after_id is not None:
             self.root.after_cancel(self._responsive_after_id)
-        self._responsive_after_id = self.root.after(40, self._apply_responsive_scale)
+        if size == self._responsive_target_size:
+            # 最小尺寸约束引起的内部调整不必再次等待用户停止拖动。
+            self._responsive_target_size = None
+            self._responsive_after_id = self.root.after(1, self._apply_responsive_scale)
+            return
+        # 拖动过程中只让布局伸缩；停止拖动后再更新字体，避免阻塞原生缩放消息。
+        self._responsive_after_id = self.root.after(140, self._apply_responsive_scale)
 
     def _apply_responsive_scale(self, force=False):
+        if self._responsive_after_id is not None:
+            self.root.after_cancel(self._responsive_after_id)
         self._responsive_after_id = None
+        self._resize_in_progress = False
         if self.root.state() in {"iconic", "withdrawn"}:
             return
         width = self.root.winfo_width()
         if width <= 1:
             return
         scale = max(0.82, min(1.15, width / 1040))
+        # 字体按小档位缩放，避免每移动十几个像素就重排整棵控件树。
+        scale = max(0.82, min(1.15, round(scale * 20) / 20))
         if abs(scale - self._responsive_scale) < 0.01 and not force:
-            self._schedule_responsive_minimums()
+            if not self._responsive_layout_initialized:
+                self._schedule_responsive_minimums()
+            self._schedule_scrollregion()
             return
         self._responsive_scale = scale
 
@@ -2130,13 +2151,17 @@ class AIMemoryGUI:
                             widget._responsive_base_font_size = abs(
                                 int(font.actual("size"))
                             )
+                            widget.configure(font=font)
+                            widget._responsive_font_size = widget._responsive_base_font_size
                         minimum = getattr(widget, "_responsive_min_font_size", 7)
                         maximum = getattr(widget, "_responsive_max_font_size", 22)
-                        font.configure(size=max(
+                        font_size = max(
                             minimum,
                             min(maximum, round(widget._responsive_base_font_size * scale)),
-                        ))
-                        widget.configure(font=font)
+                        )
+                        if font_size != widget._responsive_font_size:
+                            font.configure(size=font_size)
+                            widget._responsive_font_size = font_size
                     except (tk.TclError, TypeError, ValueError):
                         pass
             for child in widget.winfo_children():
@@ -2167,7 +2192,11 @@ class AIMemoryGUI:
 
     def _refresh_scrollregion(self):
         self._scrollregion_after_id = None
+        if self._resize_in_progress:
+            # 保留当前内容表面，拖动结束后再调整其几何尺寸，避免原生消息被重排占满。
+            return
         canvas_width = self.bg_canvas.winfo_width()
+        self._draw_vibrant_gradient(canvas_width, self.bg_canvas.winfo_height())
         content_width = min(canvas_width, self._content_max_width)
         content_height = max(
             self.bg_canvas.winfo_height(), self.main_content.winfo_reqheight(),
@@ -2805,16 +2834,7 @@ class AIMemoryGUI:
             self.bg_canvas.coords(self._gradient_item_id, 0, 0, w, h)
 
     def _on_canvas_configure(self, event):
-        w = event.width if event else self.bg_canvas.winfo_width()
-        h = event.height if event else self.bg_canvas.winfo_height()
-        content_width = min(w, self._content_max_width)
-        x = max(0, (w - content_width) // 2)
-        content_height = max(h, self.main_content.winfo_reqheight())
-        self.bg_canvas.coords(self.canvas_window_id, x, 0)
-        self.bg_canvas.itemconfig(
-            self.canvas_window_id, width=content_width, height=content_height,
-        )
-        self._draw_vibrant_gradient(w, h)
+        # 与内容高度变化合并到下一帧，避免同一尺寸重复重排 Canvas 内的控件。
         self._schedule_scrollregion()
 
     def _on_content_configure(self, _event):

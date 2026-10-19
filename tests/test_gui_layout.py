@@ -158,6 +158,45 @@ class SummaryTopicCardTests(unittest.TestCase):
 
 
 class GUIResponsiveGeometryTests(unittest.TestCase):
+    def test_continuous_resize_defers_font_work_until_drag_stops(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root, 300)
+            with patch.object(app, "_apply_responsive_scale") as scale:
+                for width in (1100, 1120, 1140, 1160):
+                    app._on_root_configure(SimpleNamespace(
+                        widget=root, width=width, height=680,
+                    ))
+                    self._flush(root, 60)
+                    scale.assert_not_called()
+                self._flush(root, 180)
+                scale.assert_called_once()
+        finally:
+            root.destroy()
+
+    def test_unchanged_font_scale_does_not_recalculate_window_minimum(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root, 300)
+            with patch.object(app, "_schedule_responsive_minimums") as minimum:
+                for _ in range(20):
+                    app._apply_responsive_scale()
+                minimum.assert_not_called()
+        finally:
+            root.destroy()
+
     def test_repeated_minimize_restore_and_page_switch_keeps_ui_responsive(self):
         root = tk.Tk()
         root.attributes("-alpha", 0.0)
@@ -242,7 +281,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         patch("gui.app.WindowsAppSettingsStore", return_value=settings),
                     ):
                         app = AIMemoryGUI(root)
-                    self._flush(root)
+                    self._settle_resize(root, app)
 
                     minimum = app.minimum_window_width
                     available_width = root.winfo_screenwidth() - 32
@@ -331,7 +370,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     observed_sizes = {}
                     for width in widths:
                         root.geometry(f"{width}x680")
-                        self._flush(root)
+                        # 字体更新有意延后到用户停止拖动之后。
+                        self._settle_resize(root, app)
                         self._assert_generation_geometry(root, app)
                         size = int(app.status_label._responsive_font.actual("size"))
                         sizes.append(size)
@@ -879,6 +919,23 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         page.api_save_button.invoke()
         self.assertEqual(credentials.saved_keys["gemini"], "unsaved-key-value")
         self.assertEqual(credentials.saved_order, page.ordered_providers)
+
+    def _settle_resize(self, root, app):
+        deadline = time.perf_counter() + 3
+        stable = 0
+        while time.perf_counter() < deadline:
+            self._flush(root, 80)
+            pending = (
+                app._responsive_after_id, app._minimum_layout_after_id,
+                app._scrollregion_after_id,
+            )
+            if not any(item is not None for item in pending) and not app._resize_in_progress:
+                stable += 1
+                if stable == 2:
+                    return
+            else:
+                stable = 0
+        self.fail("resize layout did not settle")
 
     @staticmethod
     def _flush(root, duration_ms=65):
