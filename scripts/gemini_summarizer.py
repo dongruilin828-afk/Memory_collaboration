@@ -27,7 +27,7 @@ DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash"
 SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3.5-397B-A17B"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
-DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-pro"
+DEEPSEEK_DEFAULT_MODEL = "v4.1Flash1017"
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
 SUMMARY_DIRNAME = "results/summary"
 DETAILED_SUMMARY_DIRNAME = "results/summary_detailed"
@@ -549,7 +549,10 @@ class SummaryConfig:
         ).strip()
         if not provider:
             lowered_model = model.lower()
-            if lowered_model.startswith("deepseek-"):
+            if (
+                lowered_model.startswith("deepseek-")
+                or lowered_model == DEEPSEEK_DEFAULT_MODEL.lower()
+            ):
                 provider = "deepseek"
             elif lowered_model.startswith(("qwen/", "deepseek-ai/")):
                 provider = "siliconflow"

@@ -155,7 +155,7 @@ JSON。本轮批量总结优先使用 3.5 Flash；其额度在超长对话中耗
 
 显式使用 DeepSeek：
 
-    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider deepseek --model deepseek-v4-pro
+    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider deepseek --model v4.1Flash1017
 
 ## 总结流水线
 
