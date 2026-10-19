@@ -1,6 +1,8 @@
 """Offline checks for the merged frontend-to-backend task contract."""
 
 import tempfile
+import threading
+import tkinter as tk
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,10 +12,66 @@ from gui.app import AIMemoryGUI
 from gui.history_store import HistoryStore
 from gui.service import FetchResult, build_output_paths
 from gui.settings_store import AppSettings
+from gui.ui_dispatch import UIDispatcher
 from scripts.gemini_summarizer import write_summary_outputs
 
 
 class MergedGenerationTests(unittest.TestCase):
+    def test_fetch_finishes_while_minimized_without_waiting_for_ui(self):
+        root = tk.Tk()
+        root.withdraw()
+        dispatcher = UIDispatcher(root)
+        errors = []
+        try:
+            with tempfile.TemporaryDirectory() as temp:
+                app = object.__new__(AIMemoryGUI)
+                app.root = root
+                app._post_ui = dispatcher.post
+                app._ui_dispatcher = dispatcher
+                app.progress_bar = Mock()
+                app.status_var = Mock()
+                app.percent_var = Mock()
+                app._show_completed_badge = Mock()
+                app._add_history_record = Mock()
+                app._on_task_finished = Mock()
+                app._confirm_login_required = Mock()
+
+                async def fetch(**kwargs):
+                    for index in range(150):
+                        kwargs["logger"](f"抓取进度 {index}")
+                    return FetchResult(
+                        html="", image_map={},
+                        messages=[{"role": "User", "content": "完整抓取内容"}],
+                    )
+
+                def worker():
+                    try:
+                        app._run_generation_task(
+                            "https://chat.deepseek.com/share/offline", False,
+                            {"raw": True}, Path(temp), "result.md", {},
+                            AppSettings(Path(temp) / "runtime"),
+                        )
+                    except Exception as error:
+                        errors.append(error)
+
+                with patch("gui.app.fetch_chat_pipeline", side_effect=fetch):
+                    thread = threading.Thread(target=worker, daemon=True)
+                    thread.start()
+                    # 故意不运行 Tk mainloop；旧的 worker -> root.after 会卡住。
+                    thread.join(timeout=3)
+                self.assertFalse(thread.is_alive(), "抓取等待了不可用的 UI 线程")
+                self.assertEqual(errors, [])
+                paths = build_output_paths(Path(temp), {"raw": True}, "result.md")
+                self.assertIn("完整抓取内容", paths["raw_markdown"].read_text(encoding="utf-8"))
+                app._on_task_finished.assert_not_called()
+                for _ in range(4):
+                    dispatcher._drain()
+                app._on_task_finished.assert_called_once()
+                app._add_history_record.assert_called_once()
+        finally:
+            dispatcher.close()
+            root.destroy()
+
     def test_platforms_and_modes_keep_assets_topics_warnings_and_history(self):
         urls = (
             "https://chatgpt.com/share/example",
@@ -40,6 +98,8 @@ class MergedGenerationTests(unittest.TestCase):
         result_dir = paths["output_dir"]
         app = object.__new__(AIMemoryGUI)
         app.root = SimpleNamespace(after=lambda _delay, callback: callback())
+        app._post_ui = lambda callback, **_kwargs: callback()
+        app._ui_dispatcher = SimpleNamespace(wait=lambda event: event.wait())
         app.progress_bar = Mock()
         app.status_var = Mock()
         app.percent_var = Mock()

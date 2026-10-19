@@ -682,6 +682,9 @@ async def launch_browser_context(
                     "--disable-blink-features=AutomationControlled",
                     "--no-first-run",
                     "--no-service-autorun",
+                    "--disable-background-timer-throttling",
+                    "--disable-backgrounding-occluded-windows",
+                    "--disable-renderer-backgrounding",
                     *(
                         ["--start-minimized", "--window-position=-32000,-32000"]
                         if start_minimized else []

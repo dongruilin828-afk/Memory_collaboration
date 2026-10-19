@@ -158,6 +158,38 @@ class SummaryTopicCardTests(unittest.TestCase):
 
 
 class GUIResponsiveGeometryTests(unittest.TestCase):
+    def test_repeated_minimize_restore_and_page_switch_keeps_ui_responsive(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        errors, received = [], []
+        root.report_callback_exception = lambda *error: errors.append(error)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root)
+            for index in range(3):
+                root.iconify()
+                self._flush(root)
+                self.assertEqual(root.state(), "iconic")
+                app._post_ui(lambda value=index: received.append(value))
+                app._post_ui(lambda value=index: received.append(f"visible-{value}"), visible=True)
+                self._flush(root)
+                self.assertIn(index, received)
+                self.assertNotIn(f"visible-{index}", received)
+                root.deiconify()
+                self._flush(root)
+                app._show_page((index + 1) % 4)
+                self._flush(root)
+                self.assertIn(f"visible-{index}", received)
+                self.assertTrue(root.winfo_viewable())
+                self.assertEqual(app._current_page, (index + 1) % 4)
+            self.assertEqual(errors, [])
+        finally:
+            root.destroy()
+
     def test_history_file_list_scrolls_horizontally_only_when_needed(self):
         try:
             root = tk.Tk()

@@ -47,6 +47,7 @@ from gui.settings_store import (
 )
 
 from gui.run_logging import GenerationRunLog
+from gui.ui_dispatch import UIDispatcher, bind_visible_modal
 from gui.service import (
     MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
@@ -1833,6 +1834,7 @@ class AIMemoryGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self._responsive_after_id = None
+        self._responsive_window_size = None
         self._responsive_scale = 1.0
         self._scrollregion_after_id = None
         self._minimum_layout_after_id = None
@@ -1876,6 +1878,8 @@ class AIMemoryGUI:
         self._build_ui()
         self._refresh_history_list()
         self._update_generate_button_state()
+        self._ui_dispatcher = UIDispatcher(root)
+        self._post_ui = self._ui_dispatcher.post
 
     # ---------------- UI 构建 ----------------
 
@@ -2036,7 +2040,7 @@ class AIMemoryGUI:
 
     def _refresh_responsive_minimums(self):
         self._minimum_layout_after_id = None
-        if not self.root.winfo_exists():
+        if not self.root.winfo_exists() or self.root.state() in {"iconic", "withdrawn"}:
             return
 
         left_width = max(
@@ -2085,12 +2089,21 @@ class AIMemoryGUI:
     def _on_root_configure(self, event):
         if event.widget is not self.root:
             return
+        if self.root.state() in {"iconic", "withdrawn"}:
+            self._responsive_window_size = None
+            return
+        size = (event.width, event.height)
+        if size == self._responsive_window_size:
+            return
+        self._responsive_window_size = size
         if self._responsive_after_id is not None:
             self.root.after_cancel(self._responsive_after_id)
         self._responsive_after_id = self.root.after(40, self._apply_responsive_scale)
 
     def _apply_responsive_scale(self, force=False):
         self._responsive_after_id = None
+        if self.root.state() in {"iconic", "withdrawn"}:
+            return
         width = self.root.winfo_width()
         if width <= 1:
             return
@@ -3293,11 +3306,12 @@ class AIMemoryGUI:
                 import traceback
                 err_detail = traceback.format_exc()
                 print(f"[Generation] FATAL: {e}\n{err_detail}", flush=True)
-                self.root.after(0, lambda: [
-                    self.status_var.set(f"❌ 线程崩溃: {e}"),
+                self._post_ui(self._on_task_finished)
+                self._post_ui(lambda error=str(e), detail=err_detail: [
+                    self.status_var.set(f"❌ 线程崩溃: {error}"),
                     self.percent_var.set("0%"),
-                    messagebox.showerror("生成线程崩溃", f"{e}\n\n{err_detail}")
-                ])
+                    messagebox.showerror("生成线程崩溃", f"{error}\n\n{detail}", parent=self.root)
+                ], visible=True)
 
         thread = threading.Thread(
             target=_safe_run,
@@ -3392,15 +3406,17 @@ class AIMemoryGUI:
         result = {"confirmed": False}
 
         def ask():
-            result["confirmed"] = messagebox.askyesno(
-                "需要登录",
-                "该资源需要登录后才能下载。是否打开浏览器登录后重试？",
-                parent=self.root,
-            )
-            answered.set()
+            try:
+                result["confirmed"] = messagebox.askyesno(
+                    "需要登录",
+                    "该资源需要登录后才能下载。是否打开浏览器登录后重试？",
+                    parent=self.root,
+                )
+            finally:
+                answered.set()
 
-        self.root.after(0, ask)
-        answered.wait()
+        self._post_ui(ask, visible=True)
+        self._ui_dispatcher.wait(answered)
         return result["confirmed"]
 
     def _show_login_dialog(
@@ -3412,7 +3428,7 @@ class AIMemoryGUI:
         dialog.resizable(False, False)
         dialog.configure(bg=COLOR_TOPIC_DIALOG_BG)
         dialog.transient(self.root)
-        dialog.grab_set()
+        bind_visible_modal(dialog)
 
         x = self.root.winfo_x() + (self.root.winfo_width() - 480) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - 230) // 2
@@ -3440,7 +3456,10 @@ class AIMemoryGUI:
 
         def on_login_done():
             loop.call_soon_threadsafe(login_event.set)
+            dialog.grab_release()
             dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_login_done)
 
         FlatButton(
             content, text="已登录完毕，继续生成",
@@ -3457,7 +3476,7 @@ class AIMemoryGUI:
         dialog.resizable(False, False)
         dialog.configure(bg=COLOR_BG_APP)
         dialog.transient(self.root)
-        dialog.grab_set()
+        bind_visible_modal(dialog)
 
         height = min(690, 300 + 104 * min(len(available_topics), 4))
         width = 680
@@ -3657,9 +3676,9 @@ class AIMemoryGUI:
             except Exception:
                 on_selected(())
 
-        self.root.after(0, show_dialog)
+        self._post_ui(show_dialog, visible=True)
         selection_started = time.perf_counter()
-        selection_ready.wait()
+        self._ui_dispatcher.wait(selection_ready)
         wait_seconds = time.perf_counter() - selection_started
         selected = selection_holder["topics"]
         run_log.event(
@@ -3731,7 +3750,7 @@ class AIMemoryGUI:
                 ui_progress=round(float(val), 3),
             )
             percent_str = f"{int(val * 100)}%"
-            self.root.after(0, lambda: [
+            self._post_ui(lambda: [
                 self.progress_bar.set_progress(val),
                 self.status_var.set(msg),
                 self.percent_var.set(percent_str)
@@ -3775,9 +3794,9 @@ class AIMemoryGUI:
                         need_login=need_login,
                         login_ready_event=login_event,
                         login_required_callback=(
-                            lambda: self.root.after(
-                                0,
-                                lambda: self._show_login_dialog(loop, login_event)
+                            lambda: self._post_ui(
+                                lambda: self._show_login_dialog(loop, login_event),
+                                visible=True,
                             )
                         ),
                         login_confirmation_callback=(
@@ -3811,8 +3830,9 @@ class AIMemoryGUI:
                     run_log.event("fetch_warning", warning)
                 if fetch_res.error or not fetch_res.messages:
                     err = fetch_res.error or "未能提取到有效对话内容。"
-                    self.root.after(
-                        0, lambda: messagebox.showerror("生成失败", err)
+                    self._post_ui(
+                        lambda: messagebox.showerror("生成失败", err, parent=self.root),
+                        visible=True,
                     )
                     return
 
@@ -3898,7 +3918,7 @@ class AIMemoryGUI:
                     f"总计 {total_seconds:.1f} 秒。可在历史记录中查看。"
                 ) if saved_files else "所有任务生成完成！",
             )
-            self.root.after(0, lambda: self._show_completed_badge(5))
+            self._post_ui(lambda: self._show_completed_badge(5))
             # 追加历史记录
             from datetime import datetime as _dt
             history_record = {
@@ -3918,21 +3938,22 @@ class AIMemoryGUI:
                 "saved_files": saved_files,
                 "output_dir": str(result_dir.resolve()),
             }
-            self.root.after(
-                0, lambda r=history_record: self._add_history_record(r)
+            self._post_ui(
+                lambda r=history_record: self._add_history_record(r)
             )
             if fetch_warnings:
                 warning_text = _format_fetch_warnings(fetch_warnings)
-                self.root.after(
-                    0,
+                self._post_ui(
                     lambda text=warning_text: messagebox.showwarning(
                         "生成完成，但部分附件未下载",
                         text,
+                        parent=self.root,
                     ),
+                    visible=True,
                 )
             run_succeeded = True
-            self.root.after(
-                0, lambda: setattr(self, "_generation_completed", True)
+            self._post_ui(
+                lambda: setattr(self, "_generation_completed", True)
             )
 
         except Exception as e:
@@ -3946,9 +3967,9 @@ class AIMemoryGUI:
                 "run_error", err_msg, error_type=type(e).__name__,
             )
             update_progress(0.0, f"❌ 处理发生错误: {err_msg}")
-            self.root.after(
-                0,
-                lambda: messagebox.showerror("处理失败", f"生成失败：{err_msg}")
+            self._post_ui(
+                lambda: messagebox.showerror("处理失败", f"生成失败：{err_msg}", parent=self.root),
+                visible=True,
             )
 
         finally:
@@ -3959,7 +3980,7 @@ class AIMemoryGUI:
             )
             run_log.close()
             loop.close()
-            self.root.after(0, self._on_task_finished)
+            self._post_ui(self._on_task_finished)
 
     def _on_task_finished(self):
         self.is_running = False

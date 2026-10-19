@@ -873,6 +873,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                     default_results_dir=Path(temp) / "results",
                 ),
                 root=FakeRoot(),
+                _post_ui=lambda callback, **_kwargs: callback(),
                 selected_file_name_var=SimpleNamespace(set=lambda _value: None),
                 selected_file_row=SimpleNamespace(pack=lambda **_kwargs: None),
                 file_select_button=SimpleNamespace(config=lambda **_kwargs: None),
