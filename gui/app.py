@@ -2274,8 +2274,15 @@ class AIMemoryGUI:
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_left.pack(side=tk.LEFT)
 
+        # 用独立的高清线条图标替代小尺寸下发虚的系统 Emoji。
+        icon_pixels = 12 * float(self.root.tk.call("tk", "scaling"))
+        icon_size = min((24, 32, 48), key=lambda size: abs(size - icon_pixels))
+        self._attachment_icon = tk.PhotoImage(
+            file=str(_navigation_icon_path("paperclip-outline", icon_size)),
+        )
         self.file_select_button = tk.Button(
-            toolbar_left, text="📎 添加文件",
+            toolbar_left, text=" 添加文件",
+            image=self._attachment_icon, compound=tk.LEFT,
             command=self._choose_summary_file,
             font=(FONT_FAMILY, 12), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
@@ -2878,7 +2885,7 @@ class AIMemoryGUI:
         tooltip = getattr(self, "_selected_file_tooltip", None)
         if tooltip:
             tooltip._text = str(self.selected_summary_file)
-        self.file_select_button.config(text="📎 重新添加")
+        self.file_select_button.config(text=" 重新添加")
         self.selected_file_row.pack(
             fill=tk.X, pady=(0, 8), before=self.capsule_entry,
         )
@@ -2942,7 +2949,7 @@ class AIMemoryGUI:
         if tooltip:
             tooltip._text = ""
         self.selected_file_row.pack_forget()
-        self.file_select_button.config(text="📎 添加文件")
+        self.file_select_button.config(text=" 添加文件")
         self._refresh_generation_sources()
         self._update_send_button_state()
         self._update_generate_button_state()
