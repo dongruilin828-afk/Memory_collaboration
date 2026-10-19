@@ -2408,11 +2408,11 @@ class AIMemoryGUI:
             heading_copy, text="生成记忆总结", font=(FONT_FAMILY, 20, "bold"),
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
         ).pack(fill=tk.X)
-        ready_badge = tk.Label(
-            heading, text="  ●  已就绪  ", font=FONT_SMALL_BOLD,
-            fg=COLOR_SUCCESS, bg="#F1FAF6", padx=8, pady=6,
+        self.generation_ready_badge = tk.Label(
+            heading, text="  ●  待完善配置  ", font=FONT_SMALL_BOLD,
+            fg=COLOR_TEXT_MUTED, bg=COLOR_ACCENT_BG, padx=8, pady=6,
         )
-        ready_badge.pack(side=tk.RIGHT, anchor="n", pady=2)
+        self.generation_ready_badge.pack(side=tk.RIGHT, anchor="n", pady=2)
 
         workspace = tk.Frame(section, bg=COLOR_BG_APP)
         workspace.pack(fill=tk.X)
@@ -3142,6 +3142,11 @@ class AIMemoryGUI:
         )
         if getattr(self, "is_running", False):
             self.btn_generate.set_enabled(False)
+            if hasattr(self, "generation_ready_badge"):
+                self.generation_ready_badge.config(
+                    text="  ●  生成中  ", fg=COLOR_ACCENT_BLUE,
+                    bg=COLOR_ACCENT_BG,
+                )
             return
         has_mode = any([
             self.card_raw.checked, self.card_normal.checked,
@@ -3163,6 +3168,23 @@ class AIMemoryGUI:
                 self.card_detailed.checked,
             ])
         configuration_complete = has_source and has_mode and has_auth
+
+        if hasattr(self, "generation_ready_badge"):
+            if configuration_complete:
+                badge_text, badge_color, badge_bg = "已就绪", COLOR_SUCCESS, "#F1FAF6"
+            else:
+                missing = []
+                if not has_source:
+                    missing.append("内容来源")
+                if not has_mode:
+                    missing.append("生成模式")
+                if source == "url" and not has_auth:
+                    missing.append("访问方式")
+                badge_text = f"待设置{'、'.join(missing)}"
+                badge_color, badge_bg = COLOR_TEXT_MUTED, COLOR_ACCENT_BG
+            self.generation_ready_badge.config(
+                text=f"  ●  {badge_text}  ", fg=badge_color, bg=badge_bg,
+            )
 
         if hasattr(self, "status_var") and not completed:
             self.status_var.set(
