@@ -436,7 +436,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(config.model, "Qwen/Qwen3.5-397B-A17B")
 
     def test_deepseek_provider_is_inferred_from_deepseek_model(self):
-        for model in ("deepseek-v4-pro", "v4.1Flash1017"):
+        for model in ("deepseek-v4-pro", "deepseek-flash"):
             with self.subTest(model=model), patch.dict(
                 os.environ,
                 {"SUMMARY_MODEL": model},
@@ -543,7 +543,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(
             captured["authorization"], "Bearer user-deepseek-key"
         )
-        self.assertEqual(captured["payload"]["model"], "v4.1Flash1017")
+        self.assertEqual(captured["payload"]["model"], "deepseek-flash")
         self.assertEqual(
             captured["payload"]["response_format"], {"type": "json_object"}
         )
