@@ -492,12 +492,12 @@ class GeminiSummarizerTests(unittest.TestCase):
     def test_deepseek_provider_is_inferred_from_deepseek_model(self):
         with patch.dict(
             os.environ,
-            {"SUMMARY_MODEL": "deepseek-v4-pro"},
+            {"SUMMARY_MODEL": "deepseek-flash"},
             clear=True,
         ):
             config = summary.SummaryConfig.from_env()
         self.assertEqual(config.provider, "deepseek")
-        self.assertEqual(config.model, "deepseek-v4-pro")
+        self.assertEqual(config.model, "deepseek-flash")
 
     def test_safe_error_message_redacts_siliconflow_key(self):
         secret = "sk-test-silicon-key-that-must-not-leak"
@@ -632,7 +632,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(
             captured["authorization"], "Bearer user-deepseek-key"
         )
-        self.assertEqual(captured["payload"]["model"], "deepseek-v4-pro")
+        self.assertEqual(captured["payload"]["model"], "deepseek-flash")
         self.assertEqual(
             captured["payload"]["response_format"], {"type": "json_object"}
         )

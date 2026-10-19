@@ -153,7 +153,7 @@ GUI 会继续按设置页中的提供商顺序回退。
 
 显式使用 DeepSeek：
 
-    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider deepseek --model deepseek-v4-pro
+    uv run python -m scripts.summarize_memory "results/export/DeepSeek_超长对话.md" --provider deepseek --model deepseek-flash
 
 ## 总结流水线
 
