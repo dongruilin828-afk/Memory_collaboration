@@ -567,6 +567,10 @@ class SummaryRequestTimeoutError(GeminiSummaryError):
     """单次模型请求超过明确时间上限。"""
 
 
+class SummaryOutputTruncatedError(GeminiSummaryError):
+    """输出预算耗尽；不能将截断的结构化结果视作完成。"""
+
+
 @dataclass(frozen=True)
 class SummaryConfig:
     provider: str = DEFAULT_PROVIDER
@@ -956,6 +960,8 @@ class SiliconFlowGateway:
         self._sleep = sleep
         self._api_base = api_base.rstrip("/")
         self._provider_name = provider_name
+        self._doubao_output_limit = 0
+        self._doubao_output_events = []
 
     def generate_json(
         self,
@@ -974,6 +980,7 @@ class SiliconFlowGateway:
             if asset.local_path is not None
             and str(asset.mime_type or "").startswith("image/")
         ]
+        visual_instruction = getattr(self, '_doubao_visual_instruction', '')
         user_content: str | list[dict[str, Any]] = schema_prompt
         if supported_assets:
             content_parts: list[dict[str, Any]] = [
@@ -983,29 +990,30 @@ class SiliconFlowGateway:
                 encoded = base64.b64encode(
                     asset.local_path.read_bytes()
                 ).decode("ascii")
-                content_parts.extend([
-                    {
+                if not visual_instruction:
+                    content_parts.append({
                         "type": "text",
                         "text": f"媒体 {asset.media_id}（{asset.label}）"
-                    },
+                    })
+                content_parts.append(
                     {
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:{asset.mime_type};base64,{encoded}"
                         }
                     }
-                ])
+                )
             user_content = content_parts
 
         request_model = (
-            SILICONFLOW_VISION_MODEL
+            getattr(self, '_doubao_visual_model', SILICONFLOW_VISION_MODEL)
             if self.config.provider == "siliconflow" and supported_assets
             else self.config.model
         )
         payload: dict[str, Any] = {
             "model": request_model,
             "messages": [
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
+                {"role": "system", "content": visual_instruction or SYSTEM_INSTRUCTION},
                 {"role": "user", "content": user_content}
             ],
             "temperature": 0.1,
@@ -1039,6 +1047,9 @@ class SiliconFlowGateway:
             payload["thinking_budget"] = min(
                 4096, max(128, self.config.max_output_tokens // 3)
             )
+        if supported_assets and getattr(self, '_doubao_visual_model', None):
+            payload['enable_thinking'] = False
+            payload.pop('thinking_budget', None)
         last_error: BaseException | None = None
         for attempt in range(1, self.config.retries + 1):
             try:
@@ -1058,8 +1069,26 @@ class SiliconFlowGateway:
                     response_data = json.loads(
                         response.read().decode("utf-8")
                     )
-                content = response_data["choices"][0]["message"]["content"]
+                choice = response_data["choices"][0]
+                if self._doubao_output_limit and choice.get("finish_reason") == "length":
+                    old_limit = payload["max_tokens"]
+                    new_limit = min(self._doubao_output_limit, old_limit * 2)
+                    if attempt < self.config.retries and new_limit > old_limit:
+                        self._doubao_output_events.append({
+                            "finish_reason": "length", "old_limit": old_limit,
+                            "retry_limit": new_limit, "usage": response_data.get("usage"),
+                        })
+                        self._doubao_output_progress(
+                            f"DeepSeek JSON响应被输出上限截断，使用{new_limit} token预算重试一次。")
+                        payload["max_tokens"] = new_limit
+                        continue
+                    raise SummaryOutputTruncatedError(
+                        f"DeepSeek JSON响应达到输出上限{old_limit} token且仍被截断；"
+                        "已停止有界重试，保留当前进度。")
+                content = choice["message"]["content"]
                 return _parse_json_object(content)
+            except SummaryOutputTruncatedError:
+                raise
             except HTTPError as error:
                 last_error = _OpenAICompatibleHTTPError(
                     self._provider_name, error.code
@@ -1548,12 +1577,18 @@ def _prepare_media_asset(
         or "application/octet-stream"
     )
     suffix = local_path.suffix.lower()
-    if source_platform in {"doubao", "豆包"} and (suffix == ".pdf" or asset.kind == "video"):
+    if source_platform in {"doubao", "豆包"} and (suffix in {".pdf", ".pptx", ".csv"} or asset.kind == "video"):
         try:
             if asset.kind == "video":
                 if local_path.stat().st_size > config.max_media_bytes:
                     raise ValueError("视频超过内联分析大小限制")
                 asset.status = "ready"
+            elif suffix == '.pptx':
+                from scripts.doubao_media import prepare_pptx
+                prepare_pptx(asset, config)
+            elif suffix == '.csv':
+                from scripts.doubao_media import prepare_csv
+                prepare_csv(asset, config)
             else:
                 from scripts.doubao_media import prepare_pdf
                 prepare_pdf(asset, config)
@@ -1749,7 +1784,8 @@ def describe_media(
     assets: list[MediaAsset],
     gateway: SummaryGateway,
     config: SummaryConfig,
-    progress: Callable[[str], None]
+    progress: Callable[[str], None],
+    *, retry_failed: bool = False,
 ) -> list[str]:
     """先将可用媒体批量转换成可并入对话的文字说明。"""
     warnings: list[str] = []
@@ -1771,6 +1807,8 @@ def describe_media(
         )
         if current_batch and (
             len(current_batch) >= config.media_batch_size
+            or asset.extracted_text.startswith('[PPTX 共')
+            or any(item.extracted_text.startswith('[PPTX 共') for item in current_batch)
             or current_bytes + asset_size > config.max_media_bytes
             or (
                 asset.extracted_text
@@ -1828,7 +1866,7 @@ def describe_media(
                 MEDIA_SCHEMA,
                 # 已安全抽取的文本直接放在提示中，不再重复上传文件字节；图片和
                 # PDF 保持原有二进制媒体路径。
-                media_assets=[asset for asset in batch if not asset.extracted_text]
+                media_assets=[asset for asset in batch if not asset.extracted_text or asset.extracted_text.startswith('[PPTX 共')]
             )
             descriptions = {
                 item.get("media_id"): item
@@ -1908,7 +1946,7 @@ def describe_media(
                     retry = gateway.generate_json(
                         retry_prompt,
                         MEDIA_SCHEMA,
-                        media_assets=[] if asset.extracted_text else [asset],
+                        media_assets=[] if asset.extracted_text and not asset.extracted_text.startswith('[PPTX 共') else [asset],
                     )
                 except GeminiSummaryError:
                     continue
@@ -1933,6 +1971,12 @@ def describe_media(
                         owner = "AI 回答中包含文档" if asset.source_role == "assistant" else "用户上传了文档"
                         asset.description = f"{owner}“{asset.label}”，主要内容为：{description}"
         except GeminiSummaryError as error:
+            if retry_failed:
+                progress(f'第 {batch_index} 批媒体暂未识别，逐项重试一次：{safe_error_message(error)}')
+                for asset in batch:
+                    asset.status = 'ready'
+                    warnings.extend(describe_media([asset], gateway, config, progress))
+                continue
             warning = (
                 f"第 {batch_index} 批媒体识别失败："
                 f"{safe_error_message(error)}"
@@ -2124,7 +2168,7 @@ def _summary_fingerprint(
     payload = json.dumps(
         {
             "cache_schema_version": (
-                19 if source_platform in {"doubao", "豆包"}
+                37 if source_platform in {"doubao", "豆包"}
                 else 17 if str(source_platform or "").lower() == "chatgpt"
                 else 15 if source_platform == "deepseek" else 14
             ),
@@ -2144,6 +2188,7 @@ def _summary_implementation_fingerprint() -> str:
                    + Path(__file__).with_name("doubao_media.py").read_bytes()
                    + Path(__file__).with_name("summary_grounding.py").read_bytes())
         payload += Path(__file__).with_name("chatgpt_history.py").read_bytes()
+        payload += Path(__file__).with_name('doubao_summary.py').read_bytes()
     except OSError:
         payload = (
             f"schema={SCHEMA_VERSION};cache={SUMMARY_RESULT_CACHE_VERSION};"
@@ -2414,6 +2459,18 @@ def summarize_conversation(
     )
     is_doubao = source_platform in {"doubao", "豆包"}
     if is_doubao:
+        from scripts.doubao_summary import prepare_text_gateway
+        gateway = prepare_text_gateway(gateway, progress)
+        from scripts.doubao_media import NATIVE_CHART_READER_VERSION
+        native_chart_ids = {asset.media_id for asset in assets
+                            if asset.kind == 'image' and asset.label == '生成图表'}
+        stale_chart_ids = (native_chart_ids if cache.get('doubao_chart_reader_version') != NATIVE_CHART_READER_VERSION else set())
+        cached_media_analysis_failed |= bool(stale_chart_ids and cache['media'])
+        fresh_csv = {asset.media_id: asset.description for asset in assets
+                     if asset.kind == 'document' and asset.local_path and asset.local_path.suffix.lower() == '.csv'}
+        cached_media_analysis_failed |= any(item.get('media_id') in fresh_csv
+            and item.get('description') != fresh_csv[item['media_id']]
+            for item in cache['media'] if isinstance(item, dict))
         # 只复用成功说明；失败或 unclear 必须重新分析，并重做依赖旧说明的文字分块。
         retry_ids = {asset.media_id for asset in assets if asset.status == "ready"}
         cached_media_analysis_failed |= any(
@@ -2421,12 +2478,15 @@ def summarize_conversation(
             for item in cache["media"] if isinstance(item, dict)
         )
         _apply_cached_media(assets, [item for item in cache["media"]
-                                   if isinstance(item, dict) and item.get("status") == "described"])
+                                   if isinstance(item, dict) and item.get("status") == "described"
+                                   and item.get('media_id') not in stale_chart_ids
+                                   and item.get('media_id') not in fresh_csv])
     else:
         _apply_cached_media(assets, cache["media"])
     if cached_media_analysis_failed:
         cache["chunks"] = {}
-        progress("上次媒体识别因网络失败，本次将重新识别并刷新分块缓存。")
+        progress("部分媒体需要重新核对，本次将刷新说明与分块缓存。" if is_doubao
+                 else "上次媒体识别因网络失败，本次将重新识别并刷新分块缓存。")
     if any(asset.status == "ready" for asset in assets):
         analysis_gateway = gateway
         if is_doubao:
@@ -2436,10 +2496,13 @@ def summarize_conversation(
             assets,
             gateway=analysis_gateway,
             config=config,
-            progress=progress
+            progress=progress,
+            retry_failed=is_doubao,
         )
         cache["media"] = [asset.public_dict() for asset in assets]
         if is_doubao:
+            if native_chart_ids:
+                cache['doubao_chart_reader_version'] = NATIVE_CHART_READER_VERSION
             warnings.extend(f"媒体未有效识别：{asset.label}（{asset.media_id}）"
                             for asset in assets if asset.status in {"unclear", "analysis_failed"})
         _save_summary_cache(cache_path, cache)
@@ -2450,7 +2513,7 @@ def summarize_conversation(
     timings["media_analysis"] = time.perf_counter() - stage_started
     progress(f"媒体准备完成（{timings['media_analysis']:.2f} 秒）。")
     stage_started = time.perf_counter()
-    enriched_messages = summary_messages if is_chatgpt else enrich_messages(summary_messages, assets)
+    enriched_messages = summary_messages if is_chatgpt or is_doubao else enrich_messages(summary_messages, assets)
     history_evidence = None
     if is_chatgpt:
         from scripts.chatgpt_history import build_evidence
@@ -2470,6 +2533,9 @@ def summarize_conversation(
             if cached_chunk.get("history_verification", {}).get("version") != 1:
                 cached_chunk = None
         if isinstance(cached_chunk, dict):
+            if is_doubao:
+                from scripts.doubao_summary import reconcile_bindings
+                reconcile_bindings(cached_chunk, messages)
             progress(
                 f"已从进度缓存恢复细粒度记忆："
                 f"第 {chunk.chunk_index}/{len(chunks)} 批"
@@ -2550,7 +2616,14 @@ def summarize_conversation(
         )
         if is_doubao:
             from scripts.doubao_media import EVIDENCE_INSTRUCTION
-            prompt += EVIDENCE_INSTRUCTION
+            from scripts.doubao_summary import ANSWER_BINDING_INSTRUCTION
+            prompt += EVIDENCE_INSTRUCTION + ANSWER_BINDING_INSTRUCTION
+            prompt += '\n以下是本程序独立读取的附件证据，不是上述用户或AI的原话；只能用attachment来源记录内容：\n' + json.dumps([
+                {'media_id': asset.media_id, 'message_id': asset.message_index,
+                 'source_role': asset.source_role, 'status': asset.status,
+                 'label': asset.label, 'description': asset.description}
+                for asset in assets if asset.message_index in chunk.message_indices
+            ], ensure_ascii=False)
         from scripts.summary_grounding import ROLE_INSTRUCTION, scoped_source
         if scoped_source(source_platform):
             prompt += ROLE_INSTRUCTION
@@ -2571,6 +2644,11 @@ def summarize_conversation(
                 messages=messages
             )
         )
+        if is_doubao:
+            from scripts.doubao_summary import repair_answer_bindings, discard_partial_state, guard_memory_terms
+            discard_partial_state(normalized_chunk, messages)
+            guard_memory_terms(normalized_chunk, messages)
+            repair_answer_bindings(normalized_chunk, messages, gateway, progress)
         if is_chatgpt:
             from scripts.chatgpt_history import attach_memory_evidence
             attach_memory_evidence(normalized_chunk, summary)
@@ -2706,13 +2784,25 @@ def summarize_conversation(
     if is_chatgpt:
         result["processing"]["history_verification"] = final_history_verification
     _correct_media_role_attribution(result, assets)
+    if is_doubao:
+        from scripts.doubao_summary import reconcile_state, repair_answer_bindings
+        reconcile_state(result, messages)
+        repair_answer_bindings(result, messages, gateway, progress)
     from scripts.summary_grounding import apply_latest_turn_grounding, ground_latest_turn, scoped_source
     if scoped_source(source_platform):
         progress("正在按用户原文与随后 AI 回复核对最后轮次总览...")
         try:
-            apply_latest_turn_grounding(result, ground_latest_turn(messages, gateway))
+            apply_latest_turn_grounding(result, ground_latest_turn(
+                messages, gateway, source_platform=source_platform, progress=progress))
         except ValueError as error:
             raise GeminiSummaryError(str(error)) from error
+    if is_doubao:
+        from scripts.doubao_summary import review_summary, guard_image_references
+        review_summary(result, messages, gateway, progress)
+        guard_image_references(result, messages)
+        output_events = getattr(gateway, '_doubao_output_events', None)
+        if isinstance(output_events, list) and output_events:
+            result['processing']['doubao_output_recovery'] = output_events
     cacheable_media = all(
         asset.status not in {"unclear", "analysis_failed"}
         for asset in assets
@@ -2769,6 +2859,18 @@ def renormalize_result(
     source_platform: str | None = None,
 ) -> dict[str, Any]:
     """对已生成 JSON 应用无需模型参与的展示与聚合修复。"""
+    if (source_platform in {'doubao', '豆包'} and messages is not None
+            and result.get('processing', {}).get('doubao_source_review', {}).get('version') == 2
+            and result.get('conversation', {}).get('source_fingerprint') == messages_fingerprint(messages)):
+        # Preserve source decisions that passed the final original-speech review.
+        from scripts.doubao_summary import (reconcile_topics, reconcile_state, guard_image_references,
+                                           repair_topic_roles, merge_continuation_topics)
+        repair_topic_roles(result, messages)
+        merge_continuation_topics(result, messages)
+        result['topics'] = reconcile_topics(result.get('topics', []), [], messages)
+        reconcile_state(result, messages)
+        guard_image_references(result, messages)
+        return _attach_message_ranges(result)
     if (
         str(source_platform or "").lower() == "chatgpt"
         and messages is not None
@@ -2852,10 +2954,10 @@ def renormalize_result(
         if isinstance(topic, dict)
     ]
     topics = _normalize_topic_assignments(
-        topics, memory_items, message_count
+        topics, memory_items, message_count, messages=messages, source_platform=source_platform,
     )
     result["topics"] = _merge_language_learning_topics(
-        topics, memory_items, messages=messages
+        topics, memory_items, messages=messages, source_platform=source_platform,
     )
     result["topics"] = _merge_dorm_electricity_topics(
         result["topics"], memory_items
@@ -2870,7 +2972,7 @@ def renormalize_result(
             result["topics"], memory_items, messages
         )
     result["topics"] = _qualify_unavailable_media_topics(
-        result["topics"], result.get("media", [])
+        result["topics"], result.get("media", []), messages=messages, source_platform=source_platform,
     )
     programming_records = [
         record for record in typed.get("programming", [])
@@ -2894,10 +2996,16 @@ def renormalize_result(
         )
         topic["summary"] = _clean_generated_punctuation(topic["summary"])
     _correct_media_role_attribution(result, result.get("media", []))
+    if source_platform in {'doubao', '豆包'}:
+        from scripts.doubao_summary import reconcile_state
+        reconcile_state(result, messages)
     if messages is not None and result.get("latest_turn_grounding"):
         from scripts.summary_grounding import apply_latest_turn_grounding, scoped_source
         if (scoped_source(source_platform)
                 and result.get("conversation", {}).get("source_fingerprint") == messages_fingerprint(messages)):
+            if source_platform in {'doubao', '豆包'}:
+                from scripts.summary_grounding import repair_extract_display
+                repair_extract_display(result['latest_turn_grounding'])
             apply_latest_turn_grounding(result, result["latest_turn_grounding"])
     return result
 
@@ -3240,22 +3348,27 @@ def _normalize_final_summary(
     )
     _validate_calculation_records(calculations, messages)
 
-    topics = _ensure_topic_coverage(
-        topics=topics,
-        chunk_summaries=chunk_summaries,
-        message_count=message_count,
-        short_conversation=short_conversation
-    )
-    topics = _normalize_topic_assignments(topics, all_memory, message_count)
+    if source_platform in {'doubao', '豆包'}:
+        from scripts.doubao_summary import reconcile_topics
+        topics = reconcile_topics(topics, all_memory, messages) if not short_conversation else []
+    else:
+        topics = _ensure_topic_coverage(
+            topics=topics,
+            chunk_summaries=chunk_summaries,
+            message_count=message_count,
+            short_conversation=short_conversation
+        )
+    topics = _normalize_topic_assignments(topics, all_memory, message_count,
+                                         messages=messages, source_platform=source_platform)
     topics = _merge_language_learning_topics(
-        topics, all_memory, messages=messages
+        topics, all_memory, messages=messages, source_platform=source_platform,
     )
     topics = _merge_dorm_electricity_topics(topics, all_memory)
     topics = _merge_programming_task_topics(
         topics, all_memory, programming_mode
     )
     topics = _expand_topic_sources(topics, all_memory, messages)
-    topics = _qualify_unavailable_media_topics(topics, assets)
+    topics = _qualify_unavailable_media_topics(topics, assets, messages=messages, source_platform=source_platform)
     overall_summary = _ensure_chinese_summary(
         str(summary.get("overall_summary") or "").strip(),
         chunk_summaries
@@ -3529,7 +3642,8 @@ def _ensure_topic_coverage(
 def _merge_language_learning_topics(
     topics: list[dict[str, Any]],
     memory_items: list[dict[str, Any]],
-    messages: list[dict[str, str]] | None = None
+    messages: list[dict[str, str]] | None = None,
+    *, source_platform: str | None = None,
 ) -> list[dict[str, Any]]:
     memory_by_id = {
         str(item.get("memory_id")): item
@@ -3553,6 +3667,10 @@ def _merge_language_learning_topics(
             )
         )
     }
+    if source_platform in {'doubao', '豆包'}:
+        from scripts.doubao_summary import is_language_memory
+        language_ids = {str(item['memory_id']) for item in memory_items
+                        if item.get('memory_id') and is_language_memory(item, messages or [])}
     participating = [
         topic for topic in topics
         if set(map(str, topic.get("memory_ids", []))) & language_ids
@@ -3600,6 +3718,9 @@ def _merge_language_learning_topics(
             continue
         remainder = dict(topic)
         remainder["memory_ids"] = remaining_ids
+        if source_platform in {'doubao', '豆包'}:
+            from scripts.doubao_summary import topic_summary
+            remainder['summary'] = topic_summary([memory_by_id[mid] for mid in remaining_ids])
         remainder_messages = sorted({
             message_id
             for memory_id in remaining_ids
@@ -3831,7 +3952,8 @@ def _programming_summary_from_memories(
 def _normalize_topic_assignments(
     topics: list[dict[str, Any]],
     memory_items: list[dict[str, Any]],
-    message_count: int
+    message_count: int,
+    *, messages=None, source_platform=None,
 ) -> list[dict[str, Any]]:
     """移除主题中被误吸收的记忆，并为它们恢复独立语义主题。"""
     memory_by_id = {
@@ -3842,6 +3964,10 @@ def _normalize_topic_assignments(
         memory_id for memory_id, item in memory_by_id.items()
         if _is_vocabulary_memory(item, language_heavy=False)
     }
+    if source_platform in {'doubao', '豆包'}:
+        from scripts.doubao_summary import is_language_memory
+        language_ids = {memory_id for memory_id, item in memory_by_id.items()
+                        if is_language_memory(item, messages or [])}
     non_language_covered = {
         str(memory_id)
         for topic in topics
@@ -3862,6 +3988,11 @@ def _normalize_topic_assignments(
             r"英语|英文|词汇|翻译|语法|表达学习",
             str(topic.get("title") or "")
         ))
+        if source_platform in {'doubao', '豆包'} and is_language_topic and not set(ids).intersection(language_ids):
+            from scripts.doubao_summary import is_visual_request
+            if any(messages[i-1].get('role') == 'User' and is_visual_request(str(messages[i-1].get('content') or ''))
+                   for i in topic.get('source_message_ids', []) if type(i) is int and 1 <= i <= len(messages or [])):
+                is_language_topic = False
         if is_language_topic:
             kept = [value for value in ids if value in language_ids]
             reassigned.extend(
@@ -3923,6 +4054,9 @@ def _normalize_topic_assignments(
             existing["message_range"] = _message_range(
                 existing["source_message_ids"]
             )
+            if source_platform in {'doubao', '豆包'}:
+                from scripts.doubao_summary import topic_summary
+                existing['summary'] = topic_summary([memory_by_id[mid] for mid in existing['memory_ids']])
             continue
         normalized.append({
             "topic_id": "",
@@ -3982,8 +4116,11 @@ def _expand_topic_sources(
 
 
 def _qualify_unavailable_media_topics(
-    topics: list[dict[str, Any]], assets: list[Any]
+    topics: list[dict[str, Any]], assets: list[Any], *, messages=None, source_platform=None,
 ) -> list[dict[str, Any]]:
+    if source_platform in {'doubao', '豆包'}:
+        from scripts.doubao_summary import qualify_media_topics
+        return qualify_media_topics(topics, assets, messages or [])
     unavailable: dict[int, tuple[str, Any]] = {}
     for asset in assets:
         if isinstance(asset, MediaAsset):
@@ -5937,6 +6074,19 @@ def _demote_topic_detail_headings(rendered: list[str]) -> list[str]:
     return demoted
 
 
+def _memory_evidence_lines(item):
+    evidence = item.get('answer_binding', {}).get('evidence')
+    if evidence:
+        lines = []
+        for part in evidence:
+            quote = part['quote']
+            fence = '`' * max(3, 1 + max((len(run) for run in re.findall(r'`+', quote)), default=0))
+            lines.extend([f"  - 原文证据（AI 消息 {part['message_id']}）：", '', f'    {fence}text',
+                          *('    ' + line for line in quote.splitlines()), f'    {fence}', ''])
+        return lines
+    return [f"  - 原文证据：{item['evidence_quote']}"] if item.get('evidence_quote') else []
+
+
 def _render_selected_topic_details(
     lines: list[str],
     result: dict[str, Any],
@@ -6012,8 +6162,7 @@ def _render_selected_topic_details(
                     f"{item.get('content') or '（无）'} "
                     f"`[来源：{source}｜状态：{status}｜消息：{item_messages}]`"
                 )
-                if item.get("evidence_quote"):
-                    lines.append(f"  - 原文证据：{item['evidence_quote']}")
+                lines.extend(_memory_evidence_lines(item))
             lines.append("")
 
         rendered_structured: list[str] = []
@@ -6121,6 +6270,8 @@ def render_summary_markdown(
                 f"- 来源消息：{message_ids}",
                 ""
             ])
+            if topic.get('media_access_note'):
+                lines.extend([topic['media_access_note'], ''])
 
     _render_selected_topic_details(
         lines,
@@ -6152,6 +6303,7 @@ def render_summary_markdown(
     if "source_text_issues" in expanded:
         _render_source_text_issues(lines, typed.get("source_text_issues", []))
 
+    index_start = len(lines)
     lines.extend(["## 细粒度记忆索引", ""])
     memories = result.get("memory_items", [])
     if not memories:
@@ -6168,8 +6320,7 @@ def render_summary_markdown(
                 f"{item['content']} "
                 f"`[来源：{source}｜状态：{status}｜消息：{message_ids}]`"
             )
-            if item.get("evidence_quote"):
-                lines.append(f"  - 原文证据：{item['evidence_quote']}")
+            lines.extend(_memory_evidence_lines(item))
         lines.append("")
 
     lines.extend(["## 用户原始查询索引", ""])
@@ -6185,6 +6336,9 @@ def render_summary_markdown(
                 ""
             ])
 
+    if result.get('processing', {}).get('doubao_state_verification'):
+        # Use the boundaries we generated; quoted Markdown headings are content.
+        del lines[index_start:]
     media = result.get("media", [])
     if "media" in expanded:
         lines.extend(["## 媒体与附件说明（开发检查）", ""])
@@ -6623,6 +6777,12 @@ def _render_detail_memory(
     for label, topic, content in details:
         lines.append(f"- **{label}｜{topic}**：{content}")
     lines.append("")
+    repaired = [item for item in result.get('memory_items', []) if item.get('answer_binding', {}).get('evidence')]
+    if repaired:
+        lines.extend(['### 回答来源复核依据', ''])
+        for item in repaired:
+            lines.extend([f"- {item.get('memory_id', '')}：{item['content']}（上一 AI 回答；消息 {_message_range(item['message_ids'])}）", ''])
+            lines.extend(_memory_evidence_lines(item))
 
 
 def _append_claims(

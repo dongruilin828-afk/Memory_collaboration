@@ -15,6 +15,7 @@ SOURCES = (
     "tests/tests.txt", "tests/manual_doubao_review.py", "gui/app.py", "gui/service.py",
     "scripts/providers/doubao.py", "scripts/gemini_summarizer.py",
     "scripts/simple_summarizer.py", "scripts/doubao_media.py", "scripts/summary_grounding.py",
+    "scripts/doubao_artifacts.py", "scripts/doubao_summary.py",
 )
 
 

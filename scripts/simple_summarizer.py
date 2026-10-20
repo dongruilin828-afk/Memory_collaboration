@@ -421,6 +421,11 @@ def validate_simple_overview(
                 break
     estimate_numbers: set[str] = set()
     for topic in projection.get("topics", []):
+        if source_platform in {'doubao', '豆包'} and projection.get('latest_turn_grounding'):
+            latest = projection['latest_turn_grounding']
+            latest_ids = {latest.get('user_message_id'), *latest.get('assistant_message_ids', [])}
+            if not latest_ids.intersection(topic.get('source_message_ids', [])):
+                continue
         summary = str(topic.get("summary") or "")
         if re.search(r"(?:预测|估算|推算)", summary):
             if source_platform in {"doubao", "豆包"}:
@@ -501,6 +506,8 @@ def generate_simple_overview(
     max_chars = simple_char_limit(len(messages))
     from .summary_grounding import render_grounded_overview, scoped_source
     if scoped_source(source_platform) and result.get("latest_turn_grounding"):
+        if source_platform in {'doubao', '豆包'}:
+            projection['latest_turn_grounding'] = result['latest_turn_grounding']
         grounded = render_grounded_overview(result["latest_turn_grounding"], max_chars)
         errors = validate_simple_overview(grounded, projection, max_chars, source_platform=source_platform)
         if not errors:

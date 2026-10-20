@@ -9,12 +9,40 @@ from PIL import Image
 from pypdf import PdfWriter
 
 from scripts import gemini_summarizer as summary
-from scripts.doubao_media import MediaGateway, pdf_images, prepare_pdf
+from scripts.doubao_media import MediaGateway, pdf_images, prepare_pdf, _annotate_watermarks
 from scripts.providers import doubao
 from tests.test_gemini_summarizer import FakeGateway
 
 
 class DoubaoMediaTests(unittest.TestCase):
+    def test_similar_images_are_supplied_one_at_a_time_with_their_own_ids(self):
+        images = [summary.MediaAsset(f"M{i:03}", i, "image", "相似截图", f"{i}.png") for i in (1, 2)]
+        vision = Mock()
+        def identify(prompt, schema, media_assets=None):
+            self.assertEqual(len(media_assets), 1)
+            asset = media_assets[0]
+            self.assertIn(f"本次只核对附件{asset.media_id}", prompt)
+            return {"items": [{"media_id": asset.media_id, "description": "独立内容" + asset.media_id,
+                               "status": "described", "visible_watermarks": []}]}
+        vision.generate_json.side_effect = identify
+        result = MediaGateway(Mock(), vision, summary.SummaryConfig(provider="deepseek")).generate_json(
+            "核对截图", summary.MEDIA_SCHEMA, images)
+        self.assertEqual(vision.generate_json.call_count, 2)
+        self.assertEqual([item['description'] for item in result['items']], ['独立内容M001', '独立内容M002'])
+
+    def test_origin_and_absence_metadata_are_not_visible_labels(self):
+        for raw, expected in [
+            (["AI生成的文本内容，无可见水印或品牌标识"], []),
+            (["AI生成的文本内容", "未见明显水印"], []),
+            (["豆包AI生成", "无可见水印或品牌标识"], ["豆包AI生成"]),
+            (["AI生成", "‘AI生成的文本内容’"], ["AI生成", "‘AI生成的文本内容’"]),
+        ]:
+            with self.subTest(raw=raw):
+                item = {"description": "面向对象编程概念图", "visible_watermarks": raw}
+                _annotate_watermarks(item)
+                self.assertEqual(item["visible_watermarks"], expected)
+                self.assertEqual("【可见标注：" in item["description"], bool(expected))
+
     def test_all_video_views_survive_parent_compression(self):
         views = [summary.MediaAsset("old", 1, "image", f"时间{i}秒", f"frame{i}.png") for i in range(3)]
         vision = Mock()
@@ -163,9 +191,13 @@ class DoubaoMediaTests(unittest.TestCase):
             vision = Mock()
             vision.generate_json.return_value = {"items": [{"media_id": "M002", "description": "第二张图可读", "status": "described", "visible_watermarks": []}]}
             gateway = FakeGateway()
-            result = summary.summarize_conversation(messages, directory, config=config, gateway=gateway,
-                         media_gateway=vision, source_platform="doubao", output_json=output,
-                         output_markdown=directory / "summary.md", progress=lambda _: None)
+            # This test owns media/cache invalidation; final semantic review has
+            # separate source-bound tests in test_doubao_full_revision.
+            with patch('scripts.doubao_summary.review_summary'), patch('scripts.gemini_summarizer.enrich_messages',
+                    side_effect=AssertionError('独立附件说明不可插入豆包原话')):
+                result = summary.summarize_conversation(messages, directory, config=config, gateway=gateway,
+                             media_gateway=vision, source_platform="doubao", output_json=output,
+                             output_markdown=directory / "summary.md", progress=lambda _: None)
             self.assertEqual([a["status"] for a in result["media"]], ["described", "described"])
             self.assertEqual(vision.generate_json.call_count, 1)
             self.assertTrue(any(schema is summary.CHUNK_SCHEMA and "图片实际效果" in prompt for schema, prompt in gateway.prompts))

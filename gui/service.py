@@ -5677,8 +5677,12 @@ async def fetch_chat_pipeline(
                             '[class*="block-video-"] img[class*="cover-"]'
                         )
                     }
+                    visible_generated_keys = {doubao.generated_image_key(source) for source in image_candidates}
+                    originals = [source for source in doubao.original_generated_image_sources(
+                        _decode_doubao_embedded_text(html)) if doubao.generated_image_key(source) in visible_generated_keys]
+                    doubao_image_aliases = list(image_candidates)
                     image_candidates = doubao.prefer_original_generated_images(
-                        [source for source in image_candidates if source not in covers and source not in decorations],
+                        [source for source in image_candidates + originals if source not in covers and source not in decorations],
                         preferred_sources=[
                             image.get("src") or image.get("data-src")
                             for image in soup_pre.find_all("img")
@@ -5700,6 +5704,16 @@ async def fetch_chat_pipeline(
                     image_authentication_required,
                     failure_collector=image_failures,
                 )
+                if current_host in DOUBAO_HOSTS:
+                    doubao.alias_generated_images(image_map, doubao_image_aliases)
+                    fallback_sources = [source for source in doubao_image_aliases
+                                        if doubao.generated_image_key(source) and source not in image_map]
+                    if fallback_sources:
+                        image_map.update(await _download_image_candidates(
+                            page, list(dict.fromkeys(fallback_sources)), resolved_images_dir,
+                            image_reference_prefix, image_download_concurrency,
+                            image_warnings, image_authentication_required, failure_collector=image_failures))
+                        doubao.alias_generated_images(image_map, image_candidates)
                 if (
                     (
                         image_authentication_required
@@ -6239,6 +6253,8 @@ async def fetch_chat_pipeline(
                     doubao_online_resources = _extract_doubao_ai_document_resources(
                         html, url
                     )
+                    from scripts.doubao_artifacts import slide_entries, save_slides
+                    doubao_slides = slide_entries(_decode_doubao_embedded_text(html),url)
                     if (
                         doubao_public_thread
                         and not doubao_private_retry
@@ -6246,6 +6262,7 @@ async def fetch_chat_pipeline(
                         and (
                             doubao_online_resources
                             or _extract_doubao_ai_document_titles(html, url)
+                            or doubao_slides
                         )
                     ):
                         # 分享正文继续使用已经冻结的匿名快照；在线文档导出
@@ -6261,7 +6278,10 @@ async def fetch_chat_pipeline(
                             logger=logger, profile_root=browser_profile_root,
                         )
                         page = await context.new_page()
-                        document_entry = next(iter(doubao_online_resources.values()), url)
+                        slide_conversation = next((e['conversation_id'] for e in doubao_slides
+                                                   if re.fullmatch(r'\d+',e['conversation_id'])), '')
+                        document_entry = next(iter(doubao_online_resources.values()),
+                            f'https://www.doubao.com/chat/{slide_conversation}' if slide_conversation else url)
                         await goto_with_retry_gui(page, document_entry, logger=logger)
                         try:
                             await page.get_by_role(
@@ -6306,6 +6326,19 @@ async def fetch_chat_pipeline(
                         )
                     )
                     document_map.update(ai_document_map)
+                    slide_conversation = next((entry['conversation_id'] for entry in doubao_slides
+                        if re.fullmatch(r'\d+',entry['conversation_id'])), '')
+                    if slide_conversation and urlparse(page.url).path != f'/chat/{slide_conversation}':
+                        # Sharing cards can open another window; the source conversation
+                        # uses the same account's inline editor and native download.
+                        try:
+                            await goto_with_retry_gui(page, f'https://www.doubao.com/chat/{slide_conversation}', logger=logger)
+                            await page.locator('[data-message-id]').first.wait_for(state='attached',timeout=20000)
+                        except Exception:
+                            fetch_warnings.append('豆包PPT原始会话暂未加载；继续保留正文并标明未下载文件。')
+                    document_map.update(await save_slides(
+                        page,doubao_slides,resolved_documents_dir,document_reference_prefix,
+                        fetch_warnings,logger,reveal=_reveal_doubao_document_message))
 
                     # 豆包混合对话中，用户附件卡片可能先渲染文件名，原始
                     # 对象 uri 则在 AI 在线文档读取期间才写入页面状态。

@@ -63,7 +63,7 @@ class DoubaoAttachmentFilenameTests(unittest.TestCase):
         thumb2 = "https://example.com/rc_gen_image/two.jpeg~tplv-x-downsize_watermark_1.png"
         self.assertEqual(doubao.prefer_original_generated_images(
             [full1, thumb1, thumb2], preferred_sources=[thumb1, thumb2]
-        ), [thumb1, thumb2])
+        ), [full1, thumb2])
         self.assertEqual(doubao.prefer_original_generated_images([full1, thumb1, thumb2]), [full1, thumb2])
 
     def test_hidden_fifth_file_is_bound_to_its_original_message(self):

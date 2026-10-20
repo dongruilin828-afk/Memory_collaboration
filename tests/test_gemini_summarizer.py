@@ -1847,9 +1847,19 @@ class GeminiSummarizerTests(unittest.TestCase):
 
     def test_direct_doubao_collector_captures_generated_iframe_charts(self):
         png = b"\x89PNG\r\n\x1a\nchart"
+        preview_checks = [0]
 
         class Preview:
-            async def screenshot(self, type):
+            async def scroll_into_view_if_needed(self, timeout):
+                pass
+
+            async def element_handle(self):
+                return self
+
+            async def content_frame(self):
+                return None
+
+            async def screenshot(self, type, timeout):
                 return png
 
         class Previews:
@@ -1857,6 +1867,10 @@ class GeminiSummarizerTests(unittest.TestCase):
                 self._count = count
 
             async def count(self):
+                if self._count:
+                    preview_checks[0] += 1
+                    if preview_checks[0] == 1:
+                        return 0  # iframe mounts after the first virtual-list read
                 return self._count
 
             def nth(self, index):
@@ -1870,7 +1884,7 @@ class GeminiSummarizerTests(unittest.TestCase):
                 pass
 
             async def evaluate(self, script):
-                pass
+                return 300 if 'Math.max' in script else True
 
             def locator(self, selector):
                 return Previews(int(self.has_preview))
@@ -1910,7 +1924,13 @@ class GeminiSummarizerTests(unittest.TestCase):
             async def count(self):
                 return 0
 
+        class Mouse:
+            async def wheel(self, *args):
+                pass
+
         class Page:
+            mouse = Mouse()
+
             def locator(self, selector):
                 return EmptyShareMessages() if selector == doubao.SHARE_MESSAGE_SELECTOR else Lists()
 
@@ -1921,6 +1941,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertIn("data:image/png;base64,", html)
         self.assertIn("生成图表", html)
         self.assertNotIn("<iframe", html)
+        self.assertGreaterEqual(preview_checks[0], 3)
 
     def test_direct_doubao_synthetic_roles_do_not_depend_on_css_role_class(self):
         html = """

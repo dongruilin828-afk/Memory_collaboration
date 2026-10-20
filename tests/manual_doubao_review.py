@@ -30,6 +30,7 @@ async def main():
     mode.add_argument("--summary-only", action="store_true")
     parser.add_argument("--preferred-provider", choices=("siliconflow", "deepseek"),
                         help="仅本次总结优先使用的已配置后端")
+    parser.add_argument('--force-summary', action='store_true', help='重新生成所选总结，直接覆盖本批同名产物；不复用旧批结果')
     parser.add_argument("--profile", type=Path, default=ROOT / ".browser_user_data")
     parser.add_argument("--reuse", type=Path, help="按 URL 复用旧批次中无错误、无警告的抓取")
     parser.add_argument("--resume", action="store_true", help="继续原批次，保留成功项，重试失败及有警告项")
@@ -58,7 +59,7 @@ async def main():
     if args.cdp_port:
         original_context_launcher = service.launch_browser_context
 
-        async def diagnostic_context_launcher(playwright, **options):
+        async def diagnostic_context_launcher(playwright, _base_launcher=original_context_launcher, **options):
             original_launch = playwright.chromium.launch_persistent_context
 
             async def launch_with_port(*positional, **launch_options):
@@ -69,7 +70,7 @@ async def main():
 
             playwright.chromium.launch_persistent_context = launch_with_port
             try:
-                return await original_context_launcher(playwright, **options)
+                return await _base_launcher(playwright, **options)
             finally:
                 playwright.chromium.launch_persistent_context = original_launch
 
@@ -279,7 +280,7 @@ async def main():
             continue
         target = output / case
         expected = ("AI_memory_summary.md", "AI_memory_simple.md", "AI_memory_detailed_summary.md")
-        if all((target / name).is_file() and (target / name).stat().st_size for name in expected):
+        if not args.force_summary and all((target / name).is_file() and (target / name).stat().st_size for name in expected):
             record["summary_status"] = "existing"
             print(f"[{case}] 三种总结已存在，保留。", flush=True)
             continue
