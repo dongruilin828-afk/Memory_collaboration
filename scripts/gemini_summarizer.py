@@ -601,7 +601,10 @@ class SummaryConfig:
         ).strip()
         if not provider:
             lowered_model = model.lower()
-            if lowered_model.startswith("deepseek-"):
+            if (
+                lowered_model.startswith("deepseek-")
+                or lowered_model == DEEPSEEK_DEFAULT_MODEL.lower()
+            ):
                 provider = "deepseek"
             elif lowered_model.startswith(("qwen/", "deepseek-ai/")):
                 provider = "siliconflow"
@@ -905,11 +908,30 @@ class SummaryGateway(Protocol):
 
 
 class _OpenAICompatibleHTTPError(RuntimeError):
-    def __init__(self, provider_name: str, code: int, status: str = ""):
+    def __init__(
+        self, provider_name: str, code: int, status: str = "", detail: str = ""
+    ):
         super().__init__(f"{provider_name} HTTP {code}")
         self.status_code = code
         self.code = code
         self.status = status
+        self.detail = detail
+
+
+def _http_error_detail(error: HTTPError, api_key: str) -> str:
+    """只读取服务端 JSON 错误消息，避免把 HTML 或整份响应放入弹窗。"""
+    try:
+        body = json.loads(error.read(65_536).decode("utf-8"))
+        detail = body.get("error", body)
+        message = detail.get("message", "") if isinstance(detail, dict) else ""
+        if not isinstance(message, str):
+            return ""
+        return safe_error_message(
+            GeminiSummaryError(re.sub(r"\s+", " ", message).strip()),
+            secrets=(api_key,),
+        )[:300]
+    except (ValueError, OSError, AttributeError, TypeError):
+        return ""
 
 
 def _parse_json_object(text: str) -> dict[str, Any]:
@@ -1024,9 +1046,8 @@ class SiliconFlowGateway:
             payload.update({
                 "response_format": {"type": "json_object"},
                 "reasoning_effort": (
-                    "low"
-                    if self.config.thinking_level == "minimal"
-                    else self.config.thinking_level
+                    "low" if self.config.thinking_level in {"minimal", "low"}
+                    else "high"
                 ),
                 "thinking": {"type": "enabled"},
             })
@@ -1091,8 +1112,11 @@ class SiliconFlowGateway:
                 raise
             except HTTPError as error:
                 last_error = _OpenAICompatibleHTTPError(
-                    self._provider_name, error.code
+                    self._provider_name, error.code,
+                    detail=_http_error_detail(error, self._api_key),
                 )
+                if error.code in {400, 401, 402, 403, 404, 422}:
+                    break
             except (URLError, TimeoutError) as error:
                 last_error = error
             except Exception as error:
@@ -1115,9 +1139,19 @@ class SiliconFlowGateway:
         error_type = type(last_error).__name__ if last_error else "UnknownError"
         code = getattr(last_error, "status_code", None)
         hint = f", code={code}" if code else ""
+        detail = getattr(last_error, "detail", "")
+        guidance = {
+            400: "请求参数被拒绝，请检查模型名称、思考参数及输入内容。",
+            401: "API KEY 无效，请在设置中重新配置。",
+            402: "账户余额不足，请检查 API 账户额度。",
+            403: "无权访问该模型或接口，请检查账户权限。",
+            404: "模型或接口不存在，请检查模型名称及 API 地址。",
+            422: "请求格式或参数不受支持，请检查模型配置。",
+        }.get(code, "请检查网络、额度和模型配置。")
         raise GeminiSummaryError(
-            f"{self._provider_name} API 连续 {self.config.retries} 次调用失败"
-            f"（{error_type}{hint}）。请检查网络、额度和模型配置。"
+            f"{self._provider_name} API 调用失败（尝试 {attempt} 次，"
+            f"{error_type}{hint}）。{guidance}"
+            + (f" 服务端原因：{detail}" if detail else "")
         )
 
 

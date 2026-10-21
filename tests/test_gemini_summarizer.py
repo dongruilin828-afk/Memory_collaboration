@@ -490,14 +490,15 @@ class GeminiSummarizerTests(unittest.TestCase):
         self.assertEqual(config.model, "Qwen/Qwen3.5-397B-A17B")
 
     def test_deepseek_provider_is_inferred_from_deepseek_model(self):
-        with patch.dict(
-            os.environ,
-            {"SUMMARY_MODEL": "deepseek-flash"},
-            clear=True,
-        ):
-            config = summary.SummaryConfig.from_env()
-        self.assertEqual(config.provider, "deepseek")
-        self.assertEqual(config.model, "deepseek-flash")
+        for model in ("deepseek-v4-pro", "deepseek-flash"):
+            with self.subTest(model=model), patch.dict(
+                os.environ,
+                {"SUMMARY_MODEL": model},
+                clear=True,
+            ):
+                config = summary.SummaryConfig.from_env()
+            self.assertEqual(config.provider, "deepseek")
+            self.assertEqual(config.model, model)
 
     def test_safe_error_message_redacts_siliconflow_key(self):
         secret = "sk-test-silicon-key-that-must-not-leak"

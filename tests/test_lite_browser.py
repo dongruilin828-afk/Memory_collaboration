@@ -95,6 +95,13 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(channel, "chromium")
         self.assertEqual(len(chromium.calls), 2)
+        for call in chromium.calls:
+            for flag in (
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+            ):
+                self.assertIn(flag, call["args"])
         sleep.assert_awaited_once_with(1)
 
     async def test_lite_reports_full_download_without_leaking_errors(self):

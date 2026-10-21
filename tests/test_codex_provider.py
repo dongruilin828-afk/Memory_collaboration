@@ -135,15 +135,23 @@ class CodexFileChangeTests(unittest.TestCase):
         ])
 
     def test_codex_source_attachment_is_a_download_candidate(self):
-        candidates = []
-        _collect_response_assets(
-            {"filename": "example.py", "file_id": "file_123456789012"},
-            "https://chatgpt.com/s/cx_12345678",
-            candidates,
-            set(),
-        )
-        self.assertEqual(len(candidates), 1)
-        self.assertEqual(candidates[0].filename, "example.py")
+        for path, count in (
+            ("/s/cx_12345678", 1),
+            ("/codex/cloud/tasks/task_12345678", 1),
+            ("/c/example", 0),
+            ("/share/example", 0),
+        ):
+            with self.subTest(path=path):
+                candidates = []
+                _collect_response_assets(
+                    {"filename": "example.py", "file_id": "file_123456789012"},
+                    "https://chatgpt.com" + path,
+                    candidates,
+                    set(),
+                )
+                self.assertEqual(len(candidates), count)
+                if count:
+                    self.assertEqual(candidates[0].filename, "example.py")
 
     def test_saves_each_change_with_original_extension_and_file_uri(self):
         changes = [{

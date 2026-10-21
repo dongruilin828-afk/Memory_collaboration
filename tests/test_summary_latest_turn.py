@@ -65,9 +65,11 @@ class LatestTurnTests(unittest.TestCase):
             self.assertNotIn("latest_turn_grounding", other)
             from gui.service import generate_output_bundle
             bundle_dir = directory/'bundle'
-            generate_output_bundle(messages, {"normal": True, "detailed": True, "simple": True}, bundle_dir,
+            bundle = generate_output_bundle(messages, {"normal": True, "detailed": True, "simple": True}, bundle_dir,
                                    config=summary.SummaryConfig(), gateway=Gateway(), source_platform="ChatGPT")
-            simple = (bundle_dir/'AI_memory_simple.md').read_text(encoding='utf-8')
+            simple_path = next(path for path in bundle.saved_files if path.name == 'AI_memory_simple.md')
+            self.assertEqual(simple_path.parent.parent, bundle_dir)
+            simple = simple_path.read_text(encoding='utf-8')
             self.assertIn("新表格", simple)
             self.assertIn("数值为空", simple)
 

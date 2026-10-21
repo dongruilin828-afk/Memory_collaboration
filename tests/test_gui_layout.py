@@ -11,7 +11,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from gui.app import AIMemoryGUI, COLOR_TEXT_PRIMARY, SummaryTopicCard
+from gui.app import (
+    AIMemoryGUI,
+    COLOR_GENERATION_ACCENT,
+    COLOR_TEXT_PRIMARY,
+    FlatButton,
+    HorizontalFileList,
+    SummaryTopicCard,
+)
 from gui.settings_store import AppSettings, default_app_settings
 
 
@@ -71,11 +78,205 @@ class SummaryTopicCardTests(unittest.TestCase):
             card._toggle()
             self.assertTrue(card.checked)
             self.assertEqual(toggles, [True])
+            indicator_items = card.find_withtag("selection_indicator")
+            self.assertEqual(len(indicator_items), 3)
+            self.assertEqual(
+                [card.type(item) for item in indicator_items],
+                ["polygon", "line", "line"],
+            )
+        finally:
+            root.destroy()
+
+    def test_topic_dialog_keeps_action_buttons_visible(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        try:
+            root.attributes("-alpha", 0.0)
+            root.geometry("1000x700+0+0")
+            root.tk.call("tk", "scaling", 1.5)
+            root.update_idletasks()
+            app = object.__new__(AIMemoryGUI)
+            app.root = root
+            app._show_summary_topic_dialog(
+                [
+                    {
+                        "topic_id": f"topic_{index}",
+                        "title": f"第 {index} 个需要重点展开的主题",
+                        "summary": "这是一段主题摘要。" * 3,
+                    }
+                    for index in range(1, 7)
+                ],
+                lambda _selected: None,
+            )
+            root.update()
+            dialog = next(
+                child for child in root.winfo_children()
+                if isinstance(child, tk.Toplevel)
+            )
+
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+
+            buttons = [
+                widget for widget in descendants(dialog)
+                if isinstance(widget, FlatButton)
+            ]
+            self.assertEqual(
+                [button._text for button in buttons],
+                ["暂不选择", "确认并继续生成"],
+            )
+            self.assertEqual(
+                [button._variant for button in buttons],
+                ["topic-secondary", "topic-primary"],
+            )
+            self.assertEqual(
+                [(button._base_width, button._base_height) for button in buttons],
+                [(132, 44), (196, 44)],
+            )
+            self.assertEqual(buttons[1].cget("bg"), COLOR_GENERATION_ACCENT)
+            self.assertTrue(all(button.winfo_ismapped() for button in buttons))
+            dialog_bottom = dialog.winfo_rooty() + dialog.winfo_height()
+            self.assertTrue(all(
+                button.winfo_rooty() + button.winfo_height() <= dialog_bottom
+                for button in buttons
+            ))
+            canvas = next(
+                widget for widget in descendants(dialog)
+                if isinstance(widget, tk.Canvas)
+                and not isinstance(widget, FlatButton)
+            )
+            self.assertLessEqual(
+                canvas.winfo_rooty() + canvas.winfo_height(),
+                min(button.winfo_rooty() for button in buttons),
+            )
+            dialog.grab_release()
+            dialog.destroy()
         finally:
             root.destroy()
 
 
 class GUIResponsiveGeometryTests(unittest.TestCase):
+    def setUp(self):
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        self.default_settings = AppSettings(Path(scratch.name) / "default-runtime")
+        # 恢复默认后保存会写历史；不能让布局测试覆盖真实项目的历史文件。
+        default_settings = patch(
+            "gui.app.default_app_settings", return_value=self.default_settings,
+        )
+        default_settings.start()
+        self.addCleanup(default_settings.stop)
+
+    def test_continuous_resize_defers_font_work_until_drag_stops(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root, 300)
+            with patch.object(app, "_apply_responsive_scale") as scale:
+                for width in (1100, 1120, 1140, 1160):
+                    app._on_root_configure(SimpleNamespace(
+                        widget=root, width=width, height=680,
+                    ))
+                    self._flush(root, 60)
+                    scale.assert_not_called()
+                self._flush(root, 180)
+                scale.assert_called_once()
+        finally:
+            root.destroy()
+
+    def test_unchanged_font_scale_does_not_recalculate_window_minimum(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root, 300)
+            with patch.object(app, "_schedule_responsive_minimums") as minimum:
+                for _ in range(20):
+                    app._apply_responsive_scale()
+                minimum.assert_not_called()
+        finally:
+            root.destroy()
+
+    def test_repeated_minimize_restore_and_page_switch_keeps_ui_responsive(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        errors, received = [], []
+        root.report_callback_exception = lambda *error: errors.append(error)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._flush(root)
+            for index in range(3):
+                root.iconify()
+                self._flush(root)
+                self.assertEqual(root.state(), "iconic")
+                app._post_ui(lambda value=index: received.append(value))
+                app._post_ui(lambda value=index: received.append(f"visible-{value}"), visible=True)
+                self._flush(root)
+                self.assertIn(index, received)
+                self.assertNotIn(f"visible-{index}", received)
+                root.deiconify()
+                self._flush(root)
+                app._show_page((index + 1) % 4)
+                self._flush(root)
+                self.assertIn(f"visible-{index}", received)
+                self.assertTrue(root.winfo_viewable())
+                self.assertEqual(app._current_page, (index + 1) % 4)
+            self.assertEqual(errors, [])
+        finally:
+            root.destroy()
+
+    def test_history_file_list_scrolls_horizontally_only_when_needed(self):
+        try:
+            root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        try:
+            root.attributes("-alpha", 0.0)
+            root.geometry("360x120+0+0")
+            file_list = HorizontalFileList(
+                root,
+                text="📁 " + "、".join(f"very-long-output-{index}.md" for index in range(12)),
+                tooltip_text="output files",
+            )
+            file_list.pack(fill=tk.X, padx=20, pady=20)
+            self._flush(root)
+
+            self.assertTrue(file_list.scrollbar.winfo_ismapped())
+            self.assertLess(file_list.canvas.xview()[1], 1.0)
+            initial_xview = file_list.canvas.xview()
+            file_list._on_horizontal_wheel(SimpleNamespace(delta=-120, num=0))
+            self._flush(root)
+            self.assertGreater(file_list.canvas.xview()[0], initial_xview[0])
+
+            file_list.destroy()
+            short_file_list = HorizontalFileList(
+                root,
+                text="📁 summary.md",
+                tooltip_text="summary.md",
+            )
+            short_file_list.pack(fill=tk.X, padx=20, pady=20)
+            self._flush(root)
+            self.assertFalse(short_file_list.scrollbar.winfo_ismapped())
+        finally:
+            root.destroy()
+
     def test_same_window_resizes_without_drift_and_preserves_layout(self):
         for scaling in (1.0, 1.25, 1.5):
             with self.subTest(tk_scaling=scaling):
@@ -93,7 +294,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         patch("gui.app.WindowsAppSettingsStore", return_value=settings),
                     ):
                         app = AIMemoryGUI(root)
-                    self._flush(root)
+                    self._settle_resize(root, app)
 
                     minimum = app.minimum_window_width
                     available_width = root.winfo_screenwidth() - 32
@@ -119,11 +320,17 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
 
                     app._show_page(0)
                     app.capsule_entry.set_text("")
+                    self._flush(root)
+                    entry.focus_force()
+                    self._flush(root)
                     entry.event_generate("<Return>")
                     self._flush(root)
                     self.assertEqual(app._current_page, 0)
 
                     app._select_summary_file(Path("dialog.md"))
+                    self._flush(root)
+                    entry.focus_force()
+                    self._flush(root)
                     entry.event_generate("<Return>")
                     self._flush(root)
                     self.assertEqual(app._current_page, 1)
@@ -182,7 +389,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     observed_sizes = {}
                     for width in widths:
                         root.geometry(f"{width}x680")
-                        self._flush(root)
+                        # 字体更新有意延后到用户停止拖动之后。
+                        self._settle_resize(root, app)
                         self._assert_generation_geometry(root, app)
                         size = int(app.status_label._responsive_font.actual("size"))
                         sizes.append(size)
@@ -268,7 +476,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                     data_page.reset_button.invoke()
                     self.assertEqual(
                         data_page.runtime_var.get(),
-                        str(default_app_settings().runtime_data_dir),
+                        str(self.default_settings.runtime_data_dir),
                     )
                     self.assertEqual(data_page.results_var.get(), "")
                     self.assertEqual(settings.saved, [], "reset must not persist")
@@ -292,7 +500,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertEqual(
             {(int(card.grid_info()["row"]), int(card.grid_info()["column"]))
              for card in cards},
-            {(0, 0), (0, 1), (1, 0), (1, 1)},
+            {(0, 0), (1, 0), (2, 0), (3, 0)},
         )
         for card in cards:
             for item in card.find_all():
@@ -320,10 +528,10 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             "mode panel should keep its natural height instead of filling the column",
         )
         mode_title = app._generation_mode_title_label
-        self.assertEqual(
+        self.assertGreater(
             self._font_size(root, mode_title),
             int(app.card_raw._title_font.actual("size")),
-            "mode-panel heading should stay comparable to the mode-card titles",
+            "mode-panel heading should remain stronger than mode-card titles",
         )
         mode_title_font = tkfont.Font(root=root, font=mode_title.cget("font"))
         self.assertLessEqual(
@@ -522,9 +730,13 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         }
         entry_ids = {provider: id(entry) for provider, entry in entries.items()}
         variables["gemini"].set("unsaved-key-value")
-        entries["gemini"].focus_force()
-        self._flush(root)
+        for _ in range(3):
+            entries["gemini"].focus_force()
+            self._flush(root)
+            if root.focus_get() is entries["gemini"]:
+                break
         focus_before = root.focus_get()
+        self.assertIs(focus_before, entries["gemini"], "test window did not acquire initial focus")
 
         first = order[0]
         page._drag_start(None, first)
@@ -730,6 +942,23 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         page.api_save_button.invoke()
         self.assertEqual(credentials.saved_keys["gemini"], "unsaved-key-value")
         self.assertEqual(credentials.saved_order, page.ordered_providers)
+
+    def _settle_resize(self, root, app):
+        deadline = time.perf_counter() + 3
+        stable = 0
+        while time.perf_counter() < deadline:
+            self._flush(root, 80)
+            pending = (
+                app._responsive_after_id, app._minimum_layout_after_id,
+                app._scrollregion_after_id,
+            )
+            if not any(item is not None for item in pending) and not app._resize_in_progress:
+                stable += 1
+                if stable == 2:
+                    return
+            else:
+                stable = 0
+        self.fail("resize layout did not settle")
 
     @staticmethod
     def _flush(root, duration_ms=65):

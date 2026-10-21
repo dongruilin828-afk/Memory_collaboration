@@ -22,6 +22,7 @@ from gui.app import (
     _load_direct_summary_file,
 )
 from gui.service import (
+    build_output_paths,
     generate_output_bundle,
     gui_summary_attempt_configs,
     resolve_gui_summary_config,
@@ -825,7 +826,9 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             captured["worker_messages"] = kwargs["messages"]
             captured["worker_source_name"] = kwargs["source_name"]
             captured["worker_source_dir"] = kwargs["source_dir"]
-            output_path = Path(kwargs["save_dir"]) / kwargs["output_filename"]
+            output_path = build_output_paths(
+                kwargs["save_dir"], kwargs["modes"], kwargs["output_filename"],
+            )["normal_markdown"]
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(
                 "\n".join(message["content"] for message in kwargs["messages"]),
@@ -861,6 +864,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                     default_results_dir=Path(temp) / "results",
                 ),
                 root=FakeRoot(),
+                _post_ui=lambda callback, **_kwargs: callback(),
                 selected_file_name_var=SimpleNamespace(set=lambda _value: None),
                 selected_file_row=SimpleNamespace(pack=lambda **_kwargs: None),
                 file_select_button=SimpleNamespace(config=lambda **_kwargs: None),
@@ -916,7 +920,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             [message["content"] for message in captured["worker_messages"]],
             ["原始问题内容", "原始回答内容"],
         )
-        output_path = Path(temp) / "原始对话_summary.md"
+        output_path = Path(temp) / "原始对话_summary" / "原始对话_summary.md"
         self.assertEqual(captured["output_path"], output_path)
         self.assertEqual(
             captured["output_content"],
@@ -926,7 +930,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertEqual(
             captured["history"][0]["saved_files"], [str(output_path.resolve())],
         )
-        self.assertEqual(captured["history"][0]["output_dir"], str(Path(temp).resolve()))
+        self.assertEqual(captured["history"][0]["output_dir"], str(output_path.parent.resolve()))
         self.assertEqual(captured["history"][0]["title"], source_path.name)
         self.assertTrue(captured["started"])
         self.assertEqual(
@@ -1021,7 +1025,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             self.assertEqual(shown_rows[0]["fill"], "x")
             self.assertEqual(shown_rows[0]["pady"], (0, 8))
             self.assertIs(shown_rows[0]["before"], capsule_entry)
-            self.assertEqual(file_button_configs, [{"text": "📎 重新添加"}])
+            self.assertEqual(file_button_configs, [{"text": " 重新添加"}])
             self.assertEqual(button_styles[-1]["bg"], "#F0F4F9")
 
     def test_cancelled_file_picker_keeps_current_attachment(self):
@@ -1057,7 +1061,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         AIMemoryGUI._clear_summary_file(fake_gui)
 
         self.assertIsNone(fake_gui.selected_summary_file)
-        self.assertEqual(button_configs, [{"text": "📎 添加文件"}])
+        self.assertEqual(button_configs, [{"text": " 添加文件"}])
         self.assertEqual(hidden_rows, [True])
 
     def test_user_gemini_key_overrides_environment_key(self):

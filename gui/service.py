@@ -11,6 +11,7 @@ import base64
 import hashlib
 import html as html_lib
 import ipaddress
+import json
 import mimetypes
 import os
 import re
@@ -298,6 +299,24 @@ def _collect_response_assets(
                 reference = str(item.get(key) or "").strip()
                 if reference.startswith(("file_", "file-")):
                     reference_ids.append(reference)
+            if codex.is_codex_path(parsed.path):
+                # Codex 返回独立文件元数据，不使用 ChatGPT 的消息附件结构。
+                # 保留源码等任意扩展名，同时避免放宽普通 ChatGPT 的归属过滤。
+                if suffix and not mime_type.startswith("image/"):
+                    document_candidates.extend(
+                        DocumentCandidate(
+                            reference,
+                            f"{origin}/backend-api/files/download/"
+                            f"{quote(reference, safe='')}{share_query}",
+                            _safe_document_filename(filename, suffix),
+                        )
+                        for reference in dict.fromkeys(reference_ids)
+                    )
+                if mime_type.startswith("image/") or suffix in {
+                    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"
+                }:
+                    image_references.update(reference_ids or {filename.lower()})
+                continue
             if mime_type.startswith("image/") or suffix in {
                 ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"
             }:
@@ -764,6 +783,9 @@ async def launch_browser_context(
                 "--disable-blink-features=AutomationControlled",
                 "--no-first-run",
                 "--no-service-autorun",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
                 *(
                     ["--start-minimized", "--window-position=-32000,-32000"]
                     if start_minimized else []
@@ -957,13 +979,15 @@ def build_output_paths(
     modes: Mapping[str, bool],
     output_filename: Optional[str] = None,
 ) -> dict[str, Path]:
-    """计算各模式的输出路径；未指定名称时完全沿用旧命名规则。"""
+    """计算各模式的输出路径，并统一放入本次结果的同名文件夹。"""
     save_dir = Path(save_dir)
     enabled_modes = [
         mode for mode in DEFAULT_MODE_MARKDOWN_FILENAMES
         if modes.get(mode)
     ]
     markdown_names = dict(DEFAULT_MODE_MARKDOWN_FILENAMES)
+    folder_source = output_filename or default_output_filename(modes)
+    output_dir = save_dir / Path(normalize_markdown_filename(folder_source)).stem
 
     if output_filename is not None:
         normalized = normalize_markdown_filename(output_filename)
@@ -987,19 +1011,20 @@ def build_output_paths(
         return f"{stem}{suffix}.json"
 
     return {
-        "asset_markdown": save_dir / markdown_names[enabled_modes[0]],
-        "raw_markdown": save_dir / markdown_names["raw"],
-        "normal_json": save_dir / json_name(
+        "output_dir": output_dir,
+        "asset_markdown": output_dir / markdown_names[enabled_modes[0]],
+        "raw_markdown": output_dir / markdown_names["raw"],
+        "normal_json": output_dir / json_name(
             "normal", "AI_memory_result.json"
         ),
-        "normal_markdown": save_dir / markdown_names["normal"],
-        "detailed_json": save_dir / json_name(
+        "normal_markdown": output_dir / markdown_names["normal"],
+        "detailed_json": output_dir / json_name(
             "detailed", "AI_memory_detailed_result.json"
         ),
-        "detailed_markdown": save_dir / markdown_names["detailed"],
-        "simple_markdown": save_dir / markdown_names["simple"],
-        "intermediate_json": save_dir / ".gui_intermediate_result.json",
-        "intermediate_markdown": save_dir / ".gui_intermediate_summary.md",
+        "detailed_markdown": output_dir / markdown_names["detailed"],
+        "simple_markdown": output_dir / markdown_names["simple"],
+        "intermediate_json": output_dir / ".gui_intermediate_result.json",
+        "intermediate_markdown": output_dir / ".gui_intermediate_summary.md",
     }
 
 
@@ -6584,6 +6609,95 @@ def generate_raw_markdown(messages: list[dict[str, str]], target_path: Path) -> 
     return target_path
 
 
+def _bundle_imported_assets(
+    messages: list[dict[str, str]],
+    saved_files: list[Path],
+    output_paths: Mapping[str, Path],
+    source_dir: Path,
+    project_dir: Path,
+    result: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """本地导入仍从原目录分析媒体，交付时将引用的资源收进结果文件夹。"""
+    from scripts.gemini_summarizer import (
+        IMAGE_PATTERN, FILE_LINK_PATTERN, _resolve_local_asset,
+        _write_json_atomic, _write_text_atomic,
+    )
+
+    output_dir = output_paths["output_dir"].resolve()
+    if source_dir.resolve() == output_dir:
+        return result
+    references = {}
+    for message in messages:
+        for pattern, kind in ((IMAGE_PATTERN, "image"), (FILE_LINK_PATTERN, "document")):
+            for match in pattern.finditer(message.get("content", "")):
+                references.setdefault(match.group("reference"), kind)
+    for asset in (result or {}).get("media", []):
+        if asset.get("reference"):
+            references.setdefault(asset["reference"], asset.get("kind", "document"))
+
+    rewritten, local_paths, copied = {}, {}, {}
+    for reference, kind in references.items():
+        try:
+            scheme = urlparse(reference).scheme
+        except ValueError:
+            continue
+        if scheme not in {"", "file"} and not re.match(r"^[A-Za-z]:[\\/]", reference):
+            continue
+        local = _resolve_local_asset(reference, project_dir, source_dir)
+        if local is None:
+            continue
+        destination = copied.get(local)
+        if destination is None:
+            directory = (
+                build_image_asset_directory if kind == "image"
+                else build_document_asset_directory
+            )(output_dir, output_paths["asset_markdown"].name)
+            directory.mkdir(parents=True, exist_ok=True)
+            name = _safe_document_filename(local.name, local.suffix)
+            digest = hashlib.sha256(str(local).encode("utf-8")).hexdigest()[:12]
+            destination = directory / f"{Path(name).stem}_{digest}{Path(name).suffix}"
+            if local != destination.resolve():
+                shutil.copy2(local, destination)
+            copied[local] = destination
+        rewritten[reference] = "./" + quote(destination.relative_to(output_dir).as_posix(), safe="/")
+        local_paths[str(local)] = str(destination)
+
+    if not rewritten:
+        return result
+
+    def rewrite_text(text):
+        def replace_link(match):
+            reference = match.group("reference")
+            if reference not in rewritten:
+                return match.group(0)
+            start = match.start("reference") - match.start()
+            end = match.end("reference") - match.start()
+            return match.group(0)[:start] + rewritten[reference] + match.group(0)[end:]
+        for pattern in (IMAGE_PATTERN, FILE_LINK_PATTERN):
+            text = pattern.sub(replace_link, text)
+        return text
+
+    def rewrite_value(value, key=None):
+        if isinstance(value, dict):
+            return {name: rewrite_value(item, name) for name, item in value.items()}
+        if isinstance(value, list):
+            return [rewrite_value(item) for item in value]
+        if isinstance(value, str):
+            if key == "reference":
+                return rewritten.get(value, value)
+            if key == "local_path":
+                return local_paths.get(value, value)
+            return rewrite_text(value)
+        return value
+
+    for path in saved_files:
+        if path.suffix == ".json":
+            _write_json_atomic(path, rewrite_value(json.loads(path.read_text(encoding="utf-8"))))
+        elif path.suffix == ".md":
+            _write_text_atomic(path, rewrite_text(path.read_text(encoding="utf-8")))
+    return rewrite_value(result)
+
+
 def generate_output_bundle(
     messages: list[dict[str, str]],
     modes: Mapping[str, bool],
@@ -6619,8 +6733,8 @@ def generate_output_bundle(
         raise ValueError("至少需要选择一种生成模式。")
 
     save_dir = Path(save_dir).resolve()
-    save_dir.mkdir(parents=True, exist_ok=True)
     output_paths = build_output_paths(save_dir, modes, output_filename)
+    output_paths["output_dir"].mkdir(parents=True, exist_ok=True)
     saved_files: list[Path] = []
 
     if modes.get("raw"):
@@ -6634,6 +6748,10 @@ def generate_output_bundle(
         modes.get(key) for key in ("normal", "simple", "detailed")
     )
     if not needs_summary:
+        if source_dir is not None:
+            _bundle_imported_assets(
+                messages, saved_files, output_paths, Path(source_dir), Path(project_dir),
+            )
         return GenerationBundle(saved_files=saved_files)
 
     from scripts.gemini_summarizer import (
@@ -6801,7 +6919,7 @@ def generate_output_bundle(
                 source_dir=(
                     Path(source_dir).resolve()
                     if source_dir is not None
-                    else save_dir
+                    else output_paths["output_dir"].resolve()
                 ),
                 source_name=source_name or output_paths["raw_markdown"].name,
                 output_json=primary_json,
@@ -6926,6 +7044,11 @@ def generate_output_bundle(
                 intermediate_path.unlink()
             except FileNotFoundError:
                 pass
+
+    if source_dir is not None:
+        base_result = _bundle_imported_assets(
+            messages, saved_files, output_paths, Path(source_dir), Path(project_dir), base_result,
+        )
 
     return GenerationBundle(
         saved_files=saved_files,
