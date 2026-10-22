@@ -35,6 +35,14 @@ SILICONFLOW_API_KEY）或 DEEPSEEK_API_KEY 读取密钥。
 
     uv run python -m gui.app
 
+GUI 历史记录仅保存在各自电脑的“运行数据目录”下 `task_history.json`，
+不纳入 Git 版本管理，也不随 GitHub 拉取、推送共享。源码启动时默认使用项目根目录；
+打包版默认使用 `%LOCALAPPDATA%\AI Memory Summary`，可在设置中修改运行数据目录。
+
+此前版本曾提交个人历史。首次拉取包含“停止追踪历史文件”变更的提交前，
+请先关闭程序并将自己的 `task_history.json` 备份到仓库外；更新后放回原运行数据目录。
+这是为避免 Git 移除旧追踪文件时删除本地记录。此变更不会清除已有 Git 提交中的旧历史。
+
 ## Windows 打包
 
 发布版采用 PyInstaller 目录模式，并内置与当前 Playwright 版本匹配的 Chromium。

@@ -2947,17 +2947,30 @@ async def _recover_gemini_copied_attachments(page: Any, html: str, url: str, log
             try:
                 if attempt:
                     await goto_with_retry_gui(page, url, attempts=1, logger=logger)
+                    if not await _page_has_conversation_content(page, url):
+                        continue
                     await collect_virtualized_html(page)
-                await page.locator('[data-test-id="search-chats-button"] a').click(timeout=5000)
+                # Gemini 新搜索界面不再使用 Angular 的 data-test-id / search-snippet。
+                await page.locator(
+                    '[data-test-id="search-chats-button"] a:visible, '
+                    'button[aria-label="搜索对话内容"]:visible, '
+                    'button[aria-label="Search chats"]:visible'
+                ).click(timeout=5000)
                 phase = "等待搜索结果"
-                await page.locator('input[data-test-id="search-input"]').fill(search_text, timeout=5000)
-                await page.locator('.search-results-header, .no-results').first.wait_for(state="visible", timeout=15000)
-                links = await page.locator('search-snippet a[href]').evaluate_all(
+                await page.locator(
+                    'input[data-test-id="search-input"], [role="dialog"] input'
+                ).fill(search_text, timeout=5000)
+                await page.locator(
+                    '.search-results-header, .no-results, '
+                    '[role="dialog"] section:has(h2:text-is("结果")) a[href], '
+                    '[role="dialog"] section:has(h2:text-is("Results")) a[href]'
+                ).first.wait_for(state="visible", timeout=15000)
+                links = await page.locator('search-snippet a[href], [role="dialog"] a[href]').evaluate_all(
                     "elements => elements.map(element => element.getAttribute('href'))"
                 )
                 # ponytail: 每个查询最多核验 5 项；出现深位原会话时再加搜索结果分页。
                 for path in list(dict.fromkeys(links))[:5]:
-                    if not re.fullmatch(r"/app/[0-9A-Za-z_-]{8,}", path or ""):
+                    if not re.fullmatch(r"/(?:app|gem/[0-9A-Za-z_-]+)/[0-9A-Za-z_-]{8,}", path or ""):
                         continue
                     original_url = "https://gemini.google.com" + path
                     if urlparse(original_url).path == urlparse(url).path:

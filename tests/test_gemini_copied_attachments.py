@@ -20,6 +20,15 @@ from gui.service import (
 SOURCE_URL = 'https://gemini.google.com/app/source12345678'
 COPY_URL = 'https://gemini.google.com/app/copied12345678'
 
+SEARCH_BUTTON = ('[data-test-id="search-chats-button"] a:visible, '
+                 'button[aria-label="搜索对话内容"]:visible, '
+                 'button[aria-label="Search chats"]:visible')
+SEARCH_INPUT = 'input[data-test-id="search-input"], [role="dialog"] input'
+SEARCH_READY = ('.search-results-header, .no-results, '
+                '[role="dialog"] section:has(h2:text-is("结果")) a[href], '
+                '[role="dialog"] section:has(h2:text-is("Results")) a[href]')
+SEARCH_LINKS = 'search-snippet a[href], [role="dialog"] a[href]'
+
 def user(request, conversation, query, filename, video=False, blocked=False):
     metadata = base64.b64encode(f'[["r_{request}","c_{conversation}"]]'.encode()).decode()
     label = '无法查看或下载共享对话中的文件' if blocked else ('以灯箱形式显示上传的视频' if video else filename)
@@ -69,10 +78,10 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
         original = original.replace("阅读这个文件", "你有能力阅读这个文件吗？请分析")
         click, fill, wait = AsyncMock(), AsyncMock(), AsyncMock()
         selectors = {
-            '[data-test-id="search-chats-button"] a': SimpleNamespace(click=click),
-            'input[data-test-id="search-input"]': SimpleNamespace(fill=fill),
-            '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=wait)),
-            'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['https://evil.example/app/source12345678', '/app/source12345678'])),
+            SEARCH_BUTTON: SimpleNamespace(click=click),
+            SEARCH_INPUT: SimpleNamespace(fill=fill),
+            SEARCH_READY: SimpleNamespace(first=SimpleNamespace(wait_for=wait)),
+            SEARCH_LINKS: SimpleNamespace(evaluate_all=AsyncMock(return_value=['https://evil.example/app/source12345678', '/app/source12345678'])),
         }
         page = SimpleNamespace(url=SOURCE_URL, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
         with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch(
@@ -87,7 +96,7 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
     def test_failed_search_returns_to_requested_conversation(self):
         copied, original = fixtures()
         page = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(click=AsyncMock(side_effect=TimeoutError))))
-        with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch('gui.service.collect_virtualized_html', new=AsyncMock()):
+        with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch('gui.service.collect_virtualized_html', new=AsyncMock()), patch('gui.service._page_has_conversation_content', new=AsyncMock(return_value=True)):
             self.assertEqual(asyncio.run(_recover_gemini_copied_attachments(page, copied, COPY_URL)), ('', copied))
         self.assertEqual(goto.await_count, 2)
         self.assertTrue(all(call.args == (page, COPY_URL) for call in goto.await_args_list))
@@ -98,10 +107,10 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
         original = original.replace('阅读这个文件', '你有能力阅读这个文件吗？请分析')
         fill = AsyncMock()
         selectors = {
-            '[data-test-id="search-chats-button"] a': SimpleNamespace(click=AsyncMock(side_effect=[TimeoutError, None])),
-            'input[data-test-id="search-input"]': SimpleNamespace(fill=fill),
-            '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
-            'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
+            SEARCH_BUTTON: SimpleNamespace(click=AsyncMock(side_effect=[TimeoutError, None])),
+            SEARCH_INPUT: SimpleNamespace(fill=fill),
+            SEARCH_READY: SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
+            SEARCH_LINKS: SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
         }
         page = SimpleNamespace(url=SOURCE_URL, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
         with patch('gui.service.goto_with_retry_gui', new=AsyncMock()) as goto, patch(
@@ -125,6 +134,29 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
         self.assertEqual(asyncio.run(_recover_gemini_copied_attachments(page, original, SOURCE_URL)), ('', original))
         page.locator.assert_not_called()
 
+    def test_search_does_not_read_recent_chats_before_filtered_results(self):
+        copied, original = fixtures()
+        ready = False
+        async def filtered_results(**kwargs):
+            nonlocal ready
+            ready = True
+        async def links(script):
+            self.assertTrue(ready, '搜索结果就绪前不得读取仍显示的最近会话')
+            return ['/app/source12345678']
+        selectors = {
+            SEARCH_BUTTON: SimpleNamespace(click=AsyncMock()),
+            SEARCH_INPUT: SimpleNamespace(fill=AsyncMock()),
+            SEARCH_READY: SimpleNamespace(first=SimpleNamespace(wait_for=filtered_results)),
+            SEARCH_LINKS: SimpleNamespace(evaluate_all=links),
+        }
+        page = SimpleNamespace(url=SOURCE_URL, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
+        with patch('gui.service.goto_with_retry_gui', new=AsyncMock()), patch(
+            'gui.service._page_has_conversation_content', new=AsyncMock(return_value=True)
+        ), patch('gui.service.collect_virtualized_html', new=AsyncMock(return_value=original)):
+            url, restored = asyncio.run(_recover_gemini_copied_attachments(page, copied, COPY_URL))
+        self.assertEqual(url, SOURCE_URL)
+        self.assertTrue(restored)
+
     def test_download_returns_to_candidate_conversation(self):
         missing = SimpleNamespace(count=AsyncMock(return_value=0))
         card = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=missing)))
@@ -141,10 +173,10 @@ class GeminiCopiedAttachmentTests(unittest.TestCase):
         copied, original = fixtures()
         actual_url = 'https://gemini.google.com/gem/gem123/source12345678'
         selectors = {
-            '[data-test-id="search-chats-button"] a': SimpleNamespace(click=AsyncMock()),
-            'input[data-test-id="search-input"]': SimpleNamespace(fill=AsyncMock()),
-            '.search-results-header, .no-results': SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
-            'search-snippet a[href]': SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
+            SEARCH_BUTTON: SimpleNamespace(click=AsyncMock()),
+            SEARCH_INPUT: SimpleNamespace(fill=AsyncMock()),
+            SEARCH_READY: SimpleNamespace(first=SimpleNamespace(wait_for=AsyncMock())),
+            SEARCH_LINKS: SimpleNamespace(evaluate_all=AsyncMock(return_value=['/app/source12345678'])),
         }
         page = SimpleNamespace(url=actual_url, locator=MagicMock(side_effect=lambda selector: selectors[selector]))
         with patch('gui.service.goto_with_retry_gui', new=AsyncMock()), patch(

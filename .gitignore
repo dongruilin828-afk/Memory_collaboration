@@ -58,3 +58,7 @@ agents.md
 
 # ChatGPT 修复验证结果仅保留在本地
 tests/test_results/ChatGPT修复验证/
+
+# GUI 个人历史记录及原子写入临时文件仅保留在各自电脑
+task_history.json
+.task_history.json.*.tmp

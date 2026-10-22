@@ -35,6 +35,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import markdownify
+from bs4 import Comment, NavigableString
 
 
 DISPLAY_NAME = "Gemini"
@@ -398,6 +399,58 @@ def _extract_document_attachments(node, asset_map):
     return placeholders
 
 
+def _render_query_text(query) -> str:
+    """保留全部输入正文；Gemini 会把粘贴的 Markdown 列表拆成独立 li。"""
+    def render(element, indent=""):
+        if isinstance(element, Comment):
+            return ""
+        if isinstance(element, NavigableString):
+            return str(element)
+        if element.name == "br":
+            return "\n"
+        if element.name in {"ol", "ul"}:
+            if element.parent.name == "li":
+                indent += "    "
+            else:
+                previous = element.find_previous_sibling()
+                if previous is not None and previous.name == "p":
+                    # Gemini 把 Markdown 子列表展平为兄弟 ul，前导段落仍保留原缩进。
+                    paragraph = render(previous)
+                    indent = re.match(r"[ \t\xa0]*", paragraph).group()
+                    if element.name == "ul" and re.match(r"[ \t\xa0]*\d+\.\s", paragraph):
+                        indent += "    "
+        text = "".join(render(child, indent) for child in element.children)
+        if element.name in {"p", "li"}:
+            if element.name == "p" and text == "\n":
+                text = ""
+            # Angular 的行节点两端各有一个显示空格，输入自身的缩进不能 strip。
+            if text.startswith(" ") and (text.endswith(" ") or element.name == "li"):
+                text = text[1:]
+                if text.endswith(" "):
+                    text = text[:-1]
+            if element.name == "li":
+                parent = element.parent
+                prefix = "- "
+                if parent.name == "ol":
+                    try:
+                        start = int(parent.get("start", 1))
+                    except (ValueError, TypeError):
+                        start = 1
+                    index = sum(getattr(item, "name", None) == "li"
+                                for item in element.previous_siblings)
+                    prefix = f"{start + index}. "
+                text = indent + prefix + text.rstrip("\n")
+            return text + "\n"
+        if element.name in {"div", "ol", "ul", "pre", "blockquote", "section",
+                            "h1", "h2", "h3", "h4", "h5", "h6", "tr"}:
+            if element.name in {"ol", "ul"} and element.parent.name == "li":
+                text = "\n" + text
+            return text if text.endswith("\n") else text + "\n"
+        return text
+
+    return render(query).strip("\n")
+
+
 def _render_user(node, image_map) -> str:
     attachments = _extract_document_attachments(node, image_map)
     _strip_noise(node)
@@ -418,17 +471,8 @@ def _render_user(node, image_map) -> str:
             parts.append(f"![{alt}]({src})")
 
     query = node.select_one(".query-text")
-    query_lines = query.select("p.query-text-line") if query is not None else []
-    if query_lines:
-        # Angular 在每个 query-text-line 的文本两端各加一个显示空格。
-        # 只去掉这两个空格，保留输入中的缩进、空行和非断行空格。
-        lines = [line.get_text() for line in query_lines]
-        text = "\n".join(
-            line[1:-1] if line.startswith(" ") and line.endswith(" ") else line
-            for line in lines
-        )
-    elif query is not None:
-        text = query.get_text(separator="\n", strip=False).strip("\n")
+    if query is not None:
+        text = _render_query_text(query)
     else:
         text = "\n".join(
             line for line in node.get_text(separator="\n", strip=False).splitlines()
@@ -459,7 +503,8 @@ def _render_assistant(node, image_map) -> str:
     _normalize_code_blocks(node)
     # Gemini 生成图位于操作 button 内；清理按钮前先把图片提升出来。
     for img in list(node.select("button img")):
-        if str(img.get("src") or "").startswith("blob:"):
+        if (str(img.get("src") or "").startswith("blob:")
+                or img.find_parent("generated-image") is not None):
             img["alt"] = "Gemini 生成的图片"
         img.parent.insert_before(img.extract())
     _strip_noise(node)

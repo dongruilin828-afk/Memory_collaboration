@@ -25,6 +25,70 @@ def soup(html):
 
 
 class GeminiUserFormattingTests(unittest.TestCase):
+    def test_query_preserves_paragraphs_and_both_list_types_in_order(self):
+        html = '''<user-query><div class="query-text">
+          <h5 class="cdk-visually-hidden">你说 截断的预览</h5>
+          <p class="query-text-line"> 核心致命漏洞速览： </p>
+          <ol class="query-numbered-list">
+            <li class="query-numbered-item"> 缺少 max_cost 导致 KeyError </li>
+            <li class="query-numbered-item"> 修改原始画像造成信息泄漏 </li>
+          </ol>
+          <p class="query-text-line"> 分支信息： </p>
+          <ul class="query-bullet-list">
+            <li class="query-bullet-item"> travel_goal </li>
+            <li class="query-bullet-item"> must_see 不应绕过安全过滤 </li>
+          </ul>
+          <p class="query-text-line"> 最后一行 </p>
+        </div></user-query>'''
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertEqual([line.strip() for line in content.splitlines() if line.strip()], [
+            '核心致命漏洞速览：', '1. 缺少 max_cost 导致 KeyError',
+            '2. 修改原始画像造成信息泄漏', '分支信息：', '- travel_goal',
+            '- must_see 不应绕过安全过滤', '最后一行',
+        ])
+        self.assertNotIn('截断的预览', content)
+
+    def test_query_keeps_other_blocks_alongside_query_text_lines(self):
+        html = '''<user-query><div class="query-text"><p class="query-text-line"> 提问 </p><div>后续正文 <strong>不能丢</strong></div><p>另一种段落</p></div></user-query>'''
+        self.assertEqual(gemini.parse_messages(soup(html))[0]['content'],
+                         '提问\n后续正文 不能丢\n另一种段落')
+
+    def test_query_nested_lists_do_not_duplicate_or_merge_their_text(self):
+        html = '''<user-query><div class="query-text"><p class="query-text-line"> 分步检查 </p><ol start="3"><li> 父步骤 <ul><li> 子检查 </li></ul></li><li> 下一个步骤 </li></ol></div></user-query>'''
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertIn('3. 父步骤', content)
+        self.assertIn('- 子检查', content)
+        self.assertIn('4. 下一个步骤', content)
+        self.assertEqual(content.count('子检查'), 1)
+
+    def test_query_list_keeps_indent_of_its_introductory_paragraph(self):
+        html = ('<user-query><div class="query-text"><p> 4.  **用户画像** </p>'
+                '<p class="query-text-line">     分支信息包括： </p>'
+                '<ul class="query-bullet-list"><li> travel_goal </li>'
+                '<li data-indent="1"> activity_preference </li>'
+                '<li data-indent="2"> food_preference </li></ul>'
+                '<p> 下一段 </p><ul><li> 顶层条目 </li></ul></div></user-query>')
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertEqual(content, '```text\n4.  **用户画像**\n    分支信息包括：\n'
+                         '    - travel_goal\n    - activity_preference\n'
+                         '    - food_preference\n下一段\n- 顶层条目\n```')
+
+    def test_query_nested_lists_keep_structural_indentation(self):
+        html = ('<user-query><div class="query-text"><ol><li> 父步骤<ul>'
+                '<li> 子检查<ul><li> 孙检查 </li></ul></li></ul></li>'
+                '<li> 下一步 </li></ol></div></user-query>')
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertEqual(content, '```text\n1. 父步骤\n    - 子检查\n'
+                         '        - 孙检查\n2. 下一步\n```')
+
+    def test_query_branch_list_after_flattened_numbered_step_is_indented(self):
+        html = ('<user-query><div class="query-text"><p> 5.  **是否足够？** </p>'
+                '<ul class="query-bullet-list"><li> 否 → 补充候选 </li>'
+                '<li> 是 → 下一步 </li></ul></div></user-query>')
+        self.assertEqual(gemini.parse_messages(soup(html))[0]['content'],
+                         '```text\n5.  **是否足够？**\n    - 否 → 补充候选\n'
+                         '    - 是 → 下一步\n```')
+
     def test_long_query_preserves_every_line_and_protects_markup(self):
         from html import escape
         lines = ['declare $mep', '', '\xa0 \xa0 local x="<file>";', '\treturn 1', '```'] + [f'line {i}' for i in range(24)]
@@ -385,6 +449,23 @@ class GeminiRealisticDomTests(unittest.TestCase):
             "role": "AI",
             "content": "![Gemini 生成的图片](./images/generated.png)",
         }])
+
+    def test_generated_https_image_does_not_export_internal_prompt_as_alt(self):
+        html = '''<message-content><generated-image><single-image class="generated-image">
+          <button class="image-button"><img src="https://lh3.googleusercontent.com/generated"
+            alt="A high-resolution image. Screen 1: detailed internal image prompt."></button>
+          </single-image></generated-image></message-content>'''
+        messages = gemini.parse_messages(soup(html), {
+            'https://lh3.googleusercontent.com/generated': './images/generated.jpg',
+        })
+        self.assertEqual(messages[0]['content'],
+                         '![Gemini 生成的图片](./images/generated.jpg)')
+
+    def test_non_generated_answer_image_keeps_its_meaningful_alt(self):
+        html = '''<message-content><button><img src="https://example.com/chart.png"
+          alt="实验结果折线图"></button></message-content>'''
+        content = gemini.parse_messages(soup(html))[0]['content']
+        self.assertIn('![实验结果折线图]', content)
 
     def test_empty_footnote_stripped(self):
         ai = self.messages[1]["content"]
