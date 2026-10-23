@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from scripts.providers import chatgpt
+from scripts.providers.chatgpt_markdown import prepare_markdown
 from scripts.providers.chatgpt_source import (
     Asset, Message, SourceError, conversation_target, markdown_label,
     resolve_citations, source_messages,
@@ -345,6 +346,11 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
                 row.assets.append(Asset("web:" + hashlib.sha256(src.encode()).hexdigest(),
                     image.get("alt") or "网页引用图片", "image", src, src))
     image_map, document_map, warnings, file_cache = {}, {}, [], {}
+    for index, row in enumerate(rows, 1):
+        kinds = {ref.get("type") for meta in row.metadata for ref in meta.get("content_references") or []}
+        for kind, label in (("map", "地图"), ("client_defined_widget", "交互组件")):
+            if kind in kinds:
+                warnings.append(f"第 {index} 条消息的{label}导出未完成：当前仅保留可读静态内容。")
     references, failures = {}, {}
     assets = {a.key: a for row in rows for a in row.assets}
     for index, asset in enumerate(assets.values(), 1):
@@ -368,6 +374,7 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
     result, snapshots = [], []
     for row in rows:
         body = rich_markdown(row, rendered, references) if row.rich else resolve_citations(row.text, row.metadata, references)
+        body = prepare_markdown(body, user=row.role == "User")
         attachments = []
         for asset in row.assets:
             reference = references.get(asset.key)
@@ -385,7 +392,7 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
             else:
                 kind = "图片" if asset.kind == "image" else "附件"
                 attachments.append(f"📎 **[{kind}未下载]** `{label}`（请从原会话重试）")
-        preface = [resolve_citations(p["text"], [p["metadata"]], references) for p in row.commentary]
+        preface = [prepare_markdown(resolve_citations(p["text"], [p["metadata"]], references)) for p in row.commentary]
         content = "\n\n".join([*preface, *attachments, body] if body else [*preface, *attachments])
         # Windows text writers expand LF to CRLF. Normalize source CRLF once,
         # otherwise CRLF becomes CRCRLF and reading the export adds blank lines.

@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import quote, unquote, urlencode, urlparse
 
+from .chatgpt_markdown import strip_receiver_followups
+
 
 HOSTS = {"chatgpt.com", "chat.openai.com"}
 UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
@@ -139,7 +141,7 @@ def source_messages(payload: dict, url: str) -> list[Message]:
     for node in current_branch(payload, url):
         message = node.get("message") or {}
         metadata = message.get("metadata") or {}
-        if metadata.get("is_visually_hidden_from_conversation"):
+        if metadata.get("is_visually_hidden_from_conversation") or metadata.get("is_thinking_preamble_message"):
             continue
         role = (message.get("author") or {}).get("role")
         content = message.get("content") or {}
@@ -170,6 +172,8 @@ def source_messages(payload: dict, url: str) -> list[Message]:
         text = "\n".join(p for p in content.get("parts", []) if isinstance(p, str))
         if not text and content.get("content_type") in {"text", "code"}:
             text = content.get("text", "")
+        if role == "assistant":
+            text = strip_receiver_followups(text, metadata)
         if not generated and role == "assistant" and not text.strip() and gallery:
             continue
         mid = message.get("id") or node["id"]

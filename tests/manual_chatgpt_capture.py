@@ -35,7 +35,8 @@ def cases_from_file(path):
 
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=Path.home()/"Desktop"/"结果保存"/
+                        f"gpt_revise_{datetime.now():%Y%m%d_%H%M%S}"/"live")
     parser.add_argument("--links", type=Path, default=ROOT/"tests/drl_tests.txt")
     parser.add_argument("--cases", nargs="*")
     parser.add_argument("--profile", type=Path, default=ROOT/".browser_user_data")
