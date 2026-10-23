@@ -115,6 +115,7 @@ from gui.widgets import (
     GlassCapsulePanel,
     GlassNavigationItem,
     HorizontalFileList,
+    HistoryTaskCard,
     HoverTooltip,
     MinimalScrollbar,
     SettingsSegmentedTabs,
@@ -225,6 +226,7 @@ class AIMemoryGUI:
         self._resize_in_progress = False
         self._responsive_target_size = None
         self._responsive_scale = 1.0
+        self._responsive_fonts_initialized = False
         self._scrollregion_after_id = None
         self._minimum_layout_after_id = None
         self._scrollregion = None
@@ -235,6 +237,9 @@ class AIMemoryGUI:
         self._cancel_api_reorder_animation = None
         self._notice_after_id = None
         self._completed_badge_after_id = None
+        self._history_viewport_after_id = None
+        self._history_slots = []
+        self._history_slots_ready = False
 
         root.title("AI 记忆总结协同管理工具")
         root.geometry("1040x680")
@@ -351,7 +356,7 @@ class AIMemoryGUI:
             main, target_canvas=self.bg_canvas, width=6,
         )
         self.custom_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 4), pady=20)
-        self.bg_canvas.config(yscrollcommand=self.custom_scrollbar.set_range)
+        self.bg_canvas.config(yscrollcommand=self._on_canvas_scroll)
 
         self.main_content = tk.Frame(self.bg_canvas, bg=COLOR_BG_APP)
         self.canvas_window_id = self.bg_canvas.create_window(
@@ -386,7 +391,11 @@ class AIMemoryGUI:
                 lambda _e, page_idx=idx: self._show_page(page_idx),
                 add="+",
             )
-        self.root.bind("<Configure>", self._on_root_configure, add="+")
+        # The toplevel's normal bind tag also receives every descendant's
+        # Configure event. A private tag observes only the actual window.
+        geometry_tag = f"WindowGeometry{id(self)}"
+        self.root.bindtags((geometry_tag, *self.root.bindtags()))
+        self.root.bind_class(geometry_tag, "<Configure>", self._on_root_configure)
         self.root.bind("<Destroy>", self._cancel_pending_ui_callbacks, add="+")
         self.root.after_idle(self._initialize_responsive_layout)
 
@@ -399,6 +408,7 @@ class AIMemoryGUI:
             self._minimum_layout_after_id,
             self._notice_after_id,
             self._completed_badge_after_id,
+            self._history_viewport_after_id,
         ]
         if self.page_frames:
             animation = getattr(self.page_frames[3], "api_animation", {})
@@ -499,6 +509,8 @@ class AIMemoryGUI:
             return
         self._responsive_window_size = size
         self._resize_in_progress = True
+        # Batch scroll extents while Configure updates visible geometry directly.
+        self._schedule_scrollregion()
         if self._responsive_after_id is not None:
             self.root.after_cancel(self._responsive_after_id)
         if size == self._responsive_target_size:
@@ -517,9 +529,11 @@ class AIMemoryGUI:
         width = self.root.winfo_width()
         if width <= 1:
             return
-        scale = max(0.82, min(1.15, width / 1040))
-        scale = max(0.82, min(1.15, round(scale * 20) / 20))
-        if abs(scale - self._responsive_scale) < 0.01 and not force:
+        # Tk already scales fonts for the display DPI. Window resizing changes
+        # layout space, not the font size of every widget (including hidden pages).
+        scale = 1.0
+        if (self._responsive_fonts_initialized
+                and abs(scale - self._responsive_scale) < 0.01 and not force):
             if not self._responsive_layout_initialized:
                 self._schedule_responsive_minimums()
             self._schedule_scrollregion()
@@ -560,6 +574,7 @@ class AIMemoryGUI:
                 visit(child)
 
         visit(self.root)
+        self._responsive_fonts_initialized = True
         self._update_sidebar_width()
         self._schedule_responsive_minimums()
         self._schedule_scrollregion()
@@ -580,17 +595,26 @@ class AIMemoryGUI:
         for i, item in enumerate(self._nav_items):
             item.set_active(i == idx)
         self.bg_canvas.yview_moveto(0)
+        self._schedule_history_viewport()
         self._schedule_scrollregion()
 
     def _refresh_scrollregion(self):
         self._scrollregion_after_id = None
-        if self._resize_in_progress:
+        if self.root.state() in {"iconic", "withdrawn"}:
             return
         canvas_width = self.bg_canvas.winfo_width()
         self._draw_vibrant_gradient(canvas_width, self.bg_canvas.winfo_height())
+        self._fit_content_to_canvas(canvas_width, self.bg_canvas.winfo_height())
+        bb = self.bg_canvas.bbox("all")
+        if bb and bb != self._scrollregion:
+            self._scrollregion = bb
+            self.bg_canvas.configure(scrollregion=bb)
+
+    def _fit_content_to_canvas(self, canvas_width, canvas_height):
+        """Apply cheap geometry immediately, including in Windows' resize loop."""
         content_width = min(canvas_width, self._content_max_width)
         content_height = max(
-            self.bg_canvas.winfo_height(), self.main_content.winfo_reqheight(),
+            canvas_height, self.main_content.winfo_reqheight(),
         )
         current_height = int(float(self.bg_canvas.itemcget(
             self.canvas_window_id, "height",
@@ -598,18 +622,16 @@ class AIMemoryGUI:
         current_width = int(float(self.bg_canvas.itemcget(
             self.canvas_window_id, "width",
         )))
-        if current_width != content_width or current_height != content_height:
+        content_x = max(0, (canvas_width - content_width) // 2)
+        if self.bg_canvas.coords(self.canvas_window_id) != [content_x, 0]:
             self.bg_canvas.coords(
-                self.canvas_window_id, max(0, (canvas_width - content_width) // 2), 0,
+                self.canvas_window_id, content_x, 0,
             )
+        if current_width != content_width or current_height != content_height:
             self.bg_canvas.itemconfig(
                 self.canvas_window_id,
                 width=content_width, height=content_height,
             )
-        bb = self.bg_canvas.bbox("all")
-        if bb and bb != self._scrollregion:
-            self._scrollregion = bb
-            self.bg_canvas.configure(scrollregion=bb)
 
     def _schedule_scrollregion(self):
         if self._scrollregion_after_id is None:
@@ -1119,6 +1141,11 @@ class AIMemoryGUI:
 
     def _refresh_history_list(self):
         """重建历史卡片列表。"""
+        if self._history_viewport_after_id is not None:
+            self.root.after_cancel(self._history_viewport_after_id)
+            self._history_viewport_after_id = None
+        self._history_slots = []
+        self._history_slots_ready = False
         for child in self.history_list_frame.winfo_children():
             child.destroy()
 
@@ -1138,100 +1165,57 @@ class AIMemoryGUI:
             return
 
         for record in self.history_records:
-            self._build_history_card(self.history_list_frame, record)
+            slot = tk.Frame(self.history_list_frame, bg=COLOR_BG_APP)
+            slot.pack(fill=tk.X)
+            card = self._build_history_card(slot, record)
+            self._history_slots.append((slot, card))
         self._apply_responsive_scale(force=True)
+        self._schedule_history_viewport()
+
+    def _on_canvas_scroll(self, first, last):
+        self.custom_scrollbar.set_range(first, last)
+        self._schedule_history_viewport()
+
+    def _schedule_history_viewport(self):
+        if self._history_slots and self._history_viewport_after_id is None:
+            self._history_viewport_after_id = self.root.after(
+                16, self._refresh_history_viewport,
+            )
+
+    def _refresh_history_viewport(self):
+        """Keep offscreen history cards out of Tk's resize/layout/paint work."""
+        self._history_viewport_after_id = None
+        if not self._history_slots:
+            return
+        if not self._history_slots_ready:
+            for slot, card in self._history_slots:
+                slot.configure(height=card.winfo_reqheight() + 14)
+                slot.pack_propagate(False)
+            self._history_slots_ready = True
+        list_y = (
+            self.history_list_frame.winfo_rooty() - self.main_content.winfo_rooty()
+        )
+        top = self.bg_canvas.canvasy(0) - list_y
+        bottom = top + self.bg_canvas.winfo_height()
+        row_y = 0
+        for slot, card in self._history_slots:
+            row_height = int(slot.cget("height"))
+            visible = (
+                self._current_page == 2
+                and row_y + row_height >= top - 160
+                and row_y <= bottom + 160
+            )
+            if visible and not card.winfo_manager():
+                card.pack(fill=tk.X, pady=7)
+            elif not visible and card.winfo_manager():
+                card.pack_forget()
+            row_y += row_height
 
     def _build_history_card(self, parent: tk.Frame, record: dict):
-        """构建单条历史任务卡片。"""
-        card = tk.Frame(
-            parent, bg=COLOR_CARD, padx=22, pady=18,
-            highlightthickness=1, highlightbackground=COLOR_BORDER,
-        )
+        """Keep the static history dashboard on a single drawing surface."""
+        card = HistoryTaskCard(parent, record, self._open_in_explorer)
         card.pack(fill=tk.X, pady=7)
-
-        # 标题行：状态胶囊 + 时间戳（先右侧 pack 防截断） + 文件名
-        header = tk.Frame(card, bg=COLOR_CARD)
-        header.pack(fill=tk.X)
-        succeeded = bool(record.get("succeeded"))
-        status_text = "✓ 成功" if succeeded else "✗ 失败"
-        status_fg = "#059669" if succeeded else "#DC2626"
-        status_bg = "#ECFDF5" if succeeded else "#FEF2F2"
-        tk.Label(
-            header, text=status_text, font=FONT_TINY,
-            fg=status_fg, bg=status_bg, padx=8, pady=2,
-        ).pack(side=tk.LEFT, padx=(0, 10))
-        tk.Label(
-            header, text=record.get("timestamp", ""),
-            font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
-        ).pack(side=tk.RIGHT, padx=(12, 0))
-        title_label = tk.Label(
-            header, text=record.get("title", "未命名任务"),
-            font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
-            anchor="w", width=1,
-        )
-        title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        HoverTooltip(title_label, str(record.get("title", "未命名任务")))
-
-        # 6 指标看板（2×3 网格，每格独立浅灰底卡片）
-        metrics_frame = tk.Frame(card, bg=COLOR_CARD)
-        metrics_frame.pack(fill=tk.X, pady=(12, 0))
-        metrics_frame.grid_columnconfigure(0, weight=1, uniform="m")
-        metrics_frame.grid_columnconfigure(1, weight=1, uniform="m")
-        metrics_frame.grid_columnconfigure(2, weight=1, uniform="m")
-
-        metrics = [
-            ("程序处理", record.get("program_seconds", 0)),
-            ("抓取/读取", record.get("fetch_seconds", 0)),
-            ("总结", record.get("generation_seconds", 0)),
-            ("人工等待", record.get("wait_seconds", 0)),
-            ("总计", record.get("total_seconds", 0)),
-            ("文件数", record.get("file_count", 0)),
-        ]
-        cell_bg = "#F8FAFC"
-        for idx, (label, value) in enumerate(metrics):
-            row, col = divmod(idx, 3)
-            cell = tk.Frame(
-                metrics_frame, bg=cell_bg, padx=10, pady=6,
-                highlightthickness=1, highlightbackground="#EEF2F6",
-            )
-            cell.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
-            tk.Label(
-                cell, text=label, font=FONT_TINY,
-                fg=COLOR_TEXT_MUTED, bg=cell_bg, anchor="w",
-            ).pack(fill=tk.X)
-            tk.Label(
-                cell, text=f"{value:.1f}s" if isinstance(value, float) else str(value),
-                font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=cell_bg,
-                anchor="w",
-            ).pack(fill=tk.X, pady=(2, 0))
-
-        # 文件列表 + 打开文件夹按钮
-        files = record.get("saved_files", [])
-        if files:
-            files_row = tk.Frame(card, bg=COLOR_CARD)
-            files_row.pack(fill=tk.X, pady=(12, 0))
-            file_text = "📁 " + "、".join(Path(file).name for file in files)
-            file_list = HorizontalFileList(
-                files_row,
-                text=file_text,
-                tooltip_text="、".join(map(str, files)),
-            )
-            file_list.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-            output_dir = record.get("output_dir")
-            if output_dir:
-                open_button = tk.Button(
-                    files_row, text="📂 打开文件夹",
-                    command=lambda d=output_dir: self._open_in_explorer(d),
-                    font=FONT_TINY, bg="#F8FAFC", fg=COLOR_TEXT_SECONDARY,
-                    activebackground="#EEF2FF",
-                    activeforeground=COLOR_ACCENT,
-                    relief=tk.FLAT, bd=0, cursor="hand2",
-                    highlightthickness=1, highlightbackground=COLOR_BORDER,
-                    padx=12, pady=5,
-                )
-                open_button.pack(side=tk.RIGHT, padx=(10, 0))
-                HoverTooltip(open_button, str(output_dir))
+        return card
 
     def _open_in_explorer(self, dir_path: str):
         """在系统文件管理器中打开目录。"""
@@ -1258,7 +1242,11 @@ class AIMemoryGUI:
             self.bg_canvas.coords(self._gradient_item_id, 0, 0, w, h)
 
     def _on_canvas_configure(self, event):
+        # Native window resizing may delay timers. Fit the embedded frame in
+        # this event; defer scroll extents and fonts, not the visible layout.
+        self._fit_content_to_canvas(event.width, event.height)
         self._schedule_scrollregion()
+        self._schedule_history_viewport()
 
     def _on_content_configure(self, _event):
         self._schedule_scrollregion()

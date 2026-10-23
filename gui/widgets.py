@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
@@ -1007,10 +1008,14 @@ class GenerationChoiceCard(tk.Canvas):
         available = max_width - font.measure(ellipsis)
         if available <= 0:
             return ellipsis
-        end = len(text)
-        while end > 0 and font.measure(text[:end]) > available:
-            end -= 1
-        return text[:end].rstrip() + ellipsis
+        low, high = 0, len(text)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if font.measure(text[:middle]) <= available:
+                low = middle
+            else:
+                high = middle - 1
+        return text[:low].rstrip() + ellipsis
 
     def set_disabled(self, disabled: bool):
         self._disabled = bool(disabled)
@@ -1646,6 +1651,120 @@ class HoverTooltip:
             except tk.TclError:
                 pass
             self._tip = None
+
+
+class HistoryTaskCard(tk.Canvas):
+    """Draw the static dashboard in one surface instead of dozens of HWNDs."""
+
+    def __init__(self, master, record, on_open):
+        super().__init__(
+            master, bg=COLOR_CARD, highlightthickness=1,
+            highlightbackground=COLOR_BORDER, borderwidth=0,
+        )
+        self.record = record
+        self._small = tkfont.Font(root=self, font=FONT_TINY)
+        self._bold = tkfont.Font(root=self, font=FONT_BODY_BOLD)
+        self._header_height = max(
+            self._small.metrics("linespace") + 4, self._bold.metrics("linespace"),
+        )
+        self._cell_height = (
+            self._small.metrics("linespace") + self._bold.metrics("linespace") + 18
+        )
+        self._metrics_top = 18 + self._header_height + 16
+        self._files_top = self._metrics_top + 2 * (self._cell_height + 8) + 8
+        self._files_window = None
+        if record.get("saved_files"):
+            row = tk.Frame(self, bg=COLOR_CARD)
+            files = record["saved_files"]
+            HorizontalFileList(
+                row, text="📁 " + "、".join(Path(file).name for file in files),
+                tooltip_text="、".join(map(str, files)),
+            ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            if record.get("output_dir"):
+                button = tk.Button(
+                    row, text="📂 打开文件夹",
+                    command=lambda: on_open(record["output_dir"]),
+                    font=FONT_TINY, bg="#F8FAFC", fg=COLOR_TEXT_SECONDARY,
+                    activebackground="#EEF2FF", activeforeground=COLOR_ACCENT,
+                    relief=tk.FLAT, bd=0, cursor="hand2",
+                    highlightthickness=1, highlightbackground=COLOR_BORDER,
+                    padx=12, pady=5,
+                )
+                button.pack(side=tk.RIGHT, padx=(10, 0))
+                HoverTooltip(button, str(record["output_dir"]))
+            self._files_window = self.create_window(
+                22, self._files_top, anchor="nw", window=row,
+                height=max(36, self._small.metrics("linespace") + 14),
+            )
+        bottom = (
+            self._files_top + max(36, self._small.metrics("linespace") + 14)
+            if self._files_window else self._files_top - 8
+        )
+        self.configure(height=bottom + 18)
+        self._last_width = None
+        self.bind("<Configure>", self._on_resize)
+        HoverTooltip(self, str(record.get("title", "未命名任务")))
+
+    def _on_resize(self, event):
+        if event.width == self._last_width:
+            return
+        self._last_width = event.width
+        self.delete("dashboard")
+        width = event.width
+        succeeded = bool(self.record.get("succeeded"))
+        status = "✓ 成功" if succeeded else "✗ 失败"
+        status_width = self._small.measure(status) + 16
+        header_y = 18 + self._header_height / 2
+        self.create_rectangle(
+            22, 18, 22 + status_width, 18 + self._header_height,
+            fill="#ECFDF5" if succeeded else "#FEF2F2", outline="",
+            tags="dashboard",
+        )
+        self.create_text(
+            30, header_y, text=status, font=self._small, anchor="w",
+            fill="#059669" if succeeded else "#DC2626", tags="dashboard",
+        )
+        timestamp = str(self.record.get("timestamp", ""))
+        self.create_text(
+            width - 22, header_y, text=timestamp, font=self._small,
+            anchor="e", fill=COLOR_TEXT_MUTED, tags="dashboard",
+        )
+        title_x = 32 + status_width
+        title = GenerationChoiceCard._ellipsize(
+            str(self.record.get("title", "未命名任务")), self._bold,
+            width - 34 - self._small.measure(timestamp) - title_x,
+        )
+        self.create_text(
+            title_x, header_y, text=title, font=self._bold, anchor="w",
+            fill=COLOR_TEXT_PRIMARY, tags="dashboard",
+        )
+        fields = (
+            ("程序处理", "program_seconds"), ("抓取/读取", "fetch_seconds"),
+            ("总结", "generation_seconds"), ("人工等待", "wait_seconds"),
+            ("总计", "total_seconds"), ("文件数", "file_count"),
+        )
+        cell_width = max(1, (width - 44) / 3)
+        for index, (label, key) in enumerate(fields):
+            row, col = divmod(index, 3)
+            x = 26 + col * cell_width
+            y = self._metrics_top + row * (self._cell_height + 8)
+            self.create_rectangle(
+                x, y, x + cell_width - 8, y + self._cell_height,
+                fill="#F8FAFC", outline="#EEF2F6", tags="dashboard",
+            )
+            self.create_text(
+                x + 10, y + 7, text=label, font=self._small, anchor="nw",
+                fill=COLOR_TEXT_MUTED, tags="dashboard",
+            )
+            value = self.record.get(key, 0)
+            self.create_text(
+                x + 10, y + 9 + self._small.metrics("linespace"),
+                text=f"{value:.1f}s" if isinstance(value, float) else str(value),
+                font=self._bold, anchor="nw", fill=COLOR_TEXT_PRIMARY,
+                tags="dashboard",
+            )
+        if self._files_window:
+            self.itemconfigure(self._files_window, width=max(1, width - 44))
 
 
 class HorizontalFileList(tk.Frame):

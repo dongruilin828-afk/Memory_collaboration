@@ -180,7 +180,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
             ):
                 app = AIMemoryGUI(root)
-            self._flush(root, 300)
+            self._settle_resize(root, app)
             with patch.object(app, "_apply_responsive_scale") as scale:
                 for width in (1100, 1120, 1140, 1160):
                     app._on_root_configure(SimpleNamespace(
@@ -207,6 +207,105 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 for _ in range(20):
                     app._apply_responsive_scale()
                 minimum.assert_not_called()
+        finally:
+            root.destroy()
+
+    def test_content_tracks_window_while_font_scaling_is_deferred(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._settle_resize(root, app)
+            initial_width = root.winfo_width()
+            initial_height = root.winfo_height()
+            # Keep sending real geometry changes faster than the font debounce.
+            for page in range(4):
+                app._show_page(page)
+                self._settle_resize(root, app)
+                with patch.object(app, "_apply_responsive_scale") as scale:
+                    for delta in (24, 48, 72, 96):
+                        root.geometry(
+                            f"{initial_width + delta}x{initial_height + delta}"
+                        )
+                        self._flush(root, 35)
+                        self.assertTrue(app._resize_in_progress)
+                        self.assertEqual(
+                            app.main_content.winfo_width(),
+                            min(app.bg_canvas.winfo_width(), app._content_max_width),
+                            "content width must follow the window during dragging",
+                        )
+                        self.assertGreaterEqual(
+                            app.main_content.winfo_height(),
+                            app.bg_canvas.winfo_height(),
+                        )
+                        scale.assert_not_called()
+                root.geometry(f"{initial_width}x{initial_height}")
+                self._settle_resize(root, app)
+        finally:
+            root.destroy()
+
+    def test_capped_content_recenters_without_changing_its_dimensions(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._settle_resize(root, app)
+            app._content_max_width = 400
+            app._refresh_scrollregion()
+            self._flush(root)
+            # Simulate a stale position while the content dimensions stay valid.
+            app.bg_canvas.coords(app.canvas_window_id, 0, 0)
+            app._refresh_scrollregion()
+            self.assertEqual(
+                app.bg_canvas.coords(app.canvas_window_id),
+                [float((app.bg_canvas.winfo_width() - 400) // 2), 0.0],
+            )
+        finally:
+            root.destroy()
+
+    def test_history_only_lays_out_cards_near_the_viewport(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            app.history_records = [
+                {"title": f"记录 {index}", "saved_files": [f"result{index}.md"]}
+                for index in range(60)
+            ]
+            app._refresh_history_list()
+            app._show_page(2)
+            self._settle_resize(root, app)
+            cards = [card for _slot, card in app._history_slots]
+            self.assertTrue(cards[0].winfo_manager())
+            self.assertLess(sum(bool(card.winfo_manager()) for card in cards), 8)
+            total_height = app.main_content.winfo_reqheight()
+            app.bg_canvas.yview_moveto(1.0)
+            self._flush(root, 100)
+            self.assertFalse(cards[0].winfo_manager())
+            self.assertTrue(cards[-1].winfo_manager())
+            self.assertLess(sum(bool(card.winfo_manager()) for card in cards), 8)
+            self.assertEqual(total_height, app.main_content.winfo_reqheight())
+            # Native child Configure events must not reach the window handler.
+            with patch.object(app, "_schedule_responsive_minimums") as minimum:
+                for width in (1100, 1280, 1400, 1150):
+                    root.geometry(f"{width}x680")
+                    self._settle_resize(root, app)
+                minimum.assert_not_called()
+            app._show_page(0)
+            self._flush(root)
+            self.assertFalse(any(card.winfo_manager() for card in cards))
         finally:
             root.destroy()
 
@@ -401,8 +500,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                                 f"font drift at repeated width {actual_width}",
                             )
                         observed_sizes[actual_width] = size
-                    self.assertGreaterEqual(max(sizes), min(sizes))
-                    self.assertGreater(max(sizes), min(sizes))
+                    self.assertEqual(max(sizes), min(sizes),
+                                     "window resizing must not zoom every font")
                     self.assertEqual(root.tk.getint(app.status_label.cget("wraplength")), 0)
 
                     app._select_summary_file(
