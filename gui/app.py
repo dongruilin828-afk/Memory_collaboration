@@ -116,7 +116,6 @@ from gui.theme import (
     _round_rectangle,
     _scaled_font_size,
     configure_argon_ttk_style,
-    detect_platform_badge,
 )
 from gui.ui_dispatch import UIDispatcher, bind_visible_modal
 from gui.widgets import (
@@ -717,7 +716,7 @@ class AIMemoryGUI:
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
         toolbar.pack(fill=tk.X, pady=(2, 0))
 
-        # 左下角：添加文件 + 粘贴链接 + 清空按钮 + 实时平台识别徽章
+        # 左下角：添加文件 + 粘贴链接
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_left.pack(side=tk.LEFT)
         self._omnibox_toolbar_left = toolbar_left
@@ -752,25 +751,6 @@ class AIMemoryGUI:
         self.paste_link_button._responsive_max_font_size = 13
         self.paste_link_button.pack(side=tk.LEFT)
 
-        self.clear_url_button = tk.Button(
-            toolbar_left, text="✕ 清空",
-            command=self._clear_url_entry,
-            font=(FONT_FAMILY, 10), bg=COLOR_OMNIBOX_SURFACE, fg=COLOR_TEXT_MUTED,
-            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_DANGER,
-            relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=8, pady=4,
-        )
-        self.clear_url_button._responsive_min_font_size = 9
-        self.clear_url_button._responsive_max_font_size = 11
-
-        self.platform_badge_label = tk.Label(
-            toolbar_left, text="",
-            font=FONT_SMALL_BOLD, fg=COLOR_ACCENT_BLUE,
-            bg="#E8F0FE", padx=8, pady=2,
-        )
-        self.platform_badge_label._responsive_min_font_size = 8
-        self.platform_badge_label._responsive_max_font_size = 10
-
         # 右下角：发送按钮
         toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_right.pack(side=tk.RIGHT)
@@ -797,39 +777,6 @@ class AIMemoryGUI:
         # 底部呼吸留白
         spacer = tk.Frame(center, bg=COLOR_BG_APP, height=80)
         spacer.pack(fill=tk.BOTH, expand=True)
-
-    def _clear_url_entry(self):
-        if hasattr(self, "capsule_entry"):
-            self.capsule_entry.set_text("")
-            self._on_url_changed()
-
-    def _update_platform_badge(self, url: str):
-        badge = getattr(self, "platform_badge_label", None)
-        clear_btn = getattr(self, "clear_url_button", None)
-        if clear_btn is not None:
-            if url.strip():
-                if not clear_btn.winfo_manager():
-                    clear_btn.pack(side=tk.LEFT, padx=(6, 0))
-            else:
-                if clear_btn.winfo_manager():
-                    clear_btn.pack_forget()
-        if badge is None:
-            return
-        detected = detect_platform_badge(url)
-        if detected is None:
-            if badge.winfo_manager():
-                badge.pack_forget()
-            return
-        platform_name, fg_color, bg_color = detected
-        is_private = requires_authenticated_browser(url)
-        suffix = " · 账号会话" if is_private else ""
-        badge.configure(
-            text=f" {platform_name}{suffix} ",
-            fg=fg_color,
-            bg=bg_color,
-        )
-        if not badge.winfo_manager():
-            badge.pack(side=tk.LEFT, padx=(8, 0))
 
     def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
@@ -1649,16 +1596,14 @@ class AIMemoryGUI:
         self.done_badge.pack_forget()
 
     def _on_url_changed(self):
-        """URL 变更：发送按钮状态 + 平台徽章识别 + 私有链接检测 + 登录策略自动调整。"""
-        url = self.capsule_entry.get_text() if hasattr(self, "capsule_entry") else ""
-        if hasattr(self, "_update_platform_badge"):
-            self._update_platform_badge(url)
+        """URL 变更：发送按钮状态 + 私有链接检测 + 登录策略自动调整。"""
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
         if getattr(self, "is_running", False):
             return
         if getattr(self, "_generation_completed", False):
             self._reset_generation_for_new_input()
+        url = self.capsule_entry.get_text()
         is_private = requires_authenticated_browser(url)
         self._url_is_private = is_private
         if is_private and hasattr(self, "card_no_login"):

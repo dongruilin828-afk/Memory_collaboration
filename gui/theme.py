@@ -1,4 +1,4 @@
-"""Argon 前端视觉设计系统（Theme Tokens、几何绘制与平台识别辅助）。
+"""Argon 前端视觉设计系统（Theme Tokens、几何绘制与样式辅助）。
 
 统一管理全界面调色板、字体阶梯、间距圆角、图标资源路径与 TTK 样式，
 避免魔法颜色散落，确保高 DPI 缩放与跨页面视觉规范一致。
@@ -10,7 +10,6 @@ import tkinter as tk
 import tkinter.font as tkfont
 from pathlib import Path
 from tkinter import ttk
-from urllib.parse import urlparse
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -94,44 +93,6 @@ REGENERATE_BUTTON_LABEL = "重新生成  →"
 
 DIRECT_SUMMARY_FILE_TYPES = {".md", ".txt"}
 DIRECT_SUMMARY_MAX_BYTES = 10 * 1024 * 1024
-
-SUPPORTED_PLATFORMS_HINT = (
-    "支持 ChatGPT · Codex · DeepSeek · 豆包 · Gemini · Kimi · 通义千问 · Grok"
-)
-
-
-# ==================== 平台智能识别 ====================
-_PLATFORM_BADGES: tuple[tuple[tuple[str, ...], str, str, str], ...] = (
-    (("chat.deepseek.com", "deepseek.com"), "DeepSeek", "#1D4ED8", "#EFF6FF"),
-    (("doubao.com", "www.doubao.com"), "豆包 Doubao", "#0369A1", "#F0F9FF"),
-    (("gemini.google.com", "share.gemini.google"), "Google Gemini", "#4F46E5", "#EEF2FF"),
-    (("kimi.com", "www.kimi.com", "kimi.moonshot.cn"), "Kimi", "#0F766E", "#F0FDFA"),
-    (("qianwen.com", "www.qianwen.com", "qianwen.my.cn", "tongyi.aliyun.com"), "通义千问", "#6D28D9", "#F5F3FF"),
-    (("grok.com", "www.grok.com", "x.com"), "Grok", "#1E293B", "#F1F5F9"),
-)
-
-
-def detect_platform_badge(url: str) -> tuple[str, str, str] | None:
-    """根据输入 URL 识别目标 AI 平台，返回 (平台显示名, 前景色, 背景色)。"""
-    raw = str(url or "").strip()
-    if not raw:
-        return None
-    try:
-        parsed = urlparse(raw)
-    except ValueError:
-        return None
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return None
-    host = (parsed.hostname or "").lower()
-    path = parsed.path or ""
-    if host in {"chatgpt.com", "chat.openai.com"}:
-        if path.startswith("/s/cx_") or "/codex/" in path:
-            return ("OpenAI Codex", "#7C3AED", "#F5F3FF")
-        return ("ChatGPT", "#047857", "#ECFDF5")
-    for hosts, label, fg, bg in _PLATFORM_BADGES:
-        if host in hosts or any(host.endswith("." + h) for h in hosts):
-            return (label, fg, bg)
-    return ("网页链接", COLOR_TEXT_SECONDARY, COLOR_ACCENT_BG)
 
 
 # ==================== 资源路径与几何工具 ====================
