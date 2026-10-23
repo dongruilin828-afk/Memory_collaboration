@@ -1,4 +1,4 @@
-"""Argon 前端视觉设计系统（Theme Tokens、几何绘制与样式辅助）。
+"""Argon 前端视觉设计系统（Theme Tokens、精确圆角几何与样式辅助）。
 
 统一管理全界面调色板、字体阶梯、间距圆角、图标资源路径与 TTK 样式，
 避免魔法颜色散落，确保高 DPI 缩放与跨页面视觉规范一致。
@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 import tkinter.font as tkfont
 from pathlib import Path
@@ -19,18 +20,18 @@ COLOR_BG_APP = "#F8FAFD"
 COLOR_SIDEBAR = "#FFFFFF"
 COLOR_CARD = "#FFFFFF"
 COLOR_CARD_SUBTLE = "#F8FAFC"
-COLOR_BORDER = "#E3E8EF"
-COLOR_BORDER_SUBTLE = "#EDF2F7"
-COLOR_BORDER_FOCUS = "#1A73E8"
+COLOR_BORDER = "#E2E8F0"
+COLOR_BORDER_SUBTLE = "#EEF2F6"
+COLOR_BORDER_FOCUS = "#6F55E8"
 
 COLOR_TEXT_PRIMARY = "#1E1F20"
 COLOR_TEXT_SECONDARY = "#3C4043"
-COLOR_TEXT_MUTED = "#5F6368"
-COLOR_TEXT_DISABLED = "#9AA0A6"
+COLOR_TEXT_MUTED = "#64748B"
+COLOR_TEXT_DISABLED = "#94A3B8"
 
 COLOR_ACCENT = "#1E1F20"
-COLOR_ACCENT_BLUE = "#1A73E8"
-COLOR_ACCENT_BG = "#F0F4F9"
+COLOR_ACCENT_BLUE = "#4F46E5"
+COLOR_ACCENT_BG = "#F1F5F9"
 
 COLOR_SUCCESS = "#0F9D58"
 COLOR_SUCCESS_BG = "#ECFDF5"
@@ -39,25 +40,25 @@ COLOR_WARNING_BG = "#FFFBEB"
 COLOR_DANGER = "#EA4335"
 COLOR_DANGER_BG = "#FEF2F2"
 
-COLOR_HOVER = "#F0F4F9"
-COLOR_DISABLED = "#E3E8EF"
+COLOR_HOVER = "#F1F5F9"
+COLOR_DISABLED = "#E2E8F0"
 
-COLOR_SIDEBAR_TEXT = "#5F6368"
+COLOR_SIDEBAR_TEXT = "#64748B"
 COLOR_SIDEBAR_ACTIVE = "#1E1F20"
-COLOR_SIDEBAR_ACTIVE_BG = "#F0F4F9"
-COLOR_SIDEBAR_DIVIDER = "#E3E8EF"
+COLOR_SIDEBAR_ACTIVE_BG = "#F5F3FF"
+COLOR_SIDEBAR_DIVIDER = "#E2E8F0"
 
 COLOR_OMNIBOX_BG = "#F0F4F9"
 COLOR_OMNIBOX_BG_FOCUS = "#FFFFFF"
-COLOR_OMNIBOX_SURFACE = "#F1ECFF"
-COLOR_OMNIBOX_BORDER = "#C9B8F7"
+COLOR_OMNIBOX_SURFACE = "#F3EEFF"
+COLOR_OMNIBOX_BORDER = "#C4B5FD"
 COLOR_DRAG_HIGHLIGHT = "#EFF6FF"
 COLOR_DRAG_NORMAL = "#F0F4F9"
 
 COLOR_GENERATION_ACCENT = "#6F55E8"
-COLOR_GENERATION_ACCENT_HOVER = "#5F43D2"
-COLOR_GENERATION_ACCENT_BG = "#F4F1FF"
-COLOR_GENERATION_BORDER = "#DED7FA"
+COLOR_GENERATION_ACCENT_HOVER = "#5B42D6"
+COLOR_GENERATION_ACCENT_BG = "#F5F3FF"
+COLOR_GENERATION_BORDER = "#DDD6FE"
 
 COLOR_TOPIC_DIALOG_BG = "#F6F7FB"
 COLOR_TOPIC_CARD_SELECTED = "#F5F3FF"
@@ -129,44 +130,26 @@ def _mix_color(start: str, end: str, amount: float) -> str:
 
 
 def _round_rectangle(canvas: tk.Canvas, x1, y1, x2, y2, r=6, **kwargs):
-    """在 Canvas 上绘制圆角矩形（极简扁平风格的卡片底）。"""
-    r = max(0, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
-    if r <= 0:
+    """在 Canvas 上绘制精确圆弧顶点的圆角矩形（返回单个 polygon 图元）。"""
+    if "radius" in kwargs:
+        r = kwargs.pop("radius")
+    w = x2 - x1
+    h = y2 - y1
+    r = max(0.0, min(float(r), w / 2.0, h / 2.0))
+    if r <= 0.5:
         return canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
-    points = [
-        x1 + r, y1, x2 - r, y1, x2, y1,
-        x2, y1 + r, x2, y2 - r, x2, y2,
-        x2 - r, y2, x1 + r, y2, x1, y2,
-        x1, y2 - r, x1, y1 + r, x1, y1,
-    ]
-    return canvas.create_polygon(points, smooth=True, **kwargs)
-
-
-def configure_argon_ttk_style(master: tk.Misc | None = None) -> ttk.Style | None:
-    """配置统一的 TTK 控件主题样式，使模态窗中的 ttk 控件与自绘扁平风格协调。"""
-    if master is not None and not isinstance(master, tk.Misc):
-        return None
-    try:
-        style = ttk.Style(master)
-        style.configure(
-            "TFrame",
-            background=COLOR_TOPIC_DIALOG_BG,
-        )
-        style.configure(
-            "TLabel",
-            background=COLOR_TOPIC_DIALOG_BG,
-            foreground=COLOR_TEXT_SECONDARY,
-            font=FONT_SMALL,
-        )
-        style.configure(
-            "TButton",
-            font=FONT_BODY_BOLD,
-            padding=(12, 6),
-        )
-        style.configure(
-            "TEntry",
-            padding=(8, 6),
-        )
-        return style
-    except Exception:
-        return None
+    steps = max(8, min(16, int(r)))
+    points: list[float] = []
+    corners = (
+        (x2 - r, y1 + r, -math.pi / 2, 0.0),
+        (x2 - r, y2 - r, 0.0, math.pi / 2),
+        (x1 + r, y2 - r, math.pi / 2, math.pi),
+        (x1 + r, y1 + r, math.pi, 1.5 * math.pi),
+    )
+    for cx, cy, start_angle, end_angle in corners:
+        for i in range(steps + 1):
+            angle = start_angle + (end_angle - start_angle) * (i / steps)
+            points.append(cx + r * math.cos(angle))
+            points.append(cy + r * math.sin(angle))
+    kwargs.pop("smooth", None)
+    return canvas.create_polygon(points, smooth=False, **kwargs)

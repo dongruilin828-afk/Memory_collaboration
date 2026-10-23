@@ -1,7 +1,7 @@
-"""Argon 前端自绘高复用组件库。
+"""Argon 前端自定义 Canvas/Frame 复合控件库。
 
-封装所有基于 Tkinter Canvas / Frame 的扁平与毛玻璃过渡控件，
-内置高 DPI 响应式字号缩放、键盘无障碍焦点环以及销毁时定时器自动清理。
+所有控件均遵循统一的设计系统令牌（gui.theme），并在 <Destroy> 生命周期中
+自动清理挂起的 Tcl after 定时器，杜绝窗口切换或销毁时的孤儿回调异常。
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import tkinter as tk
 import tkinter.font as tkfont
+from tkinter import ttk
 
 from gui.theme import (
     COLOR_ACCENT,
@@ -17,6 +18,7 @@ from gui.theme import (
     COLOR_BG_APP,
     COLOR_BORDER,
     COLOR_BORDER_FOCUS,
+    COLOR_BORDER_SUBTLE,
     COLOR_CARD,
     COLOR_DISABLED,
     COLOR_GENERATION_ACCENT,
@@ -48,8 +50,6 @@ from gui.theme import (
     _scaled_font_size,
 )
 
-
-# ==================== 品牌分层图标 ====================
 
 class StackedLayersIcon(tk.Canvas):
     """显示正式版分层记忆 Logo 的透明 PNG 资源。"""
@@ -85,7 +85,7 @@ class StackedLayersIcon(tk.Canvas):
 # ==================== 极简扁平滚动条 ====================
 
 class MinimalScrollbar(tk.Canvas):
-    """纤细极简滚动条（自动隐藏、圆润指示条、悬停加深）。"""
+    """纤细圆角胶囊滚动条（按需显现、悬停加深）。"""
 
     def __init__(
         self,
@@ -126,8 +126,6 @@ class MinimalScrollbar(tk.Canvas):
         self.redraw()
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("thumb")
         h = max(self.winfo_height(), 1)
         span = max(0.0, self._last - self._first)
@@ -135,11 +133,10 @@ class MinimalScrollbar(tk.Canvas):
             return
         thumb_h = max(28, int(h * span))
         thumb_y = int(h * self._first)
-        color = "#1E293B" if self._hover else "#94A3B8"
+        color = "#475569" if self._hover else "#CBD5E1"
         self._thumb_id = _round_rectangle(
-            self,
-            1, thumb_y, self._width - 1, thumb_y + thumb_h,
-            r=max(1, (self._width - 2) // 2),
+            self, 1, thumb_y, self._width - 1, thumb_y + thumb_h,
+            r=(self._width - 2) / 2,
             fill=color, outline="", tags="thumb",
         )
 
@@ -152,10 +149,8 @@ class MinimalScrollbar(tk.Canvas):
         delta = (event.y - self._drag_start_y) / h
         new_first = max(
             0.0,
-            min(
-                1.0 - (self._last - self._first),
-                self._drag_start_first + delta,
-            ),
+            min(1.0 - (self._last - self._first),
+                self._drag_start_first + delta),
         )
         self.target.yview_moveto(new_first)
 
@@ -166,7 +161,7 @@ class MinimalScrollbar(tk.Canvas):
 # ==================== 极简扁平按钮 ====================
 
 class FlatButton(tk.Canvas):
-    """扁平/渐变按钮：支持主色、强调紫、次级描边、渐变保存及键盘无障碍激活。"""
+    """扁平圆角按钮：支持主按钮、紫调强调按钮、设置渐变保存按钮及次要描边按钮。"""
 
     def __init__(
         self,
@@ -227,8 +222,7 @@ class FlatButton(tk.Canvas):
             self._font.measure(self._text) + icon_width + 32,
         )
         self._height = max(
-            round(self._base_height * scale),
-            self._font.metrics("linespace") + 16,
+            round(self._base_height * scale), self._font.metrics("linespace") + 16,
         )
         self.configure(width=self._width, height=self._height)
         self.redraw()
@@ -275,247 +269,227 @@ class FlatButton(tk.Canvas):
             return self._command()
         return None
 
-    @staticmethod
-    def _mix_color(start: str, end: str, amount: float) -> str:
-        return _mix_color(start, end, amount)
-
-    def _draw_settings_gradient(self, width: int, height: int):
-        _round_rectangle(
-            self, 2, 3, width - 2, height - 2, r=12,
-            fill="#DDE3EF", outline="",
-        )
-        x1, y1, x2, y2 = 2, 1, width - 2, height - 4
-        radius = min(12, (y2 - y1) / 2)
-        start, end = (
-            ("#146FB3", "#5B4BC0") if self._hover
-            else ("#0D5B99", "#49379F")
-        )
-        steps = max(1, width - 4)
-        for step in range(steps):
-            left = x1 + (x2 - x1) * step / steps
-            right = x1 + (x2 - x1) * (step + 1) / steps
-            center = (left + right) / 2
-            edge_distance = min(center - x1, x2 - center)
-            inset = (
-                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
-                if edge_distance < radius else 0
-            )
-            color = self._mix_color(start, end, step / max(1, steps - 1))
-            self.create_rectangle(
-                left, y1 + inset, right + 0.5, y2 - inset,
-                fill=color, outline=color,
-            )
-        _round_rectangle(
-            self, x1, y1, x2, y2, r=radius,
-            fill="", outline="#FFFFFF", width=1,
-        )
-        if self._focused:
-            _round_rectangle(
-                self, 0, 0, width, height, r=13,
-                fill="", outline="#8AB4F8", width=2,
-            )
-
-    def _draw_topic_primary_gradient(self, width: int, height: int):
-        x1, y1, x2, y2 = 1, 1, width - 1, height - 1
-        radius = min(9, (y2 - y1) / 2)
-        start, end = (
-            ("#7667E8", "#5F4DD3") if self._hover
-            else ("#806FEA", "#6955DA")
-        )
-        steps = max(1, width - 4)
-        for step in range(steps):
-            left = x1 + (x2 - x1) * step / steps
-            right = x1 + (x2 - x1) * (step + 1) / steps
-            center = (left + right) / 2
-            edge_distance = min(center - x1, x2 - center)
-            inset = (
-                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
-                if edge_distance < radius else 0
-            )
-            color = self._mix_color(start, end, step / max(1, steps - 1))
-            self.create_rectangle(
-                left, y1 + inset, right + 0.5, y2 - inset,
-                fill=color, outline=color,
-            )
-        _round_rectangle(
-            self, x1, y1, x2, y2, r=radius,
-            fill="", outline="#6552D3", width=1,
-        )
-        if self._focused:
-            _round_rectangle(
-                self, 2, 2, width - 2, height - 2, r=8,
-                fill="", outline="#D9D3FF", width=1,
-            )
-
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
-        w, h = self._width, self._height
-        self.configure(
-            bg=(
-                COLOR_GENERATION_ACCENT
-                if self._variant == "topic-primary" and self._enabled
-                else self._bg_parent
+        if self._variant == "settings-save":
+            self._draw_settings_save_button()
+            return
+        if self._variant == "topic-primary":
+            self.configure(
+                bg=COLOR_GENERATION_ACCENT if self._enabled else COLOR_DISABLED,
             )
-        )
+            bg = (
+                COLOR_GENERATION_ACCENT_HOVER
+                if (self._hover and self._enabled)
+                else (COLOR_GENERATION_ACCENT if self._enabled else COLOR_DISABLED)
+            )
+            fg = "#FFFFFF" if self._enabled else COLOR_TEXT_DISABLED
+            _round_rectangle(
+                self, 1, 1, self._width - 2, self._height - 2, r=10,
+                fill=bg, outline=bg, width=1,
+            )
+            if self._focused and self._enabled:
+                _round_rectangle(
+                    self, 3, 3, self._width - 4, self._height - 4, r=8,
+                    fill="", outline="#FFFFFF", width=1.5,
+                )
+            self.create_text(
+                self._width // 2, self._height // 2,
+                text=self._text, fill=fg, font=self._font,
+            )
+            return
+        if self._variant == "topic-secondary":
+            self.configure(bg=self._bg_parent)
+            bg = "#EAECEF" if self._hover else COLOR_CARD
+            outline = "#BEC6D2" if self._hover else "#D0D6E0"
+            _round_rectangle(
+                self, 1, 1, self._width - 2, self._height - 2, r=10,
+                fill=bg, outline=outline, width=1,
+            )
+            if self._focused and self._enabled:
+                _round_rectangle(
+                    self, 3, 3, self._width - 4, self._height - 4, r=8,
+                    fill="", outline=COLOR_GENERATION_ACCENT, width=2,
+                )
+            self.create_text(
+                self._width // 2, self._height // 2,
+                text=self._text, fill=COLOR_TEXT_SECONDARY, font=self._font,
+            )
+            return
+        self.configure(bg=self._bg_parent)
         if not self._enabled:
-            bg, fg = COLOR_DISABLED, COLOR_TEXT_DISABLED
-            outline = ""
+            bg = COLOR_DISABLED
+            fg = COLOR_TEXT_DISABLED
+            outline = COLOR_DISABLED
+        elif self._variant == "primary":
+            bg = "#262626" if self._hover else COLOR_ACCENT
+            fg = "#FFFFFF"
+            outline = bg
         elif self._variant == "accent":
             bg = (
                 COLOR_GENERATION_ACCENT_HOVER
                 if self._hover else COLOR_GENERATION_ACCENT
             )
             fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "primary":
-            bg = "#0A0A0A" if not self._hover else "#262626"
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "settings-save":
-            bg = COLOR_ACCENT_BLUE
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "secondary":
+            outline = bg
+        else:
             bg = COLOR_HOVER if self._hover else COLOR_CARD
             fg = COLOR_TEXT_PRIMARY
             outline = COLOR_BORDER
-        elif self._variant == "topic-secondary":
-            bg = "#F1EFFF" if self._hover else "#FFFFFF"
-            fg = COLOR_GENERATION_ACCENT if self._hover else COLOR_TEXT_SECONDARY
-            outline = "#BDB4F3" if self._hover else "#D9DCE6"
-        elif self._variant == "topic-primary":
-            bg = COLOR_GENERATION_ACCENT
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "ghost":
-            bg = COLOR_HOVER if self._hover else self._bg_parent
-            fg = COLOR_TEXT_SECONDARY
-            outline = ""
-        else:
-            bg = COLOR_HOVER if self._hover else self._bg_parent
-            fg = COLOR_TEXT_PRIMARY
-            outline = COLOR_BORDER
 
-        if self._variant == "settings-save" and self._enabled:
-            self._draw_settings_gradient(w, h)
-        elif self._variant == "topic-primary" and self._enabled:
-            self._draw_topic_primary_gradient(w, h)
-        else:
+        _round_rectangle(
+            self, 1, 1, self._width - 2, self._height - 2, r=10,
+            fill=bg, outline=outline, width=1,
+        )
+        self.create_text(
+            self._width // 2, self._height // 2,
+            text=self._text, fill=fg, font=self._font,
+        )
+
+    def _draw_settings_save_button(self):
+        self.configure(bg=self._bg_parent)
+        radius = min(12, max(8, (self._height - 6) // 2))
+        if not self._enabled:
             _round_rectangle(
-                self, 1, 1, w - 1, h - 1,
-                r=(
-                    12 if self._variant == "settings-save"
-                    else 9 if self._variant.startswith("topic-")
-                    else 8 if self._variant == "accent"
-                    else 6
-                ),
-                fill=bg, outline=outline, width=1,
+                self, 2, 2, self._width - 2, self._height - 3, r=radius,
+                fill=COLOR_DISABLED, outline=COLOR_DISABLED, width=1,
+            )
+            fg = COLOR_TEXT_DISABLED
+        else:
+            fill_color = (
+                COLOR_GENERATION_ACCENT_HOVER
+                if self._hover else COLOR_GENERATION_ACCENT
+            )
+            _round_rectangle(
+                self, 2, 2, self._width - 2, self._height - 3, r=radius,
+                fill=fill_color, outline=fill_color, width=1,
             )
             if self._focused:
                 _round_rectangle(
-                    self, 1, 1, w - 1, h - 1, r=6,
-                    fill="", outline="#8C78E8", width=2,
+                    self, 4, 4, self._width - 4, self._height - 5, r=max(6, radius - 2),
+                    fill="", outline="#FFFFFF", width=1.5,
                 )
+            fg = "#FFFFFF"
 
-        if self._icon_text and self._icon_font:
-            icon_width = self._icon_font.measure(self._icon_text)
-            text_width = self._font.measure(self._text)
-            start_x = (w - icon_width - 8 - text_width) / 2
+        center_y = (self._height - 1) / 2
+        if self._icon_font:
+            icon_w = self._icon_font.measure(self._icon_text)
+            text_w = self._font.measure(self._text)
+            gap = 8
+            start_x = (self._width - (icon_w + gap + text_w)) / 2
             self.create_text(
-                start_x + icon_width / 2, h / 2,
-                text=self._icon_text, fill=fg, font=self._icon_font,
+                start_x, center_y, text=self._icon_text,
+                fill=fg, font=self._icon_font, anchor="w",
             )
             self.create_text(
-                start_x + icon_width + 8 + text_width / 2, h / 2,
-                text=self._text, fill=fg, font=self._font,
+                start_x + icon_w + gap, center_y, text=self._text,
+                fill=fg, font=self._font, anchor="w",
             )
         else:
             self.create_text(
-                w // 2, h // 2, text=self._text,
+                self._width / 2, center_y, text=self._text,
                 fill=fg, font=self._font,
             )
 
 
-# ==================== 设置页圆角分段选项卡 ====================
+# ==================== 设置页分段切换栏 ====================
 
 class SettingsSegmentedTabs(tk.Canvas):
-    """设置页的胶囊分段选项卡，支持鼠标点击与左右方向键切换。"""
+    """设置页顶部的胶囊分段切换器（统一 Argon 靛紫视觉语言）。"""
 
-    _OPTIONS = (("api", "API KEY 设置"), ("data", "数据保存位置"))
-
-    def __init__(self, master, command=None, bg_parent=COLOR_CARD):
-        super().__init__(
-            master, height=42, highlightthickness=0, bg=bg_parent,
-            takefocus=True, cursor="hand2",
+    def __init__(
+        self,
+        master,
+        command: callable,
+        bg_parent: str = COLOR_CARD,
+        **kwargs,
+    ):
+        self._items = (
+            ("api", "API KEY 设置"),
+            ("data", "数据保存位置"),
         )
         self._command = command
         self._bg_parent = bg_parent
-        self._selected_key = "api"
-        self._base_height = 42
-        self._height = self._base_height
-        self._scale = 1.0
-        self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
+        self._selected = "api"
+        self._hover_key = None
         self._focused = False
         self._suppress_focus_ring = False
-        self.bind("<Configure>", lambda _event: self.redraw())
+        self._font = tkfont.Font(master=master, font=FONT_BODY_BOLD)
+        self._height = 46
+        self._width = 500
+        super().__init__(
+            master, width=self._width, height=self._height,
+            bg=bg_parent, highlightthickness=0, bd=0,
+            takefocus=True, cursor="hand2", **kwargs,
+        )
+        self.bind("<Configure>", self._on_configure)
+        self.bind("<Motion>", self._on_motion)
+        self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
-        self.bind("<Left>", lambda _event: self._move_selection(-1))
-        self.bind("<Right>", lambda _event: self._move_selection(1))
         self.bind("<FocusIn>", self._on_focus_in)
         self.bind("<FocusOut>", self._on_focus_out)
+        self.bind("<Left>", lambda _event: self._move_selection(-1))
+        self.bind("<Right>", lambda _event: self._move_selection(1))
+        self.bind("<Return>", self._activate_focused)
+        self.bind("<space>", self._activate_focused)
         self.redraw()
 
     @property
-    def selected_key(self):
-        return self._selected_key
+    def selected_key(self) -> str:
+        return self._selected
 
     def set_responsive_scale(self, scale: float):
-        self._scale = scale
-        self._height = max(36, round(self._base_height * scale))
-        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
+        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 12))
+        self._height = max(42, round(46 * scale))
         self.configure(height=self._height)
         self.redraw()
 
-    def select(self, key: str):
-        if key in dict(self._OPTIONS):
-            self._selected_key = key
-            self.redraw()
-
-    def _widths(self):
-        return [
-            max(round(124 * self._scale), self._font.measure(label) + 32)
-            for _key, label in self._OPTIONS
-        ]
-
-    def _activate(self, key: str):
-        if key not in dict(self._OPTIONS) or key == self._selected_key:
+    def select(self, key: str, invoke: bool = False):
+        if key not in dict(self._items):
             return
-        self._selected_key = key
+        self._selected = key
         self.redraw()
-        if self._command:
+        if invoke and self._command:
             self._command(key)
 
-    def _on_click(self, event):
-        self._suppress_focus_ring = True
-        self.focus_set()
-        self._focused = False
-        self.redraw()
-        widths = self._widths()
-        if event.x < widths[0] + 5:
-            self._activate("api")
-        elif event.x < sum(widths) + 10:
-            self._activate("data")
+    def _widths(self) -> list[int]:
+        return [
+            max(122, self._font.measure(label) + 34)
+            for _key, label in self._items
+        ]
 
-    def _move_selection(self, direction: int):
-        self._suppress_focus_ring = False
-        self._focused = True
-        keys = [key for key, _label in self._OPTIONS]
-        self._activate(
-            keys[(keys.index(self._selected_key) + direction) % len(keys)]
-        )
-        return "break"
+    def _hit_test(self, x: int) -> str | None:
+        widths = self._widths()
+        if x < widths[0] + 5:
+            return "api"
+        if x < sum(widths) + 12:
+            return "data"
+        return None
+
+    def _on_configure(self, event):
+        if event.width > 1 and event.width != self._width:
+            self._width = event.width
+            self.redraw()
+
+    def _on_motion(self, event):
+        key = self._hit_test(event.x)
+        if key != self._hover_key:
+            self._hover_key = key
+            self.configure(cursor="hand2" if key else "arrow")
+            self.redraw()
+
+    def _on_leave(self, _event=None):
+        if self._hover_key is not None:
+            self._hover_key = None
+            self.redraw()
+
+    def _on_click(self, event):
+        key = self._hit_test(event.x)
+        if key:
+            self._suppress_focus_ring = True
+            self.focus_set()
+            self._focused = False
+            self.select(key, invoke=True)
 
     def _on_focus_in(self, _event=None):
         self._focused = not self._suppress_focus_ring
@@ -526,46 +500,67 @@ class SettingsSegmentedTabs(tk.Canvas):
         self._suppress_focus_ring = False
         self.redraw()
 
+    def _move_selection(self, step: int):
+        keys = [key for key, _label in self._items]
+        idx = (keys.index(self._selected) + step) % len(keys)
+        self._suppress_focus_ring = False
+        self._focused = True
+        self.select(keys[idx], invoke=True)
+        return "break"
+
+    def _activate_focused(self, _event=None):
+        self._suppress_focus_ring = False
+        self._focused = True
+        if self._command:
+            self._command(self._selected)
+        return "break"
+
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
-        width = max(self.winfo_width(), 1)
+        seg_widths = self._widths()
+        width = max(self._width, sum(seg_widths) + 18)
         height = self._height
         _round_rectangle(
-            self, 1, 1, width - 1, height - 1, r=height / 2,
-            fill="#EDF1F5", outline=COLOR_BORDER, width=1,
+            self, 1, 1, width - 1, height - 1, r=12,
+            fill="#F1F5F9", outline="#E2E8F0", width=1,
         )
-        widths = self._widths()
-        positions = (4, 4 + widths[0] + 4)
-        selected_index = 0 if self._selected_key == "api" else 1
-        selected_x = positions[selected_index]
-        _round_rectangle(
-            self, selected_x, 3, selected_x + widths[selected_index],
-            height - 3, r=(height - 6) / 2,
-            fill="#0D5B99", outline="",
-        )
-        for index, (key, label) in enumerate(self._OPTIONS):
-            self.create_text(
-                positions[index] + widths[index] / 2, height / 2,
-                text=label,
-                fill=(
-                    "#FFFFFF" if key == self._selected_key
-                    else COLOR_TEXT_SECONDARY
-                ),
-                font=self._font,
-            )
         if self._focused:
             _round_rectangle(
-                self, 0, 0, width, height, r=height / 2,
-                fill="", outline=COLOR_BORDER_FOCUS, width=1,
+                self, 2, 2, width - 2, height - 2, r=11,
+                fill="", outline=COLOR_GENERATION_ACCENT, width=1.5,
             )
 
+        cursor_x = 5
+        for (key, label), seg_w in zip(self._items, seg_widths):
+            x1, y1 = cursor_x, 5
+            x2, y2 = cursor_x + seg_w, height - 5
+            if key == self._selected:
+                _round_rectangle(
+                    self, x1, y1, x2, y2, r=9,
+                    fill=COLOR_GENERATION_ACCENT,
+                    outline=COLOR_GENERATION_ACCENT, width=1,
+                )
+                fg = "#FFFFFF"
+            elif key == self._hover_key:
+                _round_rectangle(
+                    self, x1, y1, x2, y2, r=9,
+                    fill="#E2E8F0", outline="", width=0,
+                )
+                fg = COLOR_TEXT_PRIMARY
+            else:
+                fg = COLOR_TEXT_SECONDARY
 
-# ==================== 极简扁平选择卡片（兼容契约） ====================
+            self.create_text(
+                (x1 + x2) / 2, (y1 + y2) / 2,
+                text=label, fill=fg, font=self._font,
+            )
+            cursor_x = x2 + 6
+
+
+# ==================== 扁平选择卡片 ====================
 
 class FlatSelectCard(tk.Canvas):
-    """扁平选择卡片：支持 set_disabled / set_checked / _on_click 契约。"""
+    """可勾选/单选的扁平卡片（保留对外兼容契约）。"""
 
     def __init__(
         self,
@@ -573,151 +568,151 @@ class FlatSelectCard(tk.Canvas):
         title: str,
         subtitle: str,
         badge_text: str = "",
-        is_radio: bool = False,
         initial_checked: bool = False,
         on_toggle: callable = None,
-        theme_color: str = COLOR_ACCENT,
-        bg_parent: str = COLOR_BG_APP,
-        width: int = 220,
-        height: int = 96,
+        width: int = 200,
+        height: int = 86,
+        accent_color: str = COLOR_ACCENT,
+        selected_bg: str = "#FAFAFA",
+        hover_border: str = "#A3A3A3",
+        badge_bg: str = COLOR_ACCENT_BG,
+        badge_fg: str = COLOR_ACCENT_BLUE,
         **kwargs,
     ):
         super().__init__(
             master, width=width, height=height,
-            highlightthickness=0, bg=bg_parent, **kwargs,
+            highlightthickness=0, bg=COLOR_CARD,
+            cursor="hand2", **kwargs,
         )
         self._title = title
         self._subtitle = subtitle
         self._badge = badge_text
-        self._is_radio = is_radio
-        self._checked = initial_checked
-        self._disabled = False
-        self._hover = False
+        self.checked = initial_checked
         self._on_toggle = on_toggle
-        self._theme = theme_color
-        self._bg_parent = bg_parent
         self._width = width
         self._height = height
-        self.checked = self._checked
+        self._hover = False
+        self._disabled = False
+        self._accent_color = accent_color
+        self._selected_bg = selected_bg
+        self._hover_border = hover_border
+        self._badge_bg = badge_bg
+        self._badge_fg = badge_fg
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<Button-1>", self._on_click)
+        self.bind("<Configure>", self._on_resize)
         self.redraw()
+
+    def _on_resize(self, event):
+        if event.width > 1 and event.width != self._width:
+            self._width = event.width
+            self.redraw()
 
     def set_disabled(self, disabled: bool):
         self._disabled = bool(disabled)
+        self.config(cursor="arrow" if self._disabled else "hand2")
         self.redraw()
 
     def set_checked(self, val: bool):
-        self._checked = bool(val)
-        self.checked = self._checked
+        self.checked = bool(val)
         self.redraw()
 
-    def _on_enter(self, _event=None):
-        self._hover = True
-        self.redraw()
+    def _on_enter(self, _e=None):
+        if not self._disabled:
+            self._hover = True
+            self.redraw()
 
-    def _on_leave(self, _event=None):
+    def _on_leave(self, _e=None):
         self._hover = False
         self.redraw()
 
-    def _on_click(self, _event=None):
+    def _on_click(self, _e=None):
         if self._disabled:
             return
-        if self._is_radio:
-            if not self._checked:
-                self.set_checked(True)
-                if self._on_toggle:
-                    self._on_toggle(self)
-        else:
-            self.set_checked(not self._checked)
-            if self._on_toggle:
-                self._on_toggle(self)
+        self.checked = not self.checked
+        self.redraw()
+        if self._on_toggle:
+            self._on_toggle(self)
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         w, h = self._width, self._height
-        if self._checked and not self._disabled:
-            bg = COLOR_ACCENT_BG
-            outline = COLOR_TEXT_PRIMARY
-            outline_w = 1.5
-        elif self._hover and not self._disabled:
-            bg = COLOR_HOVER
-            outline = COLOR_BORDER
-            outline_w = 1
-        elif self._disabled:
+
+        if self._disabled:
             bg = "#FAFAFA"
-            outline = COLOR_BORDER
-            outline_w = 1
+            border = COLOR_BORDER
+            bw = 1
+        elif self.checked:
+            bg = self._selected_bg
+            border = self._accent_color
+            bw = 2
+        elif self._hover:
+            bg = COLOR_CARD
+            border = self._hover_border
+            bw = 1
         else:
             bg = COLOR_CARD
-            outline = COLOR_BORDER
-            outline_w = 1
+            border = COLOR_BORDER
+            bw = 1
+
         _round_rectangle(
-            self, 1, 1, w - 1, h - 1, r=6,
-            fill=bg, outline=outline, width=outline_w,
+            self, 2, 2, w - 2, h - 2, r=8,
+            fill=bg, outline=border, width=bw,
         )
-        indicator_color = (
-            COLOR_TEXT_PRIMARY if self._checked else COLOR_BORDER
-        )
-        indicator_fill = (
-            COLOR_TEXT_PRIMARY if self._checked else "#FFFFFF"
-        )
-        ix, iy, isz = 14, 14, 14
-        _round_rectangle(
-            self, ix, iy, ix + isz, iy + isz, r=2,
-            fill=indicator_fill, outline=indicator_color, width=1,
-        )
-        if self._checked:
-            self.create_line(
-                ix + 3, iy + 7, ix + 6, iy + 10, ix + 11, iy + 4,
-                fill="#FFFFFF", width=2, smooth=True,
+
+        box_x, box_y = 16, 20
+        if self.checked and not self._disabled:
+            _round_rectangle(
+                self, box_x, box_y, box_x + 16, box_y + 16, r=4,
+                fill=self._accent_color, outline=self._accent_color,
             )
+            self.create_line(
+                box_x + 3, box_y + 8, box_x + 7, box_y + 12,
+                fill="#FFFFFF", width=2,
+            )
+            self.create_line(
+                box_x + 7, box_y + 12, box_x + 13, box_y + 4,
+                fill="#FFFFFF", width=2,
+            )
+        else:
+            _round_rectangle(
+                self, box_x, box_y, box_x + 16, box_y + 16, r=4,
+                fill=COLOR_CARD, outline=COLOR_BORDER, width=1,
+            )
+
         title_color = (
             COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_PRIMARY
-        )
-        self.create_text(
-            ix + isz + 10, iy + 2, text=self._title,
-            fill=title_color, font=FONT_BODY_BOLD, anchor="nw",
         )
         sub_color = (
             COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_SECONDARY
         )
         self.create_text(
-            ix + isz + 10, iy + 22, text=self._subtitle,
-            fill=sub_color, font=FONT_TINY, anchor="nw",
-            width=w - ix - isz - 24,
+            42, 20, text=self._title, fill=title_color,
+            font=FONT_BODY_BOLD, anchor="nw",
         )
-        if self._badge and w >= 138 and h >= 48:
-            badge_w = 8 + len(self._badge) * 6
-            bx = w - 14 - badge_w
-            by = 12
-            badge_bg = (
-                COLOR_ACCENT_BG
-                if self._checked and not self._disabled
-                else "#F5F5F5"
-            )
+        self.create_text(
+            42, 44, text=self._subtitle, fill=sub_color,
+            font=FONT_SMALL, anchor="nw", width=w - 56,
+        )
+
+        if self._badge:
+            badge_w = len(self._badge) * 10 + 14
+            bx1 = w - badge_w - 12
+            by1 = 16
             _round_rectangle(
-                self, bx, by, bx + badge_w, by + 18, r=9,
-                fill=badge_bg, outline="",
+                self, bx1, by1, bx1 + badge_w, by1 + 20, r=4,
+                fill=self._badge_bg, outline="",
             )
             self.create_text(
-                bx + badge_w // 2, by + 9, text=self._badge,
-                fill=(
-                    COLOR_ACCENT
-                    if self._checked and not self._disabled
-                    else COLOR_TEXT_SECONDARY
-                ),
+                bx1 + badge_w // 2, by1 + 10,
+                text=self._badge, fill=self._badge_fg,
                 font=FONT_TINY,
             )
 
 
-# ==================== 重点主题选择卡片 ====================
-
 class SummaryTopicCard(tk.Canvas):
-    """用于重点主题弹窗的整卡可点击多选项（支持长文本自适应增高）。"""
+    """重点主题选择弹窗中的自适应高度主题卡片。"""
 
     def __init__(
         self,
@@ -726,7 +721,7 @@ class SummaryTopicCard(tk.Canvas):
         title: str,
         summary: str,
         on_toggle: callable = None,
-        width: int = 526,
+        width: int = 580,
         **kwargs,
     ):
         super().__init__(
@@ -796,8 +791,6 @@ class SummaryTopicCard(tk.Canvas):
         return "break"
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         width = self._width
         if self._checked:
@@ -812,7 +805,8 @@ class SummaryTopicCard(tk.Canvas):
 
         _round_rectangle(
             self, 2, 2, width - 4, self._height - 4, r=10,
-            fill=background, outline=outline, width=1,
+            fill=background, outline=outline,
+            width=1,
         )
         if self._checked:
             _round_rectangle(
@@ -857,7 +851,7 @@ class SummaryTopicCard(tk.Canvas):
                 tags=("selection_indicator",),
             )
 
-        text_width = max(80, width - 112)
+        text_width = width - 112
         title_id = self.create_text(
             58, 18, text=self._title, fill=COLOR_TEXT_PRIMARY,
             font=FONT_BODY_BOLD, anchor="nw", width=text_width,
@@ -879,7 +873,7 @@ class SummaryTopicCard(tk.Canvas):
 # ==================== 极简扁平进度条 ====================
 
 class FlatProgressBar(tk.Canvas):
-    """扁平进度条：柔和轨道 + 强调色填充，平滑 60fps 插值动画。"""
+    """扁平进度条：柔和紫底轨道 + 主题填充，带 60fps 缓动过渡与销毁清理。"""
 
     def __init__(
         self,
@@ -917,7 +911,7 @@ class FlatProgressBar(tk.Canvas):
     def reset(self):
         self._target = 0.0
         self._value = 0.0
-        if self._anim_id is not None:
+        if self._anim_id:
             try:
                 self.after_cancel(self._anim_id)
             except tk.TclError:
@@ -939,40 +933,29 @@ class FlatProgressBar(tk.Canvas):
         self.redraw()
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         w = max(self.winfo_width(), 1)
         h = self._height
         _round_rectangle(
-            self, 0, 0, w, h, r=h // 2,
-            fill="#E0DAF7", outline="",
+            self, 0, 0, w, h, r=h / 2,
+            fill="#E4DDFB", outline="",
         )
         if self._value > 0:
             fw = max(h, int(w * self._value))
             _round_rectangle(
-                self, 0, 0, fw, h, r=h // 2,
+                self, 0, 0, fw, h, r=h / 2,
                 fill=self._fill_color, outline="",
             )
 
 
-# ==================== 生成页模式选择行卡片 ====================
-
 class GenerationChoiceCard(tk.Canvas):
-    """生成页专用的响应式模式选择行卡片。"""
+    """生成页响应式模式卡片（内联推荐徽章，选中态柔光高亮）。"""
 
     def __init__(
-        self,
-        master,
-        title: str,
-        subtitle: str,
-        badge_text: str = "",
-        initial_checked: bool = False,
-        on_toggle: callable = None,
-        width: int = 200,
-        height: int = 58,
-        show_separator: bool = True,
-        **kwargs,
+        self, master, title: str, subtitle: str,
+        badge_text: str = "", initial_checked: bool = False,
+        on_toggle: callable = None, width: int = 200,
+        height: int = 58, show_separator: bool = True, **kwargs,
     ):
         super().__init__(
             master, width=width, height=height, bg=COLOR_CARD,
@@ -1055,48 +1038,67 @@ class GenerationChoiceCard(tk.Canvas):
             self._on_toggle(self)
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         width = max(self.winfo_width(), self._base_width)
         height = self._height
         if self._disabled:
-            background = "#F8F9FB"
+            background = "#F8FAFC"
             title_color = COLOR_TEXT_DISABLED
-        elif self._hover:
-            background = "#F5F7FC"
-            title_color = COLOR_TEXT_PRIMARY
         elif self._checked:
-            background = "#FDFCFF"
+            background = "#FAF8FF" if not self._hover else "#F5F2FF"
+            title_color = COLOR_TEXT_PRIMARY
+        elif self._hover:
+            background = "#F8FAFC"
             title_color = COLOR_TEXT_PRIMARY
         else:
             background = COLOR_CARD
             title_color = COLOR_TEXT_PRIMARY
+
         self.create_rectangle(0, 0, width, height, fill=background, outline="")
-        content_y = height / 2 + (5 if self._badge else 0)
+        content_y = height / 2
         title_x = 8
         self.create_text(
             title_x, content_y, text=self._title, fill=title_color,
             font=self._title_font, anchor="w",
         )
-        copy_x = title_x + self._title_font.measure(self._title) + 18
+        cursor_x = title_x + self._title_font.measure(self._title) + 12
+
+        if self._badge:
+            badge_width = self._badge_font.measure(self._badge) + 14
+            badge_width += badge_width % 2
+            badge_top = content_y - 10
+            badge_bottom = content_y + 10
+            _round_rectangle(
+                self, cursor_x, badge_top, cursor_x + badge_width, badge_bottom, r=6,
+                fill=("#CBD5E1" if self._disabled else COLOR_GENERATION_ACCENT),
+                outline="",
+            )
+            self.create_text(
+                cursor_x + badge_width / 2, content_y,
+                text=self._badge,
+                fill="#FFFFFF", font=self._badge_font, anchor="center",
+            )
+            cursor_x += badge_width + 12
+        else:
+            cursor_x += 6
+
         indicator_size = 20
         indicator_x = width - indicator_size - 8
         indicator_y = (height - indicator_size) / 2
         subtitle = self._ellipsize(
             self._subtitle, self._subtitle_font,
-            int(indicator_x - copy_x - 16),
+            int(indicator_x - cursor_x - 16),
         )
         self.create_text(
-            copy_x, content_y, text=subtitle,
+            cursor_x, content_y, text=subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
             font=self._subtitle_font, anchor="w",
         )
         _round_rectangle(
             self, indicator_x, indicator_y,
             indicator_x + indicator_size, indicator_y + indicator_size, r=6,
-            fill=("#4F5FE7" if self._checked else COLOR_CARD),
-            outline=("#4F5FE7" if self._checked else "#C9D1DC"),
+            fill=(COLOR_GENERATION_ACCENT if self._checked else COLOR_CARD),
+            outline=(COLOR_GENERATION_ACCENT if self._checked else "#CBD5E1"),
         )
         if self._checked:
             self.create_line(
@@ -1106,49 +1108,25 @@ class GenerationChoiceCard(tk.Canvas):
                 fill="#FFFFFF", width=2,
                 capstyle=tk.ROUND, joinstyle=tk.ROUND,
             )
-        if self._badge:
-            badge_width = self._badge_font.measure(self._badge) + 16
-            badge_width += badge_width % 2
-            badge_top = 2
-            badge_bottom = 22
-            _round_rectangle(
-                self, 0, badge_top, badge_width, badge_bottom, r=8,
-                fill=("#AAB1C0" if self._disabled else "#4658F5"),
-                outline="",
-            )
-            self.create_text(
-                badge_width / 2, (badge_top + badge_bottom) / 2,
-                text=self._badge,
-                fill="#FFFFFF", font=self._badge_font, anchor="center",
-            )
         if self._show_separator:
             self.create_line(
                 8, height - 1, width - 8, height - 1,
-                fill=COLOR_BORDER, width=1,
+                fill=COLOR_BORDER_SUBTLE, width=1,
             )
 
 
-# ==================== 生成页分段单选胶囊 ====================
-
 class GenerationSegmentOption(tk.Canvas):
-    """生成页分段单选按钮（用于访问方式与内容来源切换）。"""
+    """生成页分段单选按钮。"""
 
     def __init__(
-        self,
-        master,
-        text: str,
-        initial_checked: bool = False,
-        on_toggle: callable = None,
-        width: int = 142,
-        height: int = 38,
-        regular_font=FONT_SMALL,
-        bold_font=FONT_SMALL_BOLD,
-        min_font_size: int = 8,
-        max_font_size: int = 10,
+        self, master, text: str, initial_checked: bool = False,
+        on_toggle: callable = None, width: int = 142, height: int = 38,
+        regular_font=FONT_SMALL, bold_font=FONT_SMALL_BOLD,
+        min_font_size: int = 8, max_font_size: int = 10,
         **kwargs,
     ):
         super().__init__(
-            master, width=width, height=height, bg="#F1F3F7",
+            master, width=width, height=height, bg="#F1F5F9",
             highlightthickness=0, cursor="hand2", **kwargs,
         )
         self._text = text
@@ -1203,23 +1181,21 @@ class GenerationSegmentOption(tk.Canvas):
             self._on_toggle(self)
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         if self._disabled:
-            background = "#F8F9FB"
+            background = "#F8FAFC"
             foreground = COLOR_TEXT_DISABLED
             outline = COLOR_BORDER
         elif self._checked:
             background = COLOR_CARD
-            foreground = COLOR_TEXT_PRIMARY
-            outline = "#E1E4EA"
+            foreground = COLOR_GENERATION_ACCENT
+            outline = "#DDD6FE"
         elif self._hover:
-            background = "#E9EBF1"
+            background = "#E2E8F0"
             foreground = COLOR_TEXT_PRIMARY
             outline = ""
         else:
-            background = "#F1F3F7"
+            background = "#F1F5F9"
             foreground = COLOR_TEXT_MUTED
             outline = ""
         _round_rectangle(
@@ -1233,12 +1209,12 @@ class GenerationSegmentOption(tk.Canvas):
         )
 
 
-# ==================== 对话输入胶囊控制台 ====================
+# ==================== 对话输入胶囊 ====================
 
 class GlassCapsulePanel(tk.Canvas):
-    """带柔和薰衣草紫填充与圆角描边的对话输入控制台（Omnibox）。"""
+    """带柔和紫调填充与圆角描边的对话输入控制台。"""
 
-    _PANEL_RADIUS = 32
+    _PANEL_RADIUS = 28
 
     def __init__(self, master, bg_parent: str = COLOR_BG_APP, **kwargs):
         super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
@@ -1270,22 +1246,16 @@ class GlassCapsulePanel(tk.Canvas):
         self.redraw()
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("glass")
         w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
-        fill = "#EDE6FF" if self._dragging else COLOR_OMNIBOX_SURFACE
+        fill = "#EDE5FF" if self._dragging else COLOR_OMNIBOX_SURFACE
         outline = (
             COLOR_GENERATION_ACCENT if self._dragging else COLOR_OMNIBOX_BORDER
         )
-        width_px = 2 if self._dragging else 1
         _round_rectangle(
             self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
-            fill=fill, outline=outline, width=width_px, tags="glass",
-        )
-        _round_rectangle(
-            self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
-            fill="", outline=outline, width=width_px, tags="glass",
+            fill=fill, outline=outline,
+            width=2 if self._dragging else 1, tags="glass",
         )
         self.tag_lower("glass")
 
@@ -1293,7 +1263,7 @@ class GlassCapsulePanel(tk.Canvas):
 # ==================== 极简扁平输入框 ====================
 
 class FlatEntryBox(tk.Canvas):
-    """胶囊内的白色圆角输入框，带 12px 圆角、焦点光晕与右键快捷菜单。"""
+    """胶囊内的白色圆角输入框，带可见占位提示、焦点柔光圈与右键快捷菜单。"""
 
     def __init__(
         self,
@@ -1316,46 +1286,60 @@ class FlatEntryBox(tk.Canvas):
             master=self, font=(FONT_FAMILY, 10),
         )
 
-        inner = tk.Frame(self, bg="#FFFFFF", padx=14, pady=10)
-        self.window_id = self.create_window(0, 0, window=inner, anchor="nw")
+        self._inner = tk.Frame(self, bg="#FFFFFF", padx=6, pady=4)
+        self.window_id = self.create_window(12, 6, window=self._inner, anchor="nw")
         self.var = tk.StringVar()
         self.entry = tk.Entry(
-            inner, textvariable=self.var, font=FONT_BODY,
+            self._inner, textvariable=self.var, font=FONT_BODY,
             bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
-            insertbackground=COLOR_TEXT_PRIMARY,
+            insertbackground=COLOR_GENERATION_ACCENT,
             relief=tk.FLAT, bd=0, highlightthickness=0,
         )
         self.entry.pack(fill=tk.BOTH, expand=True)
+
+        self._placeholder_label = tk.Label(
+            self._inner,
+            text=self._placeholder,
+            font=self._placeholder_font,
+            fg="#94A3B8",
+            bg="#FFFFFF",
+            anchor="w",
+            cursor="xterm",
+        )
+        self._placeholder_label.bind(
+            "<Button-1>", lambda _e: self.entry.focus_set(),
+        )
+
         self.entry.bind("<FocusIn>", self._on_focus_in)
         self.entry.bind("<FocusOut>", self._on_focus_out)
         self.entry.bind("<KeyRelease>", self._on_keyrelease)
         self.entry.bind("<<Paste>>", lambda _e: self.after(10, self._paste_clipboard))
         self.entry.bind("<Button-3>", self._show_context_menu)
+        self._placeholder_label.bind("<Button-3>", self._show_context_menu)
+        self.bind("<Button-1>", lambda _e: self.entry.focus_set())
         self.bind("<Configure>", self._on_resize)
         self.var.trace_add("write", self._on_var_change)
-        self._context_menu = None
         self.redraw()
 
     def _show_context_menu(self, event):
         if self._locked:
             return
-        if self._context_menu is None:
-            menu = tk.Menu(self.entry, tearoff=0, font=FONT_SMALL)
-            menu.add_command(label="粘贴", command=self._paste_clipboard)
+        menu = tk.Menu(self, tearoff=0, font=FONT_SMALL)
+        menu.add_command(label="粘贴", command=self._paste_clipboard)
+        if self.var.get():
             menu.add_command(
                 label="复制",
-                command=lambda: self.entry.event_generate("<<Copy>>"),
+                command=lambda: (
+                    self.winfo_toplevel().clipboard_clear(),
+                    self.winfo_toplevel().clipboard_append(self.var.get()),
+                ),
             )
             menu.add_separator()
-            menu.add_command(
-                label="清空输入",
-                command=lambda: self.set_text(""),
-            )
-            self._context_menu = menu
+            menu.add_command(label="清空输入", command=lambda: self.set_text(""))
         try:
-            self._context_menu.tk_popup(event.x_root, event.y_root)
+            menu.tk_popup(event.x_root, event.y_root)
         finally:
-            self._context_menu.grab_release()
+            menu.grab_release()
 
     def set_responsive_scale(self, scale: float):
         self._placeholder_font.configure(
@@ -1365,7 +1349,13 @@ class FlatEntryBox(tk.Canvas):
 
     def _on_resize(self, event):
         self.configure(width=event.width)
-        self.itemconfig(self.window_id, width=event.width, height=48)
+        self.coords(self.window_id, 12, 6)
+        self.itemconfig(
+            self.window_id,
+            width=max(1, event.width - 24),
+            height=36,
+        )
+        self.redraw()
 
     def _on_focus_in(self, _event):
         self._focused = True
@@ -1403,16 +1393,14 @@ class FlatEntryBox(tk.Canvas):
         self.redraw()
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("frame")
         w = max(self.winfo_width(), 1)
         if self._focused:
             _round_rectangle(
-                self, 0, 0, w, 48, r=13, fill="#DCEBFF", outline="",
+                self, 0, 0, w, 48, r=14, fill="#E0E7FF", outline="",
                 tags="frame",
             )
-        outline = COLOR_ACCENT_BLUE if self._focused else "#DCE2EB"
+        outline = COLOR_GENERATION_ACCENT if self._focused else "#D8D0F5"
         outline_w = 1.5 if self._focused else 1
         _round_rectangle(
             self, 2, 2, w - 2, 46, r=12,
@@ -1420,26 +1408,25 @@ class FlatEntryBox(tk.Canvas):
         )
         self.tag_lower("frame")
         self.delete("placeholder")
-        if (
-            self._placeholder
+        show_placeholder = (
+            bool(self._placeholder)
             and not self._focused
             and not self._locked
             and not self.var.get()
-        ):
-            self.create_text(
-                18, 24, text=self._placeholder,
-                font=self._placeholder_font, fill="#9CA3AF",
-                anchor="w", tags="placeholder",
-            )
+        )
+        if show_placeholder:
+            self._placeholder_label.place(x=2, rely=0.5, anchor="w")
+        else:
+            self._placeholder_label.place_forget()
 
 
 # ==================== 侧栏毛玻璃导航项 ====================
 
 class GlassNavigationItem(tk.Canvas):
-    """Argon 侧栏激活卡片，使用 Canvas 模拟薰衣草紫柔光渐变与平滑缓动。"""
+    """Argon 侧栏激活卡片：柔和薰衣草渐变 + 左侧指示条 + 居中标题。"""
 
-    _CARD_MARGIN = 2
-    _CARD_RADIUS = 16
+    _CARD_MARGIN = 3
+    _CARD_RADIUS = 14
 
     def __init__(self, master, icon: str, title: str, **kwargs):
         super().__init__(
@@ -1485,7 +1472,6 @@ class GlassNavigationItem(tk.Canvas):
         self.redraw()
 
     def set_active(self, active: bool):
-        """绑定页面 active 状态，并以约 250ms 的缓动完成状态切换。"""
         active = bool(active)
         target = 1.0 if active else 0.0
         if self._active == active and self._target_progress == target:
@@ -1512,16 +1498,12 @@ class GlassNavigationItem(tk.Canvas):
             self._progress = self._target_progress
             self._animation_id = None
         else:
-            self._progress += delta * 0.23
+            self._progress += delta * 0.25
             self._animation_id = self.after(16, self._animate)
         self.redraw()
 
     @staticmethod
-    def _mix(
-        start: tuple[int, int, int],
-        end: tuple[int, int, int],
-        amount: float,
-    ):
+    def _mix(start: tuple[int, int, int], end: tuple[int, int, int], amount: float):
         return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
 
     def _draw_settings_gear(self, color: str):
@@ -1531,9 +1513,9 @@ class GlassNavigationItem(tk.Canvas):
         for tooth in range(8):
             center = -math.pi / 2 + tooth * tooth_step
             for offset, radius in (
-                (-tooth_step / 2, 8), (-tooth_step * 0.28, 8),
-                (-tooth_step * 0.28, 11), (tooth_step * 0.28, 11),
-                (tooth_step * 0.28, 8), (tooth_step / 2, 8),
+                (-tooth_step / 2, 7.5), (-tooth_step * 0.28, 7.5),
+                (-tooth_step * 0.28, 10.2), (tooth_step * 0.28, 10.2),
+                (tooth_step * 0.28, 7.5), (tooth_step / 2, 7.5),
             ):
                 angle = center + offset
                 points.extend((
@@ -1542,17 +1524,15 @@ class GlassNavigationItem(tk.Canvas):
                 ))
         points.extend(points[:2])
         self.create_line(
-            *points, fill=color, width=2, joinstyle=tk.ROUND,
+            *points, fill=color, width=1.7, joinstyle=tk.ROUND,
             capstyle=tk.ROUND, tags="content",
         )
         self.create_oval(
-            center_x - 4, center_y - 4, center_x + 4, center_y + 4,
-            outline=color, width=2, tags="content",
+            center_x - 3.6, center_y - 3.6, center_x + 3.6, center_y + 3.6,
+            outline=color, width=1.7, tags="content",
         )
 
     def redraw(self):
-        if not self.winfo_exists():
-            return
         self.delete("all")
         width, height = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
         progress = self._progress
@@ -1560,47 +1540,28 @@ class GlassNavigationItem(tk.Canvas):
         right, bottom = width - self._CARD_MARGIN, height - self._CARD_MARGIN
 
         if progress > 0.01:
-            shadow = self._mix((255, 255, 255), (232, 222, 252), progress)
-            _round_rectangle(
-                self, left + 1, top + 4, right - 1, bottom,
-                r=self._CARD_RADIUS, fill="#%02X%02X%02X" % shadow,
-                outline="", tags="card",
-            )
-            stops = ((221, 214, 254), (196, 181, 253), (167, 139, 250))
-            for y in range(top, bottom + 1):
-                ratio = (y - top) / max(1, bottom - top)
-                if ratio < 0.55:
-                    color = self._mix(stops[0], stops[1], ratio / 0.55)
-                else:
-                    color = self._mix(stops[1], stops[2], (ratio - 0.55) / 0.45)
-                color = self._mix((255, 255, 255), color, progress * 0.7)
-                edge = min(y - top, bottom - y)
-                inset = 0
-                if edge < self._CARD_RADIUS:
-                    inset = self._CARD_RADIUS - int(
-                        max(
-                            0,
-                            self._CARD_RADIUS ** 2
-                            - (self._CARD_RADIUS - edge) ** 2,
-                        ) ** 0.5
-                    )
-                self.create_line(
-                    left + inset, y, right - inset, y,
-                    fill="#%02X%02X%02X" % color, tags="card",
-                )
+            fill_rgb = self._mix((255, 255, 255), (242, 238, 255), progress)
+            border_rgb = self._mix((255, 255, 255), (206, 194, 250), progress)
             _round_rectangle(
                 self, left, top, right, bottom, r=self._CARD_RADIUS,
-                fill="", outline="#FFFFFF", width=1, tags="card",
+                fill="#%02X%02X%02X" % fill_rgb,
+                outline="#%02X%02X%02X" % border_rgb,
+                width=1, tags="card",
+            )
+            accent_rgb = self._mix((255, 255, 255), (111, 85, 232), progress)
+            _round_rectangle(
+                self, left + 1, top + 16, left + 5, bottom - 16, r=2,
+                fill="#%02X%02X%02X" % accent_rgb, outline="", tags="card",
             )
         elif self._hovered:
             _round_rectangle(
                 self, left, top, right, bottom, r=self._CARD_RADIUS,
-                fill="#F7F9FC", outline="", tags="card",
+                fill="#F8FAFC", outline="#E2E8F0", width=1, tags="card",
             )
 
         icon_color = (
-            "#1E293B" if (self._active or self._hovered)
-            else COLOR_TEXT_SECONDARY
+            COLOR_GENERATION_ACCENT if self._active
+            else ("#1E293B" if self._hovered else "#5F6672")
         )
         if self._navigation_icon_image is not None:
             self.create_image(
@@ -1614,16 +1575,20 @@ class GlassNavigationItem(tk.Canvas):
                 27, 34, text=self._icon, font=(FONT_FAMILY, 14),
                 fill=icon_color, anchor="center", tags="content",
             )
+
+        title_color = (
+            "#2E1065" if self._active else "#0F172A"
+        )
         self.create_text(
             width / 2, height / 2, text=self._title, font=self._title_font,
-            fill="#0F172A", anchor="center", tags=("content", "title"),
+            fill=title_color, anchor="center", tags=("content", "title"),
         )
 
 
-# ==================== 非模态悬停提示 ====================
+# ==================== 悬停提示 ====================
 
 class HoverTooltip:
-    """350ms 悬停后弹出无边框深色浮层提示，自动规避屏幕边缘裁剪。"""
+    """350ms 悬停后弹出无边框深色提示，组件销毁时自动清理定时器。"""
 
     def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 350):
         self._widget = widget
@@ -1631,16 +1596,15 @@ class HoverTooltip:
         self._delay = delay_ms
         self._after_id = None
         self._tip = None
-        widget.bind("<Enter>", self._schedule, add="+")
-        widget.bind("<Leave>", self._hide, add="+")
-        widget.bind("<ButtonPress>", self._hide, add="+")
+        widget.bind("<Enter>", self._schedule)
+        widget.bind("<Leave>", self._hide)
+        widget.bind("<ButtonPress>", self._hide)
         widget.bind("<Destroy>", self._hide, add="+")
 
     def _schedule(self, _event=None):
         self._hide()
-        if not self._text or not self._widget.winfo_exists():
-            return
-        self._after_id = self._widget.after(self._delay, self._show)
+        if self._text and self._widget.winfo_exists():
+            self._after_id = self._widget.after(self._delay, self._show)
 
     def _show(self):
         self._after_id = None
@@ -1651,7 +1615,7 @@ class HoverTooltip:
         self._tip = tk.Toplevel(self._widget)
         self._tip.wm_overrideredirect(True)
         tk.Label(
-            self._tip, text=self._text, bg="#0F172A", fg="#FFFFFF",
+            self._tip, text=self._text, bg="#0F172A", fg="#F8FAFC",
             font=FONT_TINY, padx=10, pady=5,
             wraplength=max(240, screen_width - 32), justify=tk.LEFT,
         ).pack()
@@ -1662,20 +1626,17 @@ class HoverTooltip:
         )
         y = self._widget.winfo_rooty() + self._widget.winfo_height() + 6
         if y + self._tip.winfo_height() > screen_height:
-            y = max(
-                8,
-                self._widget.winfo_rooty() - self._tip.winfo_height() - 6,
-            )
+            y = max(8, self._widget.winfo_rooty() - self._tip.winfo_height() - 6)
         self._tip.geometry(f"+{x}+{y}")
 
     def _hide(self, _event=None):
-        if self._after_id is not None:
+        if self._after_id:
             try:
                 self._widget.after_cancel(self._after_id)
             except tk.TclError:
                 pass
             self._after_id = None
-        if self._tip is not None:
+        if self._tip:
             try:
                 self._tip.destroy()
             except tk.TclError:
@@ -1683,10 +1644,8 @@ class HoverTooltip:
             self._tip = None
 
 
-# ==================== 单行横向滚动文件列表 ====================
-
 class HorizontalFileList(tk.Frame):
-    """单行输出文件列表，仅在内容溢出时自动展开横向滚动条。"""
+    """单行文件列表，内容溢出时自动展开水平滚动条并支持 Shift+滚轮。"""
 
     def __init__(self, master, text: str, tooltip_text: str):
         super().__init__(master, bg=COLOR_CARD)
@@ -1728,8 +1687,6 @@ class HorizontalFileList(tk.Frame):
         self.after_idle(self._sync_scrollbar)
 
     def _sync_scrollbar(self, _event=None):
-        if not self.canvas.winfo_exists():
-            return
         bounds = self.canvas.bbox(self._text_id)
         if not bounds:
             return

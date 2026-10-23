@@ -18,6 +18,7 @@ import subprocess
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -41,6 +42,8 @@ except ImportError:
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
 from gui.history_store import HistoryStore, HistoryStoreError
 from gui.run_logging import GenerationRunLog
+
+warnings.filterwarnings("ignore", category=SyntaxWarning, module=r"^gui\.service$")
 from gui.service import (
     MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
@@ -69,31 +72,20 @@ from gui.theme import (
     COLOR_BORDER_FOCUS,
     COLOR_CARD,
     COLOR_DANGER,
-    COLOR_DISABLED,
     COLOR_DRAG_HIGHLIGHT,
-    COLOR_DRAG_NORMAL,
     COLOR_GENERATION_ACCENT,
     COLOR_GENERATION_ACCENT_BG,
-    COLOR_GENERATION_ACCENT_HOVER,
     COLOR_HOVER,
     COLOR_OMNIBOX_BG,
-    COLOR_OMNIBOX_BG_FOCUS,
     COLOR_OMNIBOX_SURFACE,
     COLOR_SIDEBAR,
-    COLOR_SIDEBAR_ACTIVE,
-    COLOR_SIDEBAR_ACTIVE_BG,
     COLOR_SIDEBAR_DIVIDER,
-    COLOR_SIDEBAR_TEXT,
     COLOR_SUCCESS,
     COLOR_TEXT_DISABLED,
     COLOR_TEXT_MUTED,
     COLOR_TEXT_PRIMARY,
     COLOR_TEXT_SECONDARY,
-    COLOR_TOPIC_CARD_HOVER,
-    COLOR_TOPIC_CARD_SELECTED,
-    COLOR_TOPIC_CONTROL,
     COLOR_TOPIC_DIALOG_BG,
-    COLOR_WARNING,
     DIRECT_SUMMARY_FILE_TYPES,
     DIRECT_SUMMARY_MAX_BYTES,
     FONT_BODY,
@@ -101,8 +93,6 @@ from gui.theme import (
     FONT_FAMILY,
     FONT_H2,
     FONT_HERO,
-    FONT_SIDEBAR_ITEM,
-    FONT_SIDEBAR_STEP,
     FONT_SIDEBAR_TITLE,
     FONT_SMALL,
     FONT_SMALL_BOLD,
@@ -114,15 +104,12 @@ from gui.theme import (
     _logo_png_path,
     _navigation_icon_path,
     _round_rectangle,
-    _scaled_font_size,
-    configure_argon_ttk_style,
 )
 from gui.ui_dispatch import UIDispatcher, bind_visible_modal
 from gui.widgets import (
     FlatButton,
     FlatEntryBox,
     FlatProgressBar,
-    FlatSelectCard,
     GenerationChoiceCard,
     GenerationSegmentOption,
     GlassCapsulePanel,
@@ -255,7 +242,6 @@ class AIMemoryGUI:
         root.configure(bg=COLOR_BG_APP)
         self._window_icon = tk.PhotoImage(file=str(_logo_png_path(64)))
         root.iconphoto(True, self._window_icon)
-        configure_argon_ttk_style(root)
 
         self.is_running = False
         self._generation_completed = False
@@ -677,13 +663,14 @@ class AIMemoryGUI:
         self.selected_file_row.pack_forget()
         self.selected_file_name_var = tk.StringVar(value="")
         file_capsule = tk.Frame(
-            self.selected_file_row, bg="#EAF2FF",
-            padx=10, pady=4,
+            self.selected_file_row, bg="#FFFFFF",
+            padx=12, pady=6,
+            highlightthickness=1, highlightbackground="#DDD6FE",
         )
         file_capsule.pack(side=tk.LEFT, fill=tk.X, expand=True)
         selected_file_name = tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
-            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_PRIMARY, bg="#EAF2FF",
+            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
             anchor="w", width=56,
         )
         selected_file_name._responsive_min_font_size = 11
@@ -693,8 +680,8 @@ class AIMemoryGUI:
         self.clear_file_button = tk.Button(
             file_capsule, text="✕",
             command=self._clear_summary_file,
-            font=(FONT_FAMILY, 11, "bold"), bg="#EAF2FF", fg=COLOR_DANGER,
-            activebackground="#EAF2FF", activeforeground=COLOR_DANGER,
+            font=(FONT_FAMILY, 11, "bold"), bg="#FFFFFF", fg=COLOR_DANGER,
+            activebackground="#FEF2F2", activeforeground=COLOR_DANGER,
             relief=tk.FLAT, bd=0, cursor="hand2",
             padx=4, pady=0,
         )
@@ -883,12 +870,12 @@ class AIMemoryGUI:
         self._generation_mode_panel = mode_panel
         mode_panel.pack(fill=tk.X)
         mode_header = tk.Frame(
-            mode_panel, bg="#F8FAFD", padx=20, pady=14,
+            mode_panel, bg="#F8FAFC", padx=20, pady=14,
         )
         mode_header.pack(fill=tk.X)
         self._generation_mode_title_label = tk.Label(
             mode_header, text="选择生成模式", font=FONT_TITLE,
-            fg=COLOR_TEXT_PRIMARY, bg="#F8FAFD",
+            fg=COLOR_TEXT_PRIMARY, bg="#F8FAFC",
         )
         self._generation_mode_title_label._responsive_min_font_size = 16
         self._generation_mode_title_label._responsive_max_font_size = 20
@@ -896,7 +883,8 @@ class AIMemoryGUI:
         self.generation_selection_var = tk.StringVar(value="已选 1 项")
         tk.Label(
             mode_header, textvariable=self.generation_selection_var,
-            font=FONT_BODY, fg=COLOR_TEXT_SECONDARY, bg="#F8FAFD",
+            font=FONT_SMALL_BOLD, fg="#4F46E5", bg="#EEF2FF",
+            padx=10, pady=2,
         ).pack(side=tk.RIGHT)
 
         tk.Frame(mode_panel, bg=COLOR_BORDER, height=1).pack(fill=tk.X)
@@ -964,17 +952,20 @@ class AIMemoryGUI:
         self._generation_task_title_label._responsive_min_font_size = 11
         self._generation_task_title_label._responsive_max_font_size = 13
         self._generation_task_title_label.pack(fill=tk.X)
-        source_box = tk.Frame(task_panel, bg="#F4F6FA", padx=11, pady=10)
+        source_box = tk.Frame(
+            task_panel, bg="#F8FAFC", padx=11, pady=10,
+            highlightthickness=1, highlightbackground="#E2E8F0",
+        )
         source_box.pack(fill=tk.X, pady=(12, 12))
         self._generation_source_title_label = tk.Label(
             source_box, text="内容来源", font=FONT_BODY_BOLD,
-            fg=COLOR_TEXT_PRIMARY, bg="#F4F6FA", anchor="center",
+            fg=COLOR_TEXT_PRIMARY, bg="#F8FAFC", anchor="center",
             justify=tk.CENTER,
         )
         self._generation_source_title_label._responsive_min_font_size = 10
         self._generation_source_title_label._responsive_max_font_size = 12
         self._generation_source_title_label.pack(fill=tk.X)
-        source_switch = tk.Frame(source_box, bg="#F4F6FA")
+        source_switch = tk.Frame(source_box, bg="#F8FAFC")
         source_switch.pack(fill=tk.X, pady=(6, 0))
         self.card_source_url = GenerationSegmentOption(
             source_switch, text=GENERATION_SOURCE_LABELS["url"],
@@ -1004,23 +995,29 @@ class AIMemoryGUI:
                 fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
             ).pack(side=tk.LEFT)
             tk.Label(
-                row, textvariable=value_var, font=FONT_SMALL,
+                row, textvariable=value_var, font=FONT_SMALL_BOLD,
                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
             ).pack(side=tk.RIGHT)
 
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
-            highlightthickness=1, highlightbackground="#DED7FA",
+            highlightthickness=1, highlightbackground="#DDD6FE",
         )
         run_panel.pack(fill=tk.X, pady=(14, 0))
         self._generation_run_panel = run_panel
         run_row = tk.Frame(run_panel, bg=COLOR_GENERATION_ACCENT_BG)
         run_row.pack(fill=tk.X)
         self._generation_run_row = run_row
-        run_icon = tk.Label(
-            run_row, text="↗", font=(FONT_FAMILY, 14, "bold"),
-            fg="#FFFFFF", bg=COLOR_GENERATION_ACCENT,
-            width=3, height=1,
+        run_icon = tk.Canvas(
+            run_row, width=20, height=20, bg=COLOR_GENERATION_ACCENT_BG,
+            highlightthickness=0, bd=0,
+        )
+        _round_rectangle(
+            run_icon, 1, 1, 19, 19, radius=6,
+            fill="#EEF2FF", outline="#C7D2FE", width=1,
+        )
+        run_icon.create_oval(
+            7, 7, 13, 13, fill=COLOR_GENERATION_ACCENT, outline="",
         )
         run_icon.pack(side=tk.LEFT, padx=(0, 10))
         status_copy = tk.Frame(run_row, bg=COLOR_GENERATION_ACCENT_BG)
@@ -1087,19 +1084,10 @@ class AIMemoryGUI:
         self.history_count_var = tk.StringVar(value="")
         self.history_count_badge = tk.Label(
             header_actions, textvariable=self.history_count_var,
-            font=FONT_TINY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_ACCENT_BG,
-            padx=10, pady=4,
+            font=FONT_SMALL_BOLD, fg="#4F46E5", bg="#EEF2FF",
+            padx=12, pady=4,
         )
-        self.history_count_badge.pack(side=tk.LEFT, padx=(0, 8))
-        self.clear_history_button = tk.Button(
-            header_actions, text="清空记录",
-            command=self._clear_history_records,
-            font=FONT_TINY, bg=COLOR_CARD, fg=COLOR_TEXT_SECONDARY,
-            activebackground=COLOR_HOVER, activeforeground=COLOR_DANGER,
-            relief=tk.FLAT, bd=0, cursor="hand2",
-            highlightthickness=1, highlightbackground=COLOR_BORDER,
-            padx=10, pady=4,
-        )
+        self.history_count_badge.pack(side=tk.LEFT)
 
         tk.Frame(section, bg=COLOR_BG_APP, height=16).pack(fill=tk.X)
 
@@ -1115,27 +1103,6 @@ class AIMemoryGUI:
             justify="center",
         )
         self.history_empty_label.pack(pady=(60, 0))
-
-    def _clear_history_records(self):
-        if not self.history_records:
-            return
-        confirmed = messagebox.askyesno(
-            "清空历史记录",
-            "确定要清空全部历史任务记录吗？（已生成的本地 Markdown 文件不会被删除）",
-            parent=self.root,
-        )
-        if not confirmed:
-            return
-        self.history_records.clear()
-        try:
-            self.history_store.save(self.history_records)
-        except HistoryStoreError as error:
-            messagebox.showwarning(
-                "历史记录保存失败",
-                str(error),
-                parent=self.root,
-            )
-        self._refresh_history_list()
 
     def _add_history_record(self, record: dict):
         """任务完成后追加一条历史记录并刷新列表。"""
@@ -1158,13 +1125,6 @@ class AIMemoryGUI:
         count = len(self.history_records)
         if hasattr(self, "history_count_var"):
             self.history_count_var.set(f"共 {count} 条记录" if count else "0 条记录")
-        if hasattr(self, "clear_history_button"):
-            if count > 0:
-                if not self.clear_history_button.winfo_manager():
-                    self.clear_history_button.pack(side=tk.LEFT)
-            else:
-                if self.clear_history_button.winfo_manager():
-                    self.clear_history_button.pack_forget()
 
         if not self.history_records:
             self.history_empty_label = tk.Label(
@@ -1184,36 +1144,37 @@ class AIMemoryGUI:
     def _build_history_card(self, parent: tk.Frame, record: dict):
         """构建单条历史任务卡片。"""
         card = tk.Frame(
-            parent, bg=COLOR_CARD, padx=20, pady=16,
+            parent, bg=COLOR_CARD, padx=22, pady=18,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
         )
-        card.pack(fill=tk.X, pady=6)
+        card.pack(fill=tk.X, pady=7)
 
-        # 标题行：状态 + 文件名
+        # 标题行：状态胶囊 + 时间戳（先右侧 pack 防截断） + 文件名
         header = tk.Frame(card, bg=COLOR_CARD)
         header.pack(fill=tk.X)
         succeeded = bool(record.get("succeeded"))
-        status_icon = "✓" if succeeded else "✗"
-        status_color = COLOR_SUCCESS if succeeded else COLOR_DANGER
+        status_text = "✓ 成功" if succeeded else "✗ 失败"
+        status_fg = "#059669" if succeeded else "#DC2626"
+        status_bg = "#ECFDF5" if succeeded else "#FEF2F2"
         tk.Label(
-            header, text=status_icon, font=FONT_BODY_BOLD,
-            fg=status_color, bg=COLOR_CARD,
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        title_label = tk.Label(
-            header, text=record.get("title", "未命名任务"),
-            font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
-            anchor="w", width=58,
-        )
-        title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        HoverTooltip(title_label, str(record.get("title", "未命名任务")))
+            header, text=status_text, font=FONT_TINY,
+            fg=status_fg, bg=status_bg, padx=8, pady=2,
+        ).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(
             header, text=record.get("timestamp", ""),
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
-        ).pack(side=tk.RIGHT)
+        ).pack(side=tk.RIGHT, padx=(12, 0))
+        title_label = tk.Label(
+            header, text=record.get("title", "未命名任务"),
+            font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+            anchor="w", width=1,
+        )
+        title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        HoverTooltip(title_label, str(record.get("title", "未命名任务")))
 
-        # 6 指标看板（2×3 网格）
+        # 6 指标看板（2×3 网格，每格独立浅灰底卡片）
         metrics_frame = tk.Frame(card, bg=COLOR_CARD)
-        metrics_frame.pack(fill=tk.X, pady=(10, 0))
+        metrics_frame.pack(fill=tk.X, pady=(12, 0))
         metrics_frame.grid_columnconfigure(0, weight=1, uniform="m")
         metrics_frame.grid_columnconfigure(1, weight=1, uniform="m")
         metrics_frame.grid_columnconfigure(2, weight=1, uniform="m")
@@ -1226,25 +1187,29 @@ class AIMemoryGUI:
             ("总计", record.get("total_seconds", 0)),
             ("文件数", record.get("file_count", 0)),
         ]
+        cell_bg = "#F8FAFC"
         for idx, (label, value) in enumerate(metrics):
             row, col = divmod(idx, 3)
-            cell = tk.Frame(metrics_frame, bg=COLOR_CARD)
+            cell = tk.Frame(
+                metrics_frame, bg=cell_bg, padx=10, pady=6,
+                highlightthickness=1, highlightbackground="#EEF2F6",
+            )
             cell.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
             tk.Label(
                 cell, text=label, font=FONT_TINY,
-                fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
+                fg=COLOR_TEXT_MUTED, bg=cell_bg, anchor="w",
             ).pack(fill=tk.X)
             tk.Label(
                 cell, text=f"{value:.1f}s" if isinstance(value, float) else str(value),
-                font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+                font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY, bg=cell_bg,
                 anchor="w",
-            ).pack(fill=tk.X)
+            ).pack(fill=tk.X, pady=(2, 0))
 
         # 文件列表 + 打开文件夹按钮
         files = record.get("saved_files", [])
         if files:
             files_row = tk.Frame(card, bg=COLOR_CARD)
-            files_row.pack(fill=tk.X, pady=(10, 0))
+            files_row.pack(fill=tk.X, pady=(12, 0))
             file_text = "📁 " + "、".join(Path(file).name for file in files)
             file_list = HorizontalFileList(
                 files_row,
@@ -1258,14 +1223,14 @@ class AIMemoryGUI:
                 open_button = tk.Button(
                     files_row, text="📂 打开文件夹",
                     command=lambda d=output_dir: self._open_in_explorer(d),
-                    font=FONT_TINY, bg=COLOR_CARD, fg=COLOR_TEXT_SECONDARY,
-                    activebackground=COLOR_HOVER,
-                    activeforeground=COLOR_TEXT_PRIMARY,
+                    font=FONT_TINY, bg="#F8FAFC", fg=COLOR_TEXT_SECONDARY,
+                    activebackground="#EEF2FF",
+                    activeforeground=COLOR_ACCENT,
                     relief=tk.FLAT, bd=0, cursor="hand2",
                     highlightthickness=1, highlightbackground=COLOR_BORDER,
-                    padx=10, pady=4,
+                    padx=12, pady=5,
                 )
-                open_button.pack(side=tk.RIGHT)
+                open_button.pack(side=tk.RIGHT, padx=(10, 0))
                 HoverTooltip(open_button, str(output_dir))
 
     def _open_in_explorer(self, dir_path: str):
@@ -1923,12 +1888,7 @@ class AIMemoryGUI:
             dialog.resizable(False, False)
             dialog.transient(self.root)
             bind_visible_modal(dialog)
-            if hasattr(dialog, "configure"):
-                try:
-                    dialog.configure(bg=COLOR_BG_APP)
-                except Exception:
-                    pass
-            configure_argon_ttk_style(dialog)
+            dialog.configure(bg=COLOR_BG_APP)
 
             tk.Label(
                 dialog,
@@ -3042,23 +3002,26 @@ class AIMemoryGUI:
                 show_notice("保存失败，请检查目录权限", 4000)
 
         def _make_dir_row(parent, label, var, title):
-            row = tk.Frame(parent, bg=COLOR_CARD)
-            row.pack(fill=tk.X, pady=6)
+            row = tk.Frame(
+                parent, bg="#F8FAFC", padx=14, pady=12,
+                highlightthickness=1, highlightbackground="#E2E8F0",
+            )
+            row.pack(fill=tk.X, pady=7)
             tk.Label(
                 row, text=label, font=FONT_BODY_BOLD,
-                fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
+                fg=COLOR_TEXT_PRIMARY, bg="#F8FAFC",
                 width=12, anchor="w",
             ).pack(side=tk.LEFT)
             entry = tk.Entry(
                 row, textvariable=var, font=FONT_BODY,
-                fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP,
+                fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
                 relief=tk.FLAT,
                 highlightthickness=1,
                 highlightbackground=COLOR_BORDER,
                 highlightcolor=COLOR_BORDER_FOCUS,
             )
             entry.pack(
-                side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=4,
+                side=tk.LEFT, fill=tk.X, expand=True, ipady=5, padx=6,
             )
             path_tooltip = HoverTooltip(entry, var.get())
             var.trace_add(
@@ -3070,17 +3033,19 @@ class AIMemoryGUI:
                 row, text="浏览", cursor="hand2",
                 command=lambda: _pick_dir(var, title),
                 font=FONT_SMALL, relief=tk.FLAT,
-                bg=COLOR_HOVER, fg=COLOR_TEXT_PRIMARY,
-                activebackground=COLOR_BORDER,
-                padx=10, pady=4,
-            ).pack(side=tk.LEFT, padx=2)
+                bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
+                activebackground="#EEF2FF", activeforeground=COLOR_ACCENT,
+                highlightthickness=1, highlightbackground=COLOR_BORDER,
+                padx=12, pady=4,
+            ).pack(side=tk.LEFT, padx=(4, 4))
             tk.Button(
                 row, text="清除", cursor="hand2",
                 command=lambda: var.set(""),
                 font=FONT_SMALL, relief=tk.FLAT,
-                bg=COLOR_HOVER, fg=COLOR_TEXT_PRIMARY,
-                activebackground=COLOR_BORDER,
-                padx=10, pady=4,
+                bg="#FFFFFF", fg=COLOR_TEXT_SECONDARY,
+                activebackground="#FEF2F2", activeforeground=COLOR_DANGER,
+                highlightthickness=1, highlightbackground=COLOR_BORDER,
+                padx=12, pady=4,
             ).pack(side=tk.LEFT, padx=2)
             return row
 
@@ -3094,12 +3059,12 @@ class AIMemoryGUI:
         )
 
         footer = tk.Frame(data_page, bg=COLOR_CARD)
-        footer.pack(fill=tk.X, pady=(12, 0))
+        footer.pack(fill=tk.X, pady=(16, 0))
         save_button = tk.Button(
             footer, text="保存", command=_save_data_settings,
-            font=FONT_BODY_BOLD, bg=COLOR_TEXT_PRIMARY, fg="#FFFFFF",
-            activebackground="#262626", activeforeground="#FFFFFF",
-            relief=tk.FLAT, padx=18, pady=8, cursor="hand2",
+            font=FONT_BODY_BOLD, bg=COLOR_GENERATION_ACCENT, fg="#FFFFFF",
+            activebackground="#5B3FD9", activeforeground="#FFFFFF",
+            relief=tk.FLAT, padx=20, pady=8, cursor="hand2",
         )
         reset_button = tk.Button(
             footer, text="恢复默认", cursor="hand2",
@@ -3107,8 +3072,9 @@ class AIMemoryGUI:
                 runtime_var.set(str(default_app_settings().runtime_data_dir)),
                 results_var.set(""),
             ),
-            font=FONT_BODY, bg=COLOR_HOVER, fg=COLOR_TEXT_PRIMARY,
-            activebackground=COLOR_BORDER, relief=tk.FLAT,
+            font=FONT_BODY, bg="#F8FAFC", fg=COLOR_TEXT_PRIMARY,
+            activebackground="#EEF2FF", relief=tk.FLAT,
+            highlightthickness=1, highlightbackground=COLOR_BORDER,
             padx=18, pady=8,
         )
         save_button.pack(side=tk.RIGHT)
