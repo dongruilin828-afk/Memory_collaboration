@@ -1,12 +1,11 @@
-"""AI 记忆总结协同管理工具 - 极简扁平侧栏版。
+"""AI 记忆总结协同管理工具 - Argon 极简扁平桌面端主控制器。
 
-视觉系统：
-- 纯白主底 + 240px 深色侧边任务栏
-- 黑色主色调，单一蓝色 #0066FF 作为强调
-- 6-8px 圆角克制风格，类 Notion/Linear
-- 侧栏分步骤导航：输入 → 配置 → 生成 → 输出
+架构分层：
+- ``gui.theme``：设计系统令牌（色彩、字体层级、文案常量、平台智能识别、几何与图标辅助）
+- ``gui.widgets``：自绘 Canvas/Frame 复合控件库（胶囊控制台、毛玻璃侧栏、平滑进度条、卡片与提示组件）
+- ``gui.app``：主界面编排、响应式几何引擎、前后端异步任务桥接与模态交互流
 
-保留所有原有功能与对外契约（公开方法名、属性名、回调签名不变）。
+保留所有原有功能与对外契约（公开方法名、属性名、回调签名与测试导出符号完全兼容）。
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ import asyncio
 import hashlib
 import math
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -37,17 +37,10 @@ except ImportError:
     DND_TEXT = ""
     TkinterDnD = None
     _HAS_DND = False
+
 from gui.credential_store import CredentialStoreError, WindowsCredentialStore
 from gui.history_store import HistoryStore, HistoryStoreError
-from gui.settings_store import (
-    AppSettings,
-    SettingsStoreError,
-    WindowsAppSettingsStore,
-    default_app_settings,
-)
-
 from gui.run_logging import GenerationRunLog
-from gui.ui_dispatch import UIDispatcher, bind_visible_modal
 from gui.service import (
     MODE_FILENAME_SUFFIXES,
     build_document_asset_directory,
@@ -59,65 +52,92 @@ from gui.service import (
     normalize_markdown_filename,
     requires_authenticated_browser,
 )
-
-
-# ==================== 调色板 ====================
-COLOR_BG_APP = "#F8FAFD"
-COLOR_SIDEBAR = "#FFFFFF"
-COLOR_CARD = "#FFFFFF"
-COLOR_BORDER = "#E3E8EF"
-COLOR_BORDER_FOCUS = "#1A73E8"
-COLOR_TEXT_PRIMARY = "#1E1F20"
-COLOR_TEXT_SECONDARY = "#3C4043"
-COLOR_TEXT_MUTED = "#5F6368"
-COLOR_ACCENT = "#1E1F20"
-COLOR_ACCENT_BLUE = "#1A73E8"
-COLOR_ACCENT_BG = "#F0F4F9"
-COLOR_SUCCESS = "#0F9D58"
-COLOR_WARNING = "#F59E0B"
-COLOR_DANGER = "#EA4335"
-COLOR_HOVER = "#F0F4F9"
-COLOR_DISABLED = "#E3E8EF"
-COLOR_TEXT_DISABLED = "#9AA0A6"
-COLOR_SIDEBAR_TEXT = "#5F6368"
-COLOR_SIDEBAR_ACTIVE = "#1E1F20"
-COLOR_SIDEBAR_ACTIVE_BG = "#F0F4F9"
-COLOR_SIDEBAR_DIVIDER = "#E3E8EF"
-COLOR_OMNIBOX_BG = "#F0F4F9"
-COLOR_OMNIBOX_BG_FOCUS = "#FFFFFF"
-COLOR_DRAG_HIGHLIGHT = "#EFF6FF"
-COLOR_DRAG_NORMAL = "#F0F4F9"
-COLOR_GENERATION_ACCENT = "#6F55E8"
-COLOR_GENERATION_ACCENT_HOVER = "#5F43D2"
-COLOR_GENERATION_ACCENT_BG = "#F4F1FF"
-COLOR_TOPIC_DIALOG_BG = "#F6F7FB"
-COLOR_TOPIC_CARD_SELECTED = "#F5F3FF"
-COLOR_TOPIC_CARD_HOVER = "#FAFAFC"
-COLOR_TOPIC_CONTROL = "#ECEFF4"
-
-FONT_FAMILY = "Microsoft YaHei UI"
-FONT_TITLE = (FONT_FAMILY, 18, "bold")
-FONT_H2 = (FONT_FAMILY, 14, "bold")
-FONT_BODY = (FONT_FAMILY, 10)
-FONT_BODY_BOLD = (FONT_FAMILY, 10, "bold")
-FONT_SMALL = (FONT_FAMILY, 9)
-FONT_SMALL_BOLD = (FONT_FAMILY, 9, "bold")
-FONT_TINY = (FONT_FAMILY, 8)
-FONT_HERO = (FONT_FAMILY, 28, "bold")
-FONT_SIDEBAR_TITLE = (FONT_FAMILY, 12, "bold")
-FONT_SIDEBAR_ITEM = (FONT_FAMILY, 13, "bold")
-FONT_SIDEBAR_STEP = (FONT_FAMILY, 9, "bold")
+from gui.settings_store import (
+    AppSettings,
+    SettingsStoreError,
+    WindowsAppSettingsStore,
+    default_app_settings,
+)
+from gui.theme import (
+    AUTH_NOT_REQUIRED_LABEL,
+    AUTH_REUSE_LABEL,
+    COLOR_ACCENT,
+    COLOR_ACCENT_BG,
+    COLOR_ACCENT_BLUE,
+    COLOR_BG_APP,
+    COLOR_BORDER,
+    COLOR_BORDER_FOCUS,
+    COLOR_CARD,
+    COLOR_DANGER,
+    COLOR_DISABLED,
+    COLOR_DRAG_HIGHLIGHT,
+    COLOR_DRAG_NORMAL,
+    COLOR_GENERATION_ACCENT,
+    COLOR_GENERATION_ACCENT_BG,
+    COLOR_GENERATION_ACCENT_HOVER,
+    COLOR_HOVER,
+    COLOR_OMNIBOX_BG,
+    COLOR_OMNIBOX_BG_FOCUS,
+    COLOR_OMNIBOX_SURFACE,
+    COLOR_SIDEBAR,
+    COLOR_SIDEBAR_ACTIVE,
+    COLOR_SIDEBAR_ACTIVE_BG,
+    COLOR_SIDEBAR_DIVIDER,
+    COLOR_SIDEBAR_TEXT,
+    COLOR_SUCCESS,
+    COLOR_TEXT_DISABLED,
+    COLOR_TEXT_MUTED,
+    COLOR_TEXT_PRIMARY,
+    COLOR_TEXT_SECONDARY,
+    COLOR_TOPIC_CARD_HOVER,
+    COLOR_TOPIC_CARD_SELECTED,
+    COLOR_TOPIC_CONTROL,
+    COLOR_TOPIC_DIALOG_BG,
+    COLOR_WARNING,
+    DIRECT_SUMMARY_FILE_TYPES,
+    DIRECT_SUMMARY_MAX_BYTES,
+    FONT_BODY,
+    FONT_BODY_BOLD,
+    FONT_FAMILY,
+    FONT_H2,
+    FONT_HERO,
+    FONT_SIDEBAR_ITEM,
+    FONT_SIDEBAR_STEP,
+    FONT_SIDEBAR_TITLE,
+    FONT_SMALL,
+    FONT_SMALL_BOLD,
+    FONT_TINY,
+    FONT_TITLE,
+    GENERATE_BUTTON_LABEL,
+    GENERATION_SOURCE_LABELS,
+    REGENERATE_BUTTON_LABEL,
+    _logo_png_path,
+    _navigation_icon_path,
+    _round_rectangle,
+    _scaled_font_size,
+    configure_argon_ttk_style,
+    detect_platform_badge,
+)
+from gui.ui_dispatch import UIDispatcher, bind_visible_modal
+from gui.widgets import (
+    FlatButton,
+    FlatEntryBox,
+    FlatProgressBar,
+    FlatSelectCard,
+    GenerationChoiceCard,
+    GenerationSegmentOption,
+    GlassCapsulePanel,
+    GlassNavigationItem,
+    HorizontalFileList,
+    HoverTooltip,
+    MinimalScrollbar,
+    SettingsSegmentedTabs,
+    StackedLayersIcon,
+    SummaryTopicCard,
+)
 
 
 # ==================== 输出目标询问与直接总结工具函数 ====================
-
-
-def _scaled_font_size(font: tkfont.Font, scale: float, low: int, high: int) -> int:
-    base = getattr(font, "_responsive_base_size", None)
-    if base is None:
-        base = abs(int(font.actual("size")))
-        font._responsive_base_size = base
-    return max(low, min(high, round(base * scale)))
 
 
 def _format_fetch_warnings(warnings: list[str]) -> str:
@@ -167,10 +187,6 @@ def _prompt_output_target(
     return selected_path.parent, normalize_markdown_filename(selected_path.name)
 
 
-DIRECT_SUMMARY_FILE_TYPES = {".md", ".txt"}
-DIRECT_SUMMARY_MAX_BYTES = 10 * 1024 * 1024
-
-
 def _load_direct_summary_file(path: Path) -> list[dict[str, str]]:
     """校验并读取可直接总结的本项目对话导出文件。"""
     path = Path(path).resolve()
@@ -207,1626 +223,11 @@ def _direct_summary_output_filename(
     return f"{stem}.md"
 
 
-# ==================== 通用绘制工具 ====================
-
-def _round_rectangle(canvas: tk.Canvas, x1, y1, x2, y2, r=6, **kwargs):
-    """在 Canvas 上绘制圆角矩形（极简扁平风格的卡片底）。"""
-    r = max(0, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
-    if r <= 0:
-        return canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
-    points = [
-        x1 + r, y1, x2 - r, y1, x2, y1,
-        x2, y1 + r, x2, y2 - r, x2, y2,
-        x2 - r, y2, x1 + r, y2, x1, y2,
-        x1, y2 - r, x1, y1 + r, x1, y1,
-    ]
-    return canvas.create_polygon(points, smooth=True, **kwargs)
-
-
-def _logo_png_path(size: int, variant: str = "neutral") -> Path:
-    return (
-        _PROJECT_ROOT / "gui" / "assets" / "logo"
-        / variant / f"icon-{size}.png"
-    )
-
-
-def _navigation_icon_path(name: str, size: int = 24) -> Path:
-    return _PROJECT_ROOT / "gui" / "assets" / "icons" / f"{name}-{size}.png"
-
-
-class StackedLayersIcon(tk.Canvas):
-    """显示正式版分层记忆 Logo 的透明 PNG 资源。"""
-
-    def __init__(self, master, width: int, height: int, bg: str, **kwargs):
-        super().__init__(
-            master, width=width, height=height, bg=bg,
-            highlightthickness=0, bd=0, **kwargs,
-        )
-        self._icon_width = width
-        self._icon_height = height
-        requested_size = min(width, height)
-        self._asset_size = min(
-            (16, 32, 40, 64, 128, 256, 512, 1024),
-            key=lambda size: abs(size - requested_size),
-        )
-        self._image = tk.PhotoImage(
-            file=str(_logo_png_path(self._asset_size))
-        )
-        self._draw()
-
-    def _draw(self):
-        self.delete("icon")
-        self.create_image(
-            self._icon_width / 2,
-            self._icon_height / 2,
-            image=self._image,
-            anchor=tk.CENTER,
-            tags="icon",
-        )
-
-
-# ==================== 极简扁平滚动条 ====================
-
-class MinimalScrollbar(tk.Canvas):
-    """纤细极简滚动条（深灰底、黑指示条、悬停加深）。"""
-
-    def __init__(
-        self,
-        master,
-        target_canvas: tk.Canvas,
-        width: int = 6,
-        **kwargs
-    ):
-        super().__init__(
-            master, width=width, highlightthickness=0,
-            bg=COLOR_BG_APP, **kwargs
-        )
-        self.target = target_canvas
-        self._width = width
-        self._thumb_id = None
-        self._drag_start_y = 0
-        self._drag_start_first = 0.0
-        self._first = 0.0
-        self._last = 1.0
-        self._hover = False
-        self.bind("<Enter>", lambda _e: self._set_hover(True))
-        self.bind("<Leave>", lambda _e: self._set_hover(False))
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<B1-Motion>", self._on_drag)
-        self.bind("<ButtonRelease-1>", self._on_release)
-
-    def set_range(self, first: str, last: str):
-        try:
-            f = float(first)
-            l = float(last)
-        except (TypeError, ValueError):
-            return
-        self._first, self._last = f, l
-        self.redraw()
-
-    def _set_hover(self, hover: bool):
-        self._hover = hover
-        self.redraw()
-
-    def redraw(self):
-        self.delete("thumb")
-        h = max(self.winfo_height(), 1)
-        span = max(0.0, self._last - self._first)
-        if span >= 1.0:
-            return
-        thumb_h = max(28, int(h * span))
-        thumb_y = int(h * self._first)
-        color = "#0A0A0A" if self._hover else "#525252"
-        self._thumb_id = self.create_rectangle(
-            1, thumb_y, self._width - 1, thumb_y + thumb_h,
-            fill=color, outline="", tags="thumb"
-        )
-
-    def _on_click(self, event):
-        self._drag_start_y = event.y
-        self._drag_start_first = self._first
-
-    def _on_drag(self, event):
-        h = max(self.winfo_height(), 1)
-        delta = (event.y - self._drag_start_y) / h
-        new_first = max(
-            0.0,
-            min(1.0 - (self._last - self._first),
-                self._drag_start_first + delta)
-        )
-        self.target.yview_moveto(new_first)
-
-    def _on_release(self, _event):
-        self._drag_start_y = 0
-
-
-# ==================== 极简扁平按钮 ====================
-
-class FlatButton(tk.Canvas):
-    """扁平按钮：黑底白字主按钮 / 描边次按钮 / 禁用灰底。"""
-
-    def __init__(
-        self,
-        master,
-        text: str,
-        command: callable = None,
-        variant: str = "primary",
-        width: int = 220,
-        height: int = 44,
-        icon_text: str = "",
-        bg_parent: str = COLOR_BG_APP,
-        **kwargs
-    ):
-        super().__init__(
-            master, width=width, height=height,
-            highlightthickness=0, bg=bg_parent, **kwargs
-        )
-        self._text = text
-        self._command = command
-        self._variant = variant
-        self._base_width = width
-        self._base_height = height
-        self._width = width
-        self._height = height
-        self._bg_parent = bg_parent
-        self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
-        self._icon_text = icon_text
-        self._icon_font = (
-            tkfont.Font(master=self, font=("Segoe MDL2 Assets", 12))
-            if icon_text else None
-        )
-        self._enabled = True
-        self._hover = False
-        self._focused = False
-        self._suppress_focus_ring = False
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
-        self.configure(takefocus=True, cursor="hand2")
-        self.bind("<FocusIn>", self._on_focus_in)
-        self.bind("<FocusOut>", self._on_focus_out)
-        self.bind("<Return>", self._on_key_activate)
-        self.bind("<space>", self._on_key_activate)
-        self.redraw()
-
-    def set_responsive_scale(self, scale: float):
-        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
-        if self._icon_font:
-            self._icon_font.configure(
-                size=_scaled_font_size(self._icon_font, scale, 11, 13)
-            )
-        icon_width = (
-            self._icon_font.measure(self._icon_text) + 8
-            if self._icon_font else 0
-        )
-        self._width = max(
-            round(self._base_width * scale),
-            self._font.measure(self._text) + icon_width + 32,
-        )
-        self._height = max(
-            round(self._base_height * scale), self._font.metrics("linespace") + 16,
-        )
-        self.configure(width=self._width, height=self._height)
-        self.redraw()
-
-    def set_enabled(self, enabled: bool):
-        self._enabled = bool(enabled)
-        self.redraw()
-
-    def _on_enter(self, _event=None):
-        self._hover = True
-        self.redraw()
-
-    def _on_leave(self, _event=None):
-        self._hover = False
-        self.redraw()
-
-    def _on_focus_in(self, _event=None):
-        self._focused = not self._suppress_focus_ring
-        self.redraw()
-
-    def _on_focus_out(self, _event=None):
-        self._focused = False
-        self._suppress_focus_ring = False
-        self.redraw()
-
-    def _on_key_activate(self, _event=None):
-        self._suppress_focus_ring = False
-        self._focused = True
-        self.redraw()
-        self.invoke()
-        return "break"
-
-    def _on_click(self, _event=None):
-        self._suppress_focus_ring = True
-        self.focus_set()
-        self._focused = False
-        self.redraw()
-        if self._enabled and self._command:
-            self._command()
-
-    def invoke(self):
-        if self._enabled and self._command:
-            return self._command()
-        return None
-
-    @staticmethod
-    def _mix_color(start: str, end: str, amount: float) -> str:
-        channels = (
-            round(int(start[i:i + 2], 16) * (1 - amount)
-                  + int(end[i:i + 2], 16) * amount)
-            for i in (1, 3, 5)
-        )
-        return "#" + "".join(f"{channel:02X}" for channel in channels)
-
-    def _draw_settings_gradient(self, width: int, height: int):
-        _round_rectangle(
-            self, 2, 3, width - 2, height - 2, r=12,
-            fill="#DDE3EF", outline="",
-        )
-        x1, y1, x2, y2 = 2, 1, width - 2, height - 4
-        radius = min(12, (y2 - y1) / 2)
-        start, end = (
-            ("#146FB3", "#5B4BC0") if self._hover
-            else ("#0D5B99", "#49379F")
-        )
-        steps = max(1, width - 4)
-        for step in range(steps):
-            left = x1 + (x2 - x1) * step / steps
-            right = x1 + (x2 - x1) * (step + 1) / steps
-            center = (left + right) / 2
-            edge_distance = min(center - x1, x2 - center)
-            inset = (
-                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
-                if edge_distance < radius else 0
-            )
-            color = self._mix_color(start, end, step / max(1, steps - 1))
-            self.create_rectangle(
-                left, y1 + inset, right + 0.5, y2 - inset,
-                fill=color, outline=color,
-            )
-        _round_rectangle(
-            self, x1, y1, x2, y2, r=radius,
-            fill="", outline="#FFFFFF", width=1,
-        )
-        if self._focused:
-            _round_rectangle(
-                self, 0, 0, width, height, r=13,
-                fill="", outline="#8AB4F8", width=2,
-            )
-
-    def _draw_topic_primary_gradient(self, width: int, height: int):
-        x1, y1, x2, y2 = 1, 1, width - 1, height - 1
-        radius = min(9, (y2 - y1) / 2)
-        start, end = (
-            ("#7667E8", "#5F4DD3") if self._hover
-            else ("#806FEA", "#6955DA")
-        )
-        steps = max(1, width - 4)
-        for step in range(steps):
-            left = x1 + (x2 - x1) * step / steps
-            right = x1 + (x2 - x1) * (step + 1) / steps
-            center = (left + right) / 2
-            edge_distance = min(center - x1, x2 - center)
-            inset = (
-                radius - (radius ** 2 - (radius - edge_distance) ** 2) ** 0.5
-                if edge_distance < radius else 0
-            )
-            color = self._mix_color(start, end, step / max(1, steps - 1))
-            self.create_rectangle(
-                left, y1 + inset, right + 0.5, y2 - inset,
-                fill=color, outline=color,
-            )
-        _round_rectangle(
-            self, x1, y1, x2, y2, r=radius,
-            fill="", outline="#6552D3", width=1,
-        )
-        if self._focused:
-            _round_rectangle(
-                self, 2, 2, width - 2, height - 2, r=8,
-                fill="", outline="#D9D3FF", width=1,
-            )
-
-    def redraw(self):
-        self.delete("all")
-        w, h = self._width, self._height
-        self.configure(
-            bg=(
-                COLOR_GENERATION_ACCENT
-                if self._variant == "topic-primary" and self._enabled
-                else self._bg_parent
-            )
-        )
-        if not self._enabled:
-            bg, fg = COLOR_DISABLED, COLOR_TEXT_DISABLED
-            outline = ""
-        elif self._variant == "accent":
-            bg = (
-                COLOR_GENERATION_ACCENT_HOVER
-                if self._hover else COLOR_GENERATION_ACCENT
-            )
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "primary":
-            bg = "#0A0A0A" if not self._hover else "#262626"
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "settings-save":
-            bg = COLOR_ACCENT_BLUE
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "secondary":
-            bg = COLOR_HOVER if self._hover else COLOR_CARD
-            fg = COLOR_TEXT_PRIMARY
-            outline = COLOR_BORDER
-        elif self._variant == "topic-secondary":
-            bg = "#F1EFFF" if self._hover else "#FFFFFF"
-            fg = COLOR_GENERATION_ACCENT if self._hover else COLOR_TEXT_SECONDARY
-            outline = "#BDB4F3" if self._hover else "#D9DCE6"
-        elif self._variant == "topic-primary":
-            bg = COLOR_GENERATION_ACCENT
-            fg = "#FFFFFF"
-            outline = ""
-        elif self._variant == "ghost":
-            bg = COLOR_HOVER if self._hover else self._bg_parent
-            fg = COLOR_TEXT_SECONDARY
-            outline = ""
-        else:
-            bg = COLOR_HOVER if self._hover else self._bg_parent
-            fg = COLOR_TEXT_PRIMARY
-            outline = COLOR_BORDER
-        if self._variant == "settings-save" and self._enabled:
-            self._draw_settings_gradient(w, h)
-        elif self._variant == "topic-primary" and self._enabled:
-            self._draw_topic_primary_gradient(w, h)
-        else:
-            _round_rectangle(
-                self, 1, 1, w - 1, h - 1,
-                r=(
-                    12 if self._variant == "settings-save"
-                    else 9 if self._variant.startswith("topic-")
-                    else 6
-                ),
-                fill=bg, outline=outline, width=1,
-            )
-            if self._focused:
-                _round_rectangle(
-                    self, 1, 1, w - 1, h - 1, r=6,
-                    fill="", outline="#8C78E8", width=2,
-                )
-        if self._icon_text and self._icon_font:
-            icon_width = self._icon_font.measure(self._icon_text)
-            text_width = self._font.measure(self._text)
-            start_x = (w - icon_width - 8 - text_width) / 2
-            self.create_text(
-                start_x + icon_width / 2, h / 2,
-                text=self._icon_text, fill=fg, font=self._icon_font,
-            )
-            self.create_text(
-                start_x + icon_width + 8 + text_width / 2, h / 2,
-                text=self._text, fill=fg, font=self._font,
-            )
-        else:
-            self.create_text(
-                w // 2, h // 2, text=self._text,
-                fill=fg, font=self._font,
-            )
-
-
-class SettingsSegmentedTabs(tk.Canvas):
-    """局限于设置页的圆角分段选项，并支持鼠标与方向键切换。"""
-
-    _OPTIONS = (("api", "API KEY 设置"), ("data", "数据保存位置"))
-
-    def __init__(self, master, command=None, bg_parent=COLOR_CARD):
-        super().__init__(
-            master, height=42, highlightthickness=0, bg=bg_parent,
-            takefocus=True, cursor="hand2",
-        )
-        self._command = command
-        self._bg_parent = bg_parent
-        self._selected_key = "api"
-        self._base_height = 42
-        self._height = self._base_height
-        self._scale = 1.0
-        self._font = tkfont.Font(master=self, font=FONT_BODY_BOLD)
-        self._focused = False
-        self._suppress_focus_ring = False
-        self.bind("<Configure>", lambda _event: self.redraw())
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Left>", lambda _event: self._move_selection(-1))
-        self.bind("<Right>", lambda _event: self._move_selection(1))
-        self.bind("<FocusIn>", self._on_focus_in)
-        self.bind("<FocusOut>", self._on_focus_out)
-        self.redraw()
-
-    @property
-    def selected_key(self):
-        return self._selected_key
-
-    def set_responsive_scale(self, scale: float):
-        self._scale = scale
-        self._height = max(36, round(self._base_height * scale))
-        self._font.configure(size=_scaled_font_size(self._font, scale, 9, 11))
-        self.configure(height=self._height)
-        self.redraw()
-
-    def select(self, key: str):
-        if key in dict(self._OPTIONS):
-            self._selected_key = key
-            self.redraw()
-
-    def _widths(self):
-        return [
-            max(round(124 * self._scale), self._font.measure(label) + 32)
-            for _key, label in self._OPTIONS
-        ]
-
-    def _activate(self, key: str):
-        if key not in dict(self._OPTIONS) or key == self._selected_key:
-            return
-        self._selected_key = key
-        self.redraw()
-        if self._command:
-            self._command(key)
-
-    def _on_click(self, event):
-        self._suppress_focus_ring = True
-        self.focus_set()
-        self._focused = False
-        self.redraw()
-        widths = self._widths()
-        if event.x < widths[0] + 5:
-            self._activate("api")
-        elif event.x < sum(widths) + 10:
-            self._activate("data")
-
-    def _move_selection(self, direction: int):
-        self._suppress_focus_ring = False
-        self._focused = True
-        keys = [key for key, _label in self._OPTIONS]
-        self._activate(keys[(keys.index(self._selected_key) + direction) % len(keys)])
-        return "break"
-
-    def _on_focus_in(self, _event=None):
-        self._focused = not self._suppress_focus_ring
-        self.redraw()
-
-    def _on_focus_out(self, _event=None):
-        self._focused = False
-        self._suppress_focus_ring = False
-        self.redraw()
-
-    def redraw(self):
-        self.delete("all")
-        width = max(self.winfo_width(), 1)
-        height = self._height
-        _round_rectangle(
-            self, 1, 1, width - 1, height - 1, r=height / 2,
-            fill="#EDF1F5", outline=COLOR_BORDER, width=1,
-        )
-        widths = self._widths()
-        positions = (4, 4 + widths[0] + 4)
-        selected_index = 0 if self._selected_key == "api" else 1
-        selected_x = positions[selected_index]
-        _round_rectangle(
-            self, selected_x, 3, selected_x + widths[selected_index],
-            height - 3, r=(height - 6) / 2,
-            fill="#0D5B99", outline="",
-        )
-        for index, (key, label) in enumerate(self._OPTIONS):
-            self.create_text(
-                positions[index] + widths[index] / 2, height / 2,
-                text=label,
-                fill="#FFFFFF" if key == self._selected_key
-                else COLOR_TEXT_SECONDARY,
-                font=self._font,
-            )
-        if self._focused:
-            _round_rectangle(
-                self, 0, 0, width, height, r=height / 2,
-                fill="", outline=COLOR_BORDER_FOCUS, width=1,
-            )
-
-
-# ==================== 极简扁平选择卡片 ====================
-
-class FlatSelectCard(tk.Canvas):
-    """扁平选择卡片：白底灰描边、悬停浅灰底、选中黑边 + 黑色对勾。
-
-    支持 set_disabled / set_checked / _on_click 行为契约。
-    """
-
-    def __init__(
-        self,
-        master,
-        title: str,
-        subtitle: str,
-        badge_text: str = "",
-        is_radio: bool = False,
-        initial_checked: bool = False,
-        on_toggle: callable = None,
-        theme_color: str = COLOR_ACCENT,
-        bg_parent: str = COLOR_BG_APP,
-        width: int = 220,
-        height: int = 96,
-        **kwargs
-    ):
-        super().__init__(
-            master, width=width, height=height,
-            highlightthickness=0, bg=bg_parent, **kwargs
-        )
-        self._title = title
-        self._subtitle = subtitle
-        self._badge = badge_text
-        self._is_radio = is_radio
-        self._checked = initial_checked
-        self._disabled = False
-        self._hover = False
-        self._on_toggle = on_toggle
-        self._theme = theme_color
-        self._bg_parent = bg_parent
-        self._width = width
-        self._height = height
-        self.checked = self._checked
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
-        self.redraw()
-
-    def set_disabled(self, disabled: bool):
-        self._disabled = bool(disabled)
-        self.redraw()
-
-    def set_checked(self, val: bool):
-        self._checked = bool(val)
-        self.checked = self._checked
-        self.redraw()
-
-    def _on_enter(self, _event=None):
-        self._hover = True
-        self.redraw()
-
-    def _on_leave(self, _event=None):
-        self._hover = False
-        self.redraw()
-
-    def _on_click(self, _event=None):
-        if self._disabled:
-            return
-        if self._is_radio:
-            if not self._checked:
-                self.set_checked(True)
-                if self._on_toggle:
-                    self._on_toggle(self)
-        else:
-            self.set_checked(not self._checked)
-            if self._on_toggle:
-                self._on_toggle(self)
-
-    def redraw(self):
-        self.delete("all")
-        w, h = self._width, self._height
-        if self._checked and not self._disabled:
-            bg = COLOR_ACCENT_BG
-            outline = COLOR_TEXT_PRIMARY
-            outline_w = 1.5
-        elif self._hover and not self._disabled:
-            bg = COLOR_HOVER
-            outline = COLOR_BORDER
-            outline_w = 1
-        elif self._disabled:
-            bg = "#FAFAFA"
-            outline = COLOR_BORDER
-            outline_w = 1
-        else:
-            bg = COLOR_CARD
-            outline = COLOR_BORDER
-            outline_w = 1
-        _round_rectangle(
-            self, 1, 1, w - 1, h - 1, r=6,
-            fill=bg, outline=outline, width=outline_w
-        )
-        indicator_color = (
-            COLOR_TEXT_PRIMARY if self._checked else COLOR_BORDER
-        )
-        indicator_fill = (
-            COLOR_TEXT_PRIMARY if self._checked else "#FFFFFF"
-        )
-        ix, iy, isz = 14, 14, 14
-        _round_rectangle(
-            self, ix, iy, ix + isz, iy + isz, r=2,
-            fill=indicator_fill, outline=indicator_color, width=1
-        )
-        if self._checked:
-            self.create_line(
-                ix + 3, iy + 7, ix + 6, iy + 10, ix + 11, iy + 4,
-                fill="#FFFFFF", width=2, smooth=True
-            )
-        title_color = (
-            COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_PRIMARY
-        )
-        self.create_text(
-            ix + isz + 10, iy + 2, text=self._title,
-            fill=title_color, font=FONT_BODY_BOLD, anchor="nw"
-        )
-        sub_color = (
-            COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_SECONDARY
-        )
-        self.create_text(
-            ix + isz + 10, iy + 22, text=self._subtitle,
-            fill=sub_color, font=FONT_TINY, anchor="nw",
-            width=w - ix - isz - 24
-        )
-        if self._badge and w >= 138 and h >= 48:
-            badge_w = 8 + len(self._badge) * 6
-            bx = w - 14 - badge_w
-            by = 12
-            badge_bg = (
-                COLOR_ACCENT_BG
-                if self._checked and not self._disabled
-                else "#F5F5F5"
-            )
-            _round_rectangle(
-                self, bx, by, bx + badge_w, by + 18, r=9,
-                fill=badge_bg, outline=""
-            )
-            self.create_text(
-                bx + badge_w // 2, by + 9, text=self._badge,
-                fill=(
-                    COLOR_ACCENT
-                    if self._checked and not self._disabled
-                    else COLOR_TEXT_SECONDARY
-                ),
-                font=FONT_TINY
-            )
-
-
-# ==================== 重点主题选择卡片 ====================
-
-class SummaryTopicCard(tk.Canvas):
-    """用于重点主题弹窗的整卡可点击多选项。"""
-
-    def __init__(
-        self,
-        master,
-        index: int,
-        title: str,
-        summary: str,
-        on_toggle: callable = None,
-        width: int = 526,
-        **kwargs,
-    ):
-        super().__init__(
-            master,
-            width=width,
-            height=96,
-            highlightthickness=0,
-            bg=COLOR_TOPIC_DIALOG_BG,
-            cursor="hand2",
-            takefocus=True,
-            **kwargs,
-        )
-        self._index = index
-        self._title = title
-        self._summary = summary
-        self._on_toggle = on_toggle
-        self._width = width
-        self._height = 96
-        self._checked = False
-        self._hover = False
-        self._focused = False
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._toggle)
-        self.bind("<FocusIn>", self._on_focus)
-        self.bind("<FocusOut>", self._on_blur)
-        self.bind("<Return>", self._toggle)
-        self.bind("<space>", self._toggle)
-        self.bind("<Configure>", self._on_resize)
-        self.redraw()
-
-    @property
-    def checked(self) -> bool:
-        return self._checked
-
-    def set_checked(self, checked: bool, notify: bool = False):
-        changed = self._checked != bool(checked)
-        self._checked = bool(checked)
-        self.redraw()
-        if changed and notify and self._on_toggle:
-            self._on_toggle(self)
-
-    def _on_enter(self, _event=None):
-        self._hover = True
-        self.redraw()
-
-    def _on_leave(self, _event=None):
-        self._hover = False
-        self.redraw()
-
-    def _on_focus(self, _event=None):
-        self._focused = True
-        self.redraw()
-
-    def _on_blur(self, _event=None):
-        self._focused = False
-        self.redraw()
-
-    def _on_resize(self, event):
-        if event.width > 1 and event.width != self._width:
-            self._width = event.width
-            self.redraw()
-
-    def _toggle(self, _event=None):
-        self.focus_set()
-        self.set_checked(not self._checked, notify=True)
-        return "break"
-
-    def redraw(self):
-        self.delete("all")
-        width = self._width
-        if self._checked:
-            background = COLOR_TOPIC_CARD_SELECTED
-            outline = "#CEC6F7"
-        elif self._hover:
-            background = COLOR_TOPIC_CARD_HOVER
-            outline = "#CDD3DE"
-        else:
-            background = COLOR_CARD
-            outline = COLOR_BORDER
-
-        _round_rectangle(
-            self, 2, 2, width - 4, self._height - 4, r=10,
-            fill=background, outline=outline,
-            width=1,
-        )
-        if self._checked:
-            _round_rectangle(
-                self, 2, 12, 6, self._height - 14, r=2,
-                fill=COLOR_GENERATION_ACCENT, outline="",
-            )
-        if self._focused and not self._checked:
-            _round_rectangle(
-                self, 5, 5, width - 7, self._height - 8, r=9,
-                fill="", outline="#8C78E8", width=2,
-            )
-
-        self.create_text(
-            24, 23, text=f"{self._index:02d}",
-            fill=(COLOR_GENERATION_ACCENT if self._checked else COLOR_TEXT_MUTED),
-            font=FONT_SMALL_BOLD, anchor="nw",
-        )
-
-        check_x = width - 31
-        check_y = 30
-        indicator_fill = (
-            COLOR_GENERATION_ACCENT if self._checked else COLOR_TOPIC_CONTROL
-        )
-        indicator_outline = (
-            COLOR_GENERATION_ACCENT if self._checked else "#C9CFD9"
-        )
-        _round_rectangle(
-            self, check_x - 10, check_y - 10, check_x + 10, check_y + 10,
-            r=5,
-            fill=indicator_fill, outline=indicator_outline, width=1,
-            tags=("selection_indicator",),
-        )
-        if self._checked:
-            self.create_line(
-                check_x - 5, check_y, check_x - 1, check_y + 4,
-                fill="#FFFFFF", width=2, capstyle=tk.ROUND,
-                tags=("selection_indicator",),
-            )
-            self.create_line(
-                check_x - 1, check_y + 4, check_x + 6, check_y - 5,
-                fill="#FFFFFF", width=2, capstyle=tk.ROUND,
-                tags=("selection_indicator",),
-            )
-
-        text_width = width - 112
-        title_id = self.create_text(
-            58, 18, text=self._title, fill=COLOR_TEXT_PRIMARY,
-            font=FONT_BODY_BOLD, anchor="nw", width=text_width,
-        )
-        title_bbox = self.bbox(title_id)
-        summary_y = (title_bbox[3] if title_bbox else 34) + 7
-        summary_id = self.create_text(
-            58, summary_y, text=self._summary, fill=COLOR_TEXT_MUTED,
-            font=FONT_BODY, anchor="nw", width=text_width,
-        )
-        summary_bbox = self.bbox(summary_id)
-        desired_height = max(96, (summary_bbox[3] if summary_bbox else 72) + 20)
-        if desired_height != self._height:
-            self._height = desired_height
-            self.configure(height=desired_height)
-            self.redraw()
-
-
-# ==================== 极简扁平进度条 ====================
-
-class FlatProgressBar(tk.Canvas):
-    """扁平进度条：灰底 + 黑色填充，平滑动画。"""
-
-    def __init__(
-        self,
-        master,
-        height: int = 6,
-        bg_parent: str = COLOR_BG_APP,
-        fill_color: str = COLOR_TEXT_PRIMARY,
-        **kwargs
-    ):
-        super().__init__(
-            master, height=height, highlightthickness=0,
-            bg=bg_parent, **kwargs
-        )
-        self._height = height
-        self._fill_color = fill_color
-        self._value = 0.0
-        self._target = 0.0
-        self._anim_id = None
-        self.bind("<Configure>", lambda _e: self.redraw())
-
-    def set_progress(self, val: float):
-        self._target = max(0.0, min(1.0, float(val)))
-        if self._anim_id is None:
-            self._animate_step()
-
-    def reset(self):
-        self._target = 0.0
-        self._value = 0.0
-        if self._anim_id:
-            self.after_cancel(self._anim_id)
-            self._anim_id = None
-        self.redraw()
-
-    def _animate_step(self):
-        diff = self._target - self._value
-        if abs(diff) < 0.002:
-            self._value = self._target
-            self._anim_id = None
-        else:
-            self._value += diff * 0.3
-            self._anim_id = self.after(16, self._animate_step)
-        self.redraw()
-
-    def redraw(self):
-        self.delete("all")
-        w = max(self.winfo_width(), 1)
-        h = self._height
-        _round_rectangle(
-            self, 0, 0, w, h, r=h // 2,
-            fill=COLOR_BORDER, outline=""
-        )
-        if self._value > 0:
-            fw = max(h, int(w * self._value))
-            _round_rectangle(
-                self, 0, 0, fw, h, r=h // 2,
-                fill=self._fill_color, outline=""
-            )
-
-
-class GenerationChoiceCard(tk.Canvas):
-    """Responsive mode card used only inside the generation page."""
-
-    def __init__(
-        self, master, title: str, subtitle: str,
-        badge_text: str = "", initial_checked: bool = False,
-        on_toggle: callable = None, width: int = 200,
-        height: int = 58, show_separator: bool = True, **kwargs
-    ):
-        super().__init__(
-            master, width=width, height=height, bg=COLOR_CARD,
-            highlightthickness=0, cursor="hand2", **kwargs
-        )
-        self._title = title
-        self._subtitle = subtitle
-        self._badge = badge_text
-        self._show_separator = show_separator
-        self._checked = bool(initial_checked)
-        self.checked = self._checked
-        self._disabled = False
-        self._hover = False
-        self._on_toggle = on_toggle
-        self._base_width = width
-        self._base_height = height
-        self._title_font = tkfont.Font(master=self, font=FONT_H2)
-        self._subtitle_font = tkfont.Font(master=self, font=FONT_BODY)
-        self._badge_font = tkfont.Font(
-            root=self, family=FONT_FAMILY, size=8, weight="bold",
-        )
-        self._height = height
-        self.bind("<Configure>", lambda _event: self.redraw())
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Button-1>", self._on_click)
-
-    def set_responsive_scale(self, scale: float):
-        self._title_font.configure(
-            size=_scaled_font_size(self._title_font, scale, 13, 17),
-        )
-        self._subtitle_font.configure(
-            size=_scaled_font_size(self._subtitle_font, scale, 9, 12),
-        )
-        self._badge_font.configure(
-            size=_scaled_font_size(self._badge_font, scale, 8, 9),
-        )
-        self._height = max(54, min(70, round(self._base_height * scale)))
-        self.configure(height=self._height)
-        self.redraw()
-
-    @staticmethod
-    def _ellipsize(text: str, font: tkfont.Font, max_width: int) -> str:
-        if max_width <= 0:
-            return ""
-        if font.measure(text) <= max_width:
-            return text
-        ellipsis = "…"
-        available = max_width - font.measure(ellipsis)
-        if available <= 0:
-            return ellipsis
-        end = len(text)
-        while end > 0 and font.measure(text[:end]) > available:
-            end -= 1
-        return text[:end].rstrip() + ellipsis
-
-    def set_disabled(self, disabled: bool):
-        self._disabled = bool(disabled)
-        self.configure(cursor="arrow" if disabled else "hand2")
-        self.redraw()
-
-    def set_checked(self, value: bool):
-        self._checked = bool(value)
-        self.checked = self._checked
-        self.redraw()
-
-    def _on_enter(self, _event=None):
-        self._hover = True
-        self.redraw()
-
-    def _on_leave(self, _event=None):
-        self._hover = False
-        self.redraw()
-
-    def _on_click(self, _event=None):
-        if self._disabled:
-            return
-        self.set_checked(not self._checked)
-        if self._on_toggle:
-            self._on_toggle(self)
-
-    def redraw(self):
-        self.delete("all")
-        width = max(self.winfo_width(), self._base_width)
-        height = self._height
-        if self._disabled:
-            background = "#F8F9FB"
-            title_color = COLOR_TEXT_DISABLED
-        elif self._hover:
-            background = "#F8FAFD"
-            title_color = COLOR_TEXT_PRIMARY
-        else:
-            background = COLOR_CARD
-            title_color = COLOR_TEXT_PRIMARY
-        self.create_rectangle(0, 0, width, height, fill=background, outline="")
-        content_y = height / 2 + (5 if self._badge else 0)
-        title_x = 8
-        self.create_text(
-            title_x, content_y, text=self._title, fill=title_color,
-            font=self._title_font, anchor="w",
-        )
-        copy_x = title_x + self._title_font.measure(self._title) + 18
-        indicator_size = 20
-        indicator_x = width - indicator_size - 8
-        indicator_y = (height - indicator_size) / 2
-        subtitle = self._ellipsize(
-            self._subtitle, self._subtitle_font,
-            int(indicator_x - copy_x - 16),
-        )
-        self.create_text(
-            copy_x, content_y, text=subtitle,
-            fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
-            font=self._subtitle_font, anchor="w",
-        )
-        _round_rectangle(
-            self, indicator_x, indicator_y,
-            indicator_x + indicator_size, indicator_y + indicator_size, r=6,
-            fill=("#4F5FE7" if self._checked else COLOR_CARD),
-            outline=("#4F5FE7" if self._checked else "#C9D1DC"),
-        )
-        if self._checked:
-            self.create_line(
-                indicator_x + 5, indicator_y + 10,
-                indicator_x + 8.5, indicator_y + 13.5,
-                indicator_x + 15, indicator_y + 6.5,
-                fill="#FFFFFF", width=2,
-                capstyle=tk.ROUND, joinstyle=tk.ROUND,
-            )
-        if self._badge:
-            badge_width = self._badge_font.measure(self._badge) + 16
-            badge_width += badge_width % 2
-            badge_top = 2
-            badge_bottom = 22
-            _round_rectangle(
-                self, 0, badge_top, badge_width, badge_bottom, r=8,
-                fill=("#AAB1C0" if self._disabled else "#4658F5"),
-                outline="",
-            )
-            self.create_text(
-                badge_width / 2, (badge_top + badge_bottom) / 2,
-                text=self._badge,
-                fill="#FFFFFF", font=self._badge_font, anchor="center",
-            )
-        if self._show_separator:
-            self.create_line(
-                8, height - 1, width - 8, height - 1,
-                fill=COLOR_BORDER, width=1,
-            )
-
-
-class GenerationSegmentOption(tk.Canvas):
-    """Radio-like segmented option with the legacy card contract."""
-
-    def __init__(
-        self, master, text: str, initial_checked: bool = False,
-        on_toggle: callable = None, width: int = 142, height: int = 38,
-        regular_font=FONT_SMALL, bold_font=FONT_SMALL_BOLD,
-        min_font_size: int = 8, max_font_size: int = 10,
-        **kwargs
-    ):
-        super().__init__(
-            master, width=width, height=height, bg="#F1F3F7",
-            highlightthickness=0, cursor="hand2", **kwargs
-        )
-        self._text = text
-        self._checked = bool(initial_checked)
-        self.checked = self._checked
-        self._disabled = False
-        self._hover = False
-        self._on_toggle = on_toggle
-        self._base_width = width
-        self._regular_font = tkfont.Font(master=self, font=regular_font)
-        self._bold_font = tkfont.Font(master=self, font=bold_font)
-        self._min_font_size = min_font_size
-        self._max_font_size = max_font_size
-        self._width = max(width, self._bold_font.measure(text) + 24)
-        self._height = height
-        self.configure(width=self._width)
-        self.bind("<Enter>", lambda _event: self._set_hover(True))
-        self.bind("<Leave>", lambda _event: self._set_hover(False))
-        self.bind("<Button-1>", self._on_click)
-        self.redraw()
-
-    def set_responsive_scale(self, scale: float):
-        for font in (self._regular_font, self._bold_font):
-            font.configure(size=_scaled_font_size(
-                font, scale, self._min_font_size, self._max_font_size,
-            ))
-        self._width = max(
-            self._base_width, self._bold_font.measure(self._text) + 24,
-        )
-        self.configure(width=self._width)
-        self.redraw()
-
-    def _set_hover(self, value: bool):
-        self._hover = value
-        self.redraw()
-
-    def set_disabled(self, disabled: bool):
-        self._disabled = bool(disabled)
-        self.configure(cursor="arrow" if disabled else "hand2")
-        self.redraw()
-
-    def set_checked(self, value: bool):
-        self._checked = bool(value)
-        self.checked = self._checked
-        self.redraw()
-
-    def _on_click(self, _event=None):
-        if self._disabled or self._checked:
-            return
-        self.set_checked(True)
-        if self._on_toggle:
-            self._on_toggle(self)
-
-    def redraw(self):
-        self.delete("all")
-        if self._disabled:
-            background = "#F8F9FB"
-            foreground = COLOR_TEXT_DISABLED
-            outline = COLOR_BORDER
-        elif self._checked:
-            background = COLOR_CARD
-            foreground = COLOR_TEXT_PRIMARY
-            outline = "#E1E4EA"
-        elif self._hover:
-            background = "#E9EBF1"
-            foreground = COLOR_TEXT_PRIMARY
-            outline = ""
-        else:
-            background = "#F1F3F7"
-            foreground = COLOR_TEXT_MUTED
-            outline = ""
-        _round_rectangle(
-            self, 1, 1, self._width - 1, self._height - 1, r=9,
-            fill=background, outline=outline, width=1,
-        )
-        self.create_text(
-            self._width // 2, self._height // 2,
-            text=self._text, fill=foreground,
-            font=self._bold_font if self._checked else self._regular_font,
-        )
-
-
-# ==================== 对话输入胶囊 ====================
-
-# Omnibox 除输入框内部外统一使用同一浅紫色。
-COLOR_OMNIBOX_SURFACE = "#F1ECFF"
-
-class GlassCapsulePanel(tk.Canvas):
-    """带紫色填充与圆角描边的对话输入控制台。
-
-    Tk 不支持 CSS ``backdrop-filter``，因此用分层色块模拟半透明玻璃的
-    深浅变化；交互层仍是普通 Tk 控件，保证拖拽、键盘与辅助功能正常工作。
-    """
-
-    _PANEL_RADIUS = 32
-
-    def __init__(self, master, bg_parent: str = COLOR_BG_APP, **kwargs):
-        super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
-        self._bg_parent = bg_parent
-        self._dragging = False
-        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=0)
-        self._content_window = self.create_window(
-            16, 20, window=self.content, anchor="nw"
-        )
-        self.content.bind("<Configure>", self._fit_height)
-        self.bind("<Configure>", self._on_resize)
-        self._fit_height()
-        self.redraw()
-
-    def _on_resize(self, event):
-        width = max(1, event.width - 32)
-        current_width = int(float(self.itemcget(self._content_window, "width")))
-        if current_width != width:
-            self.itemconfigure(self._content_window, width=width)
-        self.redraw()
-
-    def _fit_height(self, _event=None):
-        height = self.content.winfo_reqheight() + 32
-        if self.winfo_reqheight() != height:
-            self.configure(height=height)
-
-    def set_drop_highlight(self, highlighted: bool):
-        self._dragging = bool(highlighted)
-        self.redraw()
-
-    def redraw(self):
-        self.delete("glass")
-        w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
-        # 使用纯描边勾勒控制台，避免阴影造成边缘发灰或显得厚重。
-        fill = COLOR_OMNIBOX_SURFACE
-        outline = COLOR_GENERATION_ACCENT if self._dragging else "#C9B8F7"
-        _round_rectangle(self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
-                         fill=fill, outline=outline,
-                         width=2 if self._dragging else 1, tags="glass")
-        # 重新绘制描边，确保圆角边缘清晰。
-        _round_rectangle(self, 8, 4, w - 8, h - 9, r=self._PANEL_RADIUS,
-                         fill="", outline=outline,
-                         width=2 if self._dragging else 1, tags="glass")
-        self.tag_lower("glass")
-
-
-# ==================== 极简扁平输入框 ====================
-
-class FlatEntryBox(tk.Canvas):
-    """胶囊内的白色输入框，带 12px 圆角和蓝色焦点光晕。"""
-
-    def __init__(
-        self,
-        master,
-        on_change: callable = None,
-        bg_parent: str = COLOR_BG_APP,
-        placeholder: str = "",
-        **kwargs
-    ):
-        super().__init__(
-            master, height=48, highlightthickness=0,
-            bg=bg_parent, **kwargs
-        )
-        self._bg_parent = bg_parent
-        self._on_change = on_change
-        self._locked = False
-        self._focused = False
-        self._placeholder = placeholder
-        self._placeholder_font = tkfont.Font(
-            master=self, font=(FONT_FAMILY, 10),
-        )
-
-        inner = tk.Frame(self, bg="#FFFFFF", padx=14, pady=10)
-        self.window_id = self.create_window(0, 0, window=inner, anchor="nw")
-        self.var = tk.StringVar()
-        self.entry = tk.Entry(
-            inner, textvariable=self.var, font=FONT_BODY,
-            bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
-            insertbackground=COLOR_TEXT_PRIMARY,
-            relief=tk.FLAT, bd=0, highlightthickness=0
-        )
-        self.entry.pack(fill=tk.BOTH, expand=True)
-        self.entry.bind("<FocusIn>", self._on_focus_in)
-        self.entry.bind("<FocusOut>", self._on_focus_out)
-        self.entry.bind("<KeyRelease>", self._on_keyrelease)
-        self.entry.bind("<<Paste>>", lambda _e: self.after(10, self._paste_clipboard))
-        self.bind("<Configure>", self._on_resize)
-        self.var.trace_add("write", self._on_var_change)
-        self.redraw()
-
-    def set_responsive_scale(self, scale: float):
-        self._placeholder_font.configure(
-            size=_scaled_font_size(self._placeholder_font, scale, 9, 11),
-        )
-        self.redraw()
-
-    def _on_resize(self, event):
-        self.configure(width=event.width)
-        self.itemconfig(self.window_id, width=event.width, height=48)
-
-    def _on_focus_in(self, _event):
-        self._focused = True
-        self.redraw()
-
-    def _on_focus_out(self, _event):
-        self._focused = False
-        self.redraw()
-
-    def _on_keyrelease(self, _event):
-        self.redraw()
-
-    def _on_var_change(self, *_args):
-        self.redraw()
-        if self._on_change:
-            self._on_change()
-
-    def _paste_clipboard(self):
-        try:
-            text = self.winfo_toplevel().clipboard_get()
-            self.var.set(text.strip())
-        except tk.TclError:
-            pass
-
-    def get_text(self) -> str:
-        return self.var.get().strip()
-
-    def set_text(self, text: str):
-        self.var.set(text)
-        self.redraw()
-
-    def set_locked(self, locked: bool):
-        self._locked = bool(locked)
-        self.entry.config(state="disabled" if self._locked else "normal")
-        self.redraw()
-
-    def redraw(self):
-        self.delete("frame")
-        w = max(self.winfo_width(), 1)
-        # 外圈是桌面端对 ``focus box-shadow`` 的近似实现。
-        if self._focused:
-            _round_rectangle(
-                self, 0, 0, w, 48, r=13, fill="#DCEBFF", outline="",
-                tags="frame"
-            )
-        outline = COLOR_ACCENT_BLUE if self._focused else "#DCE2EB"
-        outline_w = 1.5 if self._focused else 1
-        _round_rectangle(
-            self, 2, 2, w - 2, 46, r=12,
-            fill="#FFFFFF", outline=outline, width=outline_w, tags="frame"
-        )
-        self.tag_lower("frame")
-        # placeholder：未聚焦且为空时显示浅灰提示
-        self.delete("placeholder")
-        if (
-            self._placeholder
-            and not self._focused
-            and not self._locked
-            and not self.var.get()
-        ):
-            self.create_text(
-                18, 24, text=self._placeholder,
-                font=self._placeholder_font, fill="#9CA3AF",
-                anchor="w", tags="placeholder",
-            )
-
-
-# ==================== 侧栏毛玻璃导航项 ====================
-
-class GlassNavigationItem(tk.Canvas):
-    """Gemini 风格的侧栏激活卡片，使用 Canvas 模拟渐变和柔光过渡。"""
-
-    _CARD_MARGIN = 2
-    _CARD_RADIUS = 16
-
-    def __init__(self, master, icon: str, title: str, **kwargs):
-        super().__init__(
-            master, height=68, highlightthickness=0, bd=0,
-            bg=COLOR_SIDEBAR, cursor="hand2", **kwargs,
-        )
-        self._icon = icon
-        self._title = title
-        icon_asset = {
-            "首页": "chat-outline",
-            "生成": "document-outline",
-            "历史": "history-clock",
-        }.get(title)
-        self._navigation_icon_image = (
-            tk.PhotoImage(file=str(_navigation_icon_path(icon_asset)))
-            if icon_asset
-            else None
-        )
-        self._active = False
-        self._progress = 0.0
-        self._target_progress = 0.0
-        self._animation_id = None
-        self._hovered = False
-        self._title_font = tkfont.Font(master=self, font=FONT_SIDEBAR_ITEM)
-        self.bind("<Configure>", lambda _event: self.redraw())
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.redraw()
-
-    def set_responsive_scale(self, scale: float):
-        self._title_font.configure(
-            size=_scaled_font_size(self._title_font, scale, 12, 15),
-        )
-        self.redraw()
-
-    def set_active(self, active: bool):
-        """绑定页面 active 状态，并以约 250ms 的缓动完成状态切换。"""
-        active = bool(active)
-        target = 1.0 if active else 0.0
-        if self._active == active and self._target_progress == target:
-            return
-        self._active = active
-        self._target_progress = target
-        if self._animation_id is None:
-            self._animate()
-
-    def _on_enter(self, _event):
-        self._hovered = True
-        self.redraw()
-
-    def _on_leave(self, _event):
-        self._hovered = False
-        self.redraw()
-
-    def _animate(self):
-        # 16ms 一帧、缓入缓出，等效 CSS 的 0.25s cubic-bezier 过渡。
-        delta = self._target_progress - self._progress
-        if abs(delta) < 0.02:
-            self._progress = self._target_progress
-            self._animation_id = None
-        else:
-            self._progress += delta * 0.23
-            self._animation_id = self.after(16, self._animate)
-        self.redraw()
-
-    @staticmethod
-    def _mix(start: tuple[int, int, int], end: tuple[int, int, int], amount: float):
-        return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
-
-    def _draw_settings_gear(self, color: str):
-        center_x, center_y = 27, 34
-        points = []
-        tooth_step = math.tau / 8
-        for tooth in range(8):
-            center = -math.pi / 2 + tooth * tooth_step
-            for offset, radius in (
-                (-tooth_step / 2, 8), (-tooth_step * 0.28, 8),
-                (-tooth_step * 0.28, 11), (tooth_step * 0.28, 11),
-                (tooth_step * 0.28, 8), (tooth_step / 2, 8),
-            ):
-                angle = center + offset
-                points.extend((
-                    center_x + radius * math.cos(angle),
-                    center_y + radius * math.sin(angle),
-                ))
-        points.extend(points[:2])
-        self.create_line(
-            *points, fill=color, width=2, joinstyle=tk.ROUND,
-            capstyle=tk.ROUND, tags="content",
-        )
-        self.create_oval(
-            center_x - 4, center_y - 4, center_x + 4, center_y + 4,
-            outline=color, width=2, tags="content",
-        )
-
-    def redraw(self):
-        self.delete("all")
-        width, height = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
-        progress = self._progress
-        left, top = self._CARD_MARGIN, self._CARD_MARGIN
-        right, bottom = width - self._CARD_MARGIN, height - self._CARD_MARGIN
-
-        if progress > 0.01:
-            # 0 4px 16px 紫色柔光与 0 2px 4px 中性阴影的 Tk 等效层。
-            shadow = self._mix((255, 255, 255), (232, 222, 252), progress)
-            _round_rectangle(self, left + 1, top + 4, right - 1, bottom,
-                             r=self._CARD_RADIUS, fill="#%02X%02X%02X" % shadow,
-                             outline="", tags="card")
-            # 以逐行混色描绘浅紫 -> 薰衣草紫 -> 深紫的弥散渐变。
-            stops = ((221, 214, 254), (196, 181, 253), (167, 139, 250))
-            for y in range(top, bottom + 1):
-                ratio = (y - top) / max(1, bottom - top)
-                if ratio < 0.55:
-                    color = self._mix(stops[0], stops[1], ratio / 0.55)
-                else:
-                    color = self._mix(stops[1], stops[2], (ratio - 0.55) / 0.45)
-                # 以白底混合模拟 rgba(…, 0.5–0.7)，并让渐变随 active 渐入。
-                color = self._mix((255, 255, 255), color, progress * 0.7)
-                # 圆角区域按圆弧收缩，避免渐变在边角变成方形。
-                edge = min(y - top, bottom - y)
-                inset = 0
-                if edge < self._CARD_RADIUS:
-                    inset = self._CARD_RADIUS - int(
-                        max(0, self._CARD_RADIUS ** 2 - (self._CARD_RADIUS - edge) ** 2) ** 0.5
-                    )
-                self.create_line(left + inset, y, right - inset, y,
-                                 fill="#%02X%02X%02X" % color, tags="card")
-            _round_rectangle(
-                self, left, top, right, bottom, r=self._CARD_RADIUS,
-                fill="", outline="#FFFFFF", width=1, tags="card",
-            )
-        elif self._hovered:
-            _round_rectangle(self, left, top, right, bottom, r=self._CARD_RADIUS,
-                             fill="#F7F9FC", outline="", tags="card")
-
-        icon_color = "#1E293B" if (self._active or self._hovered) else COLOR_TEXT_SECONDARY
-        if self._navigation_icon_image is not None:
-            self.create_image(
-                27, 34, image=self._navigation_icon_image,
-                anchor=tk.CENTER, tags="content",
-            )
-        elif self._title == "设置":
-            self._draw_settings_gear(icon_color)
-        else:
-            self.create_text(27, 34, text=self._icon, font=(FONT_FAMILY, 14),
-                             fill=icon_color, anchor="center", tags="content")
-        self.create_text(
-            width / 2, height / 2, text=self._title, font=self._title_font,
-            fill="#0F172A", anchor="center", tags=("content", "title"),
-        )
-
-
-# ==================== 悬停提示 ====================
-
-class HoverTooltip:
-    """350ms 悬停后弹出无边框深色提示。"""
-
-    def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 350):
-        self._widget = widget
-        self._text = text
-        self._delay = delay_ms
-        self._after_id = None
-        self._tip = None
-        widget.bind("<Enter>", self._schedule)
-        widget.bind("<Leave>", self._hide)
-        widget.bind("<ButtonPress>", self._hide)
-
-    def _schedule(self, _event=None):
-        self._hide()
-        self._after_id = self._widget.after(self._delay, self._show)
-
-    def _show(self):
-        if self._tip or not self._widget.winfo_exists():
-            return
-        screen_width = self._widget.winfo_screenwidth()
-        screen_height = self._widget.winfo_screenheight()
-        self._tip = tk.Toplevel(self._widget)
-        self._tip.wm_overrideredirect(True)
-        tk.Label(
-            self._tip, text=self._text, bg="#0A0A0A", fg="#FFFFFF",
-            font=FONT_TINY, padx=8, pady=4,
-            wraplength=max(240, screen_width - 32), justify=tk.LEFT,
-        ).pack()
-        self._tip.update_idletasks()
-        x = min(
-            max(8, self._widget.winfo_rootx() + 16),
-            screen_width - self._tip.winfo_width() - 8,
-        )
-        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 6
-        if y + self._tip.winfo_height() > screen_height:
-            y = max(8, self._widget.winfo_rooty() - self._tip.winfo_height() - 6)
-        self._tip.geometry(f"+{x}+{y}")
-
-    def _hide(self, _event=None):
-        if self._after_id:
-            self._widget.after_cancel(self._after_id)
-            self._after_id = None
-        if self._tip:
-            try:
-                self._tip.destroy()
-            except tk.TclError:
-                pass
-            self._tip = None
-
-
-class HorizontalFileList(tk.Frame):
-    """Single-line file list that exposes horizontal scrolling on overflow."""
-
-    def __init__(self, master, text: str, tooltip_text: str):
-        super().__init__(master, bg=COLOR_CARD)
-        self.canvas = tk.Canvas(
-            self,
-            height=22,
-            bg=COLOR_CARD,
-            highlightthickness=0,
-            borderwidth=0,
-            xscrollincrement=16,
-        )
-        self.scrollbar = tk.Scrollbar(
-            self,
-            orient=tk.HORIZONTAL,
-            command=self.canvas.xview,
-            width=8,
-            relief=tk.FLAT,
-            borderwidth=0,
-            highlightthickness=0,
-            elementborderwidth=0,
-            background=COLOR_BORDER,
-            activebackground=COLOR_TEXT_MUTED,
-            troughcolor=COLOR_CARD,
-        )
-        self.canvas.configure(xscrollcommand=self.scrollbar.set)
-        self.canvas.pack(fill=tk.X, expand=True)
-        self._text_id = self.canvas.create_text(
-            0, 2,
-            text=text,
-            font=FONT_TINY,
-            fill=COLOR_TEXT_SECONDARY,
-            anchor="nw",
-        )
-        self.canvas.bind("<Configure>", self._sync_scrollbar, add="+")
-        self.canvas.bind("<Shift-MouseWheel>", self._on_horizontal_wheel)
-        self.canvas.bind("<Shift-Button-4>", self._on_horizontal_wheel)
-        self.canvas.bind("<Shift-Button-5>", self._on_horizontal_wheel)
-        HoverTooltip(self.canvas, tooltip_text)
-        self.after_idle(self._sync_scrollbar)
-
-    def _sync_scrollbar(self, _event=None):
-        bounds = self.canvas.bbox(self._text_id)
-        if not bounds:
-            return
-        self.canvas.configure(scrollregion=(0, 0, bounds[2], bounds[3]))
-        overflowing = bounds[2] > self.canvas.winfo_width()
-        if overflowing and not self.scrollbar.winfo_manager():
-            self.scrollbar.pack(fill=tk.X, pady=(2, 0))
-        elif not overflowing and self.scrollbar.winfo_manager():
-            self.scrollbar.pack_forget()
-            self.canvas.xview_moveto(0)
-
-    def _on_horizontal_wheel(self, event):
-        delta = getattr(event, "delta", 0)
-        if delta:
-            direction = -3 if delta > 0 else 3
-        else:
-            direction = -3 if getattr(event, "num", 0) == 4 else 3
-        self.canvas.xview_scroll(direction, "units")
-        return "break"
-
-
-# ==================== 主 GUI ====================
-
-GENERATION_SOURCE_LABELS = {
-    "url": "当前对话",
-    "file": "已选文件",
-}
-AUTH_REUSE_LABEL = "复用登录状态"
-AUTH_NOT_REQUIRED_LABEL = "本地文件无需登录"
-GENERATE_BUTTON_LABEL = "开始生成  →"
-REGENERATE_BUTTON_LABEL = "重新生成  →"
+# ==================== 主 GUI 控制器 ====================
 
 
 class AIMemoryGUI:
-    """AI 记忆总结协同管理工具主界面（极简扁平侧栏版）。
+    """AI 记忆总结协同管理工具主界面（Argon 极简扁平侧栏版）。
 
     保留所有公开方法签名与属性名以兼容测试与服务层契约。
     """
@@ -1847,12 +248,15 @@ class AIMemoryGUI:
         self.layout_requires_wider_screen = False
         self._cancel_api_reorder_animation = None
         self._notice_after_id = None
+        self._completed_badge_after_id = None
+
         root.title("AI 记忆总结协同管理工具")
         root.geometry("1040x680")
         root.minsize(820, 560)
         root.configure(bg=COLOR_BG_APP)
         self._window_icon = tk.PhotoImage(file=str(_logo_png_path(64)))
         root.iconphoto(True, self._window_icon)
+        configure_argon_ttk_style(root)
 
         self.is_running = False
         self._generation_completed = False
@@ -1904,7 +308,6 @@ class AIMemoryGUI:
         self._sidebar_header = header
         logo_row = tk.Frame(header, bg=COLOR_SIDEBAR)
         logo_row.pack(fill=tk.X)
-        # 使用统一的灰色堆叠层图标，替换旧的黑色方块标识。
         StackedLayersIcon(
             logo_row, width=40, height=40, bg=COLOR_SIDEBAR,
         ).pack(side=tk.LEFT)
@@ -1915,7 +318,7 @@ class AIMemoryGUI:
         self.sidebar_title_label.pack(side=tk.LEFT, padx=(4, 0))
 
         tk.Frame(
-            sidebar, bg=COLOR_SIDEBAR_DIVIDER, height=1
+            sidebar, bg=COLOR_SIDEBAR_DIVIDER, height=1,
         ).pack(fill=tk.X, padx=12, pady=(16, 10))
 
         # 主导航（图标 + 居中标题）
@@ -1932,21 +335,19 @@ class AIMemoryGUI:
         self._nav_items: list[GlassNavigationItem] = []
         for idx, (icon, title) in enumerate(self._nav_steps):
             item = GlassNavigationItem(nav, icon, title)
-            # nav 自身保留 10px 内边距，让卡片距侧栏两侧自然留白。
             item.pack(fill=tk.X, pady=3)
             self._nav_items.append(item)
-            # Canvas 作为完整的可点击卡片，点击任意位置均切换页面。
             item.bind("<Button-1>", lambda _e, i=idx: self._show_page(i))
 
         # 保留 api_key_button 契约：指向设置导航项（测试依赖此属性存在）
         self.api_key_button = self._nav_items[-1]
 
-        # 底部：版本信息（设置已并入侧栏导航项）
+        # 底部：版本信息
         footer = tk.Frame(sidebar, bg=COLOR_SIDEBAR, padx=12, pady=12)
         footer.pack(side=tk.BOTTOM, fill=tk.X)
         self._sidebar_footer = footer
         tk.Frame(
-            footer, bg=COLOR_SIDEBAR_DIVIDER, height=1
+            footer, bg=COLOR_SIDEBAR_DIVIDER, height=1,
         ).pack(fill=tk.X, pady=(0, 10))
         tk.Label(
             footer, text="AI 记忆协同管理 v1.0", font=FONT_TINY,
@@ -1958,18 +359,18 @@ class AIMemoryGUI:
         main.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.bg_canvas = tk.Canvas(
-            main, highlightthickness=0, bg=COLOR_BG_APP
+            main, highlightthickness=0, bg=COLOR_BG_APP,
         )
         self.bg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.custom_scrollbar = MinimalScrollbar(
-            main, target_canvas=self.bg_canvas, width=6
+            main, target_canvas=self.bg_canvas, width=6,
         )
         self.custom_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 4), pady=20)
         self.bg_canvas.config(yscrollcommand=self.custom_scrollbar.set_range)
 
         self.main_content = tk.Frame(self.bg_canvas, bg=COLOR_BG_APP)
         self.canvas_window_id = self.bg_canvas.create_window(
-            0, 0, window=self.main_content, anchor="nw"
+            0, 0, window=self.main_content, anchor="nw",
         )
 
         self.bg_canvas.bind("<Configure>", self._on_canvas_configure)
@@ -1994,6 +395,12 @@ class AIMemoryGUI:
         self._show_page(0)
         self.root.bind("<Return>", self._on_generate_shortcut, add="+")
         self.root.bind("<KP_Enter>", self._on_generate_shortcut, add="+")
+        for idx in range(4):
+            self.root.bind(
+                f"<Control-Key-{idx + 1}>",
+                lambda _e, page_idx=idx: self._show_page(page_idx),
+                add="+",
+            )
         self.root.bind("<Configure>", self._on_root_configure, add="+")
         self.root.bind("<Destroy>", self._cancel_pending_ui_callbacks, add="+")
         self.root.after_idle(self._initialize_responsive_layout)
@@ -2002,8 +409,11 @@ class AIMemoryGUI:
         if event.widget is not self.root:
             return
         pending = [
-            self._responsive_after_id, self._scrollregion_after_id,
-            self._minimum_layout_after_id, self._notice_after_id,
+            self._responsive_after_id,
+            self._scrollregion_after_id,
+            self._minimum_layout_after_id,
+            self._notice_after_id,
+            self._completed_badge_after_id,
         ]
         if self.page_frames:
             animation = getattr(self.page_frames[3], "api_animation", {})
@@ -2107,11 +517,9 @@ class AIMemoryGUI:
         if self._responsive_after_id is not None:
             self.root.after_cancel(self._responsive_after_id)
         if size == self._responsive_target_size:
-            # 最小尺寸约束引起的内部调整不必再次等待用户停止拖动。
             self._responsive_target_size = None
             self._responsive_after_id = self.root.after(1, self._apply_responsive_scale)
             return
-        # 拖动过程中只让布局伸缩；停止拖动后再更新字体，避免阻塞原生缩放消息。
         self._responsive_after_id = self.root.after(140, self._apply_responsive_scale)
 
     def _apply_responsive_scale(self, force=False):
@@ -2125,7 +533,6 @@ class AIMemoryGUI:
         if width <= 1:
             return
         scale = max(0.82, min(1.15, width / 1040))
-        # 字体按小档位缩放，避免每移动十几个像素就重排整棵控件树。
         scale = max(0.82, min(1.15, round(scale * 20) / 20))
         if abs(scale - self._responsive_scale) < 0.01 and not force:
             if not self._responsive_layout_initialized:
@@ -2193,7 +600,6 @@ class AIMemoryGUI:
     def _refresh_scrollregion(self):
         self._scrollregion_after_id = None
         if self._resize_in_progress:
-            # 保留当前内容表面，拖动结束后再调整其几何尺寸，避免原生消息被重排占满。
             return
         canvas_width = self.bg_canvas.winfo_width()
         self._draw_vibrant_gradient(canvas_width, self.bg_canvas.winfo_height())
@@ -2242,7 +648,6 @@ class AIMemoryGUI:
 
         welcome = tk.Frame(center, bg=COLOR_BG_APP)
         welcome.pack(pady=(0, 8))
-        # 使用同一品牌图标，替换旧的蓝色四角星标识。
         StackedLayersIcon(
             welcome, width=64, height=64, bg=COLOR_BG_APP,
         ).pack()
@@ -2292,7 +697,7 @@ class AIMemoryGUI:
             font=(FONT_FAMILY, 11, "bold"), bg="#EAF2FF", fg=COLOR_DANGER,
             activebackground="#EAF2FF", activeforeground=COLOR_DANGER,
             relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=4, pady=0
+            padx=4, pady=0,
         )
         self.clear_file_button._responsive_min_font_size = 10
         self.clear_file_button._responsive_max_font_size = 12
@@ -2312,11 +717,11 @@ class AIMemoryGUI:
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
         toolbar.pack(fill=tk.X, pady=(2, 0))
 
-        # 左下角：添加文件 + 粘贴链接
+        # 左下角：添加文件 + 粘贴链接 + 清空按钮 + 实时平台识别徽章
         toolbar_left = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
         toolbar_left.pack(side=tk.LEFT)
+        self._omnibox_toolbar_left = toolbar_left
 
-        # 用独立的高清线条图标替代小尺寸下发虚的系统 Emoji。
         icon_pixels = 12 * float(self.root.tk.call("tk", "scaling"))
         icon_size = min((24, 32, 48), key=lambda size: abs(size - icon_pixels))
         self._attachment_icon = tk.PhotoImage(
@@ -2329,7 +734,7 @@ class AIMemoryGUI:
             font=(FONT_FAMILY, 12), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=8, pady=4
+            padx=8, pady=4,
         )
         self.file_select_button._responsive_min_font_size = 11
         self.file_select_button._responsive_max_font_size = 13
@@ -2341,11 +746,30 @@ class AIMemoryGUI:
             font=(FONT_FAMILY, 12), bg=COLOR_OMNIBOX_SURFACE, fg="#4B5563",
             activebackground=COLOR_OMNIBOX_SURFACE, activeforeground="#1E293B",
             relief=tk.FLAT, bd=0, cursor="hand2",
-            padx=8, pady=4
+            padx=8, pady=4,
         )
         self.paste_link_button._responsive_min_font_size = 11
         self.paste_link_button._responsive_max_font_size = 13
         self.paste_link_button.pack(side=tk.LEFT)
+
+        self.clear_url_button = tk.Button(
+            toolbar_left, text="✕ 清空",
+            command=self._clear_url_entry,
+            font=(FONT_FAMILY, 10), bg=COLOR_OMNIBOX_SURFACE, fg=COLOR_TEXT_MUTED,
+            activebackground=COLOR_OMNIBOX_SURFACE, activeforeground=COLOR_DANGER,
+            relief=tk.FLAT, bd=0, cursor="hand2",
+            padx=8, pady=4,
+        )
+        self.clear_url_button._responsive_min_font_size = 9
+        self.clear_url_button._responsive_max_font_size = 11
+
+        self.platform_badge_label = tk.Label(
+            toolbar_left, text="",
+            font=FONT_SMALL_BOLD, fg=COLOR_ACCENT_BLUE,
+            bg="#E8F0FE", padx=8, pady=2,
+        )
+        self.platform_badge_label._responsive_min_font_size = 8
+        self.platform_badge_label._responsive_max_font_size = 10
 
         # 右下角：发送按钮
         toolbar_right = tk.Frame(toolbar, bg=COLOR_OMNIBOX_SURFACE)
@@ -2370,9 +794,42 @@ class AIMemoryGUI:
         # 配置拖拽到整个 Omnibox
         self._configure_file_drop()
 
-        # 底部呼吸留白（替代原示例问题区，保持居中纯净感）
+        # 底部呼吸留白
         spacer = tk.Frame(center, bg=COLOR_BG_APP, height=80)
         spacer.pack(fill=tk.BOTH, expand=True)
+
+    def _clear_url_entry(self):
+        if hasattr(self, "capsule_entry"):
+            self.capsule_entry.set_text("")
+            self._on_url_changed()
+
+    def _update_platform_badge(self, url: str):
+        badge = getattr(self, "platform_badge_label", None)
+        clear_btn = getattr(self, "clear_url_button", None)
+        if clear_btn is not None:
+            if url.strip():
+                if not clear_btn.winfo_manager():
+                    clear_btn.pack(side=tk.LEFT, padx=(6, 0))
+            else:
+                if clear_btn.winfo_manager():
+                    clear_btn.pack_forget()
+        if badge is None:
+            return
+        detected = detect_platform_badge(url)
+        if detected is None:
+            if badge.winfo_manager():
+                badge.pack_forget()
+            return
+        platform_name, fg_color, bg_color = detected
+        is_private = requires_authenticated_browser(url)
+        suffix = " · 账号会话" if is_private else ""
+        badge.configure(
+            text=f" {platform_name}{suffix} ",
+            fg=fg_color,
+            bg=bg_color,
+        )
+        if not badge.winfo_manager():
+            badge.pack(side=tk.LEFT, padx=(8, 0))
 
     def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
@@ -2515,9 +972,7 @@ class AIMemoryGUI:
                 width=card_width, height=58,
                 show_separator=index < len(cards) - 1,
             )
-            card.grid(
-                row=index, column=0, sticky="nsew",
-            )
+            card.grid(row=index, column=0, sticky="nsew")
             setattr(self, attr, card)
 
         auth_panel = tk.Frame(
@@ -2605,6 +1060,7 @@ class AIMemoryGUI:
                 row, textvariable=value_var, font=FONT_SMALL,
                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD,
             ).pack(side=tk.RIGHT)
+
         run_panel = tk.Frame(
             section, bg=COLOR_GENERATION_ACCENT_BG, padx=16, pady=13,
             highlightthickness=1, highlightbackground="#DED7FA",
@@ -2658,22 +1114,47 @@ class AIMemoryGUI:
     # ---------------- 历史页 ----------------
 
     def _build_history_section(self):
-        """历史页：任务卡片列表 + 5 指标看板 + 定位跳转。"""
+        """历史页：任务卡片列表 + 6 指标看板 + 定位跳转与记录管理。"""
         page = self.page_frames[2]
         page.configure(bg=COLOR_BG_APP)
 
         section = tk.Frame(page, bg=COLOR_BG_APP)
         section.pack(fill=tk.BOTH, expand=True, padx=80, pady=(24, 24))
 
+        header_bar = tk.Frame(section, bg=COLOR_BG_APP)
+        header_bar.pack(fill=tk.X)
+        title_box = tk.Frame(header_bar, bg=COLOR_BG_APP)
+        title_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
         tk.Label(
-            section, text="历史", font=(FONT_FAMILY, 18, "bold"),
+            title_box, text="历史", font=(FONT_FAMILY, 18, "bold"),
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
         ).pack(fill=tk.X)
         tk.Label(
-            section, text="查看历次任务的耗时统计与已生成文件",
+            title_box, text="查看历次任务的耗时统计与已生成文件",
             font=FONT_SMALL, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
             anchor="w",
-        ).pack(fill=tk.X, pady=(4, 20))
+        ).pack(fill=tk.X, pady=(4, 0))
+
+        header_actions = tk.Frame(header_bar, bg=COLOR_BG_APP)
+        header_actions.pack(side=tk.RIGHT, anchor="center")
+        self.history_count_var = tk.StringVar(value="")
+        self.history_count_badge = tk.Label(
+            header_actions, textvariable=self.history_count_var,
+            font=FONT_TINY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_ACCENT_BG,
+            padx=10, pady=4,
+        )
+        self.history_count_badge.pack(side=tk.LEFT, padx=(0, 8))
+        self.clear_history_button = tk.Button(
+            header_actions, text="清空记录",
+            command=self._clear_history_records,
+            font=FONT_TINY, bg=COLOR_CARD, fg=COLOR_TEXT_SECONDARY,
+            activebackground=COLOR_HOVER, activeforeground=COLOR_DANGER,
+            relief=tk.FLAT, bd=0, cursor="hand2",
+            highlightthickness=1, highlightbackground=COLOR_BORDER,
+            padx=10, pady=4,
+        )
+
+        tk.Frame(section, bg=COLOR_BG_APP, height=16).pack(fill=tk.X)
 
         # 历史列表容器（滚动）
         self.history_list_frame = tk.Frame(section, bg=COLOR_BG_APP)
@@ -2687,6 +1168,27 @@ class AIMemoryGUI:
             justify="center",
         )
         self.history_empty_label.pack(pady=(60, 0))
+
+    def _clear_history_records(self):
+        if not self.history_records:
+            return
+        confirmed = messagebox.askyesno(
+            "清空历史记录",
+            "确定要清空全部历史任务记录吗？（已生成的本地 Markdown 文件不会被删除）",
+            parent=self.root,
+        )
+        if not confirmed:
+            return
+        self.history_records.clear()
+        try:
+            self.history_store.save(self.history_records)
+        except HistoryStoreError as error:
+            messagebox.showwarning(
+                "历史记录保存失败",
+                str(error),
+                parent=self.root,
+            )
+        self._refresh_history_list()
 
     def _add_history_record(self, record: dict):
         """任务完成后追加一条历史记录并刷新列表。"""
@@ -2703,9 +1205,19 @@ class AIMemoryGUI:
 
     def _refresh_history_list(self):
         """重建历史卡片列表。"""
-        # 清空现有内容（保留 empty_label 引用）
         for child in self.history_list_frame.winfo_children():
             child.destroy()
+
+        count = len(self.history_records)
+        if hasattr(self, "history_count_var"):
+            self.history_count_var.set(f"共 {count} 条记录" if count else "0 条记录")
+        if hasattr(self, "clear_history_button"):
+            if count > 0:
+                if not self.clear_history_button.winfo_manager():
+                    self.clear_history_button.pack(side=tk.LEFT)
+            else:
+                if self.clear_history_button.winfo_manager():
+                    self.clear_history_button.pack_forget()
 
         if not self.history_records:
             self.history_empty_label = tk.Label(
@@ -2733,8 +1245,9 @@ class AIMemoryGUI:
         # 标题行：状态 + 文件名
         header = tk.Frame(card, bg=COLOR_CARD)
         header.pack(fill=tk.X)
-        status_icon = "✓" if record.get("succeeded") else "✗"
-        status_color = COLOR_SUCCESS if record.get("succeeded") else COLOR_DANGER
+        succeeded = bool(record.get("succeeded"))
+        status_icon = "✓" if succeeded else "✗"
+        status_color = COLOR_SUCCESS if succeeded else COLOR_DANGER
         tk.Label(
             header, text=status_icon, font=FONT_BODY_BOLD,
             fg=status_color, bg=COLOR_CARD,
@@ -2751,7 +1264,7 @@ class AIMemoryGUI:
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD,
         ).pack(side=tk.RIGHT)
 
-        # 5 指标看板（2×2 + 总计）
+        # 6 指标看板（2×3 网格）
         metrics_frame = tk.Frame(card, bg=COLOR_CARD)
         metrics_frame.pack(fill=tk.X, pady=(10, 0))
         metrics_frame.grid_columnconfigure(0, weight=1, uniform="m")
@@ -2810,7 +1323,6 @@ class AIMemoryGUI:
 
     def _open_in_explorer(self, dir_path: str):
         """在系统文件管理器中打开目录。"""
-        import subprocess
         try:
             if sys.platform == "win32":
                 subprocess.Popen(["explorer", dir_path])
@@ -2834,7 +1346,6 @@ class AIMemoryGUI:
             self.bg_canvas.coords(self._gradient_item_id, 0, 0, w, h)
 
     def _on_canvas_configure(self, event):
-        # 与内容高度变化合并到下一帧，避免同一尺寸重复重排 Canvas 内的控件。
         self._schedule_scrollregion()
 
     def _on_content_configure(self, _event):
@@ -2902,7 +1413,6 @@ class AIMemoryGUI:
         if getattr(self, "_generation_completed", False):
             self._reset_generation_for_new_input()
         self.selected_summary_file = Path(selected_path).resolve()
-        # 文件胶囊显示文件名 + 大小
         try:
             size = self.selected_summary_file.stat().st_size
             if size < 1024:
@@ -2930,7 +1440,6 @@ class AIMemoryGUI:
         if not _HAS_DND:
             return
         try:
-            # 整个 Omnibox 作为拖拽响应区
             self._omnibox.drop_target_register(DND_FILES, DND_TEXT)
             self._omnibox.dnd_bind("<<DropEnter>>", self._on_file_drag_enter)
             self._omnibox.dnd_bind("<<DropLeave>>", self._on_file_drag_leave)
@@ -3072,7 +1581,7 @@ class AIMemoryGUI:
             self.generation_modes_var.set(summary)
         if hasattr(self, "generation_auth_var"):
             need_login = getattr(
-                getattr(self, "card_need_login", None), "checked", False
+                getattr(self, "card_need_login", None), "checked", False,
             )
             source = getattr(self, "generation_source", None)
             if source == "file":
@@ -3116,11 +1625,9 @@ class AIMemoryGUI:
             option = getattr(self, attr, None)
             if option is not None:
                 option.set_disabled(locked or not available)
-        # 设置按钮始终可用（测试契约 test_generation_lock_keeps_settings_button_enabled）
         try:
             self.api_key_button.config(state="normal", cursor="hand2")
         except tk.TclError:
-            # tk.Frame 不支持 state 选项，仅设置 cursor
             self.api_key_button.config(cursor="hand2")
 
     # ---------------- URL 变更检测 ----------------
@@ -3133,17 +1640,25 @@ class AIMemoryGUI:
         self._generation_completed = False
         self._generation_progress_reset = True
         self.progress_bar.reset()
+        if getattr(self, "_completed_badge_after_id", None) is not None:
+            try:
+                self.root.after_cancel(self._completed_badge_after_id)
+            except tk.TclError:
+                pass
+            self._completed_badge_after_id = None
         self.done_badge.pack_forget()
 
     def _on_url_changed(self):
-        """URL 变更：发送按钮状态 + 私有链接检测 + 登录策略自动调整。"""
+        """URL 变更：发送按钮状态 + 平台徽章识别 + 私有链接检测 + 登录策略自动调整。"""
+        url = self.capsule_entry.get_text() if hasattr(self, "capsule_entry") else ""
+        if hasattr(self, "_update_platform_badge"):
+            self._update_platform_badge(url)
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
         if getattr(self, "is_running", False):
             return
         if getattr(self, "_generation_completed", False):
             self._reset_generation_for_new_input()
-        url = self.capsule_entry.get_text()
         is_private = requires_authenticated_browser(url)
         self._url_is_private = is_private
         if is_private and hasattr(self, "card_no_login"):
@@ -3173,7 +1688,7 @@ class AIMemoryGUI:
             return
         has_mode = any([
             self.card_raw.checked, self.card_normal.checked,
-            self.card_simple.checked, self.card_detailed.checked
+            self.card_simple.checked, self.card_detailed.checked,
         ])
         source = getattr(self, "generation_source", None)
         has_url = bool(self.capsule_entry.get_text().strip())
@@ -3233,14 +1748,26 @@ class AIMemoryGUI:
         if hasattr(self, "_update_send_button_state"):
             self._update_send_button_state()
 
-
     # ---------------- 完成徽章 ----------------
 
     def _show_completed_badge(self, duration_sec: int = 5):
+        if getattr(self, "_completed_badge_after_id", None) is not None:
+            try:
+                self.root.after_cancel(self._completed_badge_after_id)
+            except tk.TclError:
+                pass
+            self._completed_badge_after_id = None
         self.done_badge.pack(anchor="w", pady=(8, 0))
-        self.root.after(
-            duration_sec * 1000,
-            lambda: self.done_badge.pack_forget()
+
+        def _hide():
+            self._completed_badge_after_id = None
+            try:
+                self.done_badge.pack_forget()
+            except tk.TclError:
+                pass
+
+        self._completed_badge_after_id = self.root.after(
+            duration_sec * 1000, _hide,
         )
 
     # ---------------- 开始生成 / 直接总结 ----------------
@@ -3320,7 +1847,7 @@ class AIMemoryGUI:
                 self._post_ui(lambda error=str(e), detail=err_detail: [
                     self.status_var.set(f"❌ 线程崩溃: {error}"),
                     self.percent_var.set("0%"),
-                    messagebox.showerror("生成线程崩溃", f"{error}\n\n{detail}", parent=self.root)
+                    messagebox.showerror("生成线程崩溃", f"{error}\n\n{detail}", parent=self.root),
                 ], visible=True)
 
         thread = threading.Thread(
@@ -3329,7 +1856,7 @@ class AIMemoryGUI:
                 url, need_login, modes, save_dir_path,
                 output_filename, api_keys, settings,
             ),
-            daemon=True
+            daemon=True,
         )
         thread.start()
 
@@ -3349,7 +1876,7 @@ class AIMemoryGUI:
         }
         if not any(modes.values()):
             messagebox.showwarning(
-                "提示", "请至少勾选普通版、极简版或细节版之一。"
+                "提示", "请至少勾选普通版、极简版或细节版之一。",
             )
             return
 
@@ -3405,10 +1932,10 @@ class AIMemoryGUI:
                 settings,
                 Path(source_path).resolve(),
             ),
-            daemon=True
+            daemon=True,
         ).start()
 
-    # ---------------- 登录确认弹窗 ----------------
+    # ---------------- 登录确认弹窗与原站链接补充弹窗 ----------------
 
     def _confirm_login_required(self) -> bool:
         """在打开浏览器前征求用户同意。"""
@@ -3451,6 +1978,12 @@ class AIMemoryGUI:
             dialog.resizable(False, False)
             dialog.transient(self.root)
             bind_visible_modal(dialog)
+            if hasattr(dialog, "configure"):
+                try:
+                    dialog.configure(bg=COLOR_BG_APP)
+                except Exception:
+                    pass
+            configure_argon_ttk_style(dialog)
 
             tk.Label(
                 dialog,
@@ -3460,6 +1993,9 @@ class AIMemoryGUI:
                     "请粘贴包含这些附件且您能访问的原始会话网页链接，程序将重试；"
                     "未能下载的附件会在导出中标明。"
                 ),
+                font=FONT_BODY,
+                fg=COLOR_TEXT_PRIMARY,
+                bg=COLOR_BG_APP,
                 justify="left",
                 wraplength=510,
             ).pack(padx=24, pady=(24, 14), anchor="w")
@@ -3527,7 +2063,7 @@ class AIMemoryGUI:
         return result["url"]
 
     def _show_login_dialog(
-        self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event
+        self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event,
     ):
         dialog = tk.Toplevel(self.root)
         dialog.title("授权登录确认")
@@ -3561,18 +2097,27 @@ class AIMemoryGUI:
             justify=tk.LEFT, anchor="w", wraplength=420,
         ).pack(anchor="w", pady=(0, 16))
 
-        def on_login_done():
+        done_called = {"flag": False}
+
+        def on_login_done(_event=None):
+            if done_called["flag"]:
+                return
+            done_called["flag"] = True
             loop.call_soon_threadsafe(login_event.set)
-            dialog.grab_release()
+            try:
+                dialog.grab_release()
+            except tk.TclError:
+                pass
             dialog.destroy()
 
         dialog.protocol("WM_DELETE_WINDOW", on_login_done)
+        dialog.bind("<Return>", on_login_done)
 
         FlatButton(
             content, text="已确认会话可访问，继续生成",
             command=on_login_done,
             variant="accent", width=200, height=40,
-            bg_parent=COLOR_BG_APP
+            bg_parent=COLOR_BG_APP,
         ).pack(anchor="center")
 
     # ---------------- 主题选择弹窗 ----------------
@@ -3610,7 +2155,7 @@ class AIMemoryGUI:
                 "方便你快速回看最重要的内容。"
             ),
             font=FONT_BODY, fg=COLOR_TEXT_MUTED, bg=COLOR_TOPIC_DIALOG_BG,
-            wraplength=600, justify=tk.LEFT, anchor="w"
+            wraplength=600, justify=tk.LEFT, anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(8, 22))
 
         list_header = tk.Frame(content, bg=COLOR_TOPIC_DIALOG_BG)
@@ -3636,23 +2181,23 @@ class AIMemoryGUI:
         choices_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
         choices = tk.Frame(choices_canvas, bg=COLOR_TOPIC_DIALOG_BG)
         choices_window = choices_canvas.create_window(
-            0, 0, window=choices, anchor="nw"
+            0, 0, window=choices, anchor="nw",
         )
         choices.bind(
             "<Configure>",
             lambda _e: choices_canvas.configure(
                 scrollregion=choices_canvas.bbox("all")
-            )
+            ),
         )
         choices_canvas.bind(
             "<Configure>",
-            lambda e: choices_canvas.itemconfig(choices_window, width=e.width)
+            lambda e: choices_canvas.itemconfig(choices_window, width=e.width),
         )
         dialog.bind(
             "<MouseWheel>",
             lambda e: choices_canvas.yview_scroll(
-                -int(e.delta / 120), "units"
-            )
+                -int(e.delta / 120), "units",
+            ),
         )
 
         cards = {}
@@ -3726,7 +2271,7 @@ class AIMemoryGUI:
         footer = tk.Frame(content, bg=COLOR_TOPIC_DIALOG_BG)
         footer.grid(row=4, column=0, sticky="ew")
         tk.Frame(footer, bg=COLOR_BORDER, height=1).pack(
-            fill=tk.X, pady=(16, 14)
+            fill=tk.X, pady=(16, 14),
         )
         button_row = tk.Frame(footer, bg=COLOR_TOPIC_DIALOG_BG)
         button_row.pack(fill=tk.X)
@@ -3860,7 +2405,7 @@ class AIMemoryGUI:
             self._post_ui(lambda: [
                 self.progress_bar.set_progress(val),
                 self.status_var.set(msg),
-                self.percent_var.set(percent_str)
+                self.percent_var.set(percent_str),
             ])
 
         try:
@@ -3924,7 +2469,7 @@ class AIMemoryGUI:
                 fetch_seconds = time.perf_counter() - fetch_started
                 login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
                 fetch_active_seconds = max(
-                    0.0, fetch_seconds - login_wait_seconds
+                    0.0, fetch_seconds - login_wait_seconds,
                 )
                 run_log.event(
                     "fetch_completed" if not fetch_res.error else "fetch_failed",
@@ -3971,7 +2516,7 @@ class AIMemoryGUI:
             def select_summary_topics(result):
                 nonlocal selection_wait_seconds
                 selected, wait_seconds = self._select_summary_topics(
-                    result, update_progress, run_log
+                    result, update_progress, run_log,
                 )
                 selection_wait_seconds += wait_seconds
                 return selected
@@ -4048,7 +2593,6 @@ class AIMemoryGUI:
                 ) if saved_files else "所有任务生成完成！",
             )
             self._post_ui(lambda: self._show_completed_badge(5))
-            # 追加历史记录
             from datetime import datetime as _dt
             history_record = {
                 "title": (
@@ -4107,7 +2651,7 @@ class AIMemoryGUI:
         self._refresh_generation_sources()
         self._update_generate_button_state()
 
-    # ---------------- 设置弹窗（保留旧版 API KEY 兼容入口） ----------------
+    # ---------------- 设置页与旧版入口兼容 ----------------
 
     def _show_legacy_api_key_settings(self, require_key: bool = False):
         self._show_settings(initial_page="api", require_key=require_key)
@@ -4122,7 +2666,6 @@ class AIMemoryGUI:
     ):
         """切换到内嵌设置页（不再弹窗）。"""
         settings_page = self.page_frames[3]
-        # 兼容旧契约：_settings_dialog / _api_key_dialog 指向设置页
         self._settings_dialog = settings_page
         self._api_key_dialog = settings_page
         if hasattr(settings_page, "show_page"):
@@ -4178,7 +2721,7 @@ class AIMemoryGUI:
         notice_slot.pack(fill=tk.X, pady=(0, 8))
         notice_label = tk.Label(
             notice_slot, textvariable=notice_var,
-            font=FONT_SMALL, fg=COLOR_DANGER, bg=COLOR_CARD, anchor="w"
+            font=FONT_SMALL, fg=COLOR_DANGER, bg=COLOR_CARD, anchor="w",
         )
         notice_label.pack(anchor="w")
 
@@ -4189,6 +2732,10 @@ class AIMemoryGUI:
                 except tk.TclError:
                     pass
                 self._notice_after_id = None
+            is_success = message.startswith("已")
+            notice_label.configure(
+                fg=COLOR_SUCCESS if is_success else COLOR_DANGER,
+            )
             notice_var.set(message)
             if duration_ms > 0:
                 def clear_notice():
@@ -4329,7 +2876,7 @@ class AIMemoryGUI:
             ).pack(side=tk.LEFT, padx=(0, 6))
 
             entry_var = tk.StringVar(value=existing_keys.get(provider, ""))
-            tk.Entry(
+            key_entry = tk.Entry(
                 row, textvariable=entry_var, show="*",
                 font=FONT_BODY, fg=COLOR_TEXT_PRIMARY,
                 bg=COLOR_BG_APP, relief=tk.FLAT, width=24,
@@ -4337,8 +2884,25 @@ class AIMemoryGUI:
                 highlightthickness=1,
                 highlightbackground=COLOR_BORDER,
                 highlightcolor=COLOR_BORDER_FOCUS,
-            ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=2)
+            )
+            key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=2)
             api_key_vars[provider] = entry_var
+
+            def _toggle_key_mask(ent=key_entry, btn_ref=None):
+                showing = ent.cget("show") == ""
+                ent.configure(show="*" if showing else "")
+                if btn_ref is not None:
+                    btn_ref.configure(text="👁" if showing else "🙈")
+
+            eye_btn = tk.Button(
+                row, text="👁", font=FONT_SMALL,
+                bg=COLOR_CARD, fg=COLOR_TEXT_MUTED,
+                activebackground=COLOR_HOVER, activeforeground=COLOR_TEXT_PRIMARY,
+                relief=tk.FLAT, bd=0, cursor="hand2", padx=6, pady=0,
+            )
+            eye_btn.configure(command=lambda e=key_entry, b=eye_btn: _toggle_key_mask(e, b))
+            eye_btn.pack(side=tk.RIGHT, padx=(2, 0))
+            HoverTooltip(eye_btn, "显示 / 隐藏 API Key")
 
         def _drag_start(_event, provider):
             if provider not in ordered_providers:
@@ -4433,7 +2997,6 @@ class AIMemoryGUI:
                 return
             if event is not None:
                 _drag_motion(event)
-            src = drag_state["src"]
             start_order = drag_state["start_order"]
             preview_order = drag_state["preview_order"]
             commit = (
@@ -4456,6 +3019,12 @@ class AIMemoryGUI:
         page._layout_api_rows = _layout_api_rows
         page._drag_state = drag_state
         _layout_api_rows()
+
+        tk.Label(
+            api_page,
+            text="提示：上下拖动左侧 ☰ 手柄可调整模型调用的优先级顺序；密钥使用 Windows DPAPI 加密存储。",
+            font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
+        ).pack(fill=tk.X, pady=(2, 4))
 
         def _save_api_keys():
             _cancel_api_drag(animate=False)
