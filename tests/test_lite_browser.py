@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
+from scripts.providers.chatgpt_source import SourceError
 
 from gui.service import (
     BROWSER_MODE_ENV,
@@ -151,6 +152,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
         for has_conversation_content, authenticated, allow_login in (
             (True, True, False),
             (True, True, True),
+            (False, True, False),  # authorized API can work while DOM is blocked
             (False, False, False),
             (True, False, False),
         ):
@@ -159,7 +161,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                 authenticated=authenticated,
                 allow_login=allow_login,
             ):
-                content_ready = has_conversation_content and authenticated
+                content_ready = authenticated
                 contexts = [FakeContext()]
                 if not content_ready and not allow_login:
                     contexts.append(FakeContext())
@@ -189,11 +191,21 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                     "gui.service._chatgpt_session_is_authenticated",
                     new=AsyncMock(return_value=authenticated),
                 ), patch(
+                    "gui.service.chatgpt_source.read_conversation",
+                    new=AsyncMock(
+                        return_value={"conversation_id": "11111111-2222-3333-4444-555555555555"},
+                        side_effect=None if authenticated else SourceError("unauthorized"),
+                    ),
+                ), patch(
+                    "gui.chatgpt_capture.capture_conversation",
+                    new=AsyncMock(return_value={"html": "verified", "messages": [{"role": "User", "content": "verified"}],
+                                               "image_map": {}, "document_map": {}, "warnings": []}),
+                ), patch(
                     "gui.service._set_browser_window_state",
                     new=AsyncMock(),
                 ) as set_window_state:
                     if content_ready:
-                        await fetch_chat_pipeline(
+                        result = await fetch_chat_pipeline(
                             "https://chatgpt.com/c/"
                             "11111111-2222-3333-4444-555555555555",
                             need_login=allow_login,
@@ -201,6 +213,7 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
                             login_required_callback=callback,
                             login_confirmation_callback=confirmation_callback,
                         )
+                        self.assertEqual(result.messages[0]["content"], "verified")
                     else:
                         result = await fetch_chat_pipeline(
                             "https://chatgpt.com/c/"

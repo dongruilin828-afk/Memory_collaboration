@@ -136,6 +136,26 @@ async def _wait_for_conversation_content(page):
 
 
 async def fetch_chat_content(url, need_login=False):
+    # ChatGPT uses the same identity-checked path in CLI and GUI. In particular,
+    # a long stale DOM must never be accepted as the requested conversation.
+    from .providers.chatgpt_source import SourceError, conversation_target
+    try:
+        conversation_target(url)
+    except SourceError:
+        pass
+    else:
+        from gui.service import fetch_chat_pipeline
+        result = await fetch_chat_pipeline(
+            url, need_login=need_login,
+            login_confirmation_callback=lambda: need_login,
+            login_required_callback=lambda: input("请在浏览器中完成登录，按回车继续："),
+            logger=lambda message: console.print(message, markup=False),
+        )
+        for warning in result.warnings:
+            console.print(warning, markup=False)
+        if result.error:
+            console.print(result.error, markup=False)
+        return result.html, {**result.image_map, **result.document_map}
     user_data_dir = str(BROWSER_USER_DATA_DIR)
     images_dir = str(IMAGES_DIR)
     os.makedirs(images_dir, exist_ok=True)

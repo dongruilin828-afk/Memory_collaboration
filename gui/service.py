@@ -33,6 +33,7 @@ from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
 from gui.credential_store import normalize_provider_order
+from scripts.providers import chatgpt_source
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
     BROWSER_USER_DATA_DIR,
@@ -726,6 +727,11 @@ def requires_authenticated_browser(url: str) -> bool:
     parsed = urlparse(str(url or "").strip())
     host = parsed.netloc.lower().split(":", 1)[0]
     if host in {"chatgpt.com", "chat.openai.com"}:
+        try:
+            if chatgpt_source.conversation_target(url)[0] == "conversation":
+                return True
+        except chatgpt_source.SourceError:
+            pass
         return bool(
             PRIVATE_CONVERSATION_PATTERNS[0].match(parsed.path)
             or codex.PRIVATE_PATH_PATTERN.match(parsed.path)
@@ -5099,13 +5105,19 @@ async def fetch_chat_pipeline(
     requested_path = urlparse(url).path
     requested_host = urlparse(url).netloc.lower().split(":", 1)[0]
     codex_request = codex.is_codex_path(requested_path)
+    try:
+        chatgpt_source.conversation_target(url)
+        verified_chatgpt_request = True
+    except chatgpt_source.SourceError:
+        verified_chatgpt_request = False
     doubao_public_thread = (
         requested_host in DOUBAO_HOSTS and requested_path.startswith("/thread/")
     )
     # Codex/Grok 公有页在无头 Chromium 中可能落入 Cloudflare 验证页，也要先探测
     # 真实消息节点，失败后复用现有的有头浏览器回退链。
     requires_content_probe = (
-        requires_login_probe
+        verified_chatgpt_request
+        or requires_login_probe
         or codex_request
         or requested_host in GROK_HOSTS
         or doubao_public_thread
@@ -5118,6 +5130,7 @@ async def fetch_chat_pipeline(
     chatgpt_anonymous_probe = (
         requested_host in {"chatgpt.com", "chat.openai.com"}
         and requested_path.startswith("/share/")
+        and not need_login
     )
     headless = not need_login
 
@@ -5182,6 +5195,20 @@ async def fetch_chat_pipeline(
             grok_payload: dict[str, Any] = {}
             chatgpt_assets_rehydrated = False
             pre_rehydrate_chat_html: Optional[str] = None
+            verified_chatgpt_payload = None
+
+            async def requested_content_ready():
+                nonlocal verified_chatgpt_payload
+                if verified_chatgpt_request:
+                    try:
+                        verified_chatgpt_payload = await chatgpt_source.read_conversation(page, url)
+                        return True
+                    except chatgpt_source.SourceError:
+                        return False
+                return (
+                    await _page_has_conversation_content(page, url)
+                    or (codex_request and bool(authorized_content_responses))
+                )
 
             async def capture_doubao_share_document(response: Any) -> None:
                 try:
@@ -5287,14 +5314,12 @@ async def fetch_chat_pipeline(
                 if need_login or requires_content_probe:
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
-                    content_ready = (
-                        await _page_has_conversation_content(page, url)
-                        or (codex_request and bool(authorized_content_responses))
-                    )
+                    content_ready = await requested_content_ready()
                     if (
                         content_ready
                         and requested_host in {"chatgpt.com", "chat.openai.com"}
                         and requires_authenticated_browser(url)
+                        and not verified_chatgpt_payload
                     ):
                         content_ready = await _chatgpt_session_is_authenticated(
                             page, url
@@ -5336,7 +5361,6 @@ async def fetch_chat_pipeline(
                                             or BROWSER_USER_DATA_DIR
                                         ) / "public"
                                         if doubao_public_thread
-                                        or chatgpt_anonymous_probe
                                         else browser_profile_root
                                     ),
                                 )
@@ -5351,10 +5375,7 @@ async def fetch_chat_pipeline(
                             await goto_with_retry_gui(page, url, logger=logger)
                             await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
-                            content_ready = (
-                                await _page_has_conversation_content(page, url)
-                                or (codex_request and bool(authorized_content_responses))
-                            )
+                            content_ready = await requested_content_ready()
                             if not content_ready and doubao_public_thread:
                                 try:
                                     await page.wait_for_selector(
@@ -5372,6 +5393,7 @@ async def fetch_chat_pipeline(
                                     "chatgpt.com", "chat.openai.com"
                                 }
                                 and requires_authenticated_browser(url)
+                                and not verified_chatgpt_payload
                             ):
                                 content_ready = await _chatgpt_session_is_authenticated(
                                     page, url
@@ -5428,16 +5450,14 @@ async def fetch_chat_pipeline(
                             await goto_with_retry_gui(page, url, logger=logger)
                             await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
-                            content_ready = (
-                                await _page_has_conversation_content(page, url)
-                                or (codex_request and bool(authorized_content_responses))
-                            )
+                            content_ready = await requested_content_ready()
                             if (
                                 content_ready
                                 and requested_host in {
                                     "chatgpt.com", "chat.openai.com"
                                 }
                                 and requires_authenticated_browser(url)
+                                and not verified_chatgpt_payload
                             ):
                                 content_ready = await _chatgpt_session_is_authenticated(
                                     page, url
@@ -5463,6 +5483,27 @@ async def fetch_chat_pipeline(
                     await _page_has_conversation_content(page, url)
                 await _drain_response_tasks(response_tasks)
                 current_host = urlparse(url).netloc.lower().split(":", 1)[0]
+                if verified_chatgpt_request:
+                    from gui.chatgpt_capture import capture_conversation
+
+                    # All body text, order and attachments come from the exact
+                    # requested branch. Unrelated DOM/cache entries cannot win
+                    # by being longer or having the same number of messages.
+                    payload = verified_chatgpt_payload or await chatgpt_source.read_conversation(page, url)
+                    captured = await capture_conversation(
+                        page, url, payload,
+                        images_dir=resolved_images_dir, image_prefix=image_reference_prefix,
+                        documents_dir=resolved_documents_dir, document_prefix=document_reference_prefix,
+                        logger=logger,
+                    )
+                    fetch_warnings.extend(captured["warnings"])
+                    captured["warnings"] = fetch_warnings
+                    completed_result = FetchResult(**captured, user_wait_seconds=user_wait_seconds)
+                    if SAVE_DEBUG_SNAPSHOT:
+                        snapshot = Path(debug_html_file or DEBUG_HTML_FILE).resolve()
+                        snapshot.parent.mkdir(parents=True, exist_ok=True)
+                        snapshot.write_text(completed_result.html or "", encoding="utf-8")
+                    return completed_result
                 if await _chatgpt_assets_need_rehydrate(
                     page,
                     url,

@@ -194,6 +194,20 @@ def _restore_math_placeholders(text, replacements):
     return text
 
 
+def _code_language(element):
+    code = element.find("code")
+    for node in (code, element):
+        if node is None:
+            continue
+        for token in node.get("class", []):
+            if token.startswith("language-"):
+                return token[len("language-"):]
+        language = node.get("data-language") or node.get("data-lang")
+        if language and re.fullmatch(r"[\w+#.-]+", language):
+            return language
+    return ""
+
+
 async def collect_html(page):
     """逐屏收集 ChatGPT 虚拟列表中的消息，避免长对话首尾丢失。"""
     role_selector = (
@@ -612,6 +626,10 @@ def parse_messages(soup, image_map=None):
     parsed_messages = []
     for msg in chatgpt_messages:
         role = msg.get("data-message-author-role")
+        original = msg.find("pre", attrs={"data-source-markdown": "true"})
+        if original is not None:
+            parsed_messages.append({"role": "User" if role == "user" else "AI", "content": original.get_text()})
+            continue
         math_replacements = _replace_math_with_placeholders(msg)
         if role == "user":
             for excluded in msg.select(
@@ -777,6 +795,9 @@ def parse_messages(soup, image_map=None):
                 new_pre = soup.new_tag("pre")
                 new_code = soup.new_tag("code")
                 new_code.string = code.get_text()
+                language = _code_language(block)
+                if language:
+                    new_code["class"] = ["language-" + language]
                 new_pre.append(new_code)
                 block.replace_with(new_pre)
 
@@ -804,12 +825,16 @@ def parse_messages(soup, image_map=None):
                     new_pre = soup.new_tag("pre")
                     new_code = soup.new_tag("code")
                     new_code.string = code_text
+                    language = _code_language(inner_pre) or _code_language(pre)
+                    if language:
+                        new_code["class"] = ["language-" + language]
                     new_pre.append(new_code)
                     pre.replace_with(new_pre)
 
             md_text = markdownify.markdownify(
                 str(content),
-                heading_style="ATX"
+                heading_style="ATX",
+                code_language_callback=_code_language,
             ).strip()
             md_text = _collapse_nested_markdown_fences(md_text)
             md_text = _restore_math_placeholders(md_text, math_replacements)
