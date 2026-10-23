@@ -1220,9 +1220,9 @@ class GlassCapsulePanel(tk.Canvas):
         super().__init__(master, highlightthickness=0, bg=bg_parent, **kwargs)
         self._bg_parent = bg_parent
         self._dragging = False
-        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=20, pady=0)
+        self.content = tk.Frame(self, bg=COLOR_OMNIBOX_SURFACE, padx=22, pady=0)
         self._content_window = self.create_window(
-            16, 20, window=self.content, anchor="nw",
+            16, 22, window=self.content, anchor="nw",
         )
         self.content.bind("<Configure>", self._fit_height)
         self.bind("<Configure>", self._on_resize)
@@ -1237,7 +1237,7 @@ class GlassCapsulePanel(tk.Canvas):
         self.redraw()
 
     def _fit_height(self, _event=None):
-        height = self.content.winfo_reqheight() + 32
+        height = self.content.winfo_reqheight() + 36
         if self.winfo_reqheight() != height:
             self.configure(height=height)
 
@@ -1274,7 +1274,7 @@ class FlatEntryBox(tk.Canvas):
         **kwargs,
     ):
         super().__init__(
-            master, height=48, highlightthickness=0,
+            master, height=58, highlightthickness=0,
             bg=bg_parent, **kwargs,
         )
         self._bg_parent = bg_parent
@@ -1283,18 +1283,20 @@ class FlatEntryBox(tk.Canvas):
         self._focused = False
         self._placeholder = placeholder
         self._placeholder_font = tkfont.Font(
-            master=self, font=(FONT_FAMILY, 10),
+            master=self, font=(FONT_FAMILY, 13),
         )
 
-        self._inner = tk.Frame(self, bg="#FFFFFF", padx=6, pady=4)
-        self.window_id = self.create_window(12, 6, window=self._inner, anchor="nw")
+        self._inner = tk.Frame(self, bg="#FFFFFF", padx=8, pady=5)
+        self.window_id = self.create_window(14, 8, window=self._inner, anchor="nw")
         self.var = tk.StringVar()
         self.entry = tk.Entry(
-            self._inner, textvariable=self.var, font=FONT_BODY,
+            self._inner, textvariable=self.var, font=(FONT_FAMILY, 13),
             bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
             insertbackground=COLOR_GENERATION_ACCENT,
             relief=tk.FLAT, bd=0, highlightthickness=0,
         )
+        self.entry._responsive_min_font_size = 12
+        self.entry._responsive_max_font_size = 15
         self.entry.pack(fill=tk.BOTH, expand=True)
 
         self._placeholder_label = tk.Label(
@@ -1306,6 +1308,8 @@ class FlatEntryBox(tk.Canvas):
             anchor="w",
             cursor="xterm",
         )
+        self._placeholder_label._responsive_min_font_size = 12
+        self._placeholder_label._responsive_max_font_size = 15
         self._placeholder_label.bind(
             "<Button-1>", lambda _e: self.entry.focus_set(),
         )
@@ -1343,17 +1347,17 @@ class FlatEntryBox(tk.Canvas):
 
     def set_responsive_scale(self, scale: float):
         self._placeholder_font.configure(
-            size=_scaled_font_size(self._placeholder_font, scale, 9, 11),
+            size=_scaled_font_size(self._placeholder_font, scale, 12, 15),
         )
         self.redraw()
 
     def _on_resize(self, event):
         self.configure(width=event.width)
-        self.coords(self.window_id, 12, 6)
+        self.coords(self.window_id, 14, 8)
         self.itemconfig(
             self.window_id,
-            width=max(1, event.width - 24),
-            height=36,
+            width=max(1, event.width - 28),
+            height=42,
         )
         self.redraw()
 
@@ -1397,13 +1401,13 @@ class FlatEntryBox(tk.Canvas):
         w = max(self.winfo_width(), 1)
         if self._focused:
             _round_rectangle(
-                self, 0, 0, w, 48, r=14, fill="#E0E7FF", outline="",
+                self, 0, 0, w, 58, r=16, fill="#E0E7FF", outline="",
                 tags="frame",
             )
         outline = COLOR_GENERATION_ACCENT if self._focused else "#D8D0F5"
         outline_w = 1.5 if self._focused else 1
         _round_rectangle(
-            self, 2, 2, w - 2, 46, r=12,
+            self, 2, 2, w - 2, 56, r=14,
             fill="#FFFFFF", outline=outline, width=outline_w, tags="frame",
         )
         self.tag_lower("frame")

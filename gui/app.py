@@ -651,30 +651,30 @@ class AIMemoryGUI:
         self.home_subtitle_label._responsive_max_font_size = 15
         self.home_subtitle_label.pack()
 
-        # ===== 统一 Omnibox 卡片（居中，最大宽度 ~720px） =====
+        # ===== 统一 Omnibox 卡片（居中） =====
         omnibox = GlassCapsulePanel(center, bg_parent=COLOR_BG_APP)
-        omnibox.pack(fill=tk.X, padx=72, pady=(28, 0))
+        omnibox.pack(fill=tk.X, padx=52, pady=(28, 0))
         self._omnibox = omnibox
         omnibox_body = omnibox.content
 
         # 文件胶囊区（默认隐藏，文件附加后显示）
         self.selected_file_row = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
-        self.selected_file_row.pack(fill=tk.X, pady=(0, 8))
+        self.selected_file_row.pack(fill=tk.X, pady=(0, 10))
         self.selected_file_row.pack_forget()
         self.selected_file_name_var = tk.StringVar(value="")
         file_capsule = tk.Frame(
             self.selected_file_row, bg="#FFFFFF",
-            padx=12, pady=6,
+            padx=14, pady=8,
             highlightthickness=1, highlightbackground="#DDD6FE",
         )
         file_capsule.pack(side=tk.LEFT, fill=tk.X, expand=True)
         selected_file_name = tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
-            font=(FONT_FAMILY, 12), fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
+            font=(FONT_FAMILY, 13), fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
             anchor="w", width=56,
         )
-        selected_file_name._responsive_min_font_size = 11
-        selected_file_name._responsive_max_font_size = 13
+        selected_file_name._responsive_min_font_size = 12
+        selected_file_name._responsive_max_font_size = 15
         self.selected_file_label = selected_file_name
         self._selected_file_tooltip = HoverTooltip(selected_file_name, "")
         self.clear_file_button = tk.Button(
@@ -894,7 +894,7 @@ class AIMemoryGUI:
 
         cards = (
             ("card_raw", "仅抓取对话", "保留原始问答，不调用 API。", "", False),
-            ("card_normal", "结构化总结", "默认方式，支持选择不同话题重要程度", "推荐", True),
+            ("card_normal", "结构化总结", "默认方式，支持选择不同话题重要程度", "", True),
             ("card_simple", "极简化总结", "压缩为一段极短的总览，快速掌握关键信息", "", False),
             ("card_detailed", "细节化总结", "保留更多细节信息", "", False),
         )
