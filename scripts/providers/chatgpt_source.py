@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import html
 from dataclasses import dataclass, field
 from urllib.parse import quote, unquote, urlencode, urlparse
 
@@ -251,6 +252,26 @@ def markdown_label(text: str) -> str:
     return re.sub(r"([\\\[\]])", r"\\\1", text.replace("\n", " "))
 
 
+def citation_label(text: str) -> str:
+    """Square brackets in source titles are text, not LaTeX delimiters."""
+    return markdown_label(text).replace(r"\[", "&#91;").replace(r"\]", "&#93;")
+
+
+def supporting_citation_links(item: dict):
+    """The additional websites in a citation pill, with literal-text titles."""
+    for source in item.get("supporting_websites") or []:
+        target = source.get("url") or ""
+        parsed = urlparse(target)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            continue
+        title = source.get("title") or parsed.hostname
+        # Escaped square brackets would look like LaTeX delimiters to the later
+        # math formatter. Entities also keep title punctuation out of Markdown.
+        label = html.escape(title.replace("\n", " "), quote=False).translate(
+            str.maketrans({c: f"&#{ord(c)};" for c in "[]`$*_\\"}))
+        yield target, f"[{label}]({target})"
+
+
 def resolve_citations(text: str, metadata: list[dict], asset_map: dict[str, str]) -> str:
     """Keep citation destinations without downloading decorative favicons."""
     for meta in metadata:
@@ -271,11 +292,12 @@ def resolve_citations(text: str, metadata: list[dict], asset_map: dict[str, str]
             for item in ref.get("items") or []:
                 target = item.get("url")
                 if target and urlparse(target).scheme in {"http", "https"}:
-                    links.append(f"[{markdown_label(item.get('title') or urlparse(target).hostname or '来源')}]({target})")
+                    links.append(f"[{citation_label(item.get('title') or urlparse(target).hostname or '来源')}]({target})")
+                links.extend(link for _, link in supporting_citation_links(item))
             if not links and ref.get("url"):
                 target = ref["url"]
                 if urlparse(target).scheme in {"http", "https"}:
-                    links.append(f"[{markdown_label(ref.get('title') or '来源')}]({target})")
+                    links.append(f"[{citation_label(ref.get('title') or '来源')}]({target})")
             text = text.replace(marker, " ".join(dict.fromkeys(links)) or (ref.get("alt") or "〔引用〕"))
     # The few legacy markers without metadata are explicit unresolved citations,
     # not broken image attachments or leaked internal control tokens.

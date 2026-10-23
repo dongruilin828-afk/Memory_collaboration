@@ -13,6 +13,7 @@ from scripts.providers.chatgpt_source import Message
 from bs4 import BeautifulSoup
 from scripts.providers import chatgpt
 from scripts.providers.chatgpt_source import Asset, SourceError, resolve_citations, source_messages
+from scripts.providers.chatgpt_markdown import prepare_markdown
 
 
 CID = "12345678-1234-1234-1234-123456789abc"
@@ -31,6 +32,55 @@ def payload(*nodes):
 
 
 class ChatGPTSourceTests(unittest.TestCase):
+    def test_grouped_citation_keeps_primary_and_all_supporting_websites(self):
+        marker = "\ue200cite\ue202turn1view0\ue202turn1view1\ue201"
+        primary = {"title": "Primary", "url": "https://example.com/main"}
+        second = {"title": "Second [source]", "url": "https://example.org/second"}
+        third = {"url": "https://example.net/third"}
+        metadata = [{"content_references": [{"type": "grouped_webpages", "matched_text": marker,
+            "items": [{**primary, "thumbnail_url": "https://images.openai.com/icon",
+                "supporting_websites": [second, third, second, {"url": "javascript:alert(1)"}]}]}],
+            "search_result_groups": [{"entries": [{"url": "https://example.org/unused"}]}]}]
+        expected = ("Answer [Primary](https://example.com/main) "
+            "[Second &#91;source&#93;](https://example.org/second) [example.net](https://example.net/third).")
+        result = resolve_citations("Answer " + marker + ".", metadata, {})
+        self.assertEqual(result, expected)
+        self.assertEqual(prepare_markdown(result), expected)
+
+    def test_grouped_citation_without_supporting_sites_is_unchanged(self):
+        marker = "\ue200cite\ue202turn1view0\ue201"
+        for extra in ({}, {"supporting_websites": None}, {"supporting_websites": []}):
+            metadata = [{"content_references": [{"type": "grouped_webpages", "matched_text": marker,
+                "items": [{"title": "Primary", "url": "https://example.com/main", **extra}]}]}]
+            text = "  First line\n\n```python\n    x = 1\n```\n" + marker
+            self.assertEqual(resolve_citations(text, metadata, {}),
+                text.replace(marker, "[Primary](https://example.com/main)"))
+
+    def test_supporting_title_punctuation_is_literal_not_math_or_code(self):
+        marker = "\ue200cite\ue202turn1view0\ue201"
+        metadata = [{"content_references": [{"type": "grouped_webpages", "matched_text": marker,
+            "items": [{"url": "https://example.com/main", "supporting_websites": [
+                {"url": "https://example.org/removed", "title": "[Removed]"},
+                {"url": "https://example.org/cost", "title": "$5 *price* `code` <tag>"}]}]}]}]
+        result = prepare_markdown(resolve_citations(marker, metadata, {}))
+        self.assertIn("[&#91;Removed&#93;](https://example.org/removed)", result)
+        self.assertIn("[&#36;5 &#42;price&#42; &#96;code&#96; &lt;tag&gt;]", result)
+        self.assertNotIn("$$", result)
+
+    def test_primary_citation_title_brackets_cannot_turn_into_math(self):
+        marker = "\ue200cite\ue202turn3view1\ue201"
+        item = {"url": "https://example.com/removed", "title": "[ Removed by moderator ] : r/codex"}
+        meta = {"content_references": [{"type": "grouped_webpages", "matched_text": marker, "items": [item]}]}
+        text = prepare_markdown(resolve_citations("Answer " + marker, [meta], {}))
+        self.assertEqual(text, "Answer [&#91; Removed by moderator &#93; : r/codex](https://example.com/removed)")
+        row = Message("a", "AI", ["a"], "", rich=True, metadata=[{
+            "model_dil_v2": {"appData": {"opGenui": {"componentResults": {
+                "cite": {"status": "resolved", "componentName": "Cite", "state": {"items": [item]}}
+            }}}}}])
+        rich = prepare_markdown(rich_markdown(row, {"a": '<div class="markdown"><p>Answer</p></div>'}, {}))
+        self.assertIn("[&#91; Removed by moderator &#93; : r/codex](https://example.com/removed)", rich)
+        self.assertNotIn("$$", rich)
+
     def test_private_project_login_and_document_response_routes_are_separate(self):
         from gui.service import requires_authenticated_browser, _is_document_content_response
         project = f"https://chatgpt.com/g/g-p-project/c/{CID}"
@@ -254,6 +304,27 @@ class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
         text = rich_markdown(row, {"a": '<div class="markdown"><p>Visible answer.</p></div>'}, {})
         self.assertIn("[Private-view citation](https://example.com/private-source)", text)
         self.assertNotIn("images.openai.com", text)
+
+    def test_rich_reply_keeps_current_citation_supporting_sites_only(self):
+        marker = "\ue200cite\ue202turn1view0\ue201"
+        item = {"url": "https://example.com/main", "supporting_websites": [
+            {"url": "https://example.org/extra", "title": "[Extra]"}]}
+        row = Message("a", "AI", ["a"], "Answer " + marker, rich=True, metadata=[{
+            "content_references": [
+                {"type": "grouped_webpages", "matched_text": marker, "items": [item]},
+                {"type": "grouped_webpages", "matched_text": "\ue200cite\ue202unused\ue201", "items": [{
+                    "supporting_websites": [{"url": "https://example.org/unused", "title": "Unused"}]}]}]}])
+        dom = '<div class="markdown"><p>Answer <a href="https://example.com/main">Primary</a></p></div>'
+        text = prepare_markdown(rich_markdown(row, {"a": dom}, {}))
+        self.assertIn("[Primary](https://example.com/main)", text)
+        self.assertIn("[&#91;Extra&#93;](https://example.org/extra)", text)
+        self.assertNotIn("example.org/unused", text)
+        row.metadata[0]["content_references"][0]["items"][0]["supporting_websites"].append(
+            {"url": "https://example.com/main", "title": "Primary"})
+        self.assertEqual(prepare_markdown(rich_markdown(row, {"a": dom}, {})), text)
+        row.metadata[0]["content_references"][0]["items"][0]["supporting_websites"].append(
+            {"url": "https://example.com/mai", "title": "Distinct URL prefix"})
+        self.assertIn("[Distinct URL prefix](https://example.com/mai)", rich_markdown(row, {"a": dom}, {}))
 
     async def test_export_has_every_file_link_in_exact_owner_and_no_ui_text(self):
         data = payload(node("u1", "user", "  text\n\n    code  ", attachments=[{"id": "file_a", "name": "a.md"}]),

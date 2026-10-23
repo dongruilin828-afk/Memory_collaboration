@@ -17,7 +17,7 @@ from scripts.providers import chatgpt
 from scripts.providers.chatgpt_markdown import prepare_markdown
 from scripts.providers.chatgpt_source import (
     Asset, Message, SourceError, conversation_target, markdown_label,
-    resolve_citations, source_messages,
+    resolve_citations, source_messages, supporting_citation_links, citation_label,
 )
 
 
@@ -281,8 +281,16 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
     # GenUI citation popovers render only a domain and '+N'; their destinations
     # remain in the exact message's resolved components. Preserve these as a
     # source list without clicking the popover or guessing inline positions.
-    cited = {}
+    cited, supporting = {}, {}
     for metadata in row.metadata:
+        for ref in metadata.get("content_references") or []:
+            marker = ref.get("matched_text") or ""
+            if ref.get("type") != "grouped_webpages" or "\ue200" not in marker or marker not in row.text:
+                continue
+            for item in ref.get("items") or []:
+                for target, link in supporting_citation_links(item):
+                    if not re.search(r"\]\(" + re.escape(target) + r"\)", body):
+                        supporting.setdefault(_citation_key(target), link)
         titles = {}
         dil = metadata.get("model_dil_v2") or {}
         components = (dil.get("appData") or {}).get("opGenui", {}).get("componentResults", {})
@@ -314,10 +322,10 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
                     continue
                 if target not in body:
                     cited.setdefault(key, (target, titles.get(key) or url.hostname))
-    if cited:
-        body += "\n\n引用来源：\n\n" + "\n".join(
-            f"- [{markdown_label(title)}]({target})" for target, title in cited.values()
-        )
+    source_lines = [f"- [{citation_label(title)}]({target})" for target, title in cited.values()]
+    source_lines.extend(f"- {link}" for key, link in supporting.items() if key not in cited)
+    if source_lines:
+        body += "\n\n引用来源：\n\n" + "\n".join(source_lines)
     return body
 
 
