@@ -1,0 +1,474 @@
+{
+  "status": "quicklook_only",
+  "problem_pdf": "D:\\zcy\\two\\math\\CUMCM2026Problems\\A题\\A题.pdf",
+  "attachments": [
+    {
+      "file": "附件1.xlsx",
+      "sheets": {
+        "Sheet1": {
+          "shape": [
+            241,
+            3
+          ],
+          "columns": [
+            "时间",
+            "温度",
+            "水分浓度"
+          ],
+          "head": [
+            {
+              "时间": 0,
+              "温度": 28.0,
+              "水分浓度": 0.01963
+            },
+            {
+              "时间": 60,
+              "温度": 28.528,
+              "水分浓度": 0.02002
+            },
+            {
+              "时间": 120,
+              "温度": 29.192,
+              "水分浓度": 0.02053
+            }
+          ],
+          "tail": [
+            {
+              "时间": 14280,
+              "温度": 49.759,
+              "水分浓度": 0.04996
+            },
+            {
+              "时间": 14340,
+              "温度": 49.805,
+              "水分浓度": 0.04995
+            },
+            {
+              "时间": 14400,
+              "温度": 50.165,
+              "水分浓度": 0.04986
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file": "附件2.xlsx",
+      "sheets": {
+        "Sheet1": {
+          "shape": [
+            145,
+            2
+          ],
+          "columns": [
+            "时间",
+            "半径"
+          ],
+          "head": [
+            {
+              "时间": 0,
+              "半径": 2.0
+            },
+            {
+              "时间": 1800,
+              "半径": 1.873
+            },
+            {
+              "时间": 3600,
+              "半径": 1.794
+            }
+          ],
+          "tail": [
+            {
+              "时间": 255600,
+              "半径": 1.198
+            },
+            {
+              "时间": 257400,
+              "半径": 1.198
+            },
+            {
+              "时间": 259200,
+              "半径": 1.198
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "templates": {
+    "result1.xlsx": {
+      "温度": [
+        4,
+        6
+      ],
+      "水分浓度": [
+        4,
+        6
+      ]
+    },
+    "result2.xlsx": {
+      "温度": [
+        4,
+        6
+      ],
+      "水分浓度": [
+        4,
+        6
+      ]
+    },
+    "result3.xlsx": {
+      "Sheet1": [
+        4,
+        6
+      ]
+    },
+    "result4.xlsx": {
+      "Sheet1": [
+        4,
+        6
+      ]
+    }
+  },
+  "draft_model": {
+    "geometry": "axisymmetric radial cylinder, axial gradients neglected",
+    "temperature": "rho*cp*dT/dt = (1/r)d/dr(k*r*dT/dr)",
+    "moisture": "dC/dt = (1/r)d/dr(D*r*dC/dr)",
+    "center_boundary": "zero radial flux",
+    "surface_boundaries": [
+      "-k*dT/dr = h*(T_surface-T_air)",
+      "-D*dC/dr = hm*(C_surface-C_air)"
+    ]
+  },
+  "baseline_results": {
+    "radial_sample_cm": [
+      0,
+      0.5,
+      1.0,
+      1.5,
+      2.0
+    ],
+    "problem1": {
+      "100": {
+        "temperature_C": [
+          28.0001,
+          28.0004,
+          28.0041,
+          28.0329,
+          28.181
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.55,
+          2.55,
+          2.2845
+        ]
+      },
+      "300": {
+        "temperature_C": [
+          28.041,
+          28.0638,
+          28.152,
+          28.3692,
+          28.8511
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.55,
+          2.5486,
+          2.0581
+        ]
+      },
+      "600": {
+        "temperature_C": [
+          28.4545,
+          28.5374,
+          28.8056,
+          29.3182,
+          30.1683
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.55,
+          2.534,
+          1.8715
+        ]
+      },
+      "900": {
+        "temperature_C": [
+          29.3266,
+          29.4606,
+          29.8782,
+          30.6194,
+          31.7342
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.5495,
+          2.5034,
+          1.7424
+        ]
+      },
+      "1200": {
+        "temperature_C": [
+          30.5458,
+          30.713,
+          31.2259,
+          32.1165,
+          33.4322
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.5478,
+          2.4634,
+          1.6413
+        ]
+      },
+      "1500": {
+        "temperature_C": [
+          31.9996,
+          32.1907,
+          32.7702,
+          33.7507,
+          35.1248
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.5499,
+          2.5439,
+          2.419,
+          1.5574
+        ]
+      },
+      "1800": {
+        "temperature_C": [
+          33.5796,
+          33.7763,
+          34.3686,
+          35.3668,
+          36.7905
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.5496,
+          2.5374,
+          2.3731,
+          1.4853
+        ]
+      }
+    },
+    "problem2_and_3": {
+      "100": {
+        "temperature_C": [
+          28.0,
+          28.0001,
+          28.002,
+          28.0205,
+          28.1342
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.55,
+          2.55,
+          2.2964
+        ]
+      },
+      "300": {
+        "temperature_C": [
+          28.0198,
+          28.0344,
+          28.096,
+          28.2649,
+          28.6677
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.55,
+          2.5478,
+          2.0935
+        ]
+      },
+      "600": {
+        "temperature_C": [
+          28.2818,
+          28.3487,
+          28.572,
+          29.0203,
+          29.7808
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.5499,
+          2.5278,
+          1.9328
+        ]
+      },
+      "900": {
+        "temperature_C": [
+          28.919,
+          29.0389,
+          29.4193,
+          30.1148,
+          31.1555
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.55,
+          2.5489,
+          2.4881,
+          1.8289
+        ]
+      },
+      "1200": {
+        "temperature_C": [
+          29.8899,
+          30.0504,
+          30.548,
+          31.4248,
+          32.6867
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.5499,
+          2.5453,
+          2.4371,
+          1.7531
+        ]
+      },
+      "1500": {
+        "temperature_C": [
+          31.1156,
+          31.3082,
+          31.897,
+          32.9003,
+          34.258
+        ],
+        "moisture_kg_per_kg": [
+          2.55,
+          2.5496,
+          2.5374,
+          2.3811,
+          1.6949
+        ]
+      },
+      "1800": {
+        "temperature_C": [
+          32.5145,
+          32.7225,
+          33.3507,
+          34.4044,
+          35.8346
+        ],
+        "moisture_kg_per_kg": [
+          2.5499,
+          2.5486,
+          2.5242,
+          2.3236,
+          1.6479
+        ]
+      },
+      "3600": {
+        "temperature_C": [
+          41.127,
+          41.301,
+          41.8077,
+          42.5974,
+          43.6043
+        ],
+        "moisture_kg_per_kg": [
+          2.5229,
+          2.4909,
+          2.352,
+          2.0183,
+          1.4729
+        ]
+      },
+      "5400": {
+        "temperature_C": [
+          46.456,
+          46.5371,
+          46.7713,
+          47.1319,
+          47.5693
+        ],
+        "moisture_kg_per_kg": [
+          2.3767,
+          2.3162,
+          2.126,
+          1.7971,
+          1.3469
+        ]
+      },
+      "7200": {
+        "temperature_C": [
+          48.7839,
+          48.8162,
+          48.9088,
+          49.0507,
+          49.2263
+        ],
+        "moisture_kg_per_kg": [
+          2.1593,
+          2.0976,
+          1.9148,
+          1.62,
+          1.2265
+        ]
+      },
+      "9000": {
+        "temperature_C": [
+          49.6125,
+          49.6217,
+          49.6466,
+          49.6818,
+          49.7541
+        ],
+        "moisture_kg_per_kg": [
+          1.9461,
+          1.8906,
+          1.7274,
+          1.4647,
+          1.1088
+        ]
+      },
+      "10800": {
+        "temperature_C": [
+          49.9057,
+          49.9105,
+          49.9268,
+          49.957,
+          50.0043
+        ],
+        "moisture_kg_per_kg": [
+          1.7568,
+          1.7074,
+          1.5616,
+          1.3249,
+          0.9982
+        ]
+      }
+    },
+    "problem3_finish_h": null,
+    "problem3_max_moisture_at_stop": 1.756813,
+    "problem4_finish_h_quasistatic": null,
+    "problem4_max_moisture_at_stop": 1.428965,
+    "problem4_radius_at_stop_cm": 1.552,
+    "draft_diffusion_timescale_h_at_C_0_15_T_50_165C": 23.867,
+    "finish_time_note": "The 3 h run does not establish the drying endpoint. Use the timescale only to design the full 72 h simulation and convergence study."
+  },
+  "baseline_assumptions": [
+    "Axial gradients and end-face heat/mass transfer are neglected.",
+    "Attachment 1 temperature and moisture are linearly interpolated; after 14400 s the final values are held constant.",
+    "Problem 4 uses a quasi-static normalized-radius diffusivity correction and omits the moving-grid advection term.",
+    "The 1 s explicit scheme and Robin boundary discretization require convergence and sign/unit verification."
+  ],
+  "warning": "All numbers are provisional baseline outputs, not submission-ready results. Validate convergence, boundary definitions, moving-boundary physics, and workbook templates before use."
+}
