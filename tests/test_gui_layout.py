@@ -20,6 +20,7 @@ from gui.app import (
     SummaryTopicCard,
 )
 from gui.settings_store import AppSettings, default_app_settings
+from gui.widgets import GenerationChoiceCard, GlassNavigationItem
 
 
 class _CredentialStore:
@@ -51,6 +52,75 @@ class _SettingsStore:
     def save(self, settings):
         self.saved.append(settings)
         return settings
+
+
+class TargetedAppearanceTests(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        self.root.attributes("-alpha", 0.0)
+        self.addCleanup(self.root.destroy)
+
+    def test_mode_description_wraps_without_losing_text_and_unwraps(self):
+        subtitle = "默认方式，支持选择不同话题重要程度"
+        for scaling in (1.0, 1.5, 2.0):
+            with self.subTest(tk_scaling=scaling):
+                self.root.tk.call("tk", "scaling", scaling)
+                card = GenerationChoiceCard(
+                    self.root, title="结构化总结", subtitle=subtitle,
+                )
+                card.pack(fill=tk.X)
+                card.set_responsive_scale(1.0)
+                title_space = card._title_font.measure(card._title) + 70
+                narrow = title_space + card._subtitle_font.measure(subtitle) // 2 + 12
+                wide = title_space + card._subtitle_font.measure(subtitle) + 20
+                for width, wrapped in ((narrow, True), (wide, False), (narrow, True)):
+                    self.root.geometry(f"{width}x300")
+                    self.root.update()
+                    items = [item for item in card.find_all()
+                             if card.type(item) == "text"
+                             and card.itemcget(item, "font") == str(card._subtitle_font)]
+                    self.assertEqual(len(items), 1)
+                    item = items[0]
+                    self.assertEqual(card.itemcget(item, "text"), subtitle)
+                    bounds = card.bbox(item)
+                    line_height = card._subtitle_font.metrics("linespace")
+                    if wrapped:
+                        self.assertGreater(bounds[3] - bounds[1], line_height)
+                        self.assertLessEqual(bounds[3] - bounds[1], 2 * line_height + 4)
+                    else:
+                        self.assertLessEqual(bounds[3] - bounds[1], line_height + 4)
+                    self.assertGreaterEqual(bounds[1], 0)
+                    self.assertLessEqual(bounds[3], card.winfo_height())
+                    self.assertLessEqual(bounds[2], card.winfo_width() - 28)
+                card.set_disabled(True)
+                card._on_click()
+                self.assertFalse(card.checked)
+                card.set_disabled(False)
+                card._on_click()
+                self.assertTrue(card.checked)
+                card.destroy()
+
+    def test_sidebar_active_fill_is_gradient_without_accent_bar(self):
+        self.root.geometry("240x100")
+        item = GlassNavigationItem(self.root, "", "首页")
+        item.pack(fill=tk.X)
+        self.root.update()
+        inactive_title_color = item.itemcget(item.find_withtag("title")[0], "fill")
+        item._active = True
+        item._progress = 1.0
+        item.redraw()
+        gradient = item.find_withtag("active_gradient")
+        self.assertGreater(len(gradient), 10)
+        self.assertEqual(set(item.find_withtag("card")), set(gradient))
+        self.assertNotEqual(item.itemcget(gradient[0], "fill"),
+                            item.itemcget(gradient[-1], "fill"))
+        self.assertGreater(item.coords(gradient[0])[0],
+                           item.coords(gradient[len(gradient) // 2])[0])
+        self.assertEqual(item.itemcget(item.find_withtag("title")[0], "fill"),
+                         inactive_title_color)
 
 
 class SummaryTopicCardTests(unittest.TestCase):
@@ -512,6 +582,10 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         str(app.selected_summary_file),
                     )
                     self.assertEqual(root.tk.getint(app.selected_file_label.cget("width")), 56)
+                    self.assertEqual(self._font_size(root, app.selected_file_label), 11)
+                    capsule = app.selected_file_label.master
+                    self.assertEqual(root.tk.getint(capsule.cget("padx")), 10)
+                    self.assertEqual(root.tk.getint(capsule.cget("pady")), 4)
                     app._clear_summary_file()
 
                     switches = []

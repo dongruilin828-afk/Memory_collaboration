@@ -978,6 +978,7 @@ class GenerationChoiceCard(tk.Canvas):
         self._badge_font = tkfont.Font(
             root=self, family=FONT_FAMILY, size=8, weight="bold",
         )
+        self._row_height = height
         self._height = height
         self.bind("<Configure>", lambda _event: self.redraw())
         self.bind("<Enter>", self._on_enter)
@@ -994,7 +995,8 @@ class GenerationChoiceCard(tk.Canvas):
         self._badge_font.configure(
             size=_scaled_font_size(self._badge_font, scale, 8, 9),
         )
-        self._height = max(54, min(70, round(self._base_height * scale)))
+        self._row_height = max(54, min(70, round(self._base_height * scale)))
+        self._height = self._row_height
         self.configure(height=self._height)
         self.redraw()
 
@@ -1044,7 +1046,9 @@ class GenerationChoiceCard(tk.Canvas):
 
     def redraw(self):
         self.delete("all")
-        width = max(self.winfo_width(), self._base_width)
+        width = self.winfo_width()
+        if width <= 1:
+            return
         height = self._height
         if self._disabled:
             background = "#F8FAFC"
@@ -1090,15 +1094,22 @@ class GenerationChoiceCard(tk.Canvas):
         indicator_size = 20
         indicator_x = width - indicator_size - 8
         indicator_y = (height - indicator_size) / 2
-        subtitle = self._ellipsize(
-            self._subtitle, self._subtitle_font,
-            int(indicator_x - cursor_x - 16),
-        )
-        self.create_text(
-            cursor_x, content_y, text=subtitle,
+        subtitle_item = self.create_text(
+            cursor_x, content_y, text=self._subtitle,
             fill=(COLOR_TEXT_DISABLED if self._disabled else COLOR_TEXT_MUTED),
             font=self._subtitle_font, anchor="w",
+            width=max(1, int(indicator_x - cursor_x - 16)), justify=tk.LEFT,
         )
+        bounds = self.bbox(subtitle_item)
+        required_height = max(
+            self._row_height, self._title_font.metrics("linespace") + 16,
+            bounds[3] - bounds[1] + 16,
+        )
+        if height != required_height:
+            self._height = required_height
+            self.configure(height=required_height)
+            self.redraw()
+            return
         _round_rectangle(
             self, indicator_x, indicator_y,
             indicator_x + indicator_size, indicator_y + indicator_size, r=6,
@@ -1432,7 +1443,7 @@ class FlatEntryBox(tk.Canvas):
 # ==================== 侧栏毛玻璃导航项 ====================
 
 class GlassNavigationItem(tk.Canvas):
-    """Argon 侧栏激活卡片：柔和薰衣草渐变 + 左侧指示条 + 居中标题。"""
+    """Argon 侧栏激活卡片：柔和薰衣草渐变 + 居中标题。"""
 
     _CARD_MARGIN = 3
     _CARD_RADIUS = 14
@@ -1549,28 +1560,29 @@ class GlassNavigationItem(tk.Canvas):
         right, bottom = width - self._CARD_MARGIN, height - self._CARD_MARGIN
 
         if progress > 0.01:
-            fill_rgb = self._mix((255, 255, 255), (242, 238, 255), progress)
-            border_rgb = self._mix((255, 255, 255), (206, 194, 250), progress)
-            _round_rectangle(
-                self, left, top, right, bottom, r=self._CARD_RADIUS,
-                fill="#%02X%02X%02X" % fill_rgb,
-                outline="#%02X%02X%02X" % border_rgb,
-                width=1, tags="card",
-            )
-            accent_rgb = self._mix((255, 255, 255), (111, 85, 232), progress)
-            _round_rectangle(
-                self, left + 1, top + 16, left + 5, bottom - 16, r=2,
-                fill="#%02X%02X%02X" % accent_rgb, outline="", tags="card",
-            )
+            radius = min(self._CARD_RADIUS, (right - left) / 2, (bottom - top) / 2)
+            for y in range(int(top), int(bottom)):
+                edge_distance = min(y + 0.5 - top, bottom - y - 0.5)
+                inset = (radius - math.sqrt(radius ** 2 - (radius - edge_distance) ** 2)
+                         if edge_distance < radius else 0)
+                color = self._mix(
+                    (233, 225, 255), (196, 177, 252),
+                    (y - top) / max(1, bottom - top - 1),
+                )
+                fill_rgb = self._mix((255, 255, 255), color, progress)
+                self.create_line(
+                    left + inset, y + 0.5, right - inset, y + 0.5,
+                    fill="#%02X%02X%02X" % fill_rgb, width=1,
+                    tags=("card", "active_gradient"),
+                )
         elif self._hovered:
             _round_rectangle(
                 self, left, top, right, bottom, r=self._CARD_RADIUS,
-                fill="#F8FAFC", outline="#E2E8F0", width=1, tags="card",
+                fill="#F8FAFC", outline="", tags="card",
             )
 
         icon_color = (
-            COLOR_GENERATION_ACCENT if self._active
-            else ("#1E293B" if self._hovered else "#5F6672")
+            "#1E293B" if self._active or self._hovered else "#5F6672"
         )
         if self._navigation_icon_image is not None:
             self.create_image(
@@ -1585,9 +1597,7 @@ class GlassNavigationItem(tk.Canvas):
                 fill=icon_color, anchor="center", tags="content",
             )
 
-        title_color = (
-            "#2E1065" if self._active else "#0F172A"
-        )
+        title_color = "#0F172A"
         self.create_text(
             width / 2, height / 2, text=self._title, font=self._title_font,
             fill=title_color, anchor="center", tags=("content", "title"),

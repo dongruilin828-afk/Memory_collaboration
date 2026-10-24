@@ -686,17 +686,17 @@ class AIMemoryGUI:
         self.selected_file_name_var = tk.StringVar(value="")
         file_capsule = tk.Frame(
             self.selected_file_row, bg="#FFFFFF",
-            padx=14, pady=8,
+            padx=10, pady=4,
             highlightthickness=1, highlightbackground="#DDD6FE",
         )
         file_capsule.pack(side=tk.LEFT, fill=tk.X, expand=True)
         selected_file_name = tk.Label(
             file_capsule, textvariable=self.selected_file_name_var,
-            font=(FONT_FAMILY, 13), fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
+            font=(FONT_FAMILY, 11), fg=COLOR_TEXT_PRIMARY, bg="#FFFFFF",
             anchor="w", width=56,
         )
-        selected_file_name._responsive_min_font_size = 12
-        selected_file_name._responsive_max_font_size = 15
+        selected_file_name._responsive_min_font_size = 11
+        selected_file_name._responsive_max_font_size = 12
         self.selected_file_label = selected_file_name
         self._selected_file_tooltip = HoverTooltip(selected_file_name, "")
         self.clear_file_button = tk.Button(
