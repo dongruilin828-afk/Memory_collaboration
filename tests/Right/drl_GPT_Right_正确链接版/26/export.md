@@ -1,0 +1,1345 @@
+# AI 对话记忆导出
+
+
+<hr style="border: 0; border-top: 5px solid #2563EB; margin: 48px 0 24px 0;">
+
+## 🔵 👤 用户提问
+
+[📄 第6周习题.pdf](./documents/%E7%AC%AC6%E5%91%A8%E4%B9%A0%E9%A2%98.pdf)
+
+全部解答
+
+
+<hr style="border: 0; border-top: 5px solid #9333EA; margin: 48px 0 24px 0;">
+
+## 🟣 🤖 AI 回答
+
+以下是《第6周习题》的全部解答，按照原 PDF 顺序整理，共7道题，包含计算过程、公式推导和最终答案。
+
+# 一、习题 2.5
+
+## 第3题：随机方程有实根的概率
+
+题目： 设 $K$ 服从 $(1,6)$ 上的均匀分布，求方程
+
+
+
+$$
+x^2+Kx+1=0
+$$
+
+
+
+有实根的概率。
+
+解：
+
+一元二次方程有实根的充要条件是判别式非负，即
+
+
+
+$$
+\Delta=K^2-4\geq 0
+$$
+
+
+
+解得
+
+
+
+$$
+K\leq -2\quad \text{或}\quad K\geq 2
+$$
+
+
+
+由于 $K\sim U(1,6)$，因此 $K$ 只能在 $(1,6)$ 内取值，所以方程有实根等价于 $K\geq 2$。
+
+均匀分布的概率密度为
+
+
+
+$$
+f_K(k)=
+\begin{cases}
+\frac15,&1<k<6\\
+0,&\text{其他}
+\end{cases}
+$$
+
+
+
+因此
+
+
+
+$$
+P(K\geq 2)=\int_2^6\frac15\,dk
+=\frac{6-2}{5}
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{P=\frac45}
+$$
+
+
+
+# 二、习题 2.6
+
+## 第1题：随机变量函数的分布列
+
+题目： 已知离散随机变量 $X$ 的分布列为
+
+| $X$ | -2 | -1 | 0 | 1 | 3 |
+| --- | --- | --- | --- | --- | --- |
+| $P$ | $\frac15$ | $\frac16$ | $\frac15$ | $\frac1{15}$ | $\frac{11}{30}$ |
+
+试求 $Y=X^2$ 与 $Z=|X|$ 的分布列。
+
+### （1）求 $Y=X^2$ 的分布列
+
+分别计算：
+
+| $X$ | -2 | -1 | 0 | 1 | 3 |
+| --- | --- | --- | --- | --- | --- |
+| $Y=X^2$ | 4 | 1 | 0 | 1 | 9 |
+
+注意，不同的 $X$ 值可能对应同一个 $Y$ 值，此时需要将概率相加。
+
+因此：
+
+
+
+$$
+P(Y=0)=P(X=0)=\frac15
+$$
+
+
+
+
+
+$$
+\begin{aligned}
+P(Y=1)&=P(X=-1)+P(X=1)\\
+&=\frac16+\frac1{15}=\frac7{30}
+\end{aligned}
+$$
+
+
+
+
+
+$$
+P(Y=4)=P(X=-2)=\frac15
+$$
+
+
+
+
+
+$$
+P(Y=9)=P(X=3)=\frac{11}{30}
+$$
+
+
+
+最终答案：
+
+| $Y$ | 0 | 1 | 4 | 9 |
+| --- | --- | --- | --- | --- |
+| $P$ | $\frac15$ | $\frac7{30}$ | $\frac15$ | $\frac{11}{30}$ |
+
+验证：
+
+
+
+$$
+\frac6{30}+\frac7{30}+\frac6{30}+\frac{11}{30}=1
+$$
+
+
+
+### （2）求 $Z=|X|$ 的分布列
+
+分别计算：
+
+| $X$ | -2 | -1 | 0 | 1 | 3 |
+| --- | --- | --- | --- | --- | --- |
+| $Z=|X|$ | 2 | 1 | 0 | 1 | 3 |
+
+于是：
+
+
+
+$$
+P(Z=0)=\frac15
+$$
+
+
+
+
+
+$$
+P(Z=1)=\frac16+\frac1{15}=\frac7{30}
+$$
+
+
+
+
+
+$$
+P(Z=2)=\frac15
+$$
+
+
+
+
+
+$$
+P(Z=3)=\frac{11}{30}
+$$
+
+
+
+最终答案：
+
+| $Z$ | 0 | 1 | 2 | 3 |
+| --- | --- | --- | --- | --- |
+| $P$ | $\frac15$ | $\frac7{30}$ | $\frac15$ | $\frac{11}{30}$ |
+
+# 三、习题 2.7
+
+## 第5题：正态分布的分位数
+
+题目： 设随机变量 $X$ 服从正态分布 $N(10,9)$，求 $x_{0.1}$ 和 $x_{0.9}$。
+
+解：
+
+已知
+
+
+
+$$
+X\sim N(10,9)
+$$
+
+
+
+所以：
+
+
+
+$$
+\mu=10,\qquad \sigma=3
+$$
+
+
+
+将 $X$ 标准化：
+
+
+
+$$
+Z=\frac{X-10}{3}\sim N(0,1)
+$$
+
+
+
+按照下侧分位数的定义：
+
+
+
+$$
+P(X\leq x_\alpha)=\alpha
+$$
+
+
+
+### （1）求 $x_{0.1}$
+
+
+
+$$
+P(X\leq x_{0.1})=0.1
+$$
+
+
+
+标准化：
+
+
+
+$$
+P\left(Z\leq\frac{x_{0.1}-10}{3}\right)=0.1
+$$
+
+
+
+查标准正态分布表可得：
+
+
+
+$$
+\Phi(-1.2816)\approx0.1
+$$
+
+
+
+因此：
+
+
+
+$$
+\frac{x_{0.1}-10}{3}=-1.2816
+$$
+
+
+
+解得：
+
+
+
+$$
+x_{0.1}=10-3\times1.2816
+$$
+
+
+
+
+
+$$
+\boxed{x_{0.1}\approx6.1552}
+$$
+
+
+
+### （2）求 $x_{0.9}$
+
+同理：
+
+
+
+$$
+P(X\leq x_{0.9})=0.9
+$$
+
+
+
+查表：
+
+
+
+$$
+\Phi(1.2816)\approx0.9
+$$
+
+
+
+因此：
+
+
+
+$$
+\frac{x_{0.9}-10}{3}=1.2816
+$$
+
+
+
+解得：
+
+
+
+$$
+\boxed{x_{0.9}\approx13.8448}
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{x_{0.1}\approx6.155,\qquad x_{0.9}\approx13.845}
+$$
+
+
+
+注意：正态分布的两个对称分位数满足
+
+
+
+$$
+x_{0.1}+x_{0.9}=2\mu=20
+$$
+
+
+
+可以用于快速验证。
+
+# 四、习题 3.1
+
+## 第1题：二维离散随机变量的联合分布
+
+题目： 100件产品中有50件一等品、30件二等品、20件三等品。从中任取5件，以 $X,Y$ 分别表示取出的5件中一等品、二等品的件数。在以下情况下求 $(X,Y)$ 的联合分布列：
+
+（1）不放回抽取；
+
+（2）有放回抽取。
+
+解：
+
+设抽出的三等品数量为 $Z$，则
+
+
+
+$$
+X+Y+Z=5
+$$
+
+
+
+故
+
+
+
+$$
+Z=5-X-Y
+$$
+
+
+
+由于三类产品的数量均不能为负，所以
+
+
+
+$$
+x\geq0,\quad y\geq0,\quad x+y\leq5
+$$
+
+
+
+其中 $x,y$ 都为整数。
+
+### （1）不放回抽取
+
+这是多元超几何分布。
+
+从100件产品中任取5件，总的取法数为
+
+
+
+$$
+\binom{100}{5}
+$$
+
+
+
+要使一等品有 $x$ 件、二等品有 $y$ 件、三等品有 $5-x-y$ 件：
+
+* 从50件一等品中选 $x$ 件，有 $\binom{50}{x}$ 种；
+* 从30件二等品中选 $y$ 件，有 $\binom{30}{y}$ 种；
+* 从20件三等品中选 $5-x-y$ 件，有 $\binom{20}{5-x-y}$ 种。
+
+根据古典概型：
+
+
+
+$$
+\boxed{
+P(X=x,Y=y)=
+\frac{\binom{50}{x}\binom{30}{y}\binom{20}{5-x-y}}
+{\binom{100}{5}}
+}
+$$
+
+
+
+其中
+
+
+
+$$
+x,y\in\{0,1,\ldots,5\},\quad x+y\leq5
+$$
+
+
+
+其他情况概率为0。
+
+### （2）有放回抽取
+
+每次抽取后放回，因此各次抽取相互独立，且每次抽取不同等级产品的概率保持不变。
+
+一等品概率：
+
+
+
+$$
+p_1=\frac{50}{100}=0.5
+$$
+
+
+
+二等品概率：
+
+
+
+$$
+p_2=\frac{30}{100}=0.3
+$$
+
+
+
+三等品概率：
+
+
+
+$$
+p_3=\frac{20}{100}=0.2
+$$
+
+
+
+这是多项分布。
+
+在5次抽取中，恰有 $x$ 次抽到一等品，$y$ 次抽到二等品，其余 $5-x-y$ 次抽到三等品。
+
+一种指定顺序出现的概率为
+
+
+
+$$
+0.5^x0.3^y0.2^{5-x-y}
+$$
+
+
+
+满足该数量组合的不同顺序数为
+
+
+
+$$
+\frac{5!}{x!y!(5-x-y)!}
+$$
+
+
+
+所以联合分布列为
+
+
+
+$$
+\boxed{
+P(X=x,Y=y)=
+\frac{5!}{x!y!(5-x-y)!}
+(0.5)^x(0.3)^y(0.2)^{5-x-y}
+}
+$$
+
+
+
+其中
+
+
+
+$$
+x,y\in\{0,1,\ldots,5\},\quad x+y\leq5
+$$
+
+
+
+其他情况概率为0。
+
+两种抽取方式的区别： 不放回抽取使用超几何分布；有放回抽取使用多项分布。
+
+## 第5题：联合密度与二维积分
+
+题目： 设随机变量 $(X,Y)$ 的联合密度函数为
+
+
+
+$$
+p(x,y)=
+\begin{cases}
+k(6-x-y),&0<x<2,\ 2<y<4\\
+0,&\text{其他}
+\end{cases}
+$$
+
+
+
+试求：
+
+（1）常数 $k$；
+
+（2）$P(X<1,Y<3)$；
+
+（3）$P(X<1.5)$；
+
+（4）$P(X+Y\leq4)$。
+
+### （1）求常数 $k$
+
+概率密度函数必须满足归一化条件：
+
+
+
+$$
+\iint_{\mathbb R^2}p(x,y)\,dx\,dy=1
+$$
+
+
+
+代入题目给出的密度函数：
+
+
+
+$$
+\int_0^2\int_2^4k(6-x-y)\,dy\,dx=1
+$$
+
+
+
+先对 $y$ 积分：
+
+
+
+$$
+\begin{aligned}
+&\int_2^4(6-x-y)\,dy\\
+&=\left[(6-x)y-\frac{y^2}{2}\right]_2^4\\
+&=6-2x
+\end{aligned}
+$$
+
+
+
+再对 $x$ 积分：
+
+
+
+$$
+k\int_0^2(6-2x)\,dx=1
+$$
+
+
+
+
+
+$$
+k[6x-x^2]_0^2=1
+$$
+
+
+
+
+
+$$
+k(12-4)=1
+$$
+
+
+
+所以
+
+
+
+$$
+\boxed{k=\frac18}
+$$
+
+
+
+因此联合密度函数为
+
+
+
+$$
+p(x,y)=
+\begin{cases}
+\frac{6-x-y}{8},&0<x<2,\ 2<y<4\\
+0,&\text{其他}
+\end{cases}
+$$
+
+
+
+### （2）求 $P(X<1,Y<3)$
+
+事件对应的积分区域为：
+
+
+
+$$
+0<x<1,\qquad 2<y<3
+$$
+
+
+
+![](data:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb(13%2C%2013%2C%2013)%22%20viewBox%3D%220%200%20340%20220%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%2272%22%20y%3D%2224%22%20width%3D%22204%22%20height%3D%22160%22%20fill%3D%22%239CA3AF%22%20fill-opacity%3D%220.1%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%2F%3E%3Crect%20x%3D%2272%22%20y%3D%22104%22%20width%3D%22102%22%20height%3D%2280%22%20fill%3D%22%230D9488%22%20fill-opacity%3D%220.25%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%221.5%22%2F%3E%3Cpath%20d%3D%22M72%20198%20V17%20M58%20184%20H290%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.4%22%20fill%3D%22none%22%2F%3E%3Cg%20font-size%3D%2212%22%20fill%3D%22currentColor%22%20text-anchor%3D%22middle%22%3E%3Ctext%20x%3D%2272%22%20y%3D%22200%22%3E0%3C%2Ftext%3E%3Ctext%20x%3D%22174%22%20y%3D%22200%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%22276%22%20y%3D%22200%22%3E2%3C%2Ftext%3E%3Ctext%20x%3D%2256%22%20y%3D%22187%22%3E2%3C%2Ftext%3E%3Ctext%20x%3D%2256%22%20y%3D%22108%22%3E3%3C%2Ftext%3E%3Ctext%20x%3D%2256%22%20y%3D%2228%22%3E4%3C%2Ftext%3E%3Ctext%20x%3D%22303%22%20y%3D%22189%22%3Ex%3C%2Ftext%3E%3Ctext%20x%3D%2266%22%20y%3D%2213%22%3Ey%3C%2Ftext%3E%3Ctext%20x%3D%22126%22%20y%3D%22148%22%20fill%3D%22%230D9488%22%20font-weight%3D%22bold%22%3E%E7%A7%AF%E5%88%86%E5%8C%BA%E5%9F%9F%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E)绿色区域为事件 $X<1,Y<3$ 在密度定义域内的部分。
+
+因此：
+
+
+
+$$
+P(X<1,Y<3)
+=\int_0^1\int_2^3\frac{6-x-y}{8}\,dy\,dx
+$$
+
+
+
+先对 $y$ 积分：
+
+
+
+$$
+\begin{aligned}
+&\int_2^3(6-x-y)\,dy\\
+&=\left[(6-x)y-\frac{y^2}{2}\right]_2^3\\
+&=\frac72-x
+\end{aligned}
+$$
+
+
+
+所以
+
+
+
+$$
+P=\frac18\int_0^1\left(\frac72-x\right)dx
+$$
+
+
+
+
+
+$$
+=\frac18\left[\frac72x-\frac{x^2}{2}\right]_0^1
+$$
+
+
+
+
+
+$$
+=\frac18\left(\frac72-\frac12\right)
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{P(X<1,Y<3)=\frac38}
+$$
+
+
+
+### （3）求 $P(X<1.5)$
+
+此时只限制 $X$，不限制 $Y$。
+
+由于定义域中 $2<Y<4$，因此积分区域为
+
+
+
+$$
+0<x<1.5,\qquad 2<y<4
+$$
+
+
+
+所以
+
+
+
+$$
+P(X<1.5)
+=\int_0^{1.5}\int_2^4\frac{6-x-y}{8}\,dy\,dx
+$$
+
+
+
+由第（1）问的计算可知：
+
+
+
+$$
+\int_2^4(6-x-y)\,dy=6-2x
+$$
+
+
+
+因此
+
+
+
+$$
+P=\frac18\int_0^{1.5}(6-2x)\,dx
+$$
+
+
+
+
+
+$$
+=\frac18[6x-x^2]_0^{1.5}
+$$
+
+
+
+
+
+$$
+=\frac18(9-2.25)
+$$
+
+
+
+
+
+$$
+=\frac{6.75}{8}
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{P(X<1.5)=\frac{27}{32}}
+$$
+
+
+
+### （4）求 $P(X+Y\leq4)$
+
+本题的关键是确定积分区域。
+
+事件满足：
+
+
+
+$$
+x+y\leq4
+$$
+
+
+
+即
+
+
+
+$$
+y\leq4-x
+$$
+
+
+
+同时，密度函数要求
+
+
+
+$$
+0<x<2,\qquad 2<y<4
+$$
+
+
+
+综合可得积分区域：
+
+
+
+$$
+0<x<2,\qquad 2<y<4-x
+$$
+
+
+
+![](data:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb(13%2C%2013%2C%2013)%22%20viewBox%3D%220%200%20340%20235%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%2272%22%20y%3D%2224%22%20width%3D%22204%22%20height%3D%22160%22%20fill%3D%22%239CA3AF%22%20fill-opacity%3D%220.1%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%2F%3E%3Cpolygon%20points%3D%2272%2C24%2072%2C184%20276%2C184%22%20fill%3D%22%230D9488%22%20fill-opacity%3D%220.25%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%221%22%2F%3E%3Cline%20x1%3D%2272%22%20y1%3D%2224%22%20x2%3D%22276%22%20y2%3D%22184%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%222.5%22%2F%3E%3Cpath%20d%3D%22M72%20200%20V16%20M58%20184%20H295%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.4%22%20fill%3D%22none%22%2F%3E%3Cg%20font-size%3D%2212%22%20fill%3D%22currentColor%22%20text-anchor%3D%22middle%22%3E%3Ctext%20x%3D%2272%22%20y%3D%22201%22%3E0%3C%2Ftext%3E%3Ctext%20x%3D%22174%22%20y%3D%22201%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%22276%22%20y%3D%22201%22%3E2%3C%2Ftext%3E%3Ctext%20x%3D%2255%22%20y%3D%22188%22%3E2%3C%2Ftext%3E%3Ctext%20x%3D%2255%22%20y%3D%22108%22%3E3%3C%2Ftext%3E%3Ctext%20x%3D%2255%22%20y%3D%2229%22%3E4%3C%2Ftext%3E%3Ctext%20x%3D%22308%22%20y%3D%22188%22%3Ex%3C%2Ftext%3E%3Ctext%20x%3D%2266%22%20y%3D%2213%22%3Ey%3C%2Ftext%3E%3Ctext%20x%3D%22138%22%20y%3D%22141%22%20fill%3D%22%230D9488%22%20font-weight%3D%22bold%22%3E%E7%A7%AF%E5%88%86%E5%8C%BA%E5%9F%9F%3C%2Ftext%3E%3Ctext%20x%3D%22217%22%20y%3D%2282%22%20fill%3D%22%230D9488%22%3Ex%2By%3D4%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E)绿色三角形为 $X+Y\leq4$ 在原密度定义域内的部分。
+
+因此：
+
+
+
+$$
+P(X+Y\leq4)
+=\int_0^2\int_2^{4-x}\frac{6-x-y}{8}\,dy\,dx
+$$
+
+
+
+先对 $y$ 积分：
+
+
+
+$$
+=\frac18\int_0^2
+\left[(6-x)y-\frac{y^2}{2}\right]_2^{4-x}dx
+$$
+
+
+
+计算积分上限：
+
+
+
+$$
+\begin{aligned}
+&(6-x)(4-x)-\frac{(4-x)^2}{2}\\
+&=16-6x+\frac{x^2}{2}
+\end{aligned}
+$$
+
+
+
+计算积分下限：
+
+
+
+$$
+(6-x)\cdot2-\frac{2^2}{2}=10-2x
+$$
+
+
+
+两式相减：
+
+
+
+$$
+16-6x+\frac{x^2}{2}-(10-2x)
+=6-4x+\frac{x^2}{2}
+$$
+
+
+
+所以
+
+
+
+$$
+P=\frac18\int_0^2
+\left(6-4x+\frac{x^2}{2}\right)dx
+$$
+
+
+
+
+
+$$
+=\frac18\left[6x-2x^2+\frac{x^3}{6}\right]_0^2
+$$
+
+
+
+
+
+$$
+=\frac18\left(12-8+\frac86\right)
+$$
+
+
+
+
+
+$$
+=\frac18\cdot\frac{16}{3}
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{P(X+Y\leq4)=\frac23}
+$$
+
+
+
+## 第8题：二维均匀分布的几何概率
+
+题目： 设二维随机变量 $(X,Y)$ 在边长为2、中心为 $(0,0)$ 的正方形区域内服从均匀分布，求
+
+
+
+$$
+P(X^2+Y^2\leq1)
+$$
+
+
+
+解：
+
+正方形区域为
+
+
+
+$$
+D=\{(x,y):-1\leq x\leq1,\ -1\leq y\leq1\}
+$$
+
+
+
+正方形面积：
+
+
+
+$$
+S_D=2\times2=4
+$$
+
+
+
+事件
+
+
+
+$$
+X^2+Y^2\leq1
+$$
+
+
+
+表示以原点为圆心、半径为1的圆形区域及其内部。
+
+由于圆恰好内切于正方形，所以目标区域是整个单位圆盘。
+
+![](data:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb(13%2C%2013%2C%2013)%22%20viewBox%3D%220%200%20320%20235%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%2270%22%20y%3D%2220%22%20width%3D%22190%22%20height%3D%22190%22%20fill%3D%22%239CA3AF%22%20fill-opacity%3D%220.1%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22165%22%20cy%3D%22115%22%20r%3D%2295%22%20fill%3D%22%230D9488%22%20fill-opacity%3D%220.25%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M53%20115%20H279%20M165%20224%20V9%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.3%22%2F%3E%3Cg%20font-size%3D%2212%22%20fill%3D%22currentColor%22%20text-anchor%3D%22middle%22%3E%3Ctext%20x%3D%2270%22%20y%3D%22130%22%3E%E2%88%921%3C%2Ftext%3E%3Ctext%20x%3D%22260%22%20y%3D%22130%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%22152%22%20y%3D%2225%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%22149%22%20y%3D%22213%22%3E%E2%88%921%3C%2Ftext%3E%3Ctext%20x%3D%22179%22%20y%3D%22130%22%3EO%3C%2Ftext%3E%3Ctext%20x%3D%22289%22%20y%3D%22111%22%3Ex%3C%2Ftext%3E%3Ctext%20x%3D%22175%22%20y%3D%2212%22%3Ey%3C%2Ftext%3E%3Ctext%20x%3D%22222%22%20y%3D%2277%22%20fill%3D%22%230D9488%22%3Ex%C2%B2%2By%C2%B2%3D1%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E)整个正方形是样本区域，内部圆盘是所求事件区域。
+
+圆的面积为
+
+
+
+$$
+S_A=\pi r^2=\pi
+$$
+
+
+
+由于在正方形区域内均匀分布，因此事件的概率等于目标区域面积占总面积的比例：
+
+
+
+$$
+P(A)=\frac{S_A}{S_D}
+$$
+
+
+
+故
+
+
+
+$$
+P(X^2+Y^2\leq1)=\frac{\pi}{4}
+$$
+
+
+
+最终答案：
+
+
+
+$$
+\boxed{P(X^2+Y^2\leq1)=\frac\pi4}
+$$
+
+
+
+也可以使用联合密度函数验证：
+
+
+
+$$
+p(x,y)=
+\begin{cases}
+\frac14,&-1<x<1,\ -1<y<1\\
+0,&\text{其他}
+\end{cases}
+$$
+
+
+
+利用极坐标变换：
+
+
+
+$$
+x=r\cos\theta,\qquad y=r\sin\theta
+$$
+
+
+
+雅可比行列式绝对值为 $r$，因此
+
+
+
+$$
+\begin{aligned}
+P&=\int_0^{2\pi}\int_0^1\frac14r\,dr\,d\theta\\
+&=\frac14\cdot 2\pi\cdot\frac12\\
+&=\frac\pi4
+\end{aligned}
+$$
+
+
+
+# 全部答案汇总
+
+| 题号 | 最终答案 |
+| --- | --- |
+| 2.5 第3题 | $\frac45$ |
+| 2.6 第1题 $Y$ | $0,1,4,9$ 对应概率 $\frac15,\frac7{30},\frac15,\frac{11}{30}$ |
+| 2.6 第1题 $Z$ | $0,1,2,3$ 对应概率 $\frac15,\frac7{30},\frac15,\frac{11}{30}$ |
+| 2.7 第5题 | $x_{0.1}\approx6.155,\ x_{0.9}\approx13.845$ |
+| 3.1 第1题（不放回） | $\displaystyle\frac{\binom{50}{x}\binom{30}{y}\binom{20}{5-x-y}}{\binom{100}{5}}$ |
+| 3.1 第1题（有放回） | $\displaystyle\frac{5!}{x!y!(5-x-y)!}0.5^x0.3^y0.2^{5-x-y}$ |
+| 3.1 第5题（1） | $k=\frac18$ |
+| 3.1 第5题（2） | $\frac38$ |
+| 3.1 第5题（3） | $\frac{27}{32}$ |
+| 3.1 第5题（4） | $\frac23$ |
+| 3.1 第8题 | $\frac\pi4$ |
+
+本周习题最需要掌握的是随机变量函数的分布列、正态分布分位数、多元超几何分布与多项分布，以及二维连续型随机变量的积分区域确定。其中，3.1 第5题的第（4）问尤其值得重视：求二维概率时，不能只看事件给出的不等式，还必须与联合密度函数的定义域取交集。
+
+
+<hr style="border: 0; border-top: 5px solid #2563EB; margin: 48px 0 24px 0;">
+
+## 🔵 👤 用户提问
+
+第12题吗
+
+
+<hr style="border: 0; border-top: 5px solid #9333EA; margin: 48px 0 24px 0;">
+
+## 🟣 🤖 AI 回答
+
+你上传的《第6周习题.pdf》中，没有单独标注的“第12题”。
+
+PDF 共列出以下题目：习题2.5第3题、习题2.6第1题、习题2.7第5题，以及习题3.1第1、5、8题。
+
+你说的第12题是指课本上的第12题，还是我上一条解答中的某一题？可以发一下题目截图，我帮你完整解答。
+
+
+<hr style="border: 0; border-top: 5px solid #2563EB; margin: 48px 0 24px 0;">
+
+## 🔵 👤 用户提问
+
+![已上传的图片](./images/img_634293122b80e542.jpg)
+
+
+<hr style="border: 0; border-top: 5px solid #9333EA; margin: 48px 0 24px 0;">
+
+## 🟣 🤖 AI 回答
+
+## 习题 3.1 第12题：二维连续型随机变量的概率
+
+题目： 设二维随机变量 $(X,Y)$ 的联合密度函数为
+
+
+
+$$
+p(x,y)=
+\begin{cases}
+x^2+\dfrac{xy}{3},&0<x<1,\ 0<y<2,\\
+0,&\text{其他}.
+\end{cases}
+$$
+
+
+
+求 $P(X+Y\geq1)$。
+
+### 一、解题思路
+
+由于 $p(x,y)$ 是联合概率密度函数，要求事件 $X+Y\geq1$ 的概率，需要在对应区域上进行二重积分。
+
+但直接积分需要计算一个不规则区域，因此我们使用对立事件法：
+
+
+
+$$
+P(X+Y\geq1)=1-P(X+Y<1)
+$$
+
+
+
+这样只需要计算一个三角形区域上的积分。
+
+### 二、确定积分区域
+
+由题意，联合密度函数的定义域是
+
+
+
+$$
+0<x<1,\qquad 0<y<2
+$$
+
+
+
+而对立事件 $X+Y<1$ 等价于
+
+
+
+$$
+y<1-x
+$$
+
+
+
+综合得到积分范围：
+
+
+
+$$
+\boxed{0<x<1,\qquad 0<y<1-x}
+$$
+
+
+
+![](data:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb(13%2C%2013%2C%2013)%22%20viewBox%3D%220%200%20360%20270%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%2269%22%20y%3D%2220%22%20width%3D%22210%22%20height%3D%22218%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%20fill%3D%22%239CA3AF%22%20fill-opacity%3D%220.10%22%2F%3E%3Cpolygon%20points%3D%2269%2C238%20279%2C238%2069%2C129%22%20fill%3D%22%230D9488%22%20fill-opacity%3D%220.27%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%221.5%22%2F%3E%3Cpath%20d%3D%22M53%20238%20H310%20M69%20256%20V12%22%20stroke%3D%22currentColor%22%20fill%3D%22none%22%20stroke-width%3D%221.5%22%2F%3E%3Cpath%20d%3D%22M69%20129%20L279%20238%22%20stroke%3D%22%230D9488%22%20stroke-width%3D%222.5%22%2F%3E%3Cg%20font-size%3D%2213%22%20fill%3D%22currentColor%22%20text-anchor%3D%22middle%22%3E%3Ctext%20x%3D%2269%22%20y%3D%22254%22%3E0%3C%2Ftext%3E%3Ctext%20x%3D%22279%22%20y%3D%22255%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%2252%22%20y%3D%22133%22%3E1%3C%2Ftext%3E%3Ctext%20x%3D%2252%22%20y%3D%2225%22%3E2%3C%2Ftext%3E%3Ctext%20x%3D%22321%22%20y%3D%22242%22%3Ex%3C%2Ftext%3E%3Ctext%20x%3D%2277%22%20y%3D%2212%22%3Ey%3C%2Ftext%3E%3Ctext%20x%3D%22172%22%20y%3D%22156%22%20fill%3D%22%230D9488%22%3Ex%2By%3D1%3C%2Ftext%3E%3Ctext%20x%3D%22121%22%20y%3D%22211%22%20fill%3D%22%230D9488%22%20font-weight%3D%22bold%22%3EX%2BY%26lt%3B1%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fsvg%3E)绿色三角形为对立事件 $X+Y<1$ 的积分区域；整个矩形为密度函数的定义域。
+
+### 三、计算概率
+
+根据联合密度函数的性质：
+
+
+
+$$
+P(X+Y<1)
+=\int_0^1\int_0^{1-x}
+\left(x^2+\frac{xy}{3}\right)\,dy\,dx
+$$
+
+
+
+先对 $y$ 积分：
+
+
+
+$$
+=\int_0^1
+\left[x^2y+\frac{xy^2}{6}\right]_0^{1-x}dx
+$$
+
+
+
+代入上下限：
+
+
+
+$$
+=\int_0^1\left[
+x^2(1-x)+\frac{x(1-x)^2}{6}
+\right]dx
+$$
+
+
+
+展开：
+
+
+
+$$
+=\int_0^1\left(
+x^2-x^3+\frac{x-2x^2+x^3}{6}
+\right)dx
+$$
+
+
+
+合并同类项：
+
+
+
+$$
+=\int_0^1\left(
+\frac{x}{6}+\frac{2x^2}{3}-\frac{5x^3}{6}
+\right)dx
+$$
+
+
+
+积分得：
+
+
+
+$$
+=\left[
+\frac{x^2}{12}
++\frac{2x^3}{9}
+-\frac{5x^4}{24}
+\right]_0^1
+$$
+
+
+
+
+
+$$
+=\frac1{12}+\frac29-\frac5{24}
+$$
+
+
+
+通分：
+
+
+
+$$
+=\frac6{72}+\frac{16}{72}-\frac{15}{72}
+=\frac7{72}
+$$
+
+
+
+因此：
+
+
+
+$$
+P(X+Y\geq1)=1-\frac7{72}
+$$
+
+
+
+### 四、最终答案
+
+
+
+$$
+\boxed{P(X+Y\geq1)=\frac{65}{72}}
+$$
+
+
+
+约为
+
+
+
+$$
+\boxed{0.9028}
+$$
+
+
+
+本题重点： 当求解二维连续型随机变量的概率时，如果目标区域不方便积分，可以尝试计算对立事件。尤其要注意，积分上下限必须同时满足联合密度的定义域和事件对应的不等式约束。
+

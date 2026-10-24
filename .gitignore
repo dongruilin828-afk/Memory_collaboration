@@ -11,29 +11,32 @@ __pycache__/
 .browser_user_data/
 
 # 导出的产物与抓取的本地图片
-images/
+/images/
 results/
 gui/gui_results/
-AI_memory_export.md
-*.md
-!README.md
-!工作文档/工作交接.md
-!工作文档/工作交接极简版.md
+/AI_memory_*.md
+/temp_drops/
 
 # 网页抓取快照与 JSON 缓存
-*.html
-remix_state.json
-AI_memory_result.json
+/debug_*.html
+/remix_state.json
+/AI_memory_result.json
 项目工作文档.txt
 指令暂存区.txt
 
 # 临时测试与调试脚本
-check_debug.py
-dump_chatgpt.py
-fetch_raw.py
-dump.py
-analyze.py
-test_*
+/check_debug.py
+/dump_chatgpt.py
+/fetch_raw.py
+/dump.py
+/analyze.py
+/test_*
+/debug.log
+/gui/app.py.backup
+# 已确认无用的旧网页，以及仅供本机使用的工作状态记录
+/gui/web/index.html
+/工作文档/Gemini修复工作状态.md
+/工作文档/合并工作状态.md
 # Gemini 密钥与总结过程临时文件
 .env
 .env.*
@@ -43,22 +46,42 @@ AI_memory_*.tmp
 log/*
 !log/.gitkeep
 
-# 保留正式单元测试（覆盖上面的 test_* 临时脚本规则）
-!tests/
-!tests/test_*.py
-!gui/test_gui_service.py
+# 临时脚本规则仅限根目录；正式测试及标准答案附件正常追踪
 summary_results/
 
 # 用于 agent
-agents.md
+/AGENTS.md
+/.agents/
+/.codex/
 
-# 保留 Gemini 抓取测试目录中的全部文件与附件
-!/tests/Gemini_Right/
-!/tests/Gemini_Right/**
+# 不按 *.md、*.html 或任意层级 images/ 忽略文件：
+# 它们也可能是正式文档、前端源码或 tests/Right 中的标准答案。
+# Python 缓存即使位于标准答案目录内，也不应入库。
 
 # ChatGPT 修复验证结果仅保留在本地
-tests/test_results/ChatGPT修复验证/
+/tests/test_results/
 
 # GUI 个人历史记录及原子写入临时文件仅保留在各自电脑
 task_history.json
 .task_history.json.*.tmp
+
+# 构建、依赖与开发工具缓存
+/build/
+/dist/
+node_modules/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.pyo
+
+# 无真实凭证的环境配置示例可以追踪
+!.env.example
+!.env.sample
+
+# 操作系统生成的目录元数据
+.DS_Store
+Thumbs.db
+Desktop.ini
