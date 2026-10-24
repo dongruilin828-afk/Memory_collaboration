@@ -1,0 +1,302 @@
+[
+  {
+    "case": "01",
+    "title": "超长文本·含代码·首条图片：Pylance修复指南",
+    "url": "https://chatgpt.com/share/6ad96fa0-e0b8-83e8-88de-ad9e472e464e",
+    "route": "分享页",
+    "messages": 22,
+    "error": null,
+    "warnings": [],
+    "elapsed": 10.530500499997288
+  },
+  {
+    "case": "02",
+    "title": "超长文本·含代码·首条图片：Pylance修复指南",
+    "url": "https://chatgpt.com/c/69cf1e3b-92e4-8323-9056-a48f4071ee31",
+    "route": "会话页",
+    "messages": 22,
+    "error": null,
+    "warnings": [],
+    "elapsed": 9.803339900005085
+  },
+  {
+    "case": "03",
+    "title": "含公式和交互：雅可比猜想反例",
+    "url": "https://chatgpt.com/share/6a607d62-0748-83e8-96c4-be5b0c56c486",
+    "route": "分享页",
+    "messages": 10,
+    "error": null,
+    "warnings": [
+      "第 6 条消息的交互组件导出未完成：当前仅保留可读静态内容。"
+    ],
+    "elapsed": 13.866871999998693
+  },
+  {
+    "case": "04",
+    "title": "含公式和交互：雅可比猜想反例",
+    "url": "https://chatgpt.com/c/6a5f0e9b-eb9c-83e8-b0df-0ffd18b0d78d",
+    "route": "会话页",
+    "messages": 10,
+    "error": null,
+    "warnings": [
+      "第 6 条消息的交互组件导出未完成：当前仅保留可读静态内容。"
+    ],
+    "elapsed": 13.045591800000693
+  },
+  {
+    "case": "05",
+    "title": "输入超长·含代码：代码安全与优化建议",
+    "url": "https://chatgpt.com/share/6a5edf1e-b8bc-83ee-9e9a-3fb6dd7134af",
+    "route": "分享页",
+    "messages": 8,
+    "error": null,
+    "warnings": [],
+    "elapsed": 1.8819543999998132
+  },
+  {
+    "case": "06",
+    "title": "输入超长·含代码：代码安全与优化建议",
+    "url": "https://chatgpt.com/c/69db001b-6ca4-8324-bd4f-3f077bbe27d7",
+    "route": "会话页",
+    "messages": 8,
+    "error": null,
+    "warnings": [],
+    "elapsed": 1.9074621000036132
+  },
+  {
+    "case": "07",
+    "title": "输入输出均含图片：生成图片ontwerp",
+    "url": "https://chatgpt.com/share/6ad970f4-579c-83ee-9766-454afaa41bfc",
+    "route": "分享页",
+    "messages": 12,
+    "error": null,
+    "warnings": [],
+    "elapsed": 22.98044469999877
+  },
+  {
+    "case": "08",
+    "title": "输入输出均含图片：生成图片ontwerp",
+    "url": "https://chatgpt.com/c/6a864a56-fdb8-83ee-8de1-25b7c0c84b7a",
+    "route": "会话页",
+    "messages": 12,
+    "error": null,
+    "warnings": [],
+    "elapsed": 21.814545799999905
+  },
+  {
+    "case": "09",
+    "title": "超长·含文档·含图片：检查文件一致性",
+    "url": "https://chatgpt.com/share/6ad97177-81f0-83ee-a225-784504688b90",
+    "route": "分享页",
+    "messages": 16,
+    "error": null,
+    "warnings": [],
+    "elapsed": 20.845420699995884
+  },
+  {
+    "case": "10",
+    "title": "超长·含文档·含图片：检查文件一致性",
+    "url": "https://chatgpt.com/c/6a8a521f-9f28-83e8-857b-577272409c92",
+    "route": "会话页",
+    "messages": 16,
+    "error": null,
+    "warnings": [],
+    "elapsed": 16.51522030000342
+  },
+  {
+    "case": "11",
+    "title": "极长文本（长到无法分享此对话·甚至还有生成图片）：Python哈希软件教程",
+    "url": "https://chatgpt.com/c/6a8e5f53-9594-83e8-aec4-528b09b2a859",
+    "route": "会话页",
+    "messages": 64,
+    "error": null,
+    "warnings": [],
+    "elapsed": 26.62387950000266
+  },
+  {
+    "case": "12",
+    "title": "含图片和地图：寻找上海店铺位置",
+    "url": "https://chatgpt.com/share/6ad973a3-8bb4-83e8-93a3-2a2b0612ad74",
+    "route": "分享页",
+    "messages": 6,
+    "error": null,
+    "warnings": [
+      "第 2 条消息的地图导出未完成：当前仅保留可读静态内容。",
+      "第 6 条消息的地图导出未完成：当前仅保留可读静态内容。"
+    ],
+    "elapsed": 41.45373700000346
+  },
+  {
+    "case": "13",
+    "title": "含图片和地图：寻找上海店铺位置",
+    "url": "https://chatgpt.com/c/6ab76127-fb08-83ee-8c2b-a23414827190",
+    "route": "会话页",
+    "messages": 6,
+    "error": null,
+    "warnings": [
+      "第 2 条消息的地图导出未完成：当前仅保留可读静态内容。",
+      "第 6 条消息的地图导出未完成：当前仅保留可读静态内容。"
+    ],
+    "elapsed": 36.15990210000018
+  },
+  {
+    "case": "14",
+    "title": "「项目」含文档·一次上传超多图片：望道-申请书格式",
+    "url": "https://chatgpt.com/share/6ab51a32-7198-83e8-a968-270eb2a418c3",
+    "route": "分享页",
+    "messages": 22,
+    "error": null,
+    "warnings": [],
+    "elapsed": 38.757469399999536
+  },
+  {
+    "case": "15",
+    "title": "「项目」含文档·一次上传超多图片：望道-申请书格式",
+    "url": "https://chatgpt.com/g/g-p-6acc40fcf74c8191a171ebf9f6ff2cd5-wang-dao/c/6ab0aade-d788-83e8-9799-01062b02a842",
+    "route": "会话页",
+    "messages": 22,
+    "error": null,
+    "warnings": [],
+    "elapsed": 38.31437829999777
+  },
+  {
+    "case": "16",
+    "title": "「项目」含文档和图片：望道-申请书撰写",
+    "url": "https://chatgpt.com/share/6ab3be5a-fb24-83ee-a261-bb257458e216",
+    "route": "分享页",
+    "messages": 8,
+    "error": null,
+    "warnings": [],
+    "elapsed": 10.787226600004942
+  },
+  {
+    "case": "17",
+    "title": "「项目」含文档和图片：望道-申请书撰写",
+    "url": "https://chatgpt.com/g/g-p-6acc40fcf74c8191a171ebf9f6ff2cd5-wang-dao/c/6ab230fb-ded4-83ee-b7c9-4d74a507c77a",
+    "route": "会话页",
+    "messages": 8,
+    "error": null,
+    "warnings": [],
+    "elapsed": 15.108464500000991
+  },
+  {
+    "case": "18",
+    "title": "「项目」含图片：望道-优化申请内容-1",
+    "url": "https://chatgpt.com/share/6ad9754f-87a0-83ec-bc76-168aff14a59a",
+    "route": "分享页",
+    "messages": 6,
+    "error": null,
+    "warnings": [],
+    "elapsed": 16.61714669999492
+  },
+  {
+    "case": "19",
+    "title": "「项目」含图片：望道-优化申请内容-1",
+    "url": "https://chatgpt.com/g/g-p-6acc40fcf74c8191a171ebf9f6ff2cd5-wang-dao/c/6abc7610-79e0-83e9-a8b7-0d0c2a8aad97",
+    "route": "会话页",
+    "messages": 6,
+    "error": null,
+    "warnings": [],
+    "elapsed": 15.332842099996924
+  },
+  {
+    "case": "20",
+    "title": "「项目」含文档和图片：望道-优化申请内容-2",
+    "url": "https://chatgpt.com/share/6ad97581-7098-83ee-b7fd-02509d2042ea",
+    "route": "分享页",
+    "messages": 12,
+    "error": null,
+    "warnings": [],
+    "elapsed": 7.62158559999807
+  },
+  {
+    "case": "21",
+    "title": "「项目」含文档和图片：望道-优化申请内容-2",
+    "url": "https://chatgpt.com/g/g-p-6acc40fcf74c8191a171ebf9f6ff2cd5-wang-dao/c/6abba5ba-c5c0-83ee-abd7-bda7111314ce",
+    "route": "会话页",
+    "messages": 12,
+    "error": null,
+    "warnings": [],
+    "elapsed": 9.5978077999971
+  },
+  {
+    "case": "22",
+    "title": "含zip：杂项含zip",
+    "url": "https://chatgpt.com/share/6ad976db-6074-83e8-b3ac-094d02deb59d",
+    "route": "分享页",
+    "messages": 34,
+    "error": null,
+    "warnings": [],
+    "elapsed": 6.5969352000029176
+  },
+  {
+    "case": "23",
+    "title": "含zip：杂项含zip",
+    "url": "https://chatgpt.com/c/6aa0d0e9-450c-83ee-89de-336dd73c665d",
+    "route": "会话页",
+    "messages": 34,
+    "error": null,
+    "warnings": [],
+    "elapsed": 6.08466629999748
+  },
+  {
+    "case": "24",
+    "title": "含图片、交互和引用：Gemini 4 Argon开放情况",
+    "url": "https://chatgpt.com/share/6ad9778f-043c-83ee-b878-f30daea0de90",
+    "route": "分享页",
+    "messages": 20,
+    "error": null,
+    "warnings": [],
+    "elapsed": 39.12919889999466
+  },
+  {
+    "case": "25",
+    "title": "含图片、交互和引用：Gemini 4 Argon开放情况",
+    "url": "https://chatgpt.com/c/6acd8bd3-9530-83ec-bd19-89ce3bebca2a",
+    "route": "会话页",
+    "messages": 20,
+    "error": null,
+    "warnings": [],
+    "elapsed": 39.73129500000505
+  },
+  {
+    "case": "26",
+    "title": "含文档、图片和公式：全部解答",
+    "url": "https://chatgpt.com/share/6ad977f8-98e8-83ec-a78e-9e141d9f2561",
+    "route": "分享页",
+    "messages": 6,
+    "error": null,
+    "warnings": [],
+    "elapsed": 26.572761600000376
+  },
+  {
+    "case": "27",
+    "title": "含文档、图片和公式：全部解答",
+    "url": "https://chatgpt.com/c/6ad08a26-af70-83ec-be8b-4e117e3c2c0e",
+    "route": "会话页",
+    "messages": 6,
+    "error": null,
+    "warnings": [],
+    "elapsed": 18.047320300000138
+  },
+  {
+    "case": "28",
+    "title": "GPT主动给你发消息：codex重置预警",
+    "url": "https://chatgpt.com/share/6ad97894-473c-83e8-9569-8847a18a103b",
+    "route": "分享页",
+    "messages": 165,
+    "error": null,
+    "warnings": [],
+    "elapsed": 80.63408760000311
+  },
+  {
+    "case": "29",
+    "title": "GPT主动给你发消息：codex重置预警",
+    "url": "https://chatgpt.com/c/6a85a547-b4d0-83ee-a6b3-cfab65ad19bc",
+    "route": "会话页",
+    "messages": 169,
+    "error": null,
+    "warnings": [],
+    "elapsed": 118.7645685000025
+  }
+]

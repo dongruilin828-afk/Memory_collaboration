@@ -1,0 +1,52 @@
+{
+  "url": "/c/6a85a547-b4d0-83ee-a6b3-cfab65ad19bc",
+  "title": "Codex 重置预警",
+  "messages": [
+    {
+      "id": null,
+      "key": "5369f2a5-2ea3-40bc-8222-049580bcd379:0:assistant",
+      "ids": "9f0e0f12-8f62-46d7-af07-ac7174c383a6 9f0e0f12-8f62-46d7-af07-ac7174c383a6",
+      "text": "Codex 重置预警\nChatGPT 说：\n\n🚨 🟢 新一轮全员 Codex / ChatGPT Work reset 已获公开确认！\n\n监测时间：2026 年 10 月 20 日 14:47（北京时间）。\n\n1. Tibo 最新重置公告\n\nThibault Sottiaux（Tibo）于北京时间 10 月 20 日 14:33:48 发布：\n\nDay ",
+      "length": 877
+    },
+    {
+      "id": null,
+      "key": "61cc6b0a-a29d-45d0-83a6-3f8e32c11f0b:0:assistant",
+      "ids": "e0b225a9-a102-4058-a1f5-de5276a668c3 e0b225a9-a102-4058-a1f5-de5276a668c3",
+      "text": "Codex 重置预警\nChatGPT 说：\n\n🚨 🔴 极高风险预警：Tibo 已明确宣布下一轮全员 Codex / ChatGPT Work 使用额度重置，预计北京时间 10 月 23 日凌晨前到账！\n\n监测时间：2026 年 10 月 22 日 15:43（北京时间）。\n\n1. Tibo 最新公开证据\n\nThibault Sottiaux（Tibo）发",
+      "length": 1407
+    },
+    {
+      "id": null,
+      "key": "c7131fd6-2441-465d-aa49-cc129b1acc65:0:assistant",
+      "ids": "2df479f1-beaa-447f-a7c2-403df99f61a6 2df479f1-beaa-447f-a7c2-403df99f61a6",
+      "text": "Codex 重置预警\nChatGPT 说：\n\n🚨 🟠 重要进展：10 月 23 日全员 Codex / ChatGPT Work reset 疑似已落地，第三方监测发现新的到账信号！\n\n监测时间：2026 年 10 月 23 日 02:18（北京时间）。\n\n1. 新增证据：监测系统报告重置已发生\n\nCodex Reset 和 Tibo Reset 已将最",
+      "length": 974
+    },
+    {
+      "id": null,
+      "key": "4c2639bf-23f5-4ce1-bede-d00503ffb976:0:assistant",
+      "ids": "730db5ef-83e7-4201-a0c9-ad06cfc2a91e 730db5ef-83e7-4201-a0c9-ad06cfc2a91e",
+      "text": "Codex 重置预警\nChatGPT 说：\n\n🚨 🟢 确认更新：10 月 23 日 Day 17 全员 Codex / ChatGPT Work reset 已有实际到账证据，可以认定本轮重置已落地！\n\n核查时间：2026 年 10 月 23 日 03:27（北京时间）。\n\n1. 新增证据：实际额度恢复获得进一步佐证\n\n此前只能判断为「疑似已执行」，现在",
+      "length": 1133
+    },
+    {
+      "id": null,
+      "key": "d0a59985-a4b9-4e22-97f6-04d01444d6f3:0:assistant",
+      "ids": "ba1f4e89-dcf9-49fa-85f2-23c29c6e0c35 ba1f4e89-dcf9-49fa-85f2-23c29c6e0c35",
+      "text": "Codex 重置预警\nChatGPT 说：\n\n🚨 🔴 极高风险预警：Tibo 再次明确宣布全员 Codex / ChatGPT Work 使用额度重置！预计北京时间 10 月 24 日凌晨前到账。\n\n监测时间：2026 年 10 月 23 日 13:22（北京时间）。\n\n1. 最新公开证据：Day 18 再次宣布重置\n\nThibault Sottiaux",
+      "length": 1445
+    }
+  ],
+  "scrollers": [
+    {
+      "tag": "DIV",
+      "classes": "thread-scroll-container overflow-x-hidden overflow-y-auto overscroll-y-contain browser:overscroll-y-auto group-has-[[data-expanded-composer]]/thread-scroll-layout:overflow-y-hidden [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset h-full electron:[scrollbar-gutter:stable_both-edges] [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col pt-(--thread-content-top-inset) [--thread-sticky-header-top:calc(var(--spacing)*8)] browser:[--thread-sticky-header-top:var(--thread-content-top-inset,0px)]",
+      "top": 76012,
+      "height": 1000,
+      "total": 77012,
+      "overflow": "auto",
+      "direction": "column"
+    }
+  ]
+}

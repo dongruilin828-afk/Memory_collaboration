@@ -1,0 +1,2 @@
+[04] 已核验目标会话 ID，当前分支共 10 条可见消息。
+[04] {"case": "04", "title": "含公式和交互：雅可比猜想反例", "url": "https://chatgpt.com/c/6a5f0e9b-eb9c-83e8-b0df-0ffd18b0d78d", "route": "会话页", "messages": 10, "error": null, "warnings": ["第 6 条消息的交互组件导出未完成：当前仅保留可读静态内容。"], "elapsed": 13.045591800000693}
