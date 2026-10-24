@@ -20,6 +20,7 @@ from gui.app import (
     SummaryTopicCard,
 )
 from gui.settings_store import AppSettings, default_app_settings
+from gui.widgets import GenerationChoiceCard, GlassNavigationItem
 
 
 class _CredentialStore:
@@ -51,6 +52,75 @@ class _SettingsStore:
     def save(self, settings):
         self.saved.append(settings)
         return settings
+
+
+class TargetedAppearanceTests(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f"Tk display unavailable: {error}")
+        self.root.attributes("-alpha", 0.0)
+        self.addCleanup(self.root.destroy)
+
+    def test_mode_description_wraps_without_losing_text_and_unwraps(self):
+        subtitle = "默认方式，支持选择不同话题重要程度"
+        for scaling in (1.0, 1.5, 2.0):
+            with self.subTest(tk_scaling=scaling):
+                self.root.tk.call("tk", "scaling", scaling)
+                card = GenerationChoiceCard(
+                    self.root, title="结构化总结", subtitle=subtitle,
+                )
+                card.pack(fill=tk.X)
+                card.set_responsive_scale(1.0)
+                title_space = card._title_font.measure(card._title) + 70
+                narrow = title_space + card._subtitle_font.measure(subtitle) // 2 + 12
+                wide = title_space + card._subtitle_font.measure(subtitle) + 20
+                for width, wrapped in ((narrow, True), (wide, False), (narrow, True)):
+                    self.root.geometry(f"{width}x300")
+                    self.root.update()
+                    items = [item for item in card.find_all()
+                             if card.type(item) == "text"
+                             and card.itemcget(item, "font") == str(card._subtitle_font)]
+                    self.assertEqual(len(items), 1)
+                    item = items[0]
+                    self.assertEqual(card.itemcget(item, "text"), subtitle)
+                    bounds = card.bbox(item)
+                    line_height = card._subtitle_font.metrics("linespace")
+                    if wrapped:
+                        self.assertGreater(bounds[3] - bounds[1], line_height)
+                        self.assertLessEqual(bounds[3] - bounds[1], 2 * line_height + 4)
+                    else:
+                        self.assertLessEqual(bounds[3] - bounds[1], line_height + 4)
+                    self.assertGreaterEqual(bounds[1], 0)
+                    self.assertLessEqual(bounds[3], card.winfo_height())
+                    self.assertLessEqual(bounds[2], card.winfo_width() - 28)
+                card.set_disabled(True)
+                card._on_click()
+                self.assertFalse(card.checked)
+                card.set_disabled(False)
+                card._on_click()
+                self.assertTrue(card.checked)
+                card.destroy()
+
+    def test_sidebar_active_fill_is_gradient_without_accent_bar(self):
+        self.root.geometry("240x100")
+        item = GlassNavigationItem(self.root, "", "首页")
+        item.pack(fill=tk.X)
+        self.root.update()
+        inactive_title_color = item.itemcget(item.find_withtag("title")[0], "fill")
+        item._active = True
+        item._progress = 1.0
+        item.redraw()
+        gradient = item.find_withtag("active_gradient")
+        self.assertGreater(len(gradient), 10)
+        self.assertEqual(set(item.find_withtag("card")), set(gradient))
+        self.assertNotEqual(item.itemcget(gradient[0], "fill"),
+                            item.itemcget(gradient[-1], "fill"))
+        self.assertGreater(item.coords(gradient[0])[0],
+                           item.coords(gradient[len(gradient) // 2])[0])
+        self.assertEqual(item.itemcget(item.find_withtag("title")[0], "fill"),
+                         inactive_title_color)
 
 
 class SummaryTopicCardTests(unittest.TestCase):
@@ -180,7 +250,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
             ):
                 app = AIMemoryGUI(root)
-            self._flush(root, 300)
+            self._settle_resize(root, app)
             with patch.object(app, "_apply_responsive_scale") as scale:
                 for width in (1100, 1120, 1140, 1160):
                     app._on_root_configure(SimpleNamespace(
@@ -207,6 +277,105 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                 for _ in range(20):
                     app._apply_responsive_scale()
                 minimum.assert_not_called()
+        finally:
+            root.destroy()
+
+    def test_content_tracks_window_while_font_scaling_is_deferred(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._settle_resize(root, app)
+            initial_width = root.winfo_width()
+            initial_height = root.winfo_height()
+            # Keep sending real geometry changes faster than the font debounce.
+            for page in range(4):
+                app._show_page(page)
+                self._settle_resize(root, app)
+                with patch.object(app, "_apply_responsive_scale") as scale:
+                    for delta in (24, 48, 72, 96):
+                        root.geometry(
+                            f"{initial_width + delta}x{initial_height + delta}"
+                        )
+                        self._flush(root, 35)
+                        self.assertTrue(app._resize_in_progress)
+                        self.assertEqual(
+                            app.main_content.winfo_width(),
+                            min(app.bg_canvas.winfo_width(), app._content_max_width),
+                            "content width must follow the window during dragging",
+                        )
+                        self.assertGreaterEqual(
+                            app.main_content.winfo_height(),
+                            app.bg_canvas.winfo_height(),
+                        )
+                        scale.assert_not_called()
+                root.geometry(f"{initial_width}x{initial_height}")
+                self._settle_resize(root, app)
+        finally:
+            root.destroy()
+
+    def test_capped_content_recenters_without_changing_its_dimensions(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            self._settle_resize(root, app)
+            app._content_max_width = 400
+            app._refresh_scrollregion()
+            self._flush(root)
+            # Simulate a stale position while the content dimensions stay valid.
+            app.bg_canvas.coords(app.canvas_window_id, 0, 0)
+            app._refresh_scrollregion()
+            self.assertEqual(
+                app.bg_canvas.coords(app.canvas_window_id),
+                [float((app.bg_canvas.winfo_width() - 400) // 2), 0.0],
+            )
+        finally:
+            root.destroy()
+
+    def test_history_only_lays_out_cards_near_the_viewport(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0.0)
+        try:
+            with (
+                patch("gui.app.WindowsCredentialStore", return_value=_CredentialStore()),
+                patch("gui.app.WindowsAppSettingsStore", return_value=_SettingsStore()),
+            ):
+                app = AIMemoryGUI(root)
+            app.history_records = [
+                {"title": f"记录 {index}", "saved_files": [f"result{index}.md"]}
+                for index in range(60)
+            ]
+            app._refresh_history_list()
+            app._show_page(2)
+            self._settle_resize(root, app)
+            cards = [card for _slot, card in app._history_slots]
+            self.assertTrue(cards[0].winfo_manager())
+            self.assertLess(sum(bool(card.winfo_manager()) for card in cards), 8)
+            total_height = app.main_content.winfo_reqheight()
+            app.bg_canvas.yview_moveto(1.0)
+            self._flush(root, 100)
+            self.assertFalse(cards[0].winfo_manager())
+            self.assertTrue(cards[-1].winfo_manager())
+            self.assertLess(sum(bool(card.winfo_manager()) for card in cards), 8)
+            self.assertEqual(total_height, app.main_content.winfo_reqheight())
+            # Native child Configure events must not reach the window handler.
+            with patch.object(app, "_schedule_responsive_minimums") as minimum:
+                for width in (1100, 1280, 1400, 1150):
+                    root.geometry(f"{width}x680")
+                    self._settle_resize(root, app)
+                minimum.assert_not_called()
+            app._show_page(0)
+            self._flush(root)
+            self.assertFalse(any(card.winfo_manager() for card in cards))
         finally:
             root.destroy()
 
@@ -401,8 +570,8 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                                 f"font drift at repeated width {actual_width}",
                             )
                         observed_sizes[actual_width] = size
-                    self.assertGreaterEqual(max(sizes), min(sizes))
-                    self.assertGreater(max(sizes), min(sizes))
+                    self.assertEqual(max(sizes), min(sizes),
+                                     "window resizing must not zoom every font")
                     self.assertEqual(root.tk.getint(app.status_label.cget("wraplength")), 0)
 
                     app._select_summary_file(
@@ -413,6 +582,10 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
                         str(app.selected_summary_file),
                     )
                     self.assertEqual(root.tk.getint(app.selected_file_label.cget("width")), 56)
+                    self.assertEqual(self._font_size(root, app.selected_file_label), 11)
+                    capsule = app.selected_file_label.master
+                    self.assertEqual(root.tk.getint(capsule.cget("padx")), 10)
+                    self.assertEqual(root.tk.getint(capsule.cget("pady")), 4)
                     app._clear_summary_file()
 
                     switches = []
