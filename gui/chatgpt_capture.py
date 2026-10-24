@@ -69,7 +69,12 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                     const download=new URL(link,location.href);
                     if(download.protocol!=='https:')return {error:'invalid_download_url'};
                     const options=opts();
-                    if(download.origin!==location.origin)delete options.headers;
+                    if(download.origin!==location.origin){
+                        delete options.headers;
+                        // The signed CDN URL authorizes this request itself.
+                        // Credentials would reject its wildcard CORS response.
+                        options.credentials='omit';
+                    }
                     phase='download';
                     r=await fetch(download.href,options);
                     if(!r.ok)return {status:r.status};

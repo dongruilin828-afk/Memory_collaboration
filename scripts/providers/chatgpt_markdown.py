@@ -83,8 +83,17 @@ def prepare_markdown(text: str, *, user=False) -> str:
         text = fence_user_python(text)
 
     def math(part):
+        def display(match):
+            prefix = part[part.rfind("\n", 0, match.start()) + 1:match.start()]
+            if re.fullmatch(r"[ \t]*(?:>[ \t]*)+", prefix):
+                # Keep quote prefixes on every line, especially the closing delimiter.
+                if "\n" in match[1]:
+                    return "$$" + match[1] + "$$"
+                return "$$\n" + prefix + match[1].strip() + "\n" + prefix + "$$"
+            return "$$\n" + match[1].strip() + "\n$$"
+
         part = re.sub(r"(?<!\\)\\\[([\s\S]*?)(?<!\\)\\\]",
-                      lambda m: "$$\n" + m[1].strip() + "\n$$", part)
+                      display, part)
         return re.sub(r"(?<!\\)\\\(([^\n]*?)(?<!\\)\\\)",
                       lambda m: "$" + m[1].strip() + "$", part)
 

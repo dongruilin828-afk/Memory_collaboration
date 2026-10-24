@@ -49,6 +49,23 @@ class VisibleMarkdownTests(unittest.TestCase):
         self.assertEqual(prepare_markdown("Please explain import os", user=True), "Please explain import os")
         self.assertEqual(prepare_markdown("# Heading\n\nOrdinary prose", user=True), "# Heading\n\nOrdinary prose")
 
+    def test_quoted_display_math_keeps_each_line_in_its_quote(self):
+        for prefix in ("> ", "> > ", ">>", "  >\t> "):
+            with self.subTest(prefix=prefix):
+                source = prefix + r"\[" + "\n" + prefix + r"\alpha_i\ge0,\qquad \sum_i\alpha_i=1." + "\n" + prefix + r"\]"
+                expected = source.replace(r"\[", "$$").replace(r"\]", "$$")
+                self.assertEqual(prepare_markdown(source.replace("\n", "\r\n")), expected)
+                self.assertEqual(prepare_markdown(expected), expected)
+                self.assertEqual(prepare_markdown(prefix + r"\[x+y\]"),
+                                 prefix + "$$\n" + prefix + "x+y\n" + prefix + "$$")
+
+    def test_quoted_math_preserves_spacing_and_code_literals(self):
+        source = "> \\[\n>     x + y\n>\t\\]\n\n[attachment](./paper.pdf)"
+        expected = "> $$\n>     x + y\n>\t$$\n\n[attachment](./paper.pdf)"
+        self.assertEqual(prepare_markdown(source), expected)
+        for literal in ("> ```latex\n" + source + "\n> ```", "> `\\[x\\]`", "> \\[unclosed"):
+            self.assertEqual(prepare_markdown(literal), literal)
+
 
 class CapturePresentationTests(unittest.IsolatedAsyncioTestCase):
     async def test_deferred_widgets_warn_without_losing_static_text(self):
