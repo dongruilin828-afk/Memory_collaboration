@@ -1465,6 +1465,16 @@ class GlassNavigationItem(tk.Canvas):
             if icon_asset
             else None
         )
+        self._settings_gear_images = (
+            {
+                color: tk.PhotoImage(file=str(_navigation_icon_path(asset)))
+                for color, asset in (
+                    ("#1E293B", "settings-gear"),
+                    ("#5F6672", "settings-gear-muted"),
+                )
+            }
+            if title == "设置" else {}
+        )
         self._active = False
         self._progress = 0.0
         self._target_progress = 0.0
@@ -1527,29 +1537,10 @@ class GlassNavigationItem(tk.Canvas):
         return tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
 
     def _draw_settings_gear(self, color: str):
-        center_x, center_y = 27, 34
-        points = []
-        tooth_step = math.tau / 8
-        for tooth in range(8):
-            center = -math.pi / 2 + tooth * tooth_step
-            for offset, radius in (
-                (-tooth_step / 2, 7.5), (-tooth_step * 0.28, 7.5),
-                (-tooth_step * 0.28, 10.2), (tooth_step * 0.28, 10.2),
-                (tooth_step * 0.28, 7.5), (tooth_step / 2, 7.5),
-            ):
-                angle = center + offset
-                points.extend((
-                    center_x + radius * math.cos(angle),
-                    center_y + radius * math.sin(angle),
-                ))
-        points.extend(points[:2])
-        self.create_line(
-            *points, fill=color, width=1.7, joinstyle=tk.ROUND,
-            capstyle=tk.ROUND, tags="content",
-        )
-        self.create_oval(
-            center_x - 3.6, center_y - 3.6, center_x + 3.6, center_y + 3.6,
-            outline=color, width=1.7, tags="content",
+        # Supersampled transparent assets keep small teeth and the bore smooth.
+        self.create_image(
+            27, 34, image=self._settings_gear_images[color],
+            anchor=tk.CENTER, tags="content",
         )
 
     def redraw(self):
