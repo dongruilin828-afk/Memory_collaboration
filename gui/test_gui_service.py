@@ -2240,18 +2240,19 @@ class GUIServiceTests(unittest.TestCase):
             "result1.xlsx",
         )
 
+        expected_response = SimpleNamespace(status=200)
         with patch(
             "gui.service._scroll_to_deepseek_file_card",
             new=AsyncMock(return_value=True),
         ), patch(
             "gui.service._authenticated_page_get",
-            new=AsyncMock(return_value="response"),
+            new=AsyncMock(return_value=expected_response),
         ) as request:
             response = asyncio.run(_deepseek_document_card_get(
                 page, candidate, 20000
             ))
 
-        self.assertEqual(response, "response")
+        self.assertIs(response, expected_response)
         name.evaluate.assert_awaited_once()
         self.assertEqual(name.evaluate.await_args.args[1], "result1.xlsx")
         request.assert_awaited_once_with(
@@ -2260,6 +2261,48 @@ class GUIServiceTests(unittest.TestCase):
             "file_id=xlsx-id&state=signed&ty=r",
             20000,
         )
+
+    def test_deepseek_share_404_refresh_is_bound_to_original_file(self):
+        file_id = "19897dbc-c975-45b4-98f4-344a4a3dbf19"
+        path = f"/file?file_id={file_id}&state=expired"
+        item = {
+            "id": f"file-{file_id}", "file_name": "result1.xlsx",
+            "status": "SUCCESS", "file_size": 3,
+            "signed_path": f"/file?file_id={file_id}&state=fresh",
+        }
+        scenarios = [
+            ("same resource", {}, 3, True),
+            ("same name different id", {"id": "file-other"}, 3, False),
+            ("wrong filename", {"file_name": "other.xlsx"}, 3, False),
+            ("wrong signed resource", {"signed_path": "/file?file_id=other"}, 3, False),
+            ("external signed host", {"signed_path": "https://example.com/file"}, 3, False),
+            ("truncated download", {}, 2, False),
+            ("no permission", None, 3, False),
+        ]
+        for label, changes, body_size, success in scenarios:
+            with self.subTest(label=label):
+                expired = SimpleNamespace(status=404, ok=False)
+                fresh = SimpleNamespace(status=200, ok=True, body=AsyncMock(return_value=b"x" * body_size))
+                name = MagicMock(evaluate=AsyncMock(return_value=path))
+                message = MagicMock()
+                message.get_by_text.return_value.first = name
+                page = MagicMock(url="https://chat.deepseek.com/share/example")
+                page.locator.return_value.filter.return_value = message
+                page.evaluate = AsyncMock(return_value=(
+                    {"code": 0, "data": {"biz_code": 0, "biz_data": {"files": [{**item, **changes}]}}}
+                    if changes is not None else None
+                ))
+                candidate = DocumentCandidate("deepseek-card:result1.xlsx", page.url, "result1.xlsx")
+                with patch("gui.service._scroll_to_deepseek_file_card", new=AsyncMock(return_value=True)), patch(
+                    "gui.service._authenticated_page_get", new=AsyncMock(side_effect=[expired, fresh])
+                ) as request:
+                    response = asyncio.run(_deepseek_document_card_get(page, candidate, 20000))
+                self.assertIs(response, fresh if success else expired)
+                self.assertEqual(page.evaluate.await_args.args[1], {"fileId": f"file-{file_id}", "timeout": 20000})
+                if success:
+                    self.assertEqual(request.await_args.args[1], "https://files.deepseeksvc.com/api" + item["signed_path"] + "&ty=r")
+                elif label != "truncated download":
+                    self.assertEqual(request.await_count, 1)
 
     def test_deepseek_card_falls_back_after_expired_direct_url(self):
         direct = DocumentCandidate(

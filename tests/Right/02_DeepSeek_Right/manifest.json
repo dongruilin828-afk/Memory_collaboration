@@ -156,11 +156,9 @@
         "url":  "https://chat.deepseek.com/share/8tlfy59h6uaegqd1za",
         "messages":  12,
         "images":  1,
-        "documents":  4,
+        "documents":  5,
         "error":  null,
-        "warnings":  [
-                         "1 个文档附件未能保存到本地（http_404×1）；对话文字抓取继续保留。"
-                     ],
+        "warnings":  [],
         "outputs":  [
                         "09/AI_memory_summary.md",
                         "09/AI_memory_result.json",
@@ -168,7 +166,7 @@
                         "09/AI_memory_detailed_result.json",
                         "09/AI_memory_simple.md"
                     ],
-        "elapsed":  628.0141791999922
+        "elapsed":  13.728872999956366
     },
     {
         "case":  "10",

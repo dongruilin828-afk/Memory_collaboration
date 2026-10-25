@@ -340,7 +340,7 @@ uv run python -m gui.app
 
 ## 🔵 👤 用户提问
 
-📎 **[上传文档]** `result1.xlsx`（原文件未能下载）（XLSX 9.84KB）
+[📄 result1.xlsx](./documents/result1.xlsx)（XLSX 9.84KB）
 
 
 <hr style="border: 0; border-top: 5px solid #9333EA; margin: 48px 0 24px 0;">

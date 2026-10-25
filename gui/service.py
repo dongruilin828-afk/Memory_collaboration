@@ -3648,7 +3648,65 @@ async def _deepseek_document_card_get(
         separator = "&" if "?" in download_url else "?"
         if not re.search(r"(?:[?&])ty=", download_url):
             download_url = f"{download_url}{separator}ty=r"
-        return await _authenticated_page_get(page, download_url, timeout)
+        response = await _authenticated_page_get(page, download_url, timeout)
+        if (
+            response.status != 404
+            or not parsed.path.startswith("/share/")
+            or urlparse(str(page.url)).netloc != "chat.deepseek.com"
+        ):
+            return response
+        file_id = parse_qs(urlparse(download_url).query).get("file_id", [""])[0]
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", file_id):
+            return response
+        # 分享签名可能拒绝原文件；用当前账号按同一资源 ID 刷新，不能按文件名借用附件。
+        try:
+            payload = await page.evaluate(
+                """async ({fileId, timeout}) => {
+                    const stored = JSON.parse(localStorage.getItem('userToken') || 'null');
+                    const token = typeof stored === 'string' ? stored : stored?.value;
+                    if (typeof token !== 'string' || !token) return null;
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeout);
+                    try {
+                        const response = await fetch(
+                            '/api/v0/file/fetch_files?file_ids=' + encodeURIComponent(fileId),
+                            {credentials: 'include', cache: 'no-store',
+                             headers: {Authorization: `Bearer ${token}`},
+                             signal: controller.signal}
+                        );
+                        return response.ok ? await response.json() : null;
+                    } finally { clearTimeout(timer); }
+                }""",
+                {"fileId": f"file-{file_id}", "timeout": timeout},
+            )
+            data = (payload or {}).get("data") or {}
+            if not payload or payload.get("code") != 0 or data.get("biz_code") != 0:
+                return response
+            files = (data.get("biz_data") or {}).get("files") or []
+            matches = [item for item in files if (
+                item.get("id") == f"file-{file_id}"
+                and item.get("file_name") == candidate.filename
+                and item.get("status") == "SUCCESS"
+            )]
+            if len(matches) != 1:
+                return response
+            item = matches[0]
+            fresh_path = urlparse(str(item.get("signed_path") or ""))
+            if (
+                fresh_path.scheme or fresh_path.netloc or fresh_path.path != "/file"
+                or parse_qs(fresh_path.query).get("file_id") != [file_id]
+                or not isinstance(item.get("file_size"), int)
+                or not 0 < item["file_size"] <= GUI_DOCUMENT_MAX_BYTES
+            ):
+                return response
+            fresh_url = "https://files.deepseeksvc.com/api" + fresh_path.geturl()
+            fresh_url += "&ty=r" if "?" in fresh_url else "?ty=r"
+            fresh = await _authenticated_page_get(page, fresh_url, timeout)
+            if fresh.ok and len(await fresh.body()) == item["file_size"]:
+                return fresh
+        except Exception:
+            pass
+        return response
     except Exception:
         return None
 
