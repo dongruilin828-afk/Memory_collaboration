@@ -1,12 +1,13 @@
 """Exercise the actual download JS in Chromium with local route fixtures only."""
 import io
 import unittest
+import zipfile
 
 from PIL import Image
 from playwright.async_api import async_playwright
 
 from gui.chatgpt_capture import read_asset
-from scripts.providers.chatgpt_source import Asset
+from scripts.providers.chatgpt_source import Asset, SourceError
 
 
 APP = 'https://capture.example.test'
@@ -32,6 +33,7 @@ class ChatGPTDownloadBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.page = await self.context.new_page()
         self.origin = CDN
         self.body, self.mime = b'# original attachment\n', 'text/markdown'
+        self.download_bodies = []
         self.download_headers, self.metadata_headers = [], []
         await self.page.route('**/*', self.respond)
         await self.page.goto(APP)
@@ -55,7 +57,8 @@ class ChatGPTDownloadBrowserTests(unittest.IsolatedAsyncioTestCase):
         elif url == self.origin + '/signed/file':
             self.download_headers.append(headers)
             # A normal signed CDN response allows CORS without browser credentials.
-            await route.fulfill(body=self.body, headers={
+            body = self.download_bodies.pop(0) if self.download_bodies else self.body
+            await route.fulfill(body=body, headers={
                 'content-type': self.mime, 'access-control-allow-origin': '*',
             })
         else:
@@ -83,6 +86,42 @@ class ChatGPTDownloadBrowserTests(unittest.IsolatedAsyncioTestCase):
         for headers in self.metadata_headers + self.download_headers:
             self.assertEqual(headers.get('authorization'), 'Bearer fixture-token')
             self.assertIn('fixture_session=local-fixture', headers.get('cookie', ''))
+
+    async def test_truncated_docx_retries_without_cache_and_returns_complete_file(self):
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as package:
+            package.writestr('[Content_Types].xml', '<Types/>')
+            package.writestr('word/document.xml', '<document>Complete content</document>')
+        self.body = data.getvalue()
+        self.mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        self.download_bodies = [self.body[:80], self.body]
+        await self.page.evaluate("""() => {
+            const request = window.fetch.bind(window);
+            window.downloadCacheModes = [];
+            window.fetch = (url, options) => {
+                if (String(url).includes('/signed/file')) window.downloadCacheModes.push(options.cache);
+                return request(url, options);
+            };
+        }""")
+        self.assertEqual(await self.download('document', 'original.docx'), (self.body, self.mime))
+        self.assertEqual(len(self.download_headers), 2)
+        self.assertEqual(await self.page.evaluate('window.downloadCacheModes'), ['default', 'no-store'])
+        for headers in self.download_headers:
+            self.assertNotIn('authorization', headers)
+            self.assertNotIn('cookie', headers)
+
+    async def test_invalid_docx_is_rejected_after_bounded_retries(self):
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as package:
+            package.writestr('unrelated.txt', 'Not a Word document')
+        for body in (data.getvalue()[:80], data.getvalue()):
+            with self.subTest(truncated=not zipfile.is_zipfile(io.BytesIO(body))):
+                self.body = body
+                self.mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                self.download_headers.clear()
+                with self.assertRaisesRegex(SourceError, 'DOCX'):
+                    await self.download('document', 'original.docx')
+                self.assertEqual(len(self.download_headers), 3)
 
 
 if __name__ == '__main__':

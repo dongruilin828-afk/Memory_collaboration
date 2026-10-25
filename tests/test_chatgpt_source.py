@@ -183,6 +183,44 @@ class ChatGPTSourceTests(unittest.TestCase):
 
 
 class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_short_widget_placeholder_does_not_block_verified_conversation(self):
+        placeholder = "正在生成 无人机飞越群山湖泊"
+        for kinds, identifier, visible, succeeds in (
+            (("client_defined_widget",), "answer", placeholder, True),
+            (("client_defined_widget",), "answer", "", False),
+            (("client_defined_widget",), "other", placeholder, False),
+            (("map",), "answer", placeholder, False),
+            (("client_defined_widget", "map"), "answer", placeholder, False),
+        ):
+            with self.subTest(kinds=kinds, identifier=identifier, visible=visible):
+                page = AsyncMock()
+                page.url = URL
+                scroll = AsyncMock()
+                scroll.evaluate.return_value = True
+                page.evaluate_handle.return_value = scroll
+                async def evaluate(script, arg):
+                    if "id=>" in script:
+                        return True
+                    return [{"ids": [identifier], "text": visible,
+                             "html": '<div class="markdown"><span class="sr-only">hidden label</span>'
+                                     '<div data-markdown-copy="exclude" aria-hidden="true">' + visible + '</div></div>'}]
+                page.evaluate.side_effect = evaluate
+                data = payload(node("question", "user", "生成动画"),
+                    node("answer", "assistant", "widget implementation\n" * 400, "question",
+                         content_references=[{"type": kind} for kind in kinds]))
+                options = dict(images_dir=Path("unused"), image_prefix="./images",
+                               documents_dir=Path("unused"), document_prefix="./docs")
+                if succeeds:
+                    result = await capture_conversation(page, URL, data, **options)
+                    self.assertEqual([m["role"] for m in result["messages"]], ["User", "AI"])
+                    self.assertEqual(result["messages"][-1]["content"], "（交互组件暂未导出）")
+                    self.assertNotIn("hidden label", result["html"])
+                    self.assertNotIn("widget implementation", result["html"])
+                    self.assertTrue(any("交互组件导出未完成" in w for w in result["warnings"]))
+                else:
+                    with self.assertRaises(SourceError):
+                        await capture_conversation(page, URL, data, **options)
+
     async def test_windows_source_newlines_survive_snapshot_and_markdown_file_roundtrip(self):
         from gui.service import generate_raw_markdown
         text = "  first\r\n\r\n    nested code\r\n"

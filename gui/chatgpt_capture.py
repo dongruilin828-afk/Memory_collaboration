@@ -7,6 +7,7 @@ import html
 import io
 import ipaddress
 import re
+import zipfile
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlencode, urlparse
 
@@ -47,7 +48,8 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                     const r=await fetch('/api/auth/session',{credentials:'include',signal:AbortSignal.timeout(15000)});
                     if(r.ok){const s=await r.json();token=s.accessToken||s.access_token;}
                 }catch{}
-                const opts=()=>({credentials:backend?'include':'omit',signal:AbortSignal.timeout(60000),
+                const opts=()=>({cache:attempt?'no-store':'default',
+                    credentials:backend?'include':'omit',signal:AbortSignal.timeout(60000),
                     ...(token?{headers:{Authorization:'Bearer '+token}}:{})});
                 const file=target.pathname.match(/^\\/backend-api\\/files\\/download\\/([^/]+)$/);
                 // The account's file route and the public-share file route have
@@ -102,9 +104,14 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                 if asset.kind == "image":
                     with Image.open(io.BytesIO(body)) as image:
                         image.verify()
+                elif asset.name.lower().endswith(".docx"):
+                    with zipfile.ZipFile(io.BytesIO(body)) as document:
+                        if not {"[Content_Types].xml", "word/document.xml"} <= set(document.namelist()):
+                            raise zipfile.BadZipFile("Missing DOCX parts")
                 return body, mime
         except Exception as error:
-            result = {"error": "network_or_invalid_file", "error_type": type(error).__name__}
+            result = {"error": "DOCX 文件不完整或格式无效" if isinstance(error, zipfile.BadZipFile)
+                      else "network_or_invalid_file", "error_type": type(error).__name__}
         if external and asset.endpoint.startswith("https://") and result.get("error", "").startswith("browser_"):
             # Public article/product images often omit CORS headers. The normal
             # browser request context can still retrieve them without bearer headers.
@@ -151,6 +158,12 @@ def save_asset(body: bytes, asset: Asset, directory: Path, prefix: str,
     return reference
 
 
+def _is_deferred_widget(message: Message) -> bool:
+    kinds = {ref.get("type") for meta in message.metadata
+             for ref in meta.get("content_references") or []}
+    return kinds & {"map", "client_defined_widget", "dil", "image_group"} == {"client_defined_widget"}
+
+
 async def rendered_messages(page, url: str, messages: list[Message]) -> dict[str, str]:
     """Collect only requested rich-message IDs; reject unrelated or empty DOM."""
     # A user turn and its answer can share an exchange ID. Only message/node
@@ -163,7 +176,8 @@ async def rendered_messages(page, url: str, messages: list[Message]) -> dict[str
     captured: dict[str, str] = {}
     scores: dict[str, int] = {}
     def ready(message):
-        minimum = min(50, max(1, len(message.text) // 4))
+        # Deferred widgets expose a short status, not their implementation text.
+        minimum = 1 if _is_deferred_widget(message) else min(50, max(1, len(message.text) // 4))
         return any(scores.get(identifier, 0) >= minimum for identifier in message.ids)
 
     for navigation in range(2):
@@ -280,6 +294,8 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
         text = "\n\n".join(m["content"] for m in converted if m["role"] == "AI")
         if text and text not in parsed:
             parsed.append(text)
+    if not parsed and _is_deferred_widget(row):
+        parsed.append("（交互组件暂未导出）")
     if not parsed:
         raise SourceError("交互回复未取得可见正文，已停止导出。")
     body = "\n\n".join(parsed)
