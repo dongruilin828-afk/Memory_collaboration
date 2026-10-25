@@ -35,7 +35,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import markdownify
-from bs4 import Comment, NavigableString
+from bs4 import Comment, NavigableString, Tag
 
 
 DISPLAY_NAME = "Gemini"
@@ -262,10 +262,10 @@ def _code_language(pre) -> str:
 
 
 def _normalize_code_blocks(node) -> None:
-    """把 <code-block> 归一为 <pre><code>，并把头部语言标注注入 code class。"""
+    """按顺序保留面板内源码和输出，源码沿用头部语言。"""
     for code_block in list(node.find_all("code-block")):
-        pre = code_block.find("pre")
-        if pre is None:
+        pres = code_block.find_all("pre")
+        if not pres:
             # 没有正文 pre 的 code-block 直接移除（纯界面壳）。
             code_block.decompose()
             continue
@@ -273,13 +273,21 @@ def _normalize_code_blocks(node) -> None:
             "[class*='code-block-decoration'] span, [class*='code-header'] span"
         )
         lang = (lang_node.get_text(strip=True) if lang_node else "").strip()
-        code = pre.find("code")
+        code = pres[0].find("code")
         if lang and code is not None:
             existing = code.get("class", []) or []
             token = f"language-{lang}"
             if not any(cls.startswith("language-") for cls in existing):
                 code["class"] = [*existing, token]
-        code_block.replace_with(pre)
+        for pre in pres:
+            output = pre.select_one('[data-test-id="code-output-stdout-stderr"]')
+            if output is not None:
+                label = Tag(name="p")
+                label.string = "代码输出"
+                code_block.insert_before(label)
+                output["class"] = ["language-text"]
+            code_block.insert_before(pre)
+        code_block.decompose()
 
 
 def _localize_images(node, image_map) -> None:

@@ -2860,7 +2860,7 @@ def _extract_gemini_document_card_candidates(
             filename = name if not ext or name.lower().endswith(f".{ext}") else f"{name}.{ext}"
         filename = _safe_document_filename(filename)
         lowered = filename.lower()
-        if Path(filename).suffix.lower() not in GEMINI_ATTACHMENT_EXTENSIONS:
+        if Path(filename).suffix.lower() not in GEMINI_ATTACHMENT_EXTENSIONS | {".rar"}:
             continue
         metadata = re.search(
             r"BardVeMetadataKey[:=]([A-Za-z0-9_+/=-]+)",
@@ -4771,6 +4771,19 @@ async def _download_document_candidates(
     resolved: dict[str, str] = {}
     failures: dict[str, int] = {}
     failed_deepseek_names: set[str] = set()
+    for index, (candidate, body, headers, reason) in enumerate(results):
+        if (body is not None
+                and candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
+                and Path(candidate.filename).suffix.lower() == ".rar"):
+            # 原生下载及缓存都要检查，不能将登录页或空响应当作压缩包。
+            if not body:
+                reason = "empty_body"
+            elif len(body) > GUI_DOCUMENT_MAX_BYTES:
+                reason = "too_large"
+            elif not body.startswith((b"Rar!\x1a\x07\x00", b"Rar!\x1a\x07\x01\x00")):
+                reason = "unexpected_type"
+            if reason:
+                results[index] = (candidate, None, headers, reason)
     successful_names = {
         candidate.filename.lower()
         for candidate, body, _headers, _reason in results
@@ -4813,7 +4826,7 @@ async def _download_document_candidates(
             inferred_suffix,
         )
         allowed_extensions = (
-            GEMINI_ATTACHMENT_EXTENSIONS
+            GEMINI_ATTACHMENT_EXTENSIONS | {".rar"}
             if candidate.reference.startswith(GEMINI_CARD_REFERENCE_PREFIX)
             else CHATGPT_ATTACHMENT_EXTENSIONS
             if urlparse(candidate.url).hostname in {"chatgpt.com", "chat.openai.com"}

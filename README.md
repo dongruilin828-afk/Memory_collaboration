@@ -17,8 +17,14 @@ DeepSeek 兼容接口，对文字、图片和可用文档进行多模态分层�
 
 ## 安装
 
-    uv pip install -r requirements.txt
-    playwright install chromium
+先安装 uv，然后在项目根目录执行以下命令，创建 Python 3.11 虚拟环境并安装依赖：
+
+    uv venv --python 3.11
+    uv pip install --python .venv\Scripts\python.exe -r requirements.txt
+    uv run python -m playwright install chromium
+
+首次安装完成后无需激活虚拟环境；下方的 `uv run` 命令会自动使用项目的
+`.venv`。不要跳过创建环境的步骤，否则可能使用系统 Python 并报缺少依赖。
 
 GUI 通过右上角齿轮配置 Gemini、SiliconFlow 或 DeepSeek API KEY，密钥仅保存到当前
 Windows 用户的凭据管理器，不写入源码、配置文件、命令参数、日志、输出文件

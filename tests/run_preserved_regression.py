@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch
 
@@ -39,7 +40,15 @@ def main():
     suite = (loader.loadTestsFromNames(args.tests) if args.tests
              else loader.discover(str(ROOT), pattern="test_*.py"))
     with (args.output / "unittest.txt").open("w", encoding="utf-8") as log:
-        with patch.object(tempfile, "TemporaryDirectory", PreservedDirectory):
+        original_directory = tempfile.TemporaryDirectory
+        with ExitStack() as patches:
+            patches.enter_context(patch.object(tempfile, "TemporaryDirectory", PreservedDirectory))
+            # 测试模块直接 from tempfile import 的别名也要保留，避免退出时递归清理。
+            for module in list(sys.modules.values()):
+                if getattr(module, "__name__", "").split(".")[-1].startswith("test_"):
+                    for name, value in list(vars(module).items()):
+                        if value is original_directory:
+                            patches.enter_context(patch.object(module, name, PreservedDirectory))
             result = unittest.TextTestRunner(stream=log, verbosity=2).run(suite)
     record = {
         "tests_run": result.testsRun,

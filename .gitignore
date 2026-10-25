@@ -1,5 +1,6 @@
 # Python 虚拟环境及字节码
 .venv/
+.uv-cache/
 .browsers/
 release/
 .npm-cache/
