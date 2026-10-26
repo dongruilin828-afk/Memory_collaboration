@@ -5,7 +5,7 @@
 
 ## 🔵 👤 用户提问
 
-![用户附件](./images/img_2_0bfb792d.jpg)
+![已上传的图片](./images/img_62b8b490ed0b8379.jpg)
 
 这几个模型有什么区别
 
@@ -17,7 +17,7 @@
 可以。你截图里的这些模型，**核心区别其实是“模型能力档位 + 速度/成本 + 优先级”**。其中 OpenAI 这几个名字可以比较清楚地理解。
 
 | 模型 | 大致定位 | 能力 | 速度 | 适合 |
-| --- | --- | --- | --- | --- |
+|---|---|---:|---:|---|
 | **GPT-5.6 Sol** | 旗舰 | ⭐⭐⭐⭐⭐ | 较慢 | 复杂推理、科研、编程、难题 |
 | **GPT-5.6 Terra** | 均衡 | ⭐⭐⭐⭐ | 较快 | 日常工作、一般编程、分析 |
 | **GPT-5.6 Luna** | 高性价比/快速 | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 普通问答、简单代码、大量请求 |
@@ -28,9 +28,9 @@
 | **Terra-Priority** | Terra 高优先级 | ⭐⭐⭐⭐ | — | 希望更快、更稳定 |
 | **Luna-Standard** | Luna 普通优先级 | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 快速、低成本任务 |
 
-OpenAI 官方对 GPT-5.6 的定位也是：**Sol 是旗舰、Terra 是能力/成本平衡、Luna 是最快和最便宜**。[OpenAI+1](https://openai.com/index/gpt-5-6/?utm_source=chatgpt.com)
+OpenAI 官方对 GPT-5.6 的定位也是：**Sol 是旗舰、Terra 是能力/成本平衡、Luna 是最快和最便宜**。[GPT-5.6: Frontier intelligence that scales with your ambition | OpenAI](https://openai.com/index/gpt-5-6/?utm_source=chatgpt.com) [ChatGPT 中的 GPT-5.6 和 GPT-6 Pro | OpenAI Help Center](https://help.openai.com/zh-hans-cn/articles/20001354-gpt-56-and-gpt-6-pro-in-chatgpt?utm_source=chatgpt.com)
 
-### 你截图中的 Standard 和 Priority 是什么？
+### 你截图中的 `Standard` 和 `Priority` 是什么？
 
 这个要特别注意：
 
@@ -38,8 +38,8 @@ OpenAI 官方对 GPT-5.6 的定位也是：**Sol 是旗舰、Terra 是能力/成
 
 例如：
 
-> GPT-5.6-Terra-Standard  
-> GPT-5.6-Terra-Priority
+> `GPT-5.6-Terra-Standard`  
+> `GPT-5.6-Terra-Priority`
 
 底层都是 **GPT-5.6 Terra**，主要区别在于**调用优先级/服务等级**。
 
@@ -49,13 +49,13 @@ OpenAI 官方对 GPT-5.6 的定位也是：**Sol 是旗舰、Terra 是能力/成
 
 同理：
 
-* Sol-Standard / Sol-Priority → 都是 Sol
-* Terra-Standard / Terra-Priority → 都是 Terra
-* Luna-Standard → Luna
+- Sol-Standard / Sol-Priority → 都是 Sol
+- Terra-Standard / Terra-Priority → 都是 Terra
+- Luna-Standard → Luna
 
 你截图里的：
 
-```
+```text
 custom-model-b6-standard
 custom-model-b6-priority
 custom-model-b7-standard
@@ -75,14 +75,14 @@ custom-model-b8-standard
 
 如果任务是：
 
-* 数学建模
-* 推导复杂公式
-* 查论文并分析方法
-* Python/MATLAB 建模
-* 优化算法
-* 复杂数据分析
-* 写论文
-* 多步骤推理
+- 数学建模
+- 推导复杂公式
+- 查论文并分析方法
+- Python/MATLAB 建模
+- 优化算法
+- 复杂数据分析
+- 写论文
+- 多步骤推理
 
 👉 **Sol 最值得用。**
 
@@ -94,15 +94,15 @@ custom-model-b8-standard
 
 如果只是：
 
-* 改代码
-* 翻译
-* 总结
-* 普通问答
-* 简单写作
+- 改代码
+- 翻译
+- 总结
+- 普通问答
+- 简单写作
 
 👉 **Luna 就够了。**
 
-Google 的 Gemini 3.7 Flash 则比较特殊，它支持文本、图片、音频、视频和 PDF，并且上下文最高约 1M token，同时支持不同级别的思考。[Google DeepMind+1](https://deepmind.google/models/model-cards/gemini-3-7-flash/?utm_source=chatgpt.com)
+Google 的 Gemini 3.7 Flash 则比较特殊，它支持文本、图片、音频、视频和 PDF，并且上下文最高约 1M token，同时支持不同级别的思考。[Gemini 3.7 Flash - Model Card — Google DeepMind](https://deepmind.google/models/model-cards/gemini-3-7-flash/?utm_source=chatgpt.com) [Gemini 3.7 Flash  |  Gemini API  |  Google AI for Developers](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash?hl=zh-CN&utm_source=chatgpt.com)
 
 **一句话记忆：**
 

@@ -5,7 +5,7 @@
 
 ## 🔵 👤 用户提问
 
-![用户附件](./images/img_2_beb13246.png)
+![已上传的图片](./images/img_f42897f4c728573f.png)
 
 解释一下数据成员
 
@@ -14,95 +14,79 @@
 
 ## 🟣 🤖 AI 回答
 
-当然可以。你这张图里的\*\*“数据成员”\*\*，可以把它简单理解成：
+当然可以。你这张图里的**“数据成员”**，可以把它简单理解成：
 
 > **数据成员 = 对象用来“存数据”的变量。**
 
 它和“方法”最大的区别就是：
 
-* **数据成员：描述对象“有什么 / 是什么状态”**
-* **方法：描述对象“能做什么”**
+- **数据成员：描述对象“有什么 / 是什么状态”**
+- **方法：描述对象“能做什么”**
 
 ### 1. 举个最简单的例子
 
 假设我们定义一个“学生”类：
 
-Python
-
-运行
-
+```python
 class Student:
+    name = "张三"
+    age = 18
 
-name = "张三"
-
-age = 18
-
-def study(self):
-
-print("正在学习")
+    def study(self):
+        print("正在学习")
+```
 
 这里：
 
-Python
-
-运行
-
+```python
 name = "张三"
-
 age = 18
+```
 
 就是**数据成员**。
 
 而：
 
-Python
-
-运行
-
+```python
 def study(self):
-
-print("正在学习")
+    print("正在学习")
+```
 
 就是**方法**。
 
 所以可以理解成：
 
 | 类的组成 | 作用 | Student中的例子 |
-| --- | --- | --- |
-| 数据成员 | 存储数据 | name、age |
-| 方法 | 执行操作 | study() |
+|---|---|---|
+| 数据成员 | 存储数据 | `name`、`age` |
+| 方法 | 执行操作 | `study()` |
 
 ---
 
 ### 2. 为什么叫“成员”？
 
-因为 name、age 都是 **Student 类的成员**。
+因为 `name`、`age` 都是 **Student 类的成员**。
 
 例如：
 
-Python
-
-运行
-
+```python
 s1 = Student()
+```
 
-这里 s1 是一个 Student 对象。
+这里 `s1` 是一个 Student 对象。
 
 那么：
 
-Python
-
-运行
-
+```python
 s1.name
-
 s1.age
+```
 
 就是在访问这个对象的数据。
 
 可以想象成：
 
-```
+```text
 Student 类
 │
 ├── 数据成员
@@ -121,31 +105,27 @@ Student 类
 
 例如定义一个“汽车”类：
 
-Python
-
-运行
-
+```python
 class Car:
-
-color = "red"
-
-speed = 0
+    color = "red"
+    speed = 0
+```
 
 这里：
 
-* color → 汽车是什么颜色
-* speed → 汽车当前速度
+- `color` → 汽车是什么颜色
+- `speed` → 汽车当前速度
 
 它们都是汽车对象的**数据成员**。
 
 然后方法：
 
-```
+```python
 def accelerate(self):
     self.speed += 10
 ```
 
-就是改变数据成员 speed。
+就是改变数据成员 `speed`。
 
 所以：
 
@@ -165,15 +145,12 @@ def accelerate(self):
 
 属于**整个类**，所有对象通常共享。
 
-Python
-
-运行
-
+```python
 class Student:
+    school = "复旦大学"
+```
 
-school = "复旦大学"
-
-school 就可以作为类变量。
+`school` 就可以作为类变量。
 
 #### 实例变量
 
@@ -181,31 +158,23 @@ school 就可以作为类变量。
 
 例如：
 
-Python
-
-运行
-
+```python
 class Student:
-
-def \_\_init\_\_(self, name, age):
-
-self.name = name
-
-self.age = age
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+```
 
 创建两个学生：
 
-Python
-
-运行
-
+```python
 s1 = Student("张三", 18)
-
 s2 = Student("李四", 20)
+```
 
 那么：
 
-```
+```text
 s1
 ├── name = 张三
 └── age = 18
@@ -215,7 +184,7 @@ s2
 └── age = 20
 ```
 
-name 和 age 就是**实例变量**，也属于数据成员。
+`name` 和 `age` 就是**实例变量**，也属于数据成员。
 
 ---
 
@@ -228,7 +197,7 @@ name 和 age 就是**实例变量**，也属于数据成员。
 
 例如：
 
-```
+```text
 学生类 Student
 
 数据成员：
@@ -266,29 +235,26 @@ name 和 age 就是**实例变量**，也属于数据成员。
 
 比如我们定义一个类：
 
-```
+```python
 class Student:
     pass
 ```
 
-Student 是一个**类**，它相当于一个“模板”。
+`Student` 是一个**类**，它相当于一个“模板”。
 
 然后：
 
-Python
-
-运行
-
+```python
 s1 = Student()
-
 s2 = Student()
+```
 
 这里：
 
-* Student → **类**
-* s1 → Student 类的一个**实例**
-* s2 → Student 类的另一个**实例**
-* s1、s2 → **都是对象**
+- `Student` → **类**
+- `s1` → `Student` 类的一个**实例**
+- `s2` → `Student` 类的另一个**实例**
+- `s1`、`s2` → **都是对象**
 
 也就是说：
 
@@ -300,7 +266,7 @@ s2 = Student()
 
 把“类”想成**汽车设计图**：
 
-```
+```text
 汽车类（Class）
      ↓
    生产
@@ -320,24 +286,22 @@ s2 = Student()
 
 因为二者强调的角度稍微不同：
 
-* **对象（Object）**：强调“这是一个实际存在的东西”
-* **实例（Instance）**：强调“这个对象是哪个类的实例”
+- **对象（Object）**：强调“这是一个实际存在的东西”
+- **实例（Instance）**：强调“这个对象是哪个类的实例”
 
 例如：
 
-Python
-
-运行
-
+```python
 s1 = Student()
+```
 
 可以说：
 
-> s1 是一个**对象**。
+> `s1` 是一个**对象**。
 
 也可以说：
 
-> s1 是 Student 类的一个**实例**。
+> `s1` 是 `Student` 类的一个**实例**。
 
 两种说法都对。
 
@@ -369,7 +333,7 @@ s1 = Student()
 
 ### 先看一个例子
 
-```
+```python
 class Student:
     school = "复旦大学"       # 类变量
 
@@ -385,60 +349,49 @@ class Student:
 这里有三种变量：
 
 | 类型 | 例子 | 属于谁 | 定义在哪里 |
-| --- | --- | --- | --- |
-| **类变量** | school | 类 | 类里面、方法外面 |
-| **实例变量** | self.name、self.age | 某个对象 | 通常在方法里通过 self.xxx 定义 |
-| **局部变量** | hours | 某个方法/函数 | 方法/函数内部 |
+|---|---|---|---|
+| **类变量** | `school` | 类 | 类里面、方法外面 |
+| **实例变量** | `self.name`、`self.age` | 某个对象 | 通常在方法里通过 `self.xxx` 定义 |
+| **局部变量** | `hours` | 某个方法/函数 | 方法/函数内部 |
 
 ---
 
 ## ① 类变量：整个类共有
 
-Python
-
-运行
-
+```python
 class Student:
+    school = "复旦大学"
+```
 
-school = "复旦大学"
+`school` 是**类变量**。
 
-school 是**类变量**。
-
-因为它属于 Student 这个类。
+因为它属于 `Student` 这个类。
 
 可以这样访问：
 
-Python
-
-运行
-
+```python
 Student.school
+```
 
 创建两个学生：
 
-Python
-
-运行
-
+```python
 s1 = Student()
-
 s2 = Student()
+```
 
 通常它们都可以访问：
 
-Python
-
-运行
-
+```python
 s1.school
-
 s2.school
+```
 
 因为学校这个信息是所有 Student **共同的**。
 
 可以想象：
 
-```
+```text
 Student 类
 │
 └── school = "复旦大学"
@@ -453,31 +406,23 @@ Student 类
 
 例如：
 
-Python
-
-运行
-
+```python
 class Student:
-
-def \_\_init\_\_(self, name, age):
-
-self.name = name
-
-self.age = age
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+```
 
 创建两个对象：
 
-Python
-
-运行
-
+```python
 s1 = Student("张三", 18)
-
 s2 = Student("李四", 20)
+```
 
 那么：
 
-```
+```text
 s1
 ├── name = "张三"
 └── age = 18
@@ -487,19 +432,16 @@ s2
 └── age = 20
 ```
 
-name 和 age 就是**实例变量**。
+`name` 和 `age` 就是**实例变量**。
 
 因为它们属于**具体的对象**，每个对象可以有不同的值。
 
 所以：
 
-Python
-
-运行
-
-s1.name # 张三
-
-s2.name # 李四
+```python
+s1.name   # 张三
+s2.name   # 李四
+```
 
 这就是实例变量最重要的特点：
 
@@ -511,38 +453,33 @@ s2.name # 李四
 
 例如：
 
-Python
-
-运行
-
+```python
 class Student:
-
-def study(self):
-
-hours = 2
-
-print(hours)
+    def study(self):
+        hours = 2
+        print(hours)
+```
 
 这里：
 
-```
+```python
 hours = 2
 ```
 
 就是**局部变量**。
 
-它只在 study() 方法执行期间使用。
+它只在 `study()` 方法执行期间使用。
 
 例如：
 
-```
+```python
 s = Student()
 s.study()
 ```
 
-执行 study()：
+执行 `study()`：
 
-```
+```text
 study() 开始
     ↓
 hours = 2
@@ -556,13 +493,11 @@ hours 不再存在
 
 所以不能在外面直接：
 
-Python
+```python
+print(hours)  # 错误
+```
 
-运行
-
-print(hours) # 错误
-
-因为 hours 是 study() 的**局部变量**。
+因为 `hours` 是 `study()` 的**局部变量**。
 
 ---
 
@@ -570,13 +505,13 @@ print(hours) # 错误
 
 你可以用下面这个表记：
 
-|  | 类变量 | 实例变量 | 局部变量 |
-| --- | --- | --- | --- |
+| | 类变量 | 实例变量 | 局部变量 |
+|---|---|---|---|
 | **属于** | 类 | 对象 | 方法/函数 |
-| **定义位置** | 类中、方法外 | 通常方法中 self.xxx | 方法/函数内部 |
+| **定义位置** | 类中、方法外 | 通常方法中 `self.xxx` | 方法/函数内部 |
 | **是否每个对象独立** | ❌ 通常共享 | ✅ 独立 | ❌ 不属于对象 |
 | **生命周期** | 类存在期间 | 对象存在期间 | 方法执行期间 |
-| **典型写法** | school = ... | self.name = ... | x = ... |
+| **典型写法** | `school = ...` | `self.name = ...` | `x = ...` |
 
 ---
 
@@ -588,25 +523,20 @@ print(hours) # 错误
 
 比如一个学生类：
 
-Python
-
-运行
-
+```python
 class Student:
+    school = "复旦大学"       # 类变量：大家的学校一样
 
-school = "复旦大学" # 类变量：大家的学校一样
+    def __init__(self, name):
+        self.name = name      # 实例变量：每个人名字不同
 
-def \_\_init\_\_(self, name):
-
-self.name = name # 实例变量：每个人名字不同
-
-def study(self):
-
-hours = 2 # 局部变量：这次学习临时使用
+    def study(self):
+        hours = 2             # 局部变量：这次学习临时使用
+```
 
 你可以把它理解成：
 
-```
+```text
               Student 类
                   │
           ┌───────┴───────┐
@@ -623,7 +553,7 @@ hours = 2 # 局部变量：这次学习临时使用
               局部变量      局部变量
 ```
 
-**尤其注意：self.name 是实例变量，而单纯的 name 如果写在方法内部，则通常是局部变量。** 这个区别在 Python 面向对象里非常重要。
+**尤其注意：`self.name` 是实例变量，而单纯的 `name` 如果写在方法内部，则通常是局部变量。** 这个区别在 Python 面向对象里非常重要。
 
 
 <hr style="border: 0; border-top: 5px solid #2563EB; margin: 48px 0 24px 0;">
@@ -637,11 +567,11 @@ hours = 2 # 局部变量：这次学习临时使用
 
 ## 🟣 🤖 AI 回答
 
-可以。这次我用\*\*“属于谁”\*\*这个角度给你彻底区分，最容易记。
+可以。这次我用**“属于谁”**这个角度给你彻底区分，最容易记。
 
 先看一个例子：
 
-```
+```python
 class Student:
     school = "复旦大学"       # 类变量
 
@@ -660,52 +590,44 @@ class Student:
 
 ## 1. 类变量：属于“类”
 
-```
+```python
 class Student:
     school = "复旦大学"
 ```
 
-school 是**类变量**。
+`school` 是**类变量**。
 
-它属于 Student 这个类，而不是某一个具体学生。
+它属于 `Student` 这个类，而不是某一个具体学生。
 
 例如：
 
-Python
-
-运行
-
+```python
 Student.school
+```
 
 可以访问。
 
 创建：
 
-Python
-
-运行
-
+```python
 s1 = Student("张三", 18)
-
 s2 = Student("李四", 20)
+```
 
-那么 s1、s2 都可以使用 school：
+那么 `s1`、`s2` 都可以使用 `school`：
 
-Python
-
-运行
-
+```python
 s1.school
-
 s2.school
+```
 
 因为：
 
-> **所有 Student 通常共享同一个类变量 school。**
+> **所有 Student 通常共享同一个类变量 `school`。**
 
 可以理解成：
 
-```
+```text
 Student 类
    │
    └── school = "复旦大学"
@@ -720,27 +642,19 @@ Student 类
 
 看：
 
-Python
-
-运行
-
+```python
 class Student:
-
-def \_\_init\_\_(self, name, age):
-
-self.name = name
-
-self.age = age
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+```
 
 这里的：
 
-Python
-
-运行
-
+```python
 self.name
-
 self.age
+```
 
 是**实例变量**。
 
@@ -750,17 +664,14 @@ self.age
 
 例如：
 
-Python
-
-运行
-
+```python
 s1 = Student("张三", 18)
-
 s2 = Student("李四", 20)
+```
 
 实际上相当于：
 
-```
+```text
 s1 对象
 ├── name = "张三"
 └── age = 18
@@ -772,12 +683,12 @@ s2 对象
 
 所以：
 
-```
+```python
 s1.name  # 张三
 s2.name  # 李四
 ```
 
-两个对象各自拥有自己的 name。
+两个对象各自拥有自己的 `name`。
 
 因此最重要的一句话：
 
@@ -789,45 +700,34 @@ s2.name  # 李四
 
 看：
 
-Python
-
-运行
-
+```python
 def study(self):
-
-hours = 2
+    hours = 2
+```
 
 这里：
 
-Python
-
-运行
-
+```python
 hours = 2
+```
 
 是**局部变量**。
 
-它只在 study() 这个方法里面有效。
+它只在 `study()` 这个方法里面有效。
 
-Python
-
-运行
-
+```python
 def study(self):
+    hours = 2
+    print(hours)
+```
 
-hours = 2
-
-print(hours)
-
-当 study() 执行结束后，这个 hours 的局部作用域也结束了。
+当 `study()` 执行结束后，这个 `hours` 的局部作用域也结束了。
 
 所以外面不能直接：
 
-Python
-
-运行
-
-print(hours) # 错误
+```python
+print(hours)  # 错误
+```
 
 因此：
 
@@ -837,11 +737,11 @@ print(hours) # 错误
 
 # 三者放在一起
 
-|  | 类变量 | 实例变量 | 局部变量 |
-| --- | --- | --- | --- |
+| | 类变量 | 实例变量 | 局部变量 |
+|---|---|---|---|
 | **属于谁？** | 类 | 对象 | 函数/方法 |
-| **例子** | school | self.name | hours |
-| **定义位置** | 类中、方法外 | 通常在方法中用 self.xxx | 方法/函数内部 |
+| **例子** | `school` | `self.name` | `hours` |
+| **定义位置** | 类中、方法外 | 通常在方法中用 `self.xxx` | 方法/函数内部 |
 | **每个对象是否独立？** | ❌ 通常共享 | ✅ 独立 | 不属于对象 |
 | **作用范围** | 整个类 | 某个对象 | 当前函数/方法 |
 | **典型用途** | 所有对象共有的信息 | 每个对象自己的信息 | 临时计算 |
@@ -858,7 +758,7 @@ print(hours) # 错误
 
 比如：
 
-```
+```python
 class Student:
     school = "复旦大学"       # 类变量：大家共有
 
@@ -871,7 +771,7 @@ class Student:
 
 对应：
 
-```
+```text
                  Student 类
                      │
             school = 复旦大学
@@ -893,37 +793,29 @@ class Student:
 
 看到：
 
-Python
-
-运行
-
+```python
 self.xxx
+```
 
 **优先想到“实例变量”。**
 
 看到：
 
-Python
-
-运行
-
+```python
 class Student:
-
-xxx = ...
+    xxx = ...
+```
 
 而且是在**方法外面**，优先想到**类变量**。
 
 看到：
 
-Python
-
-运行
-
+```python
 def xxx():
+    yyy = ...
+```
 
-yyy = ...
-
-那么 yyy 通常就是**局部变量**。
+那么 `yyy` 通常就是**局部变量**。
 
 **核心就是三个“属于”：**
 
@@ -943,15 +835,13 @@ yyy = ...
 
 ## 🟣 🤖 AI 回答
 
-当然。\*\*Python 之禅（The Zen of Python）\*\*是 Python 设计哲学的一组原则，一共 **19 条**，由 Tim Peters 总结。
+当然。**Python 之禅（The Zen of Python）**是 Python 设计哲学的一组原则，一共 **19 条**，由 Tim Peters 总结。
 
 在 Python 中输入：
 
-Python
-
-运行
-
+```python
 import this
+```
 
 就会看到它。
 
@@ -959,7 +849,7 @@ import this
 
 ## 一、Python 之禅全文
 
-```
+```text
 The Zen of Python, by Tim Peters
 
 Beautiful is better than ugly.
@@ -997,19 +887,15 @@ Namespaces are one honking great idea -- let's do more of those!
 
 例如：
 
-Python
-
-运行
-
+```python
 x=[1,2,3,4,5]
+```
 
 相比：
 
-Python
-
-运行
-
+```python
 x = [1, 2, 3, 4, 5]
+```
 
 后者更符合 Python 的代码风格。
 
@@ -1023,7 +909,7 @@ Python 希望代码的含义尽可能清楚。
 
 例如：
 
-```
+```python
 result = a + b
 ```
 
@@ -1043,11 +929,9 @@ result = a + b
 
 例如：
 
-Python
-
-运行
-
+```python
 total = sum(numbers)
+```
 
 如果能这样解决，就没必要自己写一大堆循环。
 
@@ -1059,11 +943,11 @@ total = sum(numbers)
 
 这里比较容易混淆。
 
-\*\*Complex（复杂）\*\*和 \*\*Complicated（繁琐、难以理解）\*\*不是完全一样。
+**Complex（复杂）**和 **Complicated（繁琐、难以理解）**不是完全一样。
 
 例如：
 
-```
+```text
 复杂：
 问题本身很复杂，但代码结构清楚。
 
@@ -1089,41 +973,30 @@ Python 并不是说：
 
 例如：
 
-Python
-
-运行
-
+```python
 if a:
-
-if b:
-
-if c:
-
-if d:
-
-do\_something()
+    if b:
+        if c:
+            if d:
+                do_something()
+```
 
 这种代码很难读。
 
 Python 更鼓励通过提前返回等方式减少嵌套：
 
-Python
-
-运行
-
+```python
 if not a:
-
-return
+    return
 
 if not b:
-
-return
+    return
 
 if not c:
+    return
 
-return
-
-do\_something()
+do_something()
+```
 
 这样结构更加清楚。
 
@@ -1137,13 +1010,10 @@ do\_something()
 
 例如：
 
-Python
-
-运行
-
+```python
 if age >= 18:
-
-print("adult")
+    print("adult")
+```
 
 比把大量逻辑压缩到一行更容易阅读。
 
@@ -1163,15 +1033,13 @@ print("adult")
 
 例如：
 
-Python
-
-运行
-
-student\_age = 18
+```python
+student_age = 18
+```
 
 明显比：
 
-```
+```python
 sa = 18
 ```
 
@@ -1205,7 +1073,7 @@ Python 并不是一个“为了理论完美而牺牲实际使用”的语言。
 
 如果：
 
-```
+```text
 理论上最优的方法
         ↓
 但是特别难用
@@ -1213,7 +1081,7 @@ Python 并不是一个“为了理论完美而牺牲实际使用”的语言。
 
 而：
 
-```
+```text
 稍微没那么“纯粹”
         ↓
 但是非常实用
@@ -1233,33 +1101,23 @@ Python 通常会倾向于后者。
 
 这也是为什么 Python 经常使用：
 
-Python
-
-运行
-
+```python
 try:
-
-...
-
+    ...
 except Exception as e:
-
-print(e)
+    print(e)
+```
 
 来明确处理异常。
 
 而不是：
 
-Python
-
-运行
-
+```python
 try:
-
-...
-
+    ...
 except:
-
-pass
+    pass
+```
 
 后者可能把真正的问题直接吞掉。
 
@@ -1277,17 +1135,12 @@ pass
 
 例如：
 
-Python
-
-运行
-
+```python
 try:
-
-os.remove("test.txt")
-
+    os.remove("test.txt")
 except FileNotFoundError:
-
-pass
+    pass
+```
 
 这里明确告诉 Python：
 
@@ -1305,7 +1158,7 @@ pass
 
 如果程序无法确定用户想要什么：
 
-```
+```text
 A？
 还是 B？
 ```
@@ -1342,7 +1195,7 @@ Python 希望：
 
 很好理解：
 
-```
+```text
 开始做
     ↓
 逐渐改进
@@ -1350,7 +1203,7 @@ Python 希望：
 
 通常比：
 
-```
+```text
 等到完美
     ↓
 一直没开始
@@ -1426,27 +1279,22 @@ Python 希望：
 
 例如：
 
-Python
-
-运行
-
+```python
 math.sqrt()
+```
 
-这里 math 就提供了一个命名空间。
+这里 `math` 就提供了一个命名空间。
 
 不同模块可以拥有相同名字的变量：
 
-Python
-
-运行
-
-module\_a.name
-
-module\_b.name
+```python
+module_a.name
+module_b.name
+```
 
 它们不会轻易发生冲突。
 
-Python 非常重视这种\*\*命名空间（Namespace）\*\*的思想。
+Python 非常重视这种**命名空间（Namespace）**的思想。
 
 ---
 

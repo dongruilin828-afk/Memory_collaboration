@@ -5,7 +5,7 @@
 
 ## 🔵 👤 用户提问
 
-![用户附件](./images/img_3_9979fdc5.png)
+![已上传的图片](./images/img_d31557e023b90de7.png)
 
 他说的对吗
 
@@ -19,15 +19,15 @@
 我查了一下目前 Windows 微信 4.x 的目录结构和相关资料，结论如下：
 
 | 目录 | 图中说法 | 我的判断 |
-| --- | --- | --- |
-| radium | 小程序运行环境/网页缓存，可删除 | ✅ **基本正确** |
-| xplugin | 插件、OCR、视频解码等，删除后会重新下载 | ⚠️ **基本正确，但不建议无脑整个删除** |
-| log | 运行日志，可以删除 | ✅ **基本正确** |
+|---|---|---|
+| `radium` | 小程序运行环境/网页缓存，可删除 | ✅ **基本正确** |
+| `xplugin` | 插件、OCR、视频解码等，删除后会重新下载 | ⚠️ **基本正确，但不建议无脑整个删除** |
+| `log` | 运行日志，可以删除 | ✅ **基本正确** |
 | 删除后重新下载几十 MB | 基本正确 | ✅ |
 | 三个加起来一定能释放 2.7GB | ❌ | **取决于你的电脑，不能保证** |
 | “这三个文件夹全部都可以删” | ⚠️ | **需要区分目录和内容** |
 
-目前能观察到的 Windows 微信 4.x 结构中，%APPDATA%\Tencent\xwechat 确实包含 radium、xplugin、log 等目录；其中 radium 与小程序运行时有关，xplugin 下包含 RadiumWMPF、OCR、播放器等插件。[Wener Live & Life+1](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
+目前能观察到的 Windows 微信 4.x 结构中，`%APPDATA%\Tencent\xwechat` 确实包含 `radium`、`xplugin`、`log` 等目录；其中 `radium` 与小程序运行时有关，`xplugin` 下包含 `RadiumWMPF`、OCR、播放器等插件。[WeChat Inside | Wener Live & Life](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com) [微信Windows端插件路径 - Cahcn的资料库](https://n233.netlify.app/post/2025-12-19-wechat/?utm_source=chatgpt.com)
 
 ### 最重要的一点
 
@@ -35,15 +35,15 @@
 
 现在微信 4.x 的核心用户数据通常在：
 
-```
+```text
 %USERPROFILE%\xwechat_files
 ```
 
-里面可能包含聊天数据库、聊天附件、图片、视频、文件等。**这个目录千万不要因为看到占空间就整个删除。** [Wener Live & Life](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
+里面可能包含聊天数据库、聊天附件、图片、视频、文件等。**这个目录千万不要因为看到占空间就整个删除。** [WeChat Inside | Wener Live & Life](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
 
 而你图片里这几个：
 
-```
+```text
 %APPDATA%\Tencent\xwechat\radium
 %APPDATA%\Tencent\xwechat\xplugin
 %APPDATA%\Tencent\xwechat\log
@@ -57,27 +57,27 @@
 
 **1. 完全退出微信**
 
-不只是关窗口，要确认任务栏右下角微信也退出，必要时任务管理器确认没有 Weixin.exe / 微信相关进程。
+不只是关窗口，要确认任务栏右下角微信也退出，必要时任务管理器确认没有 `Weixin.exe` / 微信相关进程。
 
-**2. 优先清 log**
+**2. 优先清 `log`**
 
 这个基本没什么问题：
 
-```
+```text
 %APPDATA%\Tencent\xwechat\log
 ```
 
 日志本身可以重新生成。
 
-**3. radium 可以清，但代价是小程序重新下载**
+**3. `radium` 可以清，但代价是小程序重新下载**
 
-它主要对应小程序/运行时缓存。删除后，第一次重新打开小程序时重新生成缓存是正常的。[Wener Live & Life+1](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
+它主要对应小程序/运行时缓存。删除后，第一次重新打开小程序时重新生成缓存是正常的。[WeChat Inside | Wener Live & Life](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com) [微信PC版4.0数据目录结构详解——每个文件夹干什么、哪些能删、哪些不能动 - PC修复电脑医生 - 企业博客](https://www.cnblogs.com/pcdoctor/p/20306673?utm_source=chatgpt.com)
 
-**4. xplugin 要谨慎一点**
+**4. `xplugin` 要谨慎一点**
 
-它确实是插件体系，里面可以有 OCR、播放器、小程序运行时等组件，而且旧版本插件可能长期残留，占用不少空间。[Wener Live & Life+1](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
+它确实是插件体系，里面可以有 OCR、播放器、小程序运行时等组件，而且旧版本插件可能长期残留，占用不少空间。[WeChat Inside | Wener Live & Life](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com) [微信Windows端插件路径 - Cahcn的资料库](https://n233.netlify.app/post/2025-12-19-wechat/?utm_source=chatgpt.com)
 
-删除后重新下载插件是可能发生的，甚至有资料明确把删除 XPlugin 作为微信小程序故障排查手段。[腾讯云开发者平台+1](https://developer.cloud.tencent.com.cn/article/2369961?utm_source=chatgpt.com)
+删除后重新下载插件是可能发生的，甚至有资料明确把删除 `XPlugin` 作为微信小程序故障排查手段。[微信PC端小程序无法加载数据-腾讯云开发者社区-腾讯云](https://developer.cloud.tencent.com.cn/article/2369961?utm_source=chatgpt.com) [微信PC端小程序无法加载数据-腾讯云开发者社区-腾讯云](https://cloud.tencent.com/developer/article/2370398?utm_source=chatgpt.com)
 
 所以：
 
@@ -87,17 +87,17 @@
 
 ### 我给你的建议
 
-如果你的目的只是\*\*“微信占了好几个 GB，想安全清理”\*\*，不要直接照图里的“一键全删”。
+如果你的目的只是**“微信占了好几个 GB，想安全清理”**，不要直接照图里的“一键全删”。
 
 你可以先把这三个目录的**实际大小和里面的文件夹结构**发给我，我可以帮你判断：
 
-```
+```text
 radium：xxx GB
 xplugin：xxx GB
 log：xxx GB
 ```
 
-尤其是如果 xplugin 有 **几百 MB～几个 GB**，我可以进一步告诉你**里面哪些子文件夹可以删、哪些最好保留**。
+尤其是如果 `xplugin` 有 **几百 MB～几个 GB**，我可以进一步告诉你**里面哪些子文件夹可以删、哪些最好保留**。
 
 **另外，这张图最后一句“完美甩掉近 2.7GB 历史包袱”并不是普遍结论**——如果你电脑上这三个目录只有 500 MB，那么删完当然不可能凭空得到 2.7 GB。🙂
 
@@ -106,7 +106,7 @@ log：xxx GB
 
 ## 🔵 👤 用户提问
 
-![用户附件](./images/img_4_14590894.png)
+![已上传的图片](./images/img_e8f77f62a4bee0ae.png)
 
 他说得对吗
 
@@ -115,35 +115,35 @@ log：xxx GB
 
 ## 🟣 🤖 AI 回答
 
-这张图**核心方向基本对，但“可以直接把整个 XPlugin 文件夹删掉，900 MB 白嫖回来”这个说法不够严谨**。
+这张图**核心方向基本对，但“可以直接把整个 `XPlugin` 文件夹删掉，900 MB 白嫖回来”这个说法不够严谨**。
 
-我查了目前 Windows 微信的小程序运行环境资料。RadiumWMPF 确实是微信 PC 端小程序运行环境的一部分，而且现在的微信版本仍会在类似下面的位置使用它：
+我查了目前 Windows 微信的小程序运行环境资料。`RadiumWMPF` 确实是微信 PC 端小程序运行环境的一部分，而且现在的微信版本仍会在类似下面的位置使用它：
 
-```
+```text
 %APPDATA%\Tencent\xwechat\xplugin\Plugins\RadiumWMPF\<版本号>\...
 ```
 
-不同资料都能看到 RadiumWMPF 下按版本号保存运行组件；在较新的微信 4.x 中也是如此。[GitHub+2](https://github.com/eeeeeeeeee-code/e0e1-wx/blob/master/tools.md?utm_source=chatgpt.com)
+不同资料都能看到 `RadiumWMPF` 下按版本号保存运行组件；在较新的微信 4.x 中也是如此。[e0e1-wx/tools.md at master · eeeeeeeeee-code/e0e1-wx · GitHub](https://github.com/eeeeeeeeee-code/e0e1-wx/blob/master/tools.md?utm_source=chatgpt.com) [WMPFDebugger/ADAPTATION.md at main · evi0s/WMPFDebugger · GitHub](https://github.com/evi0s/WMPFDebugger/blob/main/ADAPTATION.md?utm_source=chatgpt.com) [GitHub - evi0s/WMPFDebugger: Yet another WeChat Mini-Program Framework (WMPF) debugger · GitHub](https://github.com/evi0s/WMPFDebugger?utm_source=chatgpt.com)
 
 ### 逐条判断
 
-**“RadiumWMPF 是老版微信小程序运行框架缓存”**
+**“`RadiumWMPF` 是老版微信小程序运行框架缓存”**
 
 ✅ **基本正确。**
 
-不过说成“老版”容易让人误解成“现在已经不用了”。实际上现在的微信 PC 端仍然使用 WMPF/RadiumWMPF 相关运行环境，只是具体版本号会随着微信更新变化。[GitHub+1](https://github.com/evi0s/WMPFDebugger/blob/main/ADAPTATION.md?utm_source=chatgpt.com)
+不过说成“老版”容易让人误解成“现在已经不用了”。实际上现在的微信 PC 端仍然使用 WMPF/RadiumWMPF 相关运行环境，只是具体版本号会随着微信更新变化。[WMPFDebugger/ADAPTATION.md at main · evi0s/WMPFDebugger · GitHub](https://github.com/evi0s/WMPFDebugger/blob/main/ADAPTATION.md?utm_source=chatgpt.com) [Support for WMPF version 19881 · Issue #218 · evi0s/WMPFDebugger · GitHub](https://github.com/evi0s/WMPFDebugger/issues/218?utm_source=chatgpt.com)
 
 ---
 
-**“可以直接把整个 XPlugin 文件夹删掉”**
+**“可以直接把整个 `XPlugin` 文件夹删掉”**
 
 ⚠️ **可以作为清理/故障排查手段，但不建议把它说成无条件安全。**
 
-确实有第三方工具直接删除 RadiumWMPF 下旧版本目录的做法，也有资料把删除 WMPF 目录作为重新生成运行环境的办法。[GitHub+1](https://github.com/r3x5ur/RadiumWMPFInstaller/blob/master/rwmpf.py?utm_source=chatgpt.com)
+确实有第三方工具直接删除 `RadiumWMPF` 下旧版本目录的做法，也有资料把删除 WMPF 目录作为重新生成运行环境的办法。[RadiumWMPFInstaller/rwmpf.py at master · r3x5ur/RadiumWMPFInstaller · GitHub](https://github.com/r3x5ur/RadiumWMPFInstaller/blob/master/rwmpf.py?utm_source=chatgpt.com) [GitHub - waydone/first: WMPFDebugger 二开微信小程序多功能集成工具 · GitHub](https://github.com/waydone/first/?utm_source=chatgpt.com)
 
 但注意：
 
-```
+```text
 XPlugin
 └── Plugins
     └── RadiumWMPF
@@ -156,7 +156,7 @@ XPlugin
 
 因此更准确的说法应该是：
 
-> **退出微信后，可以清理 RadiumWMPF 中的旧版本/缓存；删除后微信可能重新下载或重建当前运行环境。**
+> **退出微信后，可以清理 `RadiumWMPF` 中的旧版本/缓存；删除后微信可能重新下载或重建当前运行环境。**
 
 而不是：
 
@@ -168,7 +168,7 @@ XPlugin
 
 ✅ **这个逻辑是成立的。**
 
-WMPF 本身需要随微信版本匹配；相关资料也显示，新的 WMPF 可以随新版微信安装包重新提供/更新，所以删除后重新启动或使用小程序时出现重新下载/重新生成是符合其工作方式的。[GitHub+1](https://github.com/r3x5ur/RadiumWMPFInstaller/blob/master/rwmpf.py?utm_source=chatgpt.com)
+WMPF 本身需要随微信版本匹配；相关资料也显示，新的 WMPF 可以随新版微信安装包重新提供/更新，所以删除后重新启动或使用小程序时出现重新下载/重新生成是符合其工作方式的。[RadiumWMPFInstaller/rwmpf.py at master · r3x5ur/RadiumWMPFInstaller · GitHub](https://github.com/r3x5ur/RadiumWMPFInstaller/blob/master/rwmpf.py?utm_source=chatgpt.com) [GitHub - evi0s/WMPFDebugger: Yet another WeChat Mini-Program Framework (WMPF) debugger · GitHub](https://github.com/evi0s/WMPFDebugger?utm_source=chatgpt.com)
 
 ---
 
@@ -178,7 +178,7 @@ WMPF 本身需要随微信版本匹配；相关资料也显示，新的 WMPF 可
 
 如果你当前：
 
-```
+```text
 XPlugin = 976.6 MB
 RadiumWMPF = 802.7 MB
 ```
@@ -189,7 +189,7 @@ RadiumWMPF = 802.7 MB
 
 > **“现在能释放 900 MB” ≠ “永久少占 900 MB”。**
 
-尤其是你经常使用微信小程序，RadiumWMPF 很可能会再次出现。
+尤其是你经常使用微信小程序，`RadiumWMPF` 很可能会再次出现。
 
 ---
 
@@ -197,11 +197,11 @@ RadiumWMPF = 802.7 MB
 
 如果你的目的只是**清理微信占用，而不是解决小程序故障**：
 
-**不要直接删整个 XPlugin。**
+**不要直接删整个 `XPlugin`。**
 
 优先检查：
 
-```
+```text
 %APPDATA%\Tencent\xwechat\xplugin\Plugins\RadiumWMPF
 ```
 
@@ -209,7 +209,7 @@ RadiumWMPF = 802.7 MB
 
 例如：
 
-```
+```text
 RadiumWMPF
 ├── 16389
 ├── 17127
@@ -217,7 +217,7 @@ RadiumWMPF
 ├── 19881
 ```
 
-这种情况下，**旧版本目录通常比把整个 XPlugin 一锅端更适合清理**。目前公开资料也能看到这些版本目录的实际存在。[GitHub+1](https://github.com/evi0s/WMPFDebugger/issues/218?utm_source=chatgpt.com)
+这种情况下，**旧版本目录通常比把整个 `XPlugin` 一锅端更适合清理**。目前公开资料也能看到这些版本目录的实际存在。[Support for WMPF version 19881 · Issue #218 · evi0s/WMPFDebugger · GitHub](https://github.com/evi0s/WMPFDebugger/issues/218?utm_source=chatgpt.com) [GitHub - evi0s/WMPFDebugger: Yet another WeChat Mini-Program Framework (WMPF) debugger · GitHub](https://github.com/evi0s/WMPFDebugger?utm_source=chatgpt.com)
 
 ### 最终结论
 
@@ -225,5 +225,5 @@ RadiumWMPF
 
 我给它的准确度大概是 **7/10**。
 
-如果你把你电脑里 XPlugin 文件夹**打开后的截图**发我，我可以直接帮你标出：**哪些能删、哪些别碰、最多能安全释放多少 GB。**
+如果你把你电脑里 `XPlugin` 文件夹**打开后的截图**发我，我可以直接帮你标出：**哪些能删、哪些别碰、最多能安全释放多少 GB。**
 

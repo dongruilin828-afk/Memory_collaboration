@@ -1,12 +1,14 @@
-正在调用 deepseek/deepseek-v4-pro 生成结构化分层总结...
-总结后端：deepseek；模型：deepseek-v4-pro
-已从进度缓存恢复媒体说明。
-媒体准备完成（0.00 秒）。
-正在提取细粒度记忆：第 1/1 批
-细粒度记忆提取完成：1 批（191.72 秒）。
-正在综合全局状态、对话断点和主题索引...
-全局综合完成（54.17 秒）。
-结构化总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\100_ChatGPT全量抓取与三种总结_20261012\10\AI_memory_result.json
-可读总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\100_ChatGPT全量抓取与三种总结_20261012\10\AI_memory_summary.md
-正在生成极简版总览...
-总结完成：12 条消息
+[10] 正在后台检查 AI 对话内容...
+[10] 正在使用 内置 Chromium。
+[10] 正在加载 chatgpt.com 分享页...
+[10] 该平台无法在无界面模式读取会话，正在最小化浏览器中继续尝试...
+[10] 正在使用 内置 Chromium。
+[10] 已在最小化浏览器中复用登录状态，无需重复授权。
+[10] 已核验目标会话 ID，当前分支共 12 条可见消息。
+[10] 原会话附件 1/6：已保存。
+[10] 原会话附件 2/6：已保存。
+[10] 原会话附件 3/6：已保存。
+[10] 原会话附件 4/6：已保存。
+[10] 原会话附件 5/6：已保存。
+[10] 原会话附件 6/6：已保存。
+[10] {"case": "10", "title": "分享链接：https://chatgpt.com/share/6ac4fbda-5998-83e9-a803-d8ddcd825868", "url": "https://chatgpt.com/c/6aa8063f-b938-83e8-838a-23916a007d8e", "route": "会话页", "messages": 12, "error": null, "warnings": [], "elapsed": 31.096631499996874}

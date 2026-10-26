@@ -77,7 +77,7 @@
 
 它确实是插件体系，里面可以有 OCR、播放器、小程序运行时等组件，而且旧版本插件可能长期残留，占用不少空间。[Wener Live & Life+1](https://wener.me/notes/platform/wechat/inside?utm_source=chatgpt.com)
 
-删除后重新下载插件是可能发生的，甚至有资料明确把删除 `XPlugin` 作为微信小程序故障排查手段。[🖼️ **[图片]** `favicons`（原图片未能下载）腾讯云开发者平台+1](https://developer.cloud.tencent.com.cn/article/2369961?utm_source=chatgpt.com)
+删除后重新下载插件是可能发生的，甚至有资料明确把删除 `XPlugin` 作为微信小程序故障排查手段。[腾讯云开发者平台+1](https://developer.cloud.tencent.com.cn/article/2369961?utm_source=chatgpt.com)
 
 所以：
 
@@ -123,7 +123,7 @@ log：xxx GB
 %APPDATA%\Tencent\xwechat\xplugin\Plugins\RadiumWMPF\<版本号>\...
 ```
 
-不同资料都能看到 `RadiumWMPF` 下按版本号保存运行组件；在较新的微信 4.x 中也是如此。[🖼️ **[图片]** `favicons`（原图片未能下载）GitHub+2GitHub+2](https://github.com/eeeeeeeeee-code/e0e1-wx/blob/master/tools.md?utm_source=chatgpt.com)
+不同资料都能看到 `RadiumWMPF` 下按版本号保存运行组件；在较新的微信 4.x 中也是如此。[GitHub+2](https://github.com/eeeeeeeeee-code/e0e1-wx/blob/master/tools.md?utm_source=chatgpt.com)
 
 ### 逐条判断
 
