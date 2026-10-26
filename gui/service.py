@@ -32,7 +32,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
-from gui.credential_store import normalize_provider_order
+from gui.credential_store import normalize_provider_order, is_custom_provider
 from scripts.providers import chatgpt_source
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
@@ -1054,11 +1054,11 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
                 ),
             ))
 
-    append(base_config)
     if base_config.provider == "gemini":
-        append(replace(base_config, model="gemini-3.6-flash"))
-        append(replace(base_config, model="gemini-3.5-flash-lite"))
-    elif base_config.provider == "siliconflow":
+        from scripts.gemini_summarizer import DEFAULT_MODEL
+        base_config = replace(base_config, model=DEFAULT_MODEL)
+    append(base_config)
+    if base_config.provider == "siliconflow":
         for model in SILICONFLOW_FREE_SUMMARY_MODELS:
             append(replace(base_config, model=model))
     return candidates
@@ -1067,6 +1067,7 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
 def resolve_gui_summary_config(
     base_config: Any,
     api_keys: Mapping[str, str],
+    custom_api: Optional[Mapping[str, Any]] = None,
 ) -> Any:
     """按用户设置的优先级选择已配置的提供商。"""
     provider_order = normalize_provider_order(api_keys)
@@ -1082,7 +1083,18 @@ def resolve_gui_summary_config(
     preferred_provider = next(
         provider for provider in provider_order if provider in normalized
     )
+    if is_custom_provider(preferred_provider):
+        from scripts.gemini_summarizer import custom_summary_config, GeminiSummaryError
+        if not custom_api:
+            raise GeminiSummaryError("请先编辑自定义 API 的地址和模型。")
+        settings = custom_api if "url" in custom_api else custom_api.get(preferred_provider)
+        if not settings:
+            raise GeminiSummaryError("找不到所选自定义 API 配置。")
+        return replace(custom_summary_config(settings, base_config), api_profile_id=preferred_provider)
     if preferred_provider == base_config.provider:
+        if preferred_provider == "gemini":
+            from scripts.gemini_summarizer import DEFAULT_MODEL
+            return replace(base_config, model=DEFAULT_MODEL)
         return base_config
 
     from scripts.gemini_summarizer import (
@@ -1101,6 +1113,7 @@ def resolve_gui_summary_config(
 def gui_summary_attempt_configs(
     base_config: Any,
     api_keys: Mapping[str, str],
+    custom_api: Optional[Mapping[str, Any]] = None,
 ) -> list[Any]:
     """按用户顺序构造已配置提供商的回退链。"""
     from scripts.gemini_summarizer import (
@@ -1109,7 +1122,7 @@ def gui_summary_attempt_configs(
         SILICONFLOW_DEFAULT_MODEL,
     )
 
-    primary = resolve_gui_summary_config(base_config, api_keys)
+    primary = resolve_gui_summary_config(base_config, api_keys, custom_api)
     provider_defaults = {
         "gemini": DEFAULT_MODEL,
         "siliconflow": SILICONFLOW_DEFAULT_MODEL,
@@ -1123,17 +1136,20 @@ def gui_summary_attempt_configs(
     attempts: list[Any] = []
     seen: set[tuple[str, str]] = set()
     for provider in provider_order:
-        provider_base = (
-            primary
-            if provider == primary.provider
-            else replace(
-                primary,
-                provider=provider,
-                model=provider_defaults[provider],
+        if is_custom_provider(provider):
+            provider_base = resolve_gui_summary_config(base_config, {provider: api_keys[provider]}, custom_api)
+        else:
+            provider_base = (
+                primary
+                if provider == primary.provider
+                else replace(
+                    base_config,
+                    provider=provider,
+                    model=provider_defaults[provider],
+                )
             )
-        )
         for candidate in gui_summary_config_candidates(provider_base):
-            key = (candidate.provider, candidate.model)
+            key = (getattr(candidate, "api_profile_id", "") or candidate.provider, candidate.model)
             if key not in seen:
                 seen.add(key)
                 attempts.append(candidate)
@@ -6840,6 +6856,7 @@ def generate_output_bundle(
     config: Any = None,
     gateway: Any = None,
     api_keys: Optional[Mapping[str, str]] = None,
+    custom_api: Optional[Mapping[str, Any]] = None,
     result_cache_dir: Optional[Path] = None,
     source_platform: Optional[str] = None,
     source_name: Optional[str] = None,
@@ -6893,6 +6910,7 @@ def generate_output_bundle(
     config_was_provided = config is not None
     gateway_was_provided = gateway is not None
     config = config or SummaryConfig.from_env()
+    fallback_base_config = config
     user_api_keys = (
         None
         if api_keys is None
@@ -6903,7 +6921,7 @@ def generate_output_bundle(
         }
     )
     if user_api_keys is not None:
-        config = resolve_gui_summary_config(config, user_api_keys)
+        config = resolve_gui_summary_config(config, user_api_keys, custom_api)
     selected_sections: tuple[str, ...] = ()
     selected_topics: tuple[str, ...] = ()
 
@@ -6962,7 +6980,7 @@ def generate_output_bundle(
             [config]
             if config_was_provided
             else (
-                gui_summary_attempt_configs(config, user_api_keys)
+                gui_summary_attempt_configs(fallback_base_config, user_api_keys, custom_api)
                 if user_api_keys is not None
                 else gui_summary_config_candidates(config)
             )
@@ -6989,7 +7007,7 @@ def generate_output_bundle(
 
     def next_usable_config(start_index: int) -> Optional[Any]:
         for later_config, _later_gateway in attempts[start_index:]:
-            if later_config.provider not in timed_out_providers:
+            if (getattr(later_config, "api_profile_id", "") or later_config.provider) not in timed_out_providers:
                 return later_config
         return None
 
@@ -7004,7 +7022,9 @@ def generate_output_bundle(
             _load_summary_cache, _save_summary_cache,
             _summary_cache_path, _summary_fingerprint,
         )
-        smaller = replace(candidate, chunk_chars=12_000, thinking_level="minimal")
+        smaller = replace(candidate, chunk_chars=12_000, thinking_level=(
+            candidate.thinking_level if candidate.provider == "custom" else "minimal"
+        ))
         cache_path = _summary_cache_path(primary_json)
         cached = _load_summary_cache(
             cache_path, _summary_fingerprint(messages, candidate, source_platform),
@@ -7014,7 +7034,9 @@ def generate_output_bundle(
         cached["chunks"] = {}
         _save_summary_cache(cache_path, cached)
         attempts[next_index:] = [
-            (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level="minimal"), later_gateway)
+            (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level=(
+                later.thinking_level if later.provider == "custom" else "minimal"
+            )), later_gateway)
             for later, later_gateway in attempts[next_index:]
         ]
         progress("豆包长对话已自动改为 12000 字符分块；复用本次有效媒体分析。")
@@ -7023,7 +7045,7 @@ def generate_output_bundle(
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
-        if candidate_config.provider in timed_out_providers:
+        if (getattr(candidate_config, "api_profile_id", "") or candidate_config.provider) in timed_out_providers:
             continue
         if candidate_gateway is None:
             if user_api_keys is None:
@@ -7031,7 +7053,7 @@ def generate_output_bundle(
             else:
                 candidate_gateway = create_gateway(
                     candidate_config,
-                    api_key=user_api_keys[candidate_config.provider],
+                    api_key=user_api_keys[getattr(candidate_config, "api_profile_id", "") or candidate_config.provider],
                 )
         progress(
             f"正在调用 {candidate_config.provider}/{candidate_config.model} "
@@ -7072,7 +7094,7 @@ def generate_output_bundle(
             # 同一提供商的其他模型通常共享网络入口；超时后跳过该提供商，
             # 但若用户还配置了另一提供商，则立即切换，避免等待后直接失败。
             last_error = error
-            timed_out_providers.add(candidate_config.provider)
+            timed_out_providers.add(getattr(candidate_config, "api_profile_id", "") or candidate_config.provider)
             next_config = next_usable_config(attempt_index)
             if next_config is None:
                 raise

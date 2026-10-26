@@ -77,9 +77,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
 def model_candidates(base: SummaryConfig) -> list[SummaryConfig]:
     candidates = [base]
     for model in (
-        "gemini-3.6-flash",
-        "gemini-3.5-flash",
-        "gemini-3.5-flash-lite"
+        "gemini-3.8-flash"
     ):
         candidate = replace(base, provider="gemini", model=model)
         if (candidate.provider, candidate.model) not in {

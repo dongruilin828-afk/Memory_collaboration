@@ -1518,9 +1518,7 @@ class GUIServiceTests(unittest.TestCase):
         self.assertEqual(
             [(item.provider, item.model) for item in gemini_candidates],
             [
-                ("gemini", "gemini-3.5-flash"),
-                ("gemini", "gemini-3.6-flash"),
-                ("gemini", "gemini-3.5-flash-lite"),
+                ("gemini", "gemini-3.8-flash"),
             ],
         )
         self.assertTrue(all(item.retries == 2 for item in gemini_candidates))
@@ -1538,14 +1536,14 @@ class GUIServiceTests(unittest.TestCase):
             all(item.retries == 2 for item in silicon_candidates)
         )
 
-    def test_gui_falls_back_to_next_gemini_model_without_reprompting(self):
+    def test_gui_does_not_fall_back_to_retired_gemini_models(self):
         messages = [
             {"role": "User", "content": "你好"},
             {"role": "AI", "content": "你好！"},
         ]
         base_config = SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
         )
         attempted_models = []
         selector_calls = []
@@ -1554,7 +1552,7 @@ class GUIServiceTests(unittest.TestCase):
         def fake_summarize(**kwargs):
             model = kwargs["config"].model
             attempted_models.append(model)
-            if model == "gemini-3.5-flash":
+            if model == "gemini-3.8-flash":
                 raise GeminiSummaryError("模拟额度限制")
             selector_calls.append(kwargs["section_selector"](fake_result))
             kwargs["output_json"].write_text("{}", encoding="utf-8")
@@ -1571,19 +1569,19 @@ class GUIServiceTests(unittest.TestCase):
             "scripts.gemini_summarizer.summarize_conversation",
             side_effect=fake_summarize,
         ):
-            bundle = generate_output_bundle(
-                messages,
-                {"normal": True, "detailed": False, "simple": False},
-                Path(temp_dir),
-                section_selector=lambda _result: (),
-            )
+            with self.assertRaises(GeminiSummaryError):
+                generate_output_bundle(
+                    messages,
+                    {"normal": True, "detailed": False, "simple": False},
+                    Path(temp_dir),
+                    section_selector=lambda _result: (),
+                )
 
         self.assertEqual(
             attempted_models,
-            ["gemini-3.5-flash", "gemini-3.6-flash"],
+            ["gemini-3.8-flash"],
         )
-        self.assertEqual(selector_calls, [()])
-        self.assertEqual(bundle.summary_result, fake_result)
+        self.assertEqual(selector_calls, [])
 
 
     def test_private_conversation_urls_require_authenticated_browser(self):
