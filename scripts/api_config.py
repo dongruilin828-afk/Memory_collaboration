@@ -2,6 +2,18 @@
 from urllib.parse import urlsplit, urlunsplit
 
 
+def middle_ellipsis(text, width, measure):
+    if measure(text) <= width:
+        return text
+    for count in range(len(text) - 1, 0, -1):
+        head = (count + 1) // 2
+        tail = count // 2
+        shortened = text[:head] + "…" + (text[-tail:] if tail else "")
+        if measure(shortened) <= width:
+            return shortened
+    return "…"
+
+
 def normalize_custom_api(values):
     name = str(values.get("name") or "自定义 API").strip()
     model = str(values.get("model") or "").strip()

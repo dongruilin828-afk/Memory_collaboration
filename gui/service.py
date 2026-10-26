@@ -32,7 +32,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
-from gui.credential_store import normalize_provider_order
+from gui.credential_store import normalize_provider_order, is_custom_provider
 from scripts.providers import chatgpt_source
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
@@ -1083,11 +1083,14 @@ def resolve_gui_summary_config(
     preferred_provider = next(
         provider for provider in provider_order if provider in normalized
     )
-    if preferred_provider == "custom":
+    if is_custom_provider(preferred_provider):
         from scripts.gemini_summarizer import custom_summary_config, GeminiSummaryError
         if not custom_api:
             raise GeminiSummaryError("请先编辑自定义 API 的地址和模型。")
-        return custom_summary_config(custom_api, base_config)
+        settings = custom_api if "url" in custom_api else custom_api.get(preferred_provider)
+        if not settings:
+            raise GeminiSummaryError("找不到所选自定义 API 配置。")
+        return replace(custom_summary_config(settings, base_config), api_profile_id=preferred_provider)
     if preferred_provider == base_config.provider:
         if preferred_provider == "gemini":
             from scripts.gemini_summarizer import DEFAULT_MODEL
@@ -1133,7 +1136,7 @@ def gui_summary_attempt_configs(
     attempts: list[Any] = []
     seen: set[tuple[str, str]] = set()
     for provider in provider_order:
-        if provider == "custom":
+        if is_custom_provider(provider):
             provider_base = resolve_gui_summary_config(base_config, {provider: api_keys[provider]}, custom_api)
         else:
             provider_base = (
@@ -1146,7 +1149,7 @@ def gui_summary_attempt_configs(
                 )
             )
         for candidate in gui_summary_config_candidates(provider_base):
-            key = (candidate.provider, candidate.model)
+            key = (getattr(candidate, "api_profile_id", "") or candidate.provider, candidate.model)
             if key not in seen:
                 seen.add(key)
                 attempts.append(candidate)
@@ -7004,7 +7007,7 @@ def generate_output_bundle(
 
     def next_usable_config(start_index: int) -> Optional[Any]:
         for later_config, _later_gateway in attempts[start_index:]:
-            if later_config.provider not in timed_out_providers:
+            if (getattr(later_config, "api_profile_id", "") or later_config.provider) not in timed_out_providers:
                 return later_config
         return None
 
@@ -7042,7 +7045,7 @@ def generate_output_bundle(
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
-        if candidate_config.provider in timed_out_providers:
+        if (getattr(candidate_config, "api_profile_id", "") or candidate_config.provider) in timed_out_providers:
             continue
         if candidate_gateway is None:
             if user_api_keys is None:
@@ -7050,7 +7053,7 @@ def generate_output_bundle(
             else:
                 candidate_gateway = create_gateway(
                     candidate_config,
-                    api_key=user_api_keys[candidate_config.provider],
+                    api_key=user_api_keys[getattr(candidate_config, "api_profile_id", "") or candidate_config.provider],
                 )
         progress(
             f"正在调用 {candidate_config.provider}/{candidate_config.model} "
@@ -7091,7 +7094,7 @@ def generate_output_bundle(
             # 同一提供商的其他模型通常共享网络入口；超时后跳过该提供商，
             # 但若用户还配置了另一提供商，则立即切换，避免等待后直接失败。
             last_error = error
-            timed_out_providers.add(candidate_config.provider)
+            timed_out_providers.add(getattr(candidate_config, "api_profile_id", "") or candidate_config.provider)
             next_config = next_usable_config(attempt_index)
             if next_config is None:
                 raise

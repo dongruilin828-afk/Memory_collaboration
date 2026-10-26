@@ -23,6 +23,45 @@ def settings():
 
 
 class CustomAPISettingsTests(unittest.TestCase):
+    def test_multiple_profiles_keep_legacy_keys_and_independent_order(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        store.save_custom_api(settings(), "old-key")
+        second = "custom_" + "a" * 32
+        store.save_custom_api({**settings(), "name": "second"}, "second-key", second)
+        store.save_provider_order([second, "custom", "gemini"])
+        self.assertEqual(list(store.load_api_keys()), [second, "custom"])
+        store.save_api_keys({"custom": "old-key", second: "edited-key"})
+        self.assertEqual(store.load_api_keys(), {second: "edited-key", "custom": "old-key"})
+        self.assertEqual(store.load_custom_apis()["custom"]["name"], "我的接口")
+        self.assertNotIn("api_key", store.load_custom_apis()[second])
+
+    def test_same_model_profiles_remain_separate_and_timeout_falls_back(self):
+        second = "custom_" + "a" * 32
+        profiles = {"custom": settings(), second: {**settings(), "url": "https://second.test/v1"}}
+        keys = {"custom": "first-key", second: "second-key"}
+        candidates = gui_summary_attempt_configs(summary.SummaryConfig(), keys, profiles)
+        self.assertEqual([c.api_profile_id for c in candidates], ["custom", second])
+        created = []
+        def create(config, api_key=None):
+            created.append((config.api_base, api_key))
+            return object()
+        def summarize(*args, **kwargs):
+            if len(created) == 1:
+                raise summary.SummaryRequestTimeoutError("timeout")
+            return old_tests.GUIApiKeyRoutingTests._write_success(*args, **kwargs)
+        with tempfile.TemporaryDirectory() as directory, patch.object(summary, "create_gateway", side_effect=create), \
+                patch.object(summary, "summarize_conversation", side_effect=summarize):
+            bundle = generate_output_bundle(
+                [{"role": "User", "content": "question"}, {"role": "AI", "content": "answer"}],
+                {"normal": True}, Path(directory), api_keys=keys, custom_api=profiles)
+        self.assertTrue(bundle.saved_files)
+        self.assertEqual(created, [("https://example.test/v1", "first-key"), ("https://second.test/v1", "second-key")])
+
+    def test_middle_ellipsis_retains_name_ends_within_pixel_budget(self):
+        from scripts.api_config import middle_ellipsis
+        self.assertEqual(middle_ellipsis("short", 10, len), "short")
+        self.assertEqual(middle_ellipsis("DeepSeek-WorkBuddy", 10, len), "DeepS…uddy")
+
     def test_url_and_model_validation_keeps_credentials_out_of_config(self):
         values = settings()
         values.update(url="https://example.test/v1/chat/completions", api_key="secret")
@@ -148,6 +187,37 @@ class CustomAPISettingsTests(unittest.TestCase):
         self.assertIn("bad parameter", str(raised.exception))
         self.assertNotIn("private-placeholder-key", str(raised.exception))
 
+    def test_native_connection_reports_actual_http_status_without_error_body(self):
+        import httpx
+        from google import genai
+        from google.genai import types
+        original_client = genai.Client
+        status = 200
+        def response(request):
+            if status != 200:
+                return httpx.Response(status, json={"error": {"code": status, "message": "private server detail"}})
+            return httpx.Response(200, json={"candidates": [{"content": {
+                "role": "model", "parts": [{"text": '{"ok": true}'}]}, "finishReason": "STOP"}]})
+        def client(**kwargs):
+            kwargs["http_options"].client_args["transport"] = httpx.MockTransport(response)
+            kwargs["http_options"].retry_options = types.HttpRetryOptions(attempts=1)
+            return original_client(**kwargs)
+        with patch.object(genai, "Client", side_effect=client):
+            self.assertEqual(summary.test_api_connection(summary.SummaryConfig(), "placeholder"),
+                             "连接成功 · gemini-3.8-flash · 200")
+            for code in (429, 503):
+                status = code
+                with self.assertRaises(summary.GeminiSummaryError) as raised:
+                    summary.test_api_connection(summary.SummaryConfig(), "placeholder")
+                self.assertEqual(str(raised.exception), f"连接失败 · gemini-3.8-flash · {code}")
+
+    def test_connection_with_no_http_response_leaves_status_absent(self):
+        with patch.object(summary, "create_gateway", side_effect=RuntimeError("secret detail")):
+            with self.assertRaises(summary.GeminiSummaryError) as raised:
+                summary.test_api_connection(summary.SummaryConfig(model="my-model"), "placeholder")
+        self.assertEqual(str(raised.exception), "连接失败 · my-model")
+        self.assertEqual(summary._connection_status(False, "", None), "连接失败")
+
 
 class CustomAPIHTTPTests(unittest.TestCase):
     def setUp(self):
@@ -198,6 +268,7 @@ class CustomAPIHTTPTests(unittest.TestCase):
             self.assertEqual(payload["reasoning_effort"], "high")
             self.assertLess(len(payload["messages"][0]["content"]), 100)
             self.assertTrue(message.startswith("连接成功"))
+            self.assertEqual(message, "连接成功 · my-model · 200")
             if mode == "prompt":
                 self.assertNotIn("response_format", payload)
             else:
@@ -220,6 +291,7 @@ class CustomAPIHTTPTests(unittest.TestCase):
             summary.test_api_connection(config, "placeholder-secret")
         self.assertNotIn("placeholder-secret", str(raised.exception))
         self.assertIn("401", str(raised.exception))
+        self.assertEqual(str(raised.exception), "连接失败 · my-model · 401")
         self.status = 200
         for content, finish in [('{}', 'stop'), ('{"ok": true}', 'length'), ('not json', 'stop')]:
             self.response = {"choices": [{"message": {"content": content}, "finish_reason": finish}]}

@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 import warnings
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -39,7 +40,7 @@ except ImportError:
     TkinterDnD = None
     _HAS_DND = False
 
-from gui.credential_store import CredentialStoreError, WindowsCredentialStore
+from gui.credential_store import CredentialStoreError, WindowsCredentialStore, is_custom_provider
 from gui.history_store import HistoryStore, HistoryStoreError
 from gui.run_logging import GenerationRunLog
 
@@ -465,7 +466,15 @@ class AIMemoryGUI:
         self._update_sidebar_width()
         self.root.update_idletasks()
 
-        required_content_width = self._generation_section.winfo_reqwidth() + 104
+        settings_page = self.page_frames[3]
+        api_rows = getattr(settings_page, "api_row_refs", {})
+        # Include page, section, panel/border and API-page padding; placed rows
+        # do not contribute their requested width to their ancestors.
+        api_width = (max(row.winfo_reqwidth() for row in api_rows.values())
+                     + 2 * (24 + 80 + 24 + 1 + 18)) if api_rows else 0
+        if api_rows and not settings_page._drag_state["active"]:
+            settings_page._layout_api_rows()
+        required_content_width = max(self._generation_section.winfo_reqwidth() + 104, api_width)
         self._content_max_width = max(1280, required_content_width)
         chrome_width = self.custom_scrollbar.winfo_reqwidth() + 4
         min_width = max(
@@ -1701,8 +1710,8 @@ class AIMemoryGUI:
         if needs_summary:
             try:
                 api_keys = self.credential_store.load_api_keys()
-                if "custom" in api_keys:
-                    custom_api = dict(self.credential_store.load_custom_api())
+                if any(is_custom_provider(key) for key in api_keys):
+                    custom_api = self.credential_store.load_custom_apis()
             except CredentialStoreError:
                 self._show_api_key_settings(require_key=True)
                 return
@@ -1785,7 +1794,7 @@ class AIMemoryGUI:
         try:
             _load_direct_summary_file(source_path)
             api_keys = self.credential_store.load_api_keys()
-            custom_api = dict(self.credential_store.load_custom_api()) if "custom" in api_keys else None
+            custom_api = self.credential_store.load_custom_apis() if any(is_custom_provider(key) for key in api_keys) else None
         except CredentialStoreError:
             self._show_api_key_settings(require_key=True)
             return
@@ -2611,7 +2620,7 @@ class AIMemoryGUI:
         try:
             existing_keys = self.credential_store.load_api_keys()
             provider_order = list(self.credential_store.load_provider_order())
-            custom_api_settings = getattr(self.credential_store, "load_custom_api", lambda: {})()
+            custom_api_settings = getattr(self.credential_store, "load_custom_apis", lambda: {})()
             key_load_error = None
         except CredentialStoreError as error:
             existing_keys = {}
@@ -2624,9 +2633,21 @@ class AIMemoryGUI:
         notice_slot.pack(fill=tk.X, pady=(0, 8))
         notice_label = tk.Label(
             notice_slot, textvariable=notice_var,
-            font=FONT_SMALL, fg=COLOR_DANGER, bg=COLOR_CARD, anchor="w",
+            font=FONT_SMALL, fg=COLOR_DANGER, bg=COLOR_CARD, anchor="w", width=1,
         )
-        notice_label.pack(anchor="w")
+        notice_label.pack(fill=tk.X)
+        from scripts.api_config import middle_ellipsis
+        notice_label.configure(textvariable="", wraplength=0)
+        notice_tooltip = HoverTooltip(notice_label, "")
+
+        def fit_notice(_event=None):
+            text = notice_var.get()
+            notice_label.configure(text=middle_ellipsis(text, max(1, notice_label.winfo_width() - 4),
+                                   tkfont.Font(font=notice_label.cget("font")).measure))
+            notice_tooltip._text = text
+
+        notice_var.trace_add("write", lambda *_args: fit_notice())
+        notice_label.bind("<Configure>", fit_notice)
 
         def show_notice(message: str, duration_ms: int = 3500):
             if self._notice_after_id is not None:
@@ -2651,14 +2672,16 @@ class AIMemoryGUI:
 
         page.show_notice = show_notice
         page.api_notice_var = notice_var
+        page.api_notice_label = notice_label
 
         # ----- API KEY 行 -----
         providers = {
             "gemini": "Google Gemini",
             "siliconflow": "SiliconFlow",
             "deepseek": "DeepSeek",
-            "custom": "自定义 API",
         }
+
+        providers.update({key: value["name"] for key, value in custom_api_settings.items()})
 
         ordered_providers = [
             provider for provider in provider_order
@@ -2686,6 +2709,8 @@ class AIMemoryGUI:
         row_height, row_gap = 34, 8
 
         def _layout_api_rows(animate=False, order=None, dragged=None):
+            nonlocal row_height
+            row_height = max(34, max((row.winfo_reqheight() for row in api_row_refs.values()), default=0))
             if animation["after_id"] is not None:
                 try:
                     self.root.after_cancel(animation["after_id"])
@@ -2757,8 +2782,11 @@ class AIMemoryGUI:
 
         self._cancel_api_reorder_animation = _cancel_api_reorder_animation
 
-        for provider in providers:
+        api_name_labels = {}
+
+        def _add_api_row(provider):
             row = tk.Frame(api_rows_frame, bg=COLOR_CARD)
+            row.columnconfigure(2, weight=1)
             api_row_refs[provider] = row
 
             handle = tk.Label(
@@ -2766,7 +2794,7 @@ class AIMemoryGUI:
                 fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, cursor="hand2",
                 padx=8,
             )
-            handle.pack(side=tk.LEFT)
+            handle.grid(row=0, column=0)
             handle.bind(
                 "<ButtonPress-1>",
                 lambda event, key=provider: _drag_start(event, key),
@@ -2775,23 +2803,37 @@ class AIMemoryGUI:
             handle.bind("<ButtonRelease-1>", lambda event: _drag_end(event))
             HoverTooltip(handle, "拖动以调整兜底顺序")
 
-            tk.Label(
+            name_label = tk.Label(
                 row, text=providers[provider],
                 font=FONT_BODY_BOLD, fg=COLOR_TEXT_PRIMARY,
                 bg=COLOR_CARD, width=14, anchor="w",
-            ).pack(side=tk.LEFT, padx=(0, 6))
+            )
+            name_label.grid(row=0, column=1, padx=(0, 6), sticky="w")
+            api_name_labels[provider] = name_label
+            if is_custom_provider(provider):
+                from scripts.api_config import middle_ellipsis
+                def fit_name(event=None):
+                    name_label.configure(text=middle_ellipsis(
+                        providers[provider], max(1, name_label.winfo_width() - 4),
+                        tkfont.Font(font=name_label.cget("font")).measure))
+                name_label.configure(cursor="hand2", takefocus=True)
+                name_label.bind("<Configure>", fit_name)
+                name_label.bind("<Button-1>", lambda _event: _edit_custom_api(provider))
+                name_label.bind("<Return>", lambda _event: _edit_custom_api(provider))
+                name_label.bind("<space>", lambda _event: _edit_custom_api(provider))
+                name_label.api_tooltip = HoverTooltip(name_label, providers[provider] + "（单击编辑）")
 
             entry_var = tk.StringVar(value=existing_keys.get(provider, ""))
             key_entry = tk.Entry(
                 row, textvariable=entry_var, show="*",
                 font=FONT_BODY, fg=COLOR_TEXT_PRIMARY,
-                bg=COLOR_BG_APP, relief=tk.FLAT, width=24,
+                bg=COLOR_BG_APP, relief=tk.FLAT, width=12,
                 insertbackground=COLOR_TEXT_PRIMARY,
                 highlightthickness=1,
                 highlightbackground=COLOR_BORDER,
                 highlightcolor=COLOR_BORDER_FOCUS,
             )
-            key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=2)
+            key_entry.grid(row=0, column=2, sticky="ew", ipady=4, padx=2)
             api_key_vars[provider] = entry_var
 
             def _toggle_key_mask(ent=key_entry, btn_ref=None):
@@ -2807,14 +2849,14 @@ class AIMemoryGUI:
                 relief=tk.FLAT, bd=0, cursor="hand2", padx=6, pady=0,
             )
             eye_btn.configure(command=lambda e=key_entry, b=eye_btn: _toggle_key_mask(e, b))
-            eye_btn.pack(side=tk.RIGHT, padx=(2, 0))
+            eye_btn.grid(row=0, column=4, padx=(2, 0))
             HoverTooltip(eye_btn, "显示 / 隐藏 API Key")
             test_button = tk.Button(
-                row, text="测试连接", font=FONT_SMALL,
+                row, text="测试", font=FONT_SMALL,
                 bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, relief=tk.FLAT,
                 cursor="hand2", command=lambda key=provider: _test_api(key),
             )
-            test_button.pack(side=tk.RIGHT, padx=(4, 0))
+            test_button.grid(row=0, column=3, padx=(4, 0))
             api_test_buttons[provider] = test_button
             if provider == "gemini":
                 HoverTooltip(test_button, "使用 Gemini 3.8 Flash 发送一条简短测试请求")
@@ -2934,6 +2976,9 @@ class AIMemoryGUI:
         page._drag_end = _drag_end
         page._layout_api_rows = _layout_api_rows
         page._drag_state = drag_state
+        for provider in providers:
+            _add_api_row(provider)
+        page.api_name_labels = api_name_labels
         _layout_api_rows()
 
         api_hint = tk.Label(
@@ -2944,16 +2989,6 @@ class AIMemoryGUI:
         )
         api_hint.pack(fill=tk.X, pady=(2, 4))
         api_hint.bind("<Configure>", lambda e: api_hint.configure(wraplength=max(200, e.width)))
-        notice_label.bind("<Configure>", lambda e: notice_label.configure(wraplength=max(200, e.width)))
-
-        custom_caption = tk.StringVar(value=(
-            f"自定义：{custom_api_settings['name']} · {custom_api_settings['model']}"
-            if custom_api_settings else "自定义 API 尚未配置，点击下方入口填写地址和模型。"
-        ))
-        custom_label = tk.Label(api_page, textvariable=custom_caption, font=FONT_SMALL,
-                                fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w", justify=tk.LEFT)
-        custom_label.pack(fill=tk.X, pady=(2, 4))
-        custom_label.bind("<Configure>", lambda e: custom_label.configure(wraplength=max(200, e.width)))
 
         def _test_api(provider):
             from scripts.gemini_summarizer import (
@@ -2965,8 +3000,8 @@ class AIMemoryGUI:
                 show_notice("请先填写 API KEY；测试会发送一条简短请求。", 5000)
                 return
             try:
-                if provider == "custom":
-                    tested_settings = dict(custom_api_settings)
+                if is_custom_provider(provider):
+                    tested_settings = dict(custom_api_settings[provider])
                     config = custom_summary_config(tested_settings)
                 else:
                     config = SummaryConfig(provider=provider, model={
@@ -2984,7 +3019,7 @@ class AIMemoryGUI:
                 if api_page.winfo_exists():
                     button.configure(state="normal")
                     if api_key_vars[provider].get().strip() != key or (
-                        provider == "custom" and tested_settings != custom_api_settings
+                        is_custom_provider(provider) and tested_settings != custom_api_settings.get(provider)
                     ):
                         show_notice("配置或 KEY 已更改，请重新测试当前配置。", 5000)
                     else:
@@ -2998,23 +3033,32 @@ class AIMemoryGUI:
                 self._post_ui(lambda: finish(text))
             threading.Thread(target=run, daemon=True).start()
 
-        def _edit_custom_api():
+        def _edit_custom_api(profile_id=None):
             from gui.custom_api_dialog import CustomAPIDialog
+            adding = profile_id is None
+            profile_id = profile_id or "custom_" + uuid.uuid4().hex
 
             def saved(values, key, priority):
-                self.credential_store.save_custom_api(values, key)
-                custom_api_settings.clear()
-                custom_api_settings.update(values)
-                api_key_vars["custom"].set(key)
-                custom_caption.set(f"自定义：{values['name']} · {values['model']}")
+                self.credential_store.save_custom_api(values, key, profile_id)
+                custom_api_settings[profile_id] = dict(values)
+                providers[profile_id] = values["name"]
+                if adding and profile_id not in api_row_refs:
+                    existing_keys[profile_id] = key
+                    ordered_providers.append(profile_id)
+                    _add_api_row(profile_id)
+                api_key_vars[profile_id].set(key)
+                api_name_labels[profile_id].api_tooltip._text = values["name"] + "（单击编辑）"
+                api_name_labels[profile_id].event_generate("<Configure>")
                 if priority:
-                    ordered_providers.remove("custom")
-                    ordered_providers.insert(0, "custom")
-                    self.credential_store.save_provider_order(ordered_providers)
-                    _layout_api_rows(animate=True)
+                    ordered_providers.remove(profile_id)
+                    ordered_providers.insert(0, profile_id)
+                self.credential_store.save_provider_order(ordered_providers)
+                _layout_api_rows(animate=True)
+                self._apply_responsive_scale(force=True)
                 show_notice("已安全保存自定义 API", 3000)
 
-            dialog = CustomAPIDialog(self.root, dict(custom_api_settings), api_key_vars["custom"].get(),
+            dialog = CustomAPIDialog(self.root, dict(custom_api_settings.get(profile_id, {})),
+                                     api_key_vars[profile_id].get() if not adding else "",
                                      self._post_ui, saved)
             page.custom_api_dialog = dialog
             return dialog
@@ -3022,7 +3066,7 @@ class AIMemoryGUI:
         page.edit_custom_api = _edit_custom_api
         page.custom_api_settings = custom_api_settings
         page.custom_api_button = FlatButton(
-            api_page, text="配置自定义 API", command=_edit_custom_api,
+            api_page, text="添加自定义 API", command=_edit_custom_api,
             width=160, height=46, bg_parent=COLOR_CARD,
         )
         page.custom_api_button.pack(side=tk.LEFT, pady=(8, 0))

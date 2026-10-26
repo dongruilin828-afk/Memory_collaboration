@@ -1,5 +1,6 @@
 """Editor for one user-defined summary API, using the existing desktop theme."""
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 import threading
 
@@ -10,7 +11,7 @@ from gui.theme import (
 )
 from gui.ui_dispatch import bind_visible_modal
 from gui.widgets import FlatButton
-from scripts.api_config import normalize_custom_api
+from scripts.api_config import normalize_custom_api, middle_ellipsis
 from scripts.gemini_summarizer import custom_summary_config, test_api_connection
 
 
@@ -45,14 +46,19 @@ class CustomAPIDialog(tk.Toplevel):
         self.save_button = FlatButton(actions, text="保存配置", command=self.save,
                                       width=120, height=40, variant="accent", bg_parent=COLOR_BG_APP)
         self.save_button.pack(side=tk.RIGHT)
-        self.test_button = FlatButton(actions, text="测试连接", command=self.test,
+        self.test_button = FlatButton(actions, text="测试", command=self.test,
                                       width=120, height=40, bg_parent=COLOR_BG_APP)
         self.test_button.pack(side=tk.RIGHT, padx=(0, 8))
         self.status_var = tk.StringVar(self)
-        self.status_label = tk.Label(self, textvariable=self.status_var, font=FONT_SMALL,
+        self.status_label = tk.Label(self, font=FONT_SMALL, width=1,
                                      fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, justify=tk.LEFT, anchor="w")
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=6)
-        self.status_label.bind("<Configure>", lambda e: self.status_label.configure(wraplength=max(200, e.width)))
+        def fit_status(_event=None):
+            self.status_label.configure(text=middle_ellipsis(
+                self.status_var.get(), max(1, self.status_label.winfo_width() - 4),
+                tkfont.Font(font=self.status_label.cget("font")).measure))
+        self.status_label.bind("<Configure>", fit_status)
+        self.status_var.trace_add("write", lambda *_args: fit_status())
         body = tk.Frame(self, bg=COLOR_BG_APP)
         body.pack(fill=tk.BOTH, expand=True, padx=24)
         canvas = tk.Canvas(body, bg=COLOR_CARD, highlightthickness=0)

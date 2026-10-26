@@ -3,6 +3,7 @@ import queue
 import threading
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -28,7 +29,7 @@ class CustomAPISnapshotTests(unittest.TestCase):
         gui.done_badge = SimpleNamespace(pack_forget=lambda: None)
         gui.progress_bar = SimpleNamespace(reset=lambda: None, set_progress=lambda _v: None)
         gui.status_var = gui.percent_var = SimpleNamespace(set=lambda _v: None)
-        gui.credential_store = SimpleNamespace(load_api_keys=lambda: keys, load_custom_api=lambda: values)
+        gui.credential_store = SimpleNamespace(load_api_keys=lambda: keys, load_custom_apis=lambda: {"custom": dict(values)})
         captured = {}
         class Thread:
             def __init__(self, **kwargs):
@@ -41,7 +42,7 @@ class CustomAPISnapshotTests(unittest.TestCase):
         keys["custom"] = "changed-key"
         values["url"] = "https://changed.test/v1"
         self.assertEqual(captured["args"][5], {"custom": "original-key"})
-        self.assertEqual(captured["kwargs"]["custom_api"]["url"], "https://example.test/v1")
+        self.assertEqual(captured["kwargs"]["custom_api"]["custom"]["url"], "https://example.test/v1")
 
 
 class CustomAPIUITests(unittest.TestCase):
@@ -123,7 +124,7 @@ class CustomAPIUITests(unittest.TestCase):
                 patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
             app = AIMemoryGUI(self.root)
         page = app.page_frames[3]
-        self.assertIn("custom", page.api_key_vars)
+        self.assertNotIn("custom", page.api_key_vars)
         dialog = page.edit_custom_api()
         dialog.withdraw()
         for name, value in api_tests.settings().items():
@@ -131,11 +132,28 @@ class CustomAPIUITests(unittest.TestCase):
         dialog.key_var.set("new-placeholder-key")
         dialog.priority_var.set(True)
         dialog.save()
-        self.assertEqual(page.ordered_providers[0], "custom")
-        self.assertEqual(store.load_provider_order()[0], "custom")
-        self.assertEqual(store.load_api_keys()["custom"], "new-placeholder-key")
-        self.assertEqual(page.api_key_vars["custom"].get(), "new-placeholder-key")
-        self.assertEqual(store.load_custom_api()["model"], "my-model")
+        profile_id = page.ordered_providers[0]
+        self.assertTrue(profile_id.startswith("custom_"))
+        self.assertEqual(store.load_provider_order()[0], profile_id)
+        self.assertEqual(store.load_api_keys()[profile_id], "new-placeholder-key")
+        self.assertEqual(page.api_key_vars[profile_id].get(), "new-placeholder-key")
+        self.assertEqual(store.load_custom_apis()[profile_id]["model"], "my-model")
+        self.root.update_idletasks()
+        self.assertEqual(page.api_name_labels[profile_id].cget("text"), "我的接口")
+        # Clicking the name edits this profile; adding creates a separate one.
+        page.api_name_labels[profile_id].event_generate("<Button-1>")
+        edited = page.custom_api_dialog
+        self.assertEqual(edited.variables["name"].get(), "我的接口")
+        edited.variables["name"].set("renamed")
+        edited.save()
+        second = page.edit_custom_api()
+        for name, value in api_tests.settings().items():
+            second.variables[name].set(value)
+        second.key_var.set("second-key")
+        second.save()
+        self.assertEqual(len(store.load_custom_apis()), 2)
+        self.assertEqual(store.load_custom_apis()[profile_id]["name"], "renamed")
+        self.assertEqual(store.load_api_keys()[profile_id], "new-placeholder-key")
 
     def test_failed_key_load_cannot_overwrite_existing_credentials(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
@@ -174,6 +192,71 @@ class CustomAPIUITests(unittest.TestCase):
                 self.root.update()
                 time.sleep(.02)
         self.assertIn("已更改", page.api_notice_var.get())
+
+    def test_result_uses_available_row_width_without_wrapping(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        settings_store = layouts._SettingsStore()
+        self.addCleanup(settings_store.scratch.cleanup)
+        with patch("gui.app.WindowsCredentialStore", return_value=store), \
+                patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+            app = AIMemoryGUI(self.root)
+        app._show_page(3)
+        self.root.update_idletasks()
+        page = app.page_frames[3]
+        with patch("scripts.gemini_summarizer.test_api_connection", return_value="连接成功 · Qwen/Qwen3-8B · 200"):
+            page.api_key_vars["siliconflow"].set("placeholder")
+            page.api_test_buttons["siliconflow"].invoke()
+            deadline = time.monotonic() + 3
+            while not page.api_notice_var.get().startswith("连接成功") and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(.02)
+        label = page.api_notice_label
+        self.assertEqual(label.cget("text"), "连接成功 · Qwen/Qwen3-8B · 200")
+        self.assertEqual(int(label.cget("wraplength")), 0)
+        self.assertGreaterEqual(label.winfo_width(), page.api_rows_frame.winfo_width() - 4)
+        self.assertLessEqual(tkfont.Font(font=label.cget("font")).measure(label.cget("text")), label.winfo_width())
+
+
+class CustomAPIGeometryTests(unittest.TestCase):
+    def test_fixed_controls_and_entry_fit_at_minimum_width_across_dpi(self):
+        for scaling in (1.0, 4 / 3, 5 / 3, 2.0, 8 / 3):
+            with self.subTest(tk_scaling=scaling):
+                root = tk.Tk()
+                root.attributes("-alpha", 0.0)
+                root.tk.call("tk", "scaling", scaling)
+                store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+                store.save_custom_api({**api_tests.settings(), "name": "DeepSeek-很长的名称-WorkBuddy"}, "placeholder")
+                settings_store = layouts._SettingsStore()
+                try:
+                    with patch("gui.app.WindowsCredentialStore", return_value=store), \
+                            patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+                        app = AIMemoryGUI(root)
+                    app._show_page(3)
+                    settle = layouts.GUIResponsiveGeometryTests()._settle_resize
+                    settle(root, app)
+                    page = app.page_frames[3]
+                    dialog = page.edit_custom_api()
+                    for name, value in api_tests.settings().items():
+                        dialog.variables[name].set(value)
+                    dialog.key_var.set("new-placeholder")
+                    dialog.save()
+                    settle(root, app)
+                    self.assertEqual(len(page.api_row_refs), 5)
+                    for width in (app.minimum_window_width, min(root.winfo_screenwidth() - 32, app.minimum_window_width + 220), app.minimum_window_width):
+                        root.geometry(f"{width}x680")
+                        settle(root, app)
+                        for provider, row in page.api_row_refs.items():
+                            self.assertEqual(page.api_test_buttons[provider].cget("text"), "测试")
+                            for widget in row.grid_slaves():
+                                self.assertGreaterEqual(widget.winfo_width(), widget.winfo_reqwidth(), provider)
+                                self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight(), provider)
+                                self.assertGreaterEqual(widget.winfo_x(), 0, provider)
+                                self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), row.winfo_width(), provider)
+                                self.assertLessEqual(widget.winfo_y() + widget.winfo_height(), row.winfo_height(), provider)
+                finally:
+                    root.update_idletasks()
+                    root.destroy()
+                    settings_store.scratch.cleanup()
 
 
 if __name__ == "__main__":

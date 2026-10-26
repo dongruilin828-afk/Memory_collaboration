@@ -588,6 +588,7 @@ class SummaryConfig:
     api_base: str = ""
     api_name: str = ""
     api_protocol: str = "openai"
+    api_profile_id: str = ""
     json_mode: str = "json_object"
 
     @classmethod
@@ -807,10 +808,16 @@ class GeminiGateway:
         self._api_key = api_key
         self._types = types
         self._system_instruction = SYSTEM_INSTRUCTION
+        self._last_status_code = None
+
+        def record_status(response):
+            self._last_status_code = response.status_code
+
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=config.request_timeout_seconds * 1000,
+                client_args={"event_hooks": {"response": [record_status]}},
                 **({"base_url": config.api_base} if config.provider == "custom" else {}),
             )
         )
@@ -870,6 +877,9 @@ class GeminiGateway:
                 return parsed
             except Exception as error:
                 last_error = error
+                status = getattr(error, "status_code", None) or getattr(error, "code", None)
+                if isinstance(status, int):
+                    self._last_status_code = status
                 if attempt < self.config.retries:
                     if _is_rate_limit_error(error):
                         retry_hint = _retry_after_seconds(error)
@@ -1120,6 +1130,7 @@ class SiliconFlowGateway:
                     request,
                     timeout=self.config.request_timeout_seconds,
                 ) as response:
+                    self._last_status_code = getattr(response, "status", None)
                     response_data = json.loads(
                         response.read().decode("utf-8")
                     )
@@ -1146,6 +1157,7 @@ class SiliconFlowGateway:
             except SummaryOutputTruncatedError:
                 raise
             except HTTPError as error:
+                self._last_status_code = error.code
                 last_error = _OpenAICompatibleHTTPError(
                     self._provider_name, error.code,
                     detail=_http_error_detail(error, self._api_key),
@@ -1214,7 +1226,6 @@ def custom_summary_config(values, base_config=None):
 
 def test_api_connection(config, api_key):
     """Send a small generation request through the same gateway as summaries."""
-    started = time.perf_counter()
     probe = replace(config, retries=1, max_output_tokens=min(config.max_output_tokens, 1024))
     gateway = None
     try:
@@ -1227,8 +1238,8 @@ def test_api_connection(config, api_key):
         )
         if result.get("ok") is not True:
             raise GeminiSummaryError("接口已响应，但未返回要求的测试 JSON。请检查模型和 JSON 输出方式。")
-    except Exception as error:
-        raise GeminiSummaryError(safe_error_message(error, (api_key,))) from None
+    except Exception:
+        raise GeminiSummaryError(_connection_status(False, config.model, getattr(gateway, "_last_status_code", None))) from None
     finally:
         client = getattr(gateway, "_client", None)
         if client is not None and callable(getattr(client, "close", None)):
@@ -1236,7 +1247,12 @@ def test_api_connection(config, api_key):
                 client.close()
             except Exception:
                 pass
-    return f"连接成功 · {config.model} · {time.perf_counter() - started:.1f} 秒"
+    return _connection_status(True, config.model, getattr(gateway, "_last_status_code", None))
+
+
+def _connection_status(success, model, status_code):
+    status = str(status_code) if isinstance(status_code, int) and 100 <= status_code <= 599 else ""
+    return " · ".join(part for part in ("连接成功" if success else "连接失败", model or "", status) if part)
 
 
 def _is_rate_limit_error(error: BaseException) -> bool:

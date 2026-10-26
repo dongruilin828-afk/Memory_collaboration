@@ -892,6 +892,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         rows = page.api_row_refs
         variables = page.api_key_vars
         order = list(page.ordered_providers)
+        step = rows[order[0]].winfo_height() + 8
         row_ids = {provider: id(row) for provider, row in rows.items()}
         variable_ids = {provider: id(var) for provider, var in variables.items()}
         entries = {
@@ -925,7 +926,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertEqual(page.ordered_providers, order, "outside drop changed order")
         self.assertEqual(
             {provider: row.winfo_y() for provider, row in rows.items()},
-            {provider: index * 42 for index, provider in enumerate(order)},
+            {provider: index * step for index, provider in enumerate(order)},
         )
 
         siliconflow = "siliconflow"
@@ -952,11 +953,11 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
 
         page._drag_start(None, siliconflow)
         page._drag_motion(SimpleNamespace(
-            y_root=list_top + 59,
+            y_root=list_top + step + rows[first].winfo_height() // 2,
             x_root=list_center_x,
         ))
         page._drag_end(SimpleNamespace(
-            y_root=list_top + 59,
+            y_root=list_top + step + rows[first].winfo_height() // 2,
             x_root=list_center_x,
         ))
         self.assertEqual(page.ordered_providers[1], siliconflow)
@@ -976,11 +977,11 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertEqual(page.ordered_providers[-1], siliconflow)
         page._drag_start(None, siliconflow)
         page._drag_motion(SimpleNamespace(
-            y_root=list_top + 50,
+            y_root=list_top + step + 8,
             x_root=list_center_x,
         ))
         page._drag_end(SimpleNamespace(
-            y_root=list_top + 50,
+            y_root=list_top + step + 8,
             x_root=list_center_x,
         ))
         self.assertEqual(page.ordered_providers, order)
@@ -1020,7 +1021,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             [target, first, *order[2:]],
         )
         self._flush(root, duration_ms=40)
-        self.assertEqual(rows[first].winfo_y(), 43)
+        self.assertEqual(rows[first].winfo_y(), step + 1)
         self.assertGreater(rows[target].winfo_y(), 0)
         self.assertLess(
             rows[target].winfo_y(), original_positions[target],
@@ -1081,7 +1082,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         self.assertEqual(
             {provider: rows[provider].winfo_y()
              for provider in page.ordered_providers},
-            {provider: index * 42
+            {provider: index * step
              for index, provider in enumerate(page.ordered_providers)},
         )
         app._show_page(3)
