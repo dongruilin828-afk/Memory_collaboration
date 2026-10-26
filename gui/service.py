@@ -1054,11 +1054,11 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
                 ),
             ))
 
-    append(base_config)
     if base_config.provider == "gemini":
-        append(replace(base_config, model="gemini-3.6-flash"))
-        append(replace(base_config, model="gemini-3.5-flash-lite"))
-    elif base_config.provider == "siliconflow":
+        from scripts.gemini_summarizer import DEFAULT_MODEL
+        base_config = replace(base_config, model=DEFAULT_MODEL)
+    append(base_config)
+    if base_config.provider == "siliconflow":
         for model in SILICONFLOW_FREE_SUMMARY_MODELS:
             append(replace(base_config, model=model))
     return candidates
@@ -1067,6 +1067,7 @@ def gui_summary_config_candidates(base_config: Any) -> list[Any]:
 def resolve_gui_summary_config(
     base_config: Any,
     api_keys: Mapping[str, str],
+    custom_api: Optional[Mapping[str, Any]] = None,
 ) -> Any:
     """按用户设置的优先级选择已配置的提供商。"""
     provider_order = normalize_provider_order(api_keys)
@@ -1082,7 +1083,15 @@ def resolve_gui_summary_config(
     preferred_provider = next(
         provider for provider in provider_order if provider in normalized
     )
+    if preferred_provider == "custom":
+        from scripts.gemini_summarizer import custom_summary_config, GeminiSummaryError
+        if not custom_api:
+            raise GeminiSummaryError("请先编辑自定义 API 的地址和模型。")
+        return custom_summary_config(custom_api, base_config)
     if preferred_provider == base_config.provider:
+        if preferred_provider == "gemini":
+            from scripts.gemini_summarizer import DEFAULT_MODEL
+            return replace(base_config, model=DEFAULT_MODEL)
         return base_config
 
     from scripts.gemini_summarizer import (
@@ -1101,6 +1110,7 @@ def resolve_gui_summary_config(
 def gui_summary_attempt_configs(
     base_config: Any,
     api_keys: Mapping[str, str],
+    custom_api: Optional[Mapping[str, Any]] = None,
 ) -> list[Any]:
     """按用户顺序构造已配置提供商的回退链。"""
     from scripts.gemini_summarizer import (
@@ -1109,7 +1119,7 @@ def gui_summary_attempt_configs(
         SILICONFLOW_DEFAULT_MODEL,
     )
 
-    primary = resolve_gui_summary_config(base_config, api_keys)
+    primary = resolve_gui_summary_config(base_config, api_keys, custom_api)
     provider_defaults = {
         "gemini": DEFAULT_MODEL,
         "siliconflow": SILICONFLOW_DEFAULT_MODEL,
@@ -1123,15 +1133,18 @@ def gui_summary_attempt_configs(
     attempts: list[Any] = []
     seen: set[tuple[str, str]] = set()
     for provider in provider_order:
-        provider_base = (
-            primary
-            if provider == primary.provider
-            else replace(
-                primary,
-                provider=provider,
-                model=provider_defaults[provider],
+        if provider == "custom":
+            provider_base = resolve_gui_summary_config(base_config, {provider: api_keys[provider]}, custom_api)
+        else:
+            provider_base = (
+                primary
+                if provider == primary.provider
+                else replace(
+                    base_config,
+                    provider=provider,
+                    model=provider_defaults[provider],
+                )
             )
-        )
         for candidate in gui_summary_config_candidates(provider_base):
             key = (candidate.provider, candidate.model)
             if key not in seen:
@@ -6840,6 +6853,7 @@ def generate_output_bundle(
     config: Any = None,
     gateway: Any = None,
     api_keys: Optional[Mapping[str, str]] = None,
+    custom_api: Optional[Mapping[str, Any]] = None,
     result_cache_dir: Optional[Path] = None,
     source_platform: Optional[str] = None,
     source_name: Optional[str] = None,
@@ -6893,6 +6907,7 @@ def generate_output_bundle(
     config_was_provided = config is not None
     gateway_was_provided = gateway is not None
     config = config or SummaryConfig.from_env()
+    fallback_base_config = config
     user_api_keys = (
         None
         if api_keys is None
@@ -6903,7 +6918,7 @@ def generate_output_bundle(
         }
     )
     if user_api_keys is not None:
-        config = resolve_gui_summary_config(config, user_api_keys)
+        config = resolve_gui_summary_config(config, user_api_keys, custom_api)
     selected_sections: tuple[str, ...] = ()
     selected_topics: tuple[str, ...] = ()
 
@@ -6962,7 +6977,7 @@ def generate_output_bundle(
             [config]
             if config_was_provided
             else (
-                gui_summary_attempt_configs(config, user_api_keys)
+                gui_summary_attempt_configs(fallback_base_config, user_api_keys, custom_api)
                 if user_api_keys is not None
                 else gui_summary_config_candidates(config)
             )
@@ -7004,7 +7019,9 @@ def generate_output_bundle(
             _load_summary_cache, _save_summary_cache,
             _summary_cache_path, _summary_fingerprint,
         )
-        smaller = replace(candidate, chunk_chars=12_000, thinking_level="minimal")
+        smaller = replace(candidate, chunk_chars=12_000, thinking_level=(
+            candidate.thinking_level if candidate.provider == "custom" else "minimal"
+        ))
         cache_path = _summary_cache_path(primary_json)
         cached = _load_summary_cache(
             cache_path, _summary_fingerprint(messages, candidate, source_platform),
@@ -7014,7 +7031,9 @@ def generate_output_bundle(
         cached["chunks"] = {}
         _save_summary_cache(cache_path, cached)
         attempts[next_index:] = [
-            (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level="minimal"), later_gateway)
+            (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level=(
+                later.thinking_level if later.provider == "custom" else "minimal"
+            )), later_gateway)
             for later, later_gateway in attempts[next_index:]
         ]
         progress("豆包长对话已自动改为 12000 字符分块；复用本次有效媒体分析。")

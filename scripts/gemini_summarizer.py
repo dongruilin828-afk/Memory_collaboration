@@ -28,7 +28,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_PROVIDER = "gemini"
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 SILICONFLOW_DEFAULT_MODEL = "Qwen/Qwen3-8B"
 SILICONFLOW_VISION_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 SILICONFLOW_API_BASE = "https://api.siliconflow.cn/v1"
@@ -585,6 +585,10 @@ class SummaryConfig:
     max_media_bytes: int = DEFAULT_MAX_MEDIA_BYTES
     media_batch_size: int = DEFAULT_MEDIA_BATCH_SIZE
     text_attachment_chars: int = DEFAULT_TEXT_ATTACHMENT_CHARS
+    api_base: str = ""
+    api_name: str = ""
+    api_protocol: str = "openai"
+    json_mode: str = "json_object"
 
     @classmethod
     def from_env(
@@ -620,6 +624,8 @@ class SummaryConfig:
                 "siliconflow": SILICONFLOW_DEFAULT_MODEL,
                 "deepseek": DEEPSEEK_DEFAULT_MODEL,
             }[provider]
+        if provider == "gemini" and re.match(r"^gemini-3\.[0-7](?:-|$)", model):
+            model = DEFAULT_MODEL
         thinking_level = (
             os.getenv("GEMINI_THINKING_LEVEL") or DEFAULT_THINKING_LEVEL
         ).strip().lower()
@@ -783,10 +789,10 @@ class GeminiGateway:
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
     ):
-        api_key = str(api_key or os.getenv("GEMINI_API_KEY") or "").strip()
+        api_key = str(api_key or (os.getenv("GEMINI_API_KEY") if config.provider != "custom" else "") or "").strip()
         if not api_key:
             raise GeminiSummaryError(
-                "未检测到 GEMINI_API_KEY 环境变量。"
+                "请填写自定义 API KEY。" if config.provider == "custom" else "未检测到 GEMINI_API_KEY 环境变量。"
             )
 
         try:
@@ -798,11 +804,14 @@ class GeminiGateway:
             ) from error
 
         self.config = config
+        self._api_key = api_key
         self._types = types
+        self._system_instruction = SYSTEM_INSTRUCTION
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
-                timeout=config.request_timeout_seconds * 1000
+                timeout=config.request_timeout_seconds * 1000,
+                **({"base_url": config.api_base} if config.provider == "custom" else {}),
             )
         )
         self._sleep = sleep
@@ -828,14 +837,17 @@ class GeminiGateway:
             )
 
         generation_options: dict[str, Any] = {
-            "system_instruction": SYSTEM_INSTRUCTION,
+            "system_instruction": self._system_instruction,
             "response_mime_type": "application/json",
-            "response_schema": schema,
+            "response_json_schema": schema,
             "max_output_tokens": self.config.max_output_tokens
         }
-        if self.config.model.startswith("gemini-3"):
+        if (self.config.model.startswith(("gemini-3", "gemini-4")) or self.config.provider == "custom") and self.config.thinking_level != "auto":
             generation_options["thinking_config"] = self._types.ThinkingConfig(
-                thinking_level=self.config.thinking_level
+                thinking_level=(
+                    "low" if self.config.model.removeprefix("models/") == DEFAULT_MODEL and self.config.thinking_level == "minimal"
+                    else self.config.thinking_level
+                )
             )
 
         last_error: BaseException | None = None
@@ -891,10 +903,15 @@ class GeminiGateway:
             if status_parts
             else ""
         )
+        detail = safe_error_message(
+            GeminiSummaryError(str(getattr(last_error, "message", "") or "")),
+            secrets=(self._api_key,),
+        )
         raise GeminiSummaryError(
             f"Gemini API 连续 {self.config.retries} 次调用失败"
             f"（{error_type}{status_hint}）。"
             "请检查网络、额度和模型配置。"
+            + (f" 服务端原因：{detail}" if detail else "")
         )
 
 
@@ -961,7 +978,11 @@ class SiliconFlowGateway:
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
     ):
-        if config.provider == "deepseek":
+        if config.provider == "custom":
+            provider_name = config.api_name or "自定义 API"
+            environment_key = ""
+            api_base = config.api_base
+        elif config.provider == "deepseek":
             provider_name = "DeepSeek"
             environment_key = os.getenv("DEEPSEEK_API_KEY")
             api_base = os.getenv("DEEPSEEK_API_BASE", DEEPSEEK_API_BASE)
@@ -982,6 +1003,7 @@ class SiliconFlowGateway:
         self._sleep = sleep
         self._api_base = api_base.rstrip("/")
         self._provider_name = provider_name
+        self._system_instruction = SYSTEM_INSTRUCTION
         self._doubao_output_limit = 0
         self._doubao_output_events = []
 
@@ -1035,7 +1057,7 @@ class SiliconFlowGateway:
         payload: dict[str, Any] = {
             "model": request_model,
             "messages": [
-                {"role": "system", "content": visual_instruction or SYSTEM_INSTRUCTION},
+                {"role": "system", "content": visual_instruction or self._system_instruction},
                 {"role": "user", "content": user_content}
             ],
             "temperature": 0.1,
@@ -1051,6 +1073,14 @@ class SiliconFlowGateway:
                 ),
                 "thinking": {"type": "enabled"},
             })
+        elif self.config.provider == "custom":
+            if self.config.json_mode != "prompt":
+                payload["response_format"] = (
+                    {"type": "json_schema", "json_schema": {"name": "summary_response", "strict": True, "schema": schema}}
+                    if self.config.json_mode == "json_schema" else {"type": "json_object"}
+                )
+            if self.config.thinking_level != "auto":
+                payload["reasoning_effort"] = self.config.thinking_level
         else:
             payload["response_format"] = {
                 "type": "json_schema",
@@ -1083,6 +1113,9 @@ class SiliconFlowGateway:
                     },
                     method="POST"
                 )
+                if self.config.provider == "custom":
+                    request.remove_header("Authorization")
+                    request.add_unredirected_header("Authorization", f"Bearer {self._api_key}")
                 with urlopen(
                     request,
                     timeout=self.config.request_timeout_seconds,
@@ -1091,6 +1124,8 @@ class SiliconFlowGateway:
                         response.read().decode("utf-8")
                     )
                 choice = response_data["choices"][0]
+                if self.config.provider == "custom" and choice.get("finish_reason") == "length":
+                    raise SummaryOutputTruncatedError("自定义 API 输出达到 token 上限，结果被截断；请提高输出上限。")
                 if self._doubao_output_limit and choice.get("finish_reason") == "length":
                     old_limit = payload["max_tokens"]
                     new_limit = min(self._doubao_output_limit, old_limit * 2)
@@ -1159,9 +1194,49 @@ def create_gateway(
     config: SummaryConfig,
     api_key: str | None = None,
 ) -> SummaryGateway:
-    if config.provider in {"siliconflow", "deepseek"}:
+    if config.provider in {"siliconflow", "deepseek"} or (config.provider == "custom" and config.api_protocol == "openai"):
         return SiliconFlowGateway(config, api_key=api_key)
     return GeminiGateway(config, api_key=api_key)
+
+
+def custom_summary_config(values, base_config=None):
+    from scripts.api_config import normalize_custom_api
+    settings = normalize_custom_api(values)
+    return replace(
+        base_config or SummaryConfig(), provider="custom", model=settings["model"],
+        api_base=settings["url"], api_name=settings["name"],
+        api_protocol=settings["protocol"], json_mode=settings["json_mode"],
+        thinking_level=settings["thinking_level"],
+        max_output_tokens=settings["max_output_tokens"],
+        request_timeout_seconds=settings["request_timeout_seconds"],
+    )
+
+
+def test_api_connection(config, api_key):
+    """Send a small generation request through the same gateway as summaries."""
+    started = time.perf_counter()
+    probe = replace(config, retries=1, max_output_tokens=min(config.max_output_tokens, 1024))
+    gateway = None
+    try:
+        gateway = create_gateway(probe, api_key=api_key)
+        gateway._system_instruction = "这是 API 连接测试。请只返回要求的简短 JSON，不添加解释。"
+        result = gateway.generate_json(
+            '连接测试：请只返回 JSON 对象 {"ok": true}。',
+            {"type": "object", "properties": {"ok": {"type": "boolean"}},
+             "required": ["ok"], "additionalProperties": False},
+        )
+        if result.get("ok") is not True:
+            raise GeminiSummaryError("接口已响应，但未返回要求的测试 JSON。请检查模型和 JSON 输出方式。")
+    except Exception as error:
+        raise GeminiSummaryError(safe_error_message(error, (api_key,))) from None
+    finally:
+        client = getattr(gateway, "_client", None)
+        if client is not None and callable(getattr(client, "close", None)):
+            try:
+                client.close()
+            except Exception:
+                pass
+    return f"连接成功 · {config.model} · {time.perf_counter() - started:.1f} 秒"
 
 
 def _is_rate_limit_error(error: BaseException) -> bool:

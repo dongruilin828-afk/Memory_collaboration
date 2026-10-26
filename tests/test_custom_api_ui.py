@@ -1,0 +1,180 @@
+"""Settings/editor behaviour with isolated stores and no real API credentials."""
+import queue
+import threading
+import time
+import tkinter as tk
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from gui.app import AIMemoryGUI
+from gui.credential_store import WindowsCredentialStore
+from gui.custom_api_dialog import CustomAPIDialog
+from tests import test_custom_api as api_tests
+from tests import test_gui_api_keys as old_tests
+from tests import test_gui_layout as layouts
+
+
+class CustomAPISnapshotTests(unittest.TestCase):
+    def test_task_keeps_configuration_and_key_when_settings_are_edited(self):
+        values = api_tests.settings()
+        keys = {"custom": "original-key"}
+        gui, _ = old_tests.GUIApiKeyRoutingTests._fake_gui(normal=True)
+        gui.root = object()
+        gui._run_generation_task = lambda *_args, **_kwargs: None
+        gui._set_inputs_locked = lambda _locked: None
+        gui._update_generate_button_state = lambda: None
+        gui.done_badge = SimpleNamespace(pack_forget=lambda: None)
+        gui.progress_bar = SimpleNamespace(reset=lambda: None, set_progress=lambda _v: None)
+        gui.status_var = gui.percent_var = SimpleNamespace(set=lambda _v: None)
+        gui.credential_store = SimpleNamespace(load_api_keys=lambda: keys, load_custom_api=lambda: values)
+        captured = {}
+        class Thread:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+            def start(self):
+                pass
+        with patch("gui.app.threading.Thread", Thread), \
+                patch("gui.app._prompt_output_target", return_value=(Path("output"), "summary.md")):
+            AIMemoryGUI._on_start_generate(gui)
+        keys["custom"] = "changed-key"
+        values["url"] = "https://changed.test/v1"
+        self.assertEqual(captured["args"][5], {"custom": "original-key"})
+        self.assertEqual(captured["kwargs"]["custom_api"]["url"], "https://example.test/v1")
+
+
+class CustomAPIUITests(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(str(error))
+        self.root.attributes("-alpha", 0.0)
+        self.callbacks = queue.Queue()
+        self.saved = []
+        self.addCleanup(self._close_root)
+
+    def _close_root(self):
+        self.root.update_idletasks()
+        self.root.destroy()
+
+    def dialog(self):
+        dialog = CustomAPIDialog(self.root, api_tests.settings(), "placeholder-key",
+                                 self.callbacks.put, lambda *args: self.saved.append(args))
+        dialog.withdraw()
+        return dialog
+
+    def test_cancel_discards_draft_save_normalizes_and_protocol_changes_choices(self):
+        dialog = self.dialog()
+        self.assertEqual(dialog.key_entry.cget("show"), "*")
+        dialog.variables["name"].set("unsaved")
+        dialog.destroy()
+        self.assertEqual(self.saved, [])
+        dialog = self.dialog()
+        dialog.variables["url"].set("https://my.test/v1/chat/completions")
+        dialog.variables["thinking_level"].set("xhigh")
+        dialog.variables["protocol"].set("gemini")
+        dialog._protocol_changed()
+        self.assertEqual(dialog.variables["thinking_level"].get(), "auto")
+        self.assertEqual(str(dialog.entries["json_mode"].cget("state")), "disabled")
+        dialog.variables["protocol"].set("openai")
+        dialog._protocol_changed()
+        dialog.priority_var.set(True)
+        dialog.save()
+        self.assertEqual(self.saved[0][0]["url"], "https://my.test/v1")
+        self.assertEqual(self.saved[0][1:], ("placeholder-key", True))
+
+    def test_pending_test_ignores_duplicate_and_does_not_validate_edited_draft(self):
+        dialog = self.dialog()
+        started, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        def probe(*_args):
+            started.set()
+            release.wait(3)
+            return "连接成功"
+        with patch("gui.custom_api_dialog.test_api_connection", side_effect=probe) as call:
+            dialog.test()
+            self.assertTrue(started.wait(2))
+            self.assertFalse(dialog.test_button._enabled)
+            dialog.test()
+            self.assertEqual(call.call_count, 1)
+            dialog.variables["model"].set("edited-model")
+            release.set()
+            self.callbacks.get(timeout=3)()
+        self.assertIn("配置已更改", dialog.status_var.get())
+        self.assertTrue(dialog.test_button._enabled)
+        self.assertEqual(self.saved, [])
+
+    def test_test_completion_after_close_does_not_touch_destroyed_widgets(self):
+        dialog = self.dialog()
+        with patch("gui.custom_api_dialog.test_api_connection", return_value="连接成功"):
+            dialog.test()
+            callback = self.callbacks.get(timeout=3)
+        dialog.destroy()
+        callback()
+        self.assertEqual(self.saved, [])
+
+    def test_settings_editor_saves_to_vault_and_updates_real_priority(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        settings_store = layouts._SettingsStore()
+        self.addCleanup(settings_store.scratch.cleanup)
+        with patch("gui.app.WindowsCredentialStore", return_value=store), \
+                patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+            app = AIMemoryGUI(self.root)
+        page = app.page_frames[3]
+        self.assertIn("custom", page.api_key_vars)
+        dialog = page.edit_custom_api()
+        dialog.withdraw()
+        for name, value in api_tests.settings().items():
+            dialog.variables[name].set(value)
+        dialog.key_var.set("new-placeholder-key")
+        dialog.priority_var.set(True)
+        dialog.save()
+        self.assertEqual(page.ordered_providers[0], "custom")
+        self.assertEqual(store.load_provider_order()[0], "custom")
+        self.assertEqual(store.load_api_keys()["custom"], "new-placeholder-key")
+        self.assertEqual(page.api_key_vars["custom"].get(), "new-placeholder-key")
+        self.assertEqual(store.load_custom_api()["model"], "my-model")
+
+    def test_failed_key_load_cannot_overwrite_existing_credentials(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        settings_store = layouts._SettingsStore()
+        self.addCleanup(settings_store.scratch.cleanup)
+        with patch.object(store, "load_api_keys", side_effect=old_tests.CredentialStoreError("读取失败")), \
+                patch("gui.app.WindowsCredentialStore", return_value=store), \
+                patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+            app = AIMemoryGUI(self.root)
+        with patch.object(store, "save_api_keys") as save:
+            app.page_frames[3].api_save_button._command()
+        save.assert_not_called()
+
+    def test_settings_row_rejects_stale_success_after_key_edit(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        store.save_api_keys({"gemini": "original-placeholder"})
+        settings_store = layouts._SettingsStore()
+        self.addCleanup(settings_store.scratch.cleanup)
+        with patch("gui.app.WindowsCredentialStore", return_value=store), \
+                patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+            app = AIMemoryGUI(self.root)
+        page = app.page_frames[3]
+        started, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        def probe(*_args):
+            started.set()
+            release.wait(3)
+            return "连接成功"
+        with patch("scripts.gemini_summarizer.test_api_connection", side_effect=probe):
+            page.api_test_buttons["gemini"].invoke()
+            self.assertTrue(started.wait(2))
+            page.api_key_vars["gemini"].set("edited-placeholder")
+            release.set()
+            deadline = time.monotonic() + 3
+            while "已更改" not in page.api_notice_var.get() and time.monotonic() < deadline:
+                self.root.update()
+                time.sleep(.02)
+        self.assertIn("已更改", page.api_notice_var.get())
+
+
+if __name__ == "__main__":
+    unittest.main()

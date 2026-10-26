@@ -7,6 +7,7 @@ API 密钥只写入当前 Windows 用户的凭据管理器。模块不使用明�
 from __future__ import annotations
 
 import os
+import json
 from typing import Any, Iterable, Mapping
 
 
@@ -17,16 +18,18 @@ ACCOUNT_NAMES = {
     "deepseek": "deepseek-api-key",
 }
 PROVIDER_ORDER_ACCOUNT = "api-provider-order"
+CUSTOM_API_ACCOUNT = "custom-summary-api"
+PROVIDERS = (*ACCOUNT_NAMES, "custom")
 
 
 def normalize_provider_order(order: Iterable[str]) -> tuple[str, ...]:
     """保留有效且不重复的顺序，并补齐尚未出现的提供商。"""
     normalized: list[str] = []
     for provider in order:
-        if provider in ACCOUNT_NAMES and provider not in normalized:
+        if provider in PROVIDERS and provider not in normalized:
             normalized.append(provider)
     normalized.extend(
-        provider for provider in ACCOUNT_NAMES if provider not in normalized
+        provider for provider in PROVIDERS if provider not in normalized
     )
     return tuple(normalized)
 
@@ -65,6 +68,9 @@ class WindowsCredentialStore:
                 ).strip()
                 for provider, account in ACCOUNT_NAMES.items()
             }
+            custom = self._load_custom_record()
+            if custom:
+                keys["custom"] = str(custom.get("api_key") or "").strip()
             order = normalize_provider_order(
                 str(
                     backend.get_password(
@@ -81,8 +87,37 @@ class WindowsCredentialStore:
         return {
             provider: keys[provider]
             for provider in order
-            if keys[provider]
+            if keys.get(provider)
         }
+
+    def _load_custom_record(self) -> dict:
+        raw = self._get_backend().get_password(SERVICE_NAME, CUSTOM_API_ACCOUNT)
+        if not raw:
+            return {}
+        from scripts.api_config import normalize_custom_api
+        data = json.loads(raw)
+        return {**normalize_custom_api(data), "api_key": str(data.get("api_key") or "")}
+
+    def load_custom_api(self) -> dict:
+        """Read endpoint metadata without returning the stored secret."""
+        try:
+            return {k: v for k, v in self._load_custom_record().items() if k != "api_key"}
+        except Exception:
+            raise CredentialStoreError("无法读取自定义 API 配置，请重新配置。") from None
+
+    def save_custom_api(self, values: Mapping, api_key: str) -> None:
+        from scripts.api_config import normalize_custom_api
+        data = normalize_custom_api(values)
+        data["api_key"] = str(api_key or "").strip()
+        try:
+            # Endpoint and secret change together, so a failed save cannot pair
+            # a new secret with an old endpoint.
+            self._get_backend().set_password(
+                SERVICE_NAME, CUSTOM_API_ACCOUNT,
+                json.dumps(data, ensure_ascii=False),
+            )
+        except Exception:
+            raise CredentialStoreError("无法安全保存自定义 API 配置。") from None
 
     def load_provider_order(self) -> tuple[str, ...]:
         """读取用户设置的提供商兜底顺序。"""
@@ -107,6 +142,12 @@ class WindowsCredentialStore:
         }
         try:
             backend = self._get_backend()
+            if "custom" in api_keys:
+                custom = self._load_custom_record()
+                if custom:
+                    self.save_custom_api(custom, api_keys.get("custom") or "")
+                elif str(api_keys.get("custom") or "").strip():
+                    raise CredentialStoreError("请先编辑自定义 API 的地址和模型，再保存 KEY。")
             for provider, account in ACCOUNT_NAMES.items():
                 secret = normalized[provider]
                 existing = backend.get_password(SERVICE_NAME, account)

@@ -64,7 +64,7 @@ class CredentialStoreTests(unittest.TestCase):
         )
         self.assertEqual(
             store.load_provider_order(),
-            ("deepseek", "gemini", "siliconflow"),
+            ("deepseek", "gemini", "siliconflow", "custom"),
         )
         self.assertEqual(
             list(store.load_api_keys()),
@@ -519,7 +519,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
     def test_only_silicon_key_selects_silicon_directly_without_duplicate_fallback(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
         )
         user_key = "stored-silicon-user-key"
         created = []
@@ -603,7 +603,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
     def test_output_generation_keeps_custom_provider_order(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
         )
         created = []
 
@@ -646,7 +646,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
     def test_gemini_timeout_switches_to_configured_siliconflow_key(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
             request_timeout_seconds=180,
         )
         keys = {
@@ -1067,7 +1067,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
     def test_user_gemini_key_overrides_environment_key(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
         )
         created_keys = []
 

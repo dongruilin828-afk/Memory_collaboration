@@ -165,7 +165,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         messages = [{"role": "User", "content": "请总结这段内容"}]
         first = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
             chunk_chars=12000,
         )
         fallback = summary.SummaryConfig(
@@ -210,7 +210,7 @@ class GeminiSummarizerTests(unittest.TestCase):
                     output_json=output_json,
                     output_markdown=output_markdown,
                     config=summary.SummaryConfig(
-                        provider="gemini", model="gemini-3.5-flash"
+                        provider="gemini", model="gemini-3.8-flash"
                     ),
                     gateway=FailingFinalGateway(),
                     progress=lambda _message: None,
@@ -358,7 +358,7 @@ class GeminiSummarizerTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             config = summary.SummaryConfig.from_env()
         self.assertEqual(config.provider, "gemini")
-        self.assertEqual(config.model, "gemini-3.5-flash")
+        self.assertEqual(config.model, "gemini-3.8-flash")
 
     def test_chunking_keeps_user_and_following_ai_in_same_chunk(self):
         messages = [

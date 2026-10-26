@@ -941,7 +941,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         ))
         self.assertEqual(
             page._drag_state["preview_order"],
-            [siliconflow, order[0], order[2]],
+            [siliconflow, order[0], *order[2:]],
             "the middle provider should be droppable above the top row",
         )
         page._drag_end(SimpleNamespace(
@@ -1017,7 +1017,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
         ))
         self.assertEqual(
             page._drag_state["preview_order"],
-            [target, first, order[2]],
+            [target, first, *order[2:]],
         )
         self._flush(root, duration_ms=40)
         self.assertEqual(rows[first].winfo_y(), 43)
@@ -1031,7 +1031,7 @@ class GUIResponsiveGeometryTests(unittest.TestCase):
             y_root=target_center_y,
             x_root=list_center_x,
         ))
-        adjacent_order = [target, first, order[2]]
+        adjacent_order = [target, first, *order[2:]]
         self.assertEqual(page.ordered_providers, adjacent_order)
         self.assertEqual({key: id(row) for key, row in rows.items()}, row_ids)
         self.assertEqual({key: id(var) for key, var in variables.items()}, variable_ids)

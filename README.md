@@ -126,7 +126,7 @@ GUI 会在进度栏显示当前总结模型，并按用户设置的提供商顺�
 
 临时覆盖集成流程使用的模型：
 
-    uv run python -m scripts.parser --summarize --model gemini-3.6-flash
+    uv run python -m scripts.parser --summarize --model gemini-3.8-flash
 
 对已经导出的结果单独总结，不重新打开浏览器：
 
@@ -134,12 +134,12 @@ GUI 会在进度栏显示当前总结模型，并按用户设置的提供商顺�
 
 临时选择其他模型：
 
-    uv run python -m scripts.summarize_memory "results/export/ChatGPT_含图片.md" --model gemini-3.6-flash
+    uv run python -m scripts.summarize_memory "results/export/ChatGPT_含图片.md" --model gemini-3.8-flash
 
 也可以通过环境变量长期调整，而不改代码：
 
     $env:SUMMARY_PROVIDER = "gemini"
-    $env:SUMMARY_MODEL = "gemini-3.5-flash"
+    $env:SUMMARY_MODEL = "gemini-3.8-flash"
     $env:GEMINI_CHUNK_CHARS = "24000"
     $env:GEMINI_SHORT_CONVERSATION_CHARS = "18000"
     $env:GEMINI_MAX_OUTPUT_TOKENS = "16384"
@@ -150,13 +150,27 @@ GUI 会在进度栏显示当前总结模型，并按用户设置的提供商顺�
     $env:GEMINI_MEDIA_BATCH_SIZE = "6"
     $env:GEMINI_BATCH_INTERVAL_SECONDS = "15"
 
-SUMMARY_MODEL 未设置时默认使用稳定版 gemini-3.5-flash；仍兼容旧变量
+SUMMARY_MODEL 未设置时默认使用稳定版 gemini-3.8-flash；仍兼容旧变量
 GEMINI_MODEL。模型名只在统一配置入口设置，业务调用点不会写死；以后换模型
 只需修改环境变量或 --model 参数。
 
-2026-08-16 实测：gemini-3.5-flash 与 gemini-3.6-flash 均可返回结构化
-JSON。本轮批量总结优先使用 3.5 Flash；其额度在超长对话中耗尽后，仅对该份
-结果显式改用 3.6 Flash。模型可用性和额度会变化，运行时仍应以真实探测为准。
+2026-10-26 更新：内置 Gemini 总结仅使用 `gemini-3.8-flash`，不再回退到
+3.5、3.6、Flash-Lite 或 3.7。旧 3.x 环境配置会迁移到 3.8；3.8 不支持
+`minimal`，该旧值实际使用 `low`。Argon 不属于免费 API 层，未加入内置免费模型。
+模型可用性与额度以 [Google 官方定价](https://ai.google.dev/gemini-api/docs/pricing) 为准。
+
+桌面端可在“设置 → API KEY 设置 → 配置自定义 API”中保存一个自定义总结接口：
+填写显示名称、API 基础 URL、KEY、实际模型 ID、思考强度、JSON 输出方式、最大输出
+token 和超时。支持 OpenAI Chat Completions 兼容协议，以及 Gemini 原生协议。
+OpenAI URL 可填 `https://example.com/v1` 或完整的 `/v1/chat/completions` 地址；
+Gemini 原生 URL 例如 `https://generativelanguage.googleapis.com`。
+`auto` 不发送思考参数；不支持结构化输出的兼容接口可选 `prompt`，但响应仍须是有效 JSON。
+配置与 KEY 都保存在当前 Windows 用户的凭据管理器中，不写入仓库配置。
+
+“测试连接”使用编辑中的配置向指定接口发送一条简短的 JSON 生成请求，不发送对话或附件。
+测试可能消耗少量调用额度；成功表示这条文本生成请求可用，不代表模型具备全部图片/音视频能力。
+勾选“优先使用此 API”或拖动调用顺序，可让自定义接口参与实际总结；清空该行 KEY 并
+安全保存即可停用。设置修改不会改变已启动任务使用的配置快照。
 
 命令行核心不会静默切换模型，以免费用、能力和输出变化在用户不知情时发生；
 上述 GUI 跨提供商回退会在进度栏明确显示每次切换。SiliconFlow 默认使用
@@ -238,7 +252,7 @@ Markdown 默认只输出精简总结，不重复展示分类记录，适合直�
 
 批量任务因限额或网络中断后续跑，并跳过已有同模型完整结果：
 
-    uv run python -m tests.summarize_tests --include-details --model gemini-3.6-flash --resume
+    uv run python -m tests.summarize_tests --include-details --model gemini-3.8-flash --resume
 
 重新抓取 `tests/tests.txt` 中的全部链接，并在抓取完成后批量总结：
 

@@ -39,7 +39,7 @@ class GenerationRunLogTests(unittest.TestCase):
     def test_gui_timeout_does_not_repeat_across_fallback_models(self):
         base_config = summary.SummaryConfig(
             provider="gemini",
-            model="gemini-3.5-flash",
+            model="gemini-3.8-flash",
             request_timeout_seconds=180,
         )
         candidates = gui_summary_config_candidates(base_config)
@@ -75,7 +75,7 @@ class GenerationRunLogTests(unittest.TestCase):
                     save_dir=Path(temp),
                 )
 
-        self.assertEqual(created_models, ["gemini-3.5-flash"])
+        self.assertEqual(created_models, ["gemini-3.8-flash"])
 
 
 if __name__ == "__main__":

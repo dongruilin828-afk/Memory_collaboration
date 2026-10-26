@@ -1694,12 +1694,15 @@ class AIMemoryGUI:
             return
 
         api_keys: dict[str, str] = {}
+        custom_api = None
         needs_summary = any(
             modes.get(name) for name in ("normal", "simple", "detailed")
         )
         if needs_summary:
             try:
                 api_keys = self.credential_store.load_api_keys()
+                if "custom" in api_keys:
+                    custom_api = dict(self.credential_store.load_custom_api())
             except CredentialStoreError:
                 self._show_api_key_settings(require_key=True)
                 return
@@ -1754,6 +1757,7 @@ class AIMemoryGUI:
                 url, need_login, modes, save_dir_path,
                 output_filename, api_keys, settings,
             ),
+            **({"kwargs": {"custom_api": custom_api}} if custom_api else {}),
             daemon=True,
         )
         thread.start()
@@ -1781,6 +1785,7 @@ class AIMemoryGUI:
         try:
             _load_direct_summary_file(source_path)
             api_keys = self.credential_store.load_api_keys()
+            custom_api = dict(self.credential_store.load_custom_api()) if "custom" in api_keys else None
         except CredentialStoreError:
             self._show_api_key_settings(require_key=True)
             return
@@ -1830,6 +1835,7 @@ class AIMemoryGUI:
                 settings,
                 Path(source_path).resolve(),
             ),
+            **({"kwargs": {"custom_api": custom_api}} if custom_api else {}),
             daemon=True,
         ).start()
 
@@ -2253,6 +2259,7 @@ class AIMemoryGUI:
         api_keys: dict[str, str],
         app_settings: AppSettings,
         source_path: Path | None = None,
+        custom_api: dict | None = None,
     ):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -2423,6 +2430,7 @@ class AIMemoryGUI:
                 output_filename=output_filename,
                 project_dir=app_settings.runtime_data_dir,
                 api_keys=api_keys,
+                **({"custom_api": custom_api} if custom_api else {}),
                 result_cache_dir=app_settings.summary_cache_dir,
                 source_platform=(
                     "deepseek"
@@ -2603,10 +2611,12 @@ class AIMemoryGUI:
         try:
             existing_keys = self.credential_store.load_api_keys()
             provider_order = list(self.credential_store.load_provider_order())
+            custom_api_settings = getattr(self.credential_store, "load_custom_api", lambda: {})()
             key_load_error = None
         except CredentialStoreError as error:
             existing_keys = {}
             provider_order = ["gemini", "siliconflow", "deepseek"]
+            custom_api_settings = {}
             key_load_error = str(error)
 
         notice_var = tk.StringVar(value="")
@@ -2625,7 +2635,7 @@ class AIMemoryGUI:
                 except tk.TclError:
                     pass
                 self._notice_after_id = None
-            is_success = message.startswith("已")
+            is_success = message.startswith(("已", "连接成功"))
             notice_label.configure(
                 fg=COLOR_SUCCESS if is_success else COLOR_DANGER,
             )
@@ -2640,12 +2650,14 @@ class AIMemoryGUI:
                 )
 
         page.show_notice = show_notice
+        page.api_notice_var = notice_var
 
         # ----- API KEY 行 -----
         providers = {
             "gemini": "Google Gemini",
             "siliconflow": "SiliconFlow",
             "deepseek": "DeepSeek",
+            "custom": "自定义 API",
         }
 
         ordered_providers = [
@@ -2662,6 +2674,7 @@ class AIMemoryGUI:
         api_rows_frame.pack_propagate(False)
 
         api_key_vars: dict[str, tk.StringVar] = {}
+        api_test_buttons = {}
         api_row_refs: dict[str, tk.Frame] = {}
         drag_state = {
             "active": False, "src": None, "tgt": None,
@@ -2796,6 +2809,15 @@ class AIMemoryGUI:
             eye_btn.configure(command=lambda e=key_entry, b=eye_btn: _toggle_key_mask(e, b))
             eye_btn.pack(side=tk.RIGHT, padx=(2, 0))
             HoverTooltip(eye_btn, "显示 / 隐藏 API Key")
+            test_button = tk.Button(
+                row, text="测试连接", font=FONT_SMALL,
+                bg=COLOR_CARD, fg=COLOR_TEXT_MUTED, relief=tk.FLAT,
+                cursor="hand2", command=lambda key=provider: _test_api(key),
+            )
+            test_button.pack(side=tk.RIGHT, padx=(4, 0))
+            api_test_buttons[provider] = test_button
+            if provider == "gemini":
+                HoverTooltip(test_button, "使用 Gemini 3.8 Flash 发送一条简短测试请求")
 
         def _drag_start(_event, provider):
             if provider not in ordered_providers:
@@ -2903,6 +2925,7 @@ class AIMemoryGUI:
 
         page.api_row_refs = api_row_refs
         page.api_key_vars = api_key_vars
+        page.api_test_buttons = api_test_buttons
         page.ordered_providers = ordered_providers
         page.api_rows_frame = api_rows_frame
         page.api_animation = animation
@@ -2913,14 +2936,102 @@ class AIMemoryGUI:
         page._drag_state = drag_state
         _layout_api_rows()
 
-        tk.Label(
+        api_hint = tk.Label(
             api_page,
-            text="提示：上下拖动左侧 ☰ 手柄可调整模型调用的优先级顺序；密钥使用 Windows DPAPI 加密存储。",
+            text="上下拖动 ☰ 调整调用顺序，失败后依次回退；Gemini 仅使用 3.8 Flash。密钥存入 Windows 凭据管理器。",
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
-        ).pack(fill=tk.X, pady=(2, 4))
+            justify=tk.LEFT,
+        )
+        api_hint.pack(fill=tk.X, pady=(2, 4))
+        api_hint.bind("<Configure>", lambda e: api_hint.configure(wraplength=max(200, e.width)))
+        notice_label.bind("<Configure>", lambda e: notice_label.configure(wraplength=max(200, e.width)))
+
+        custom_caption = tk.StringVar(value=(
+            f"自定义：{custom_api_settings['name']} · {custom_api_settings['model']}"
+            if custom_api_settings else "自定义 API 尚未配置，点击下方入口填写地址和模型。"
+        ))
+        custom_label = tk.Label(api_page, textvariable=custom_caption, font=FONT_SMALL,
+                                fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w", justify=tk.LEFT)
+        custom_label.pack(fill=tk.X, pady=(2, 4))
+        custom_label.bind("<Configure>", lambda e: custom_label.configure(wraplength=max(200, e.width)))
+
+        def _test_api(provider):
+            from scripts.gemini_summarizer import (
+                SummaryConfig, DEFAULT_MODEL, SILICONFLOW_DEFAULT_MODEL,
+                DEEPSEEK_DEFAULT_MODEL, custom_summary_config, test_api_connection,
+            )
+            key = api_key_vars[provider].get().strip()
+            if not key:
+                show_notice("请先填写 API KEY；测试会发送一条简短请求。", 5000)
+                return
+            try:
+                if provider == "custom":
+                    tested_settings = dict(custom_api_settings)
+                    config = custom_summary_config(tested_settings)
+                else:
+                    config = SummaryConfig(provider=provider, model={
+                        "gemini": DEFAULT_MODEL, "siliconflow": SILICONFLOW_DEFAULT_MODEL,
+                        "deepseek": DEEPSEEK_DEFAULT_MODEL,
+                    }[provider], thinking_level="low")
+            except ValueError as error:
+                show_notice(str(error), 5000)
+                return
+            button = api_test_buttons[provider]
+            button.configure(state="disabled")
+            show_notice("正在发送测试请求…", 0)
+
+            def finish(text):
+                if api_page.winfo_exists():
+                    button.configure(state="normal")
+                    if api_key_vars[provider].get().strip() != key or (
+                        provider == "custom" and tested_settings != custom_api_settings
+                    ):
+                        show_notice("配置或 KEY 已更改，请重新测试当前配置。", 5000)
+                    else:
+                        show_notice(text, 8000)
+
+            def run():
+                try:
+                    text = test_api_connection(config, key)
+                except RuntimeError as error:
+                    text = str(error)
+                self._post_ui(lambda: finish(text))
+            threading.Thread(target=run, daemon=True).start()
+
+        def _edit_custom_api():
+            from gui.custom_api_dialog import CustomAPIDialog
+
+            def saved(values, key, priority):
+                self.credential_store.save_custom_api(values, key)
+                custom_api_settings.clear()
+                custom_api_settings.update(values)
+                api_key_vars["custom"].set(key)
+                custom_caption.set(f"自定义：{values['name']} · {values['model']}")
+                if priority:
+                    ordered_providers.remove("custom")
+                    ordered_providers.insert(0, "custom")
+                    self.credential_store.save_provider_order(ordered_providers)
+                    _layout_api_rows(animate=True)
+                show_notice("已安全保存自定义 API", 3000)
+
+            dialog = CustomAPIDialog(self.root, dict(custom_api_settings), api_key_vars["custom"].get(),
+                                     self._post_ui, saved)
+            page.custom_api_dialog = dialog
+            return dialog
+
+        page.edit_custom_api = _edit_custom_api
+        page.custom_api_settings = custom_api_settings
+        page.custom_api_button = FlatButton(
+            api_page, text="配置自定义 API", command=_edit_custom_api,
+            width=160, height=46, bg_parent=COLOR_CARD,
+        )
+        page.custom_api_button.pack(side=tk.LEFT, pady=(8, 0))
 
         def _save_api_keys():
             _cancel_api_drag(animate=False)
+            if key_load_error:
+                show_notice("原有 KEY 未能读取，已阻止覆盖保存；请重启程序后重试。", 5000)
+                return
             keys = {
                 provider: var.get() for provider, var in api_key_vars.items()
             }
