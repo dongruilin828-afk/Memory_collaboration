@@ -31,8 +31,8 @@
   ],
   "document_map": {
     "泰戈尔.pptx": "./documents/%E6%B3%B0%E6%88%88%E5%B0%94.pptx",
-    "/file?file_id=4ce610fc-72e1-484d-bb15-67902ad51e1a&state=N8bTZHeaNbi22UP5CToX8JythzfZ01he7Uilip%2F%2BTDZfG%2Bju8sGPX7GGSK8lKdnS%2BtNd6eD4z5CwLcjFDh9v3HrAKN2w6ZpnRTrm%2Bg4v5S3WkL4MimIMyTYbPNI17qO2o2wLf8f2bG3rdRSdxyYZYpVq4%2Fq63SrynL149SyGuvx%2BUk6q3scL2bfyJ0tGpIWXUIbajkTKEWPt3I%2F1oe6oA7EiE8R2CtWf5QbxRi5ZqHwpz6Jpp5XTB1jv1pi2URR3yy5sRtW90gb5E43f8Gn0CmEB8Fkp6Uw8jk6RmdfuJIsCfY2%2B8TqkJM9J8ZttpVbVvh5xuKEdMbvlJyW8XnN4pEBeQbcGwj0cWJigQ0W5mRjuIu1muQvjrTf6g3ivMLQyqeKd6WD4is%2BHKg%3D%3D": "./documents/%E6%B3%B0%E6%88%88%E5%B0%94.pptx",
-    "https://files.deepseeksvc.com/api/file?file_id=4ce610fc-72e1-484d-bb15-67902ad51e1a&state=N8bTZHeaNbi22UP5CToX8JythzfZ01he7Uilip%2F%2BTDZfG%2Bju8sGPX7GGSK8lKdnS%2BtNd6eD4z5CwLcjFDh9v3HrAKN2w6ZpnRTrm%2Bg4v5S3WkL4MimIMyTYbPNI17qO2o2wLf8f2bG3rdRSdxyYZYpVq4%2Fq63SrynL149SyGuvx%2BUk6q3scL2bfyJ0tGpIWXUIbajkTKEWPt3I%2F1oe6oA7EiE8R2CtWf5QbxRi5ZqHwpz6Jpp5XTB1jv1pi2URR3yy5sRtW90gb5E43f8Gn0CmEB8Fkp6Uw8jk6RmdfuJIsCfY2%2B8TqkJM9J8ZttpVbVvh5xuKEdMbvlJyW8XnN4pEBeQbcGwj0cWJigQ0W5mRjuIu1muQvjrTf6g3ivMLQyqeKd6WD4is%2BHKg%3D%3D&ty=r": "./documents/%E6%B3%B0%E6%88%88%E5%B0%94.pptx"
+    "/file?file_id=4ce610fc-72e1-484d-bb15-67902ad51e1a&state=REDACTED": "./documents/%E6%B3%B0%E6%88%88%E5%B0%94.pptx",
+    "https://files.deepseeksvc.com/api/file?file_id=4ce610fc-72e1-484d-bb15-67902ad51e1a&state=REDACTED&ty=r": "./documents/%E6%B3%B0%E6%88%88%E5%B0%94.pptx"
   },
   "error": null,
   "warnings": [],

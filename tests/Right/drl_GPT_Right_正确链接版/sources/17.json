@@ -7392,7 +7392,7 @@
             "is_complete": true,
             "content_references": [],
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "citations": [],
             "resolved_model_slug": "gpt-5-6-thinking",
@@ -7509,7 +7509,7 @@
             "is_complete": true,
             "content_references": [],
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "citations": [],
             "resolved_model_slug": "gpt-5-6-thinking",
@@ -7627,7 +7627,7 @@
             "reasoning_status": "is_reasoning",
             "tool_summary_type": "scite",
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "classifier_response": "default",
             "reasoning_start_time": 1790062932.7347648,
@@ -8589,7 +8589,7 @@
             "is_complete": true,
             "content_references": [],
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "citations": [],
             "resolved_model_slug": "gpt-5-6-thinking",
@@ -8711,7 +8711,7 @@
             "reasoning_status": "is_reasoning",
             "tool_summary_type": "scite",
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "classifier_response": "default",
             "reasoning_start_time": 1790062932.7347648,
@@ -11629,7 +11629,7 @@
             "is_complete": true,
             "content_references": [],
             "tool_icons": [
-              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=7d0d38d520be349e2e13b2a43c23c6d7e8ed8153879c4a5c2e4e12962f3dd04e&v=0"
+              "https://files.openai.com/content?id=file_00000000687c81f7bb28998e6f0837c6&cdn=1&cp=pi&ma=31017600&ts=0&p=pi&cid=8&sig=REDACTED&v=0"
             ],
             "citations": [],
             "resolved_model_slug": "gpt-5-6-thinking",

@@ -32884,7 +32884,7 @@
                   "entries": [
                     {
                       "type": "search_result",
-                      "url": "https://www.ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D45C1AF26178C7BFD40EC3C7F09162FC3?application=totalApp&district=MATHURA&state=Uttar+Pradesh&status=consent&yearFrom=2014&yearTo=2024",
+                      "url": "https://www.ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D45C1AF26178C7BFD40EC3C7F09162FC3?application=totalApp&district=MATHURA&state=REDACTED&status=consent&yearFrom=2014&yearTo=2024",
                       "title": "Search Status",
                       "snippet": "",
                       "ref_id": {
@@ -32941,7 +32941,7 @@
                   "entries": [
                     {
                       "type": "search_result",
-                      "url": "https://ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D51F594E2CDAC25E6C571CC75AFD17528?application=approved&district=MATHURA&state=Uttar+Pradesh&status=consent&yearFrom=2014&yearTo=2024",
+                      "url": "https://ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D51F594E2CDAC25E6C571CC75AFD17528?application=approved&district=MATHURA&state=REDACTED&status=consent&yearFrom=2014&yearTo=2024",
                       "title": "Search Status",
                       "snippet": "",
                       "ref_id": {
@@ -102359,7 +102359,7 @@
                   "entries": [
                     {
                       "type": "search_result",
-                      "url": "https://www.ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D45C1AF26178C7BFD40EC3C7F09162FC3?application=totalApp&district=MATHURA&state=Uttar+Pradesh&status=consent&yearFrom=2014&yearTo=2024",
+                      "url": "https://www.ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D45C1AF26178C7BFD40EC3C7F09162FC3?application=totalApp&district=MATHURA&state=REDACTED&status=consent&yearFrom=2014&yearTo=2024",
                       "title": "Search Status",
                       "snippet": "",
                       "ref_id": {
@@ -102416,7 +102416,7 @@
                   "entries": [
                     {
                       "type": "search_result",
-                      "url": "https://ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D51F594E2CDAC25E6C571CC75AFD17528?application=approved&district=MATHURA&state=Uttar+Pradesh&status=consent&yearFrom=2014&yearTo=2024",
+                      "url": "https://ocmms.nic.in/OCMMS_NEW/getData.action%3Bjsessionid%3D51F594E2CDAC25E6C571CC75AFD17528?application=approved&district=MATHURA&state=REDACTED&status=consent&yearFrom=2014&yearTo=2024",
                       "title": "Search Status",
                       "snippet": "",
                       "ref_id": {

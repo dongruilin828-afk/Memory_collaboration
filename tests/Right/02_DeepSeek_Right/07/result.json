@@ -12,8 +12,8 @@
     }
   ],
   "document_map": {
-    "https://files.deepseeksvc.com/api/file?file_id=105528af-b8f1-4bb2-b452-ddb2a6264fad&state=6msQJblE%2F18POE%2FA7gXEZovkA4GsKBmU8E%2FtpgaOemocJWe189ogEx%2FQQJJgq3MdAg05Q41XnCaw6bBYIRENU8vpOZKa%2BOwimB3KCvAKfsPXPu77AfIisV50aTxzv7lFvxfwwJr4Ys%2BxUVk0yeZdd34JU%2FgO49QZokMgTNkhOf5xLsewTVnPR47rQCyhgkqfbd5CfUaieV5bHwRg7xhCOyZHqTJTSB6llUDGLIC6A5RdvydpsJSzNV5cC0UN4D8aXwY9L%2BcdUgZDllPdF6431Yqhz%2BBTIEZoP791EF6QQ11WdZJif7lQ%2BptgLQjD5%2BewWEA8hxWkfqoPBYfTlMuEvrXobe7Euqd5rZbeOf0P%2BrOzZOPFLvsG7TyKvRtIZSA4Y7zgjT%2FFzyV7yQ%3D%3D&ty=r": "./documents/%E7%AC%AC%E4%B8%89%E7%89%88.docx",
-    "/file?file_id=105528af-b8f1-4bb2-b452-ddb2a6264fad&state=6msQJblE%2F18POE%2FA7gXEZovkA4GsKBmU8E%2FtpgaOemocJWe189ogEx%2FQQJJgq3MdAg05Q41XnCaw6bBYIRENU8vpOZKa%2BOwimB3KCvAKfsPXPu77AfIisV50aTxzv7lFvxfwwJr4Ys%2BxUVk0yeZdd34JU%2FgO49QZokMgTNkhOf5xLsewTVnPR47rQCyhgkqfbd5CfUaieV5bHwRg7xhCOyZHqTJTSB6llUDGLIC6A5RdvydpsJSzNV5cC0UN4D8aXwY9L%2BcdUgZDllPdF6431Yqhz%2BBTIEZoP791EF6QQ11WdZJif7lQ%2BptgLQjD5%2BewWEA8hxWkfqoPBYfTlMuEvrXobe7Euqd5rZbeOf0P%2BrOzZOPFLvsG7TyKvRtIZSA4Y7zgjT%2FFzyV7yQ%3D%3D": "./documents/%E7%AC%AC%E4%B8%89%E7%89%88.docx",
+    "https://files.deepseeksvc.com/api/file?file_id=105528af-b8f1-4bb2-b452-ddb2a6264fad&state=REDACTED&ty=r": "./documents/%E7%AC%AC%E4%B8%89%E7%89%88.docx",
+    "/file?file_id=105528af-b8f1-4bb2-b452-ddb2a6264fad&state=REDACTED": "./documents/%E7%AC%AC%E4%B8%89%E7%89%88.docx",
     "第三版.docx": "./documents/%E7%AC%AC%E4%B8%89%E7%89%88.docx"
   },
   "error": null,
