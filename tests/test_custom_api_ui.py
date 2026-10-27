@@ -75,8 +75,9 @@ class CustomAPIUITests(unittest.TestCase):
         dialog = self.dialog()
         dialog.variables["url"].set("https://my.test/v1/chat/completions")
         dialog.variables["thinking_level"].set("xhigh")
-        dialog.variables["protocol"].set("gemini")
-        dialog._protocol_changed()
+        dialog._protocol_display.set("Gemini 原生")
+        dialog.entries["protocol"].event_generate("<<ComboboxSelected>>")
+        self.assertEqual(dialog.variables["protocol"].get(), "gemini")
         self.assertEqual(dialog.variables["thinking_level"].get(), "auto")
         self.assertEqual(str(dialog.entries["json_mode"].cget("state")), "disabled")
         dialog.variables["protocol"].set("openai")
@@ -116,13 +117,31 @@ class CustomAPIUITests(unittest.TestCase):
         callback()
         self.assertEqual(self.saved, [])
 
+    def test_advanced_fields_keep_values_when_collapsed_and_key_visibility_toggles(self):
+        dialog = self.dialog()
+        self.root.update()
+        self.assertFalse(dialog.advanced_body.winfo_ismapped())
+        dialog.advanced_button.invoke()
+        self.root.update()
+        self.assertTrue(dialog.advanced_body.winfo_ismapped())
+        dialog.variables["max_output_tokens"].set("8192")
+        dialog.advanced_button.invoke()
+        self.root.update()
+        self.assertFalse(dialog.advanced_body.winfo_ismapped())
+        dialog.key_toggle.invoke()
+        self.assertEqual(dialog.key_entry.cget("show"), "")
+        self.assertEqual(dialog.key_toggle.cget("text"), "隐藏")
+        dialog.key_toggle.invoke()
+        self.assertEqual(dialog.key_entry.cget("show"), "*")
+        dialog.save()
+        self.assertEqual(self.saved[0][0]["max_output_tokens"], 8192)
+
     def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
         self.root.geometry("650x480")
         dialog = self.dialog()
         self.root.update()
         canvas = dialog.scroll_canvas
-        form = canvas.winfo_children()[0]
-        label = next(widget for widget in form.winfo_children() if isinstance(widget, tk.Label))
+        label = dialog.protocol_hint
         outer_wheels = []
         self.root.bind("<MouseWheel>", lambda _e: outer_wheels.append(True))
         footer_y = dialog.save_button.winfo_rooty()
@@ -310,6 +329,18 @@ class CustomAPIGeometryTests(unittest.TestCase):
                         self.assertGreaterEqual(button.winfo_x(), 0)
                         self.assertLessEqual(
                             button.winfo_x() + button.winfo_width(), button.master.winfo_width(),
+                        )
+                    dialog.advanced_button.invoke()
+                    settle(root, app)
+                    canvas = dialog.scroll_canvas
+                    for entry in (*dialog.entries.values(), dialog.key_entry):
+                        self.assertGreaterEqual(entry.winfo_rootx(), canvas.winfo_rootx())
+                        self.assertLessEqual(
+                            entry.winfo_rootx() + entry.winfo_width(),
+                            canvas.winfo_rootx() + canvas.winfo_width(),
+                        )
+                        self.assertGreaterEqual(
+                            entry.winfo_height(), tkfont.Font(font=entry.cget("font")).metrics("linespace"),
                         )
                     for name, value in api_tests.settings().items():
                         dialog.variables[name].set(value)
