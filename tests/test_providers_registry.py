@@ -64,7 +64,7 @@ class ProviderForHostTests(unittest.TestCase):
 
 
 class DeepSeekProviderTests(unittest.TestCase):
-    def test_search_citations_are_removed_without_damaging_markdown(self):
+    def test_search_links_are_kept_without_hidden_citation_ui(self):
         html = """
         <div data-virtual-list-item-key="1"><div class="ds-message">
           <div class="ds-assistant-message-main-content">
@@ -77,12 +77,13 @@ class DeepSeekProviderTests(unittest.TestCase):
         """
         messages = deepseek.parse_messages(BeautifulSoup(html, "html.parser"))
         content = messages[0]["content"]
-        self.assertNotIn("example.com", content)
+        self.assertIn("[7](https://example.com/a)", content)
+        self.assertIn("[1](https://example.com/b.pdf)", content)
         self.assertNotIn("[-7]", content)
         self.assertIn("20寸登机箱", content)
-        self.assertIn("限重8公斤。", content)
+        self.assertIn("限重8公斤[1](https://example.com/b.pdf)。", content)
         self.assertIn("以航司规定为准。", content)
-        self.assertNotIn("--", content)
+        self.assertNotIn("公斤-", content)
         self.assertIn("* 保留列表", content)
         self.assertIn("7-10 公斤", content)
 

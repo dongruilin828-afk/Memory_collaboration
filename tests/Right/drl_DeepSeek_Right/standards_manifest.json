@@ -1,0 +1,40 @@
+{
+  "07": {
+    "case": "07",
+    "question": 4,
+    "url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
+    "original_url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
+    "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek07重试",
+    "reason": "用户明确批准；新版分享导出与已核验私有入口的236条消息及图片内容完全一致。",
+    "approved_date": "2026-10-27",
+    "messages": 236,
+    "files": {
+      "export.md": "eb25e79e451fe6581e31172aa49ad49351d2d82a081b2c39e72d0638ac9653fd",
+      "result.json": "47e495fd28b1ee0d5e76f734758a8ff5b9547eb1f409dd9a9f296a4932cd63db",
+      "verification.json": "eadff0d84e1350b2719aae7cbfd84f6cf3db44068bc3dcd5619306a90556c590",
+      "images/deepseek_5569e0e8-4b7a-4f08-9eb1-2998784e64fa_f6fc49b0.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+    },
+    "original_files_unchanged": false,
+    "export_transformation": "仅将图片链接改为标准目录内 images/ 相对路径；正文、缩进、空行及换行编码保持源文件原样。",
+    "superseded": {
+      "case": "07",
+      "question": 4,
+      "url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
+      "original_url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
+      "original_directory": "D:\\大学\\复旦大学\\课程\\大二上\\强国之路\\tests\\Right\\02_DeepSeek_Right\\15",
+      "reason": "同一入口 URL",
+      "files": {
+        "export.md": "e27041a136bf325d143e88ff07c7451b1b355f4f43457bc4b96406c6564c75c7",
+        "result.json": "1c4c1a3feb9a441a151b3550766dbf82629a2c678c964fa5f279eca9d013b95d",
+        "run.log": "c648d32e9f5af53816fe7e444c927dde9126fe96b9be673e7c104ac3878d3b6e",
+        "snapshot.html": "063fb657a4063aa6874f49f2692dce7761169afb4ccc87e6491e4732182b7104"
+      },
+      "original_files_unchanged": true
+    },
+    "stale_evidence_removed": [
+      "snapshot.html",
+      "run.log"
+    ],
+    "evidence_note": "新版 GUI 未保存分享页原始 HTML/日志，不保留旧114条快照冒充新版证据；原始旧标准仍在02_DeepSeek_Right/15。"
+  }
+}

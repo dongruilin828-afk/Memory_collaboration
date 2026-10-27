@@ -1,0 +1,16 @@
+{
+  "approved_by_user": true,
+  "approved_date": "2026-10-27",
+  "messages": 236,
+  "user_messages": 118,
+  "assistant_messages": 118,
+  "source_export": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek07重试\\DeepSeek07重试.md",
+  "source_export_sha256": "fb781e3e20a8a854396039bed43a0f7a550250c217b26cf7c261736924441616",
+  "private_reference": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\08\\export.md",
+  "private_reference_sha256": "0c3c5297cebde7760a89f672d9b230d8e5f2db74cacd844c0c5f687309aef1dd",
+  "whole_export_equal_after_newline_and_local_asset_mapping": true,
+  "image_sha256": [
+    "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+  ],
+  "transformation": "仅将图片链接改为标准目录内 images/ 相对路径；正文、缩进、空行及换行编码保持源文件原样。"
+}

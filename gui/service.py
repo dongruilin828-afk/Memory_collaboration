@@ -5965,6 +5965,14 @@ async def fetch_chat_pipeline(
                         f"成功下载或复用 {len(set(image_map.values()))} 个，耗时 "
                         f"{time.perf_counter() - download_started:.1f} 秒。"
                     )
+                if current_host == "chat.deepseek.com":
+                    from scripts.providers import deepseek_source
+                    image_map.update(await deepseek_source.download_missing_images(
+                        page, html, resolved_images_dir, image_reference_prefix, image_map, fetch_warnings,
+                    ))
+                    source_issue = soup_pre.select_one('meta[name="deepseek-source-error"]')
+                    if source_issue:
+                        fetch_warnings.append("DeepSeek：" + str(source_issue.get("content") or "源消息核验未完成"))
                 document_started = time.perf_counter()
                 await _drain_response_tasks(response_tasks)
                 doubao_ai_document_entries = _extract_doubao_ai_document_entries(html, url)
@@ -6673,10 +6681,23 @@ async def fetch_chat_pipeline(
                     )
                     return completed_result
 
-                _mark_unavailable_assets(
-                    parsed_messages, image_failures, document_failures
-                )
-                _clean_attachment_display(parsed_messages, fetch_warnings)
+                cleanup_messages = parsed_messages
+                if current_host == "chat.deepseek.com":
+                    from scripts.providers import deepseek_source
+                    original_source = deepseek_source.source_from_soup(soup)
+                    if original_source:
+                        # Source-backed text contains no UI duplicates. Generic
+                        # cleanup would alter literal Markdown, code and final newlines.
+                        cleanup_messages = [m for m in parsed_messages if "source_id" not in m]
+                        counts = deepseek_source.name_counts(original_source)
+                        missing = [f for f in deepseek_source.files(original_source)
+                                   if not deepseek_source.file_href(f, parser_asset_map, counts)]
+                        for label, number in (("图片", sum(deepseek_source.is_image(f) for f in missing)),
+                                              ("文档", sum(not deepseek_source.is_image(f) for f in missing))):
+                            if number:
+                                fetch_warnings.append(f"{number} 个 DeepSeek {label}原文件未取得，已逐项保留文件名；请核对。")
+                _mark_unavailable_assets(cleanup_messages, image_failures, document_failures)
+                _clean_attachment_display(cleanup_messages, fetch_warnings)
 
                 if provider is gemini:
                     unavailable = sum(

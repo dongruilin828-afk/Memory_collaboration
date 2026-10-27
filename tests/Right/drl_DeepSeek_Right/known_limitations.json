@@ -1,0 +1,178 @@
+{
+  "confirmed_date": "2026-10-27",
+  "confirmed_by": "user",
+  "reason": "用户确认这些图片自己也无法下载，属于官网不提供下载；03～06的既有图片问题不再追究。",
+  "policy": "名单内图片缺失不计作抓取缺陷，不为此反复重跑或修改抓取代码；保留缺失说明，仍核查正文和其它附件。",
+  "cases": {
+    "03": {
+      "url": "https://chat.deepseek.com/share/r88uc0nakpauyhq846",
+      "classification": "accepted_official_download_limitation",
+      "accepted_missing_images": [
+        {
+          "file_id": "file-57805ed3-bf21-4063-a57d-0be0bf8990bf",
+          "message_id": 1,
+          "name": "deepseek-17636294618211198236025917348785.jpg"
+        },
+        {
+          "file_id": "file-43195629-b94a-47c1-a3b6-19091f0bcec8",
+          "message_id": 3,
+          "name": "deepseek-17636411906254748447144251951143.jpg"
+        },
+        {
+          "file_id": "file-f3381fea-b273-496f-9413-550a20bc095c",
+          "message_id": 5,
+          "name": "deepseek-1764420185707435915849268561497.jpg"
+        },
+        {
+          "file_id": "file-b42feda3-54ee-4a77-a3c7-52ab8c18d043",
+          "message_id": 7,
+          "name": "deepseek-17646733905275250086019866718379.jpg"
+        },
+        {
+          "file_id": "file-7172e1d7-3eb6-4254-a6d2-b426847b3eba",
+          "message_id": 9,
+          "name": "deepseek-17646742850133948685183043413726.jpg"
+        },
+        {
+          "file_id": "file-c1d0f007-736a-4a56-8191-fb97c50494b9",
+          "message_id": 11,
+          "name": "deepseek-17652535107906273670823336084606.jpg"
+        },
+        {
+          "file_id": "file-f9f5bd5e-3c47-48a3-a4cc-6ad52a4fd481",
+          "message_id": 13,
+          "name": "deepseek-17652539370066415826911984120197.jpg"
+        },
+        {
+          "file_id": "file-bcf1cc78-ff9b-4598-8c04-0580cff34ac0",
+          "message_id": 15,
+          "name": "deepseek-17658681085766540978038957405075.jpg"
+        },
+        {
+          "file_id": "file-c63e1ba6-c2a7-45ba-837f-e045db7d5fc4",
+          "message_id": 19,
+          "name": "deepseek-17660481945476448875442989475863.jpg"
+        },
+        {
+          "file_id": "file-8e3f9220-bec5-4d97-a64f-106a5085fe11",
+          "message_id": 21,
+          "name": "deepseek-17660637110054461136251673807121.jpg"
+        },
+        {
+          "file_id": "file-c39fa477-fe07-4692-87a9-5c75b73e6379",
+          "message_id": 23,
+          "name": "deepseek-17660667485313688995005670730119.jpg"
+        }
+      ],
+      "continue_checking": [
+        "正文、缩进、代码、公式、列表、表格和链接",
+        "其它附件及未列入名单的新图片"
+      ]
+    },
+    "04": {
+      "url": "https://chat.deepseek.com/a/chat/s/e39a0607-3dd9-47b9-ac1e-6156254c809a",
+      "classification": "accepted_official_download_limitation",
+      "accepted_missing_images": [
+        {
+          "file_id": "file-57805ed3-bf21-4063-a57d-0be0bf8990bf",
+          "message_id": 1,
+          "name": "deepseek-17636294618211198236025917348785.jpg"
+        },
+        {
+          "file_id": "file-43195629-b94a-47c1-a3b6-19091f0bcec8",
+          "message_id": 3,
+          "name": "deepseek-17636411906254748447144251951143.jpg"
+        },
+        {
+          "file_id": "file-f3381fea-b273-496f-9413-550a20bc095c",
+          "message_id": 5,
+          "name": "deepseek-1764420185707435915849268561497.jpg"
+        },
+        {
+          "file_id": "file-b42feda3-54ee-4a77-a3c7-52ab8c18d043",
+          "message_id": 7,
+          "name": "deepseek-17646733905275250086019866718379.jpg"
+        },
+        {
+          "file_id": "file-7172e1d7-3eb6-4254-a6d2-b426847b3eba",
+          "message_id": 9,
+          "name": "deepseek-17646742850133948685183043413726.jpg"
+        },
+        {
+          "file_id": "file-c1d0f007-736a-4a56-8191-fb97c50494b9",
+          "message_id": 11,
+          "name": "deepseek-17652535107906273670823336084606.jpg"
+        },
+        {
+          "file_id": "file-f9f5bd5e-3c47-48a3-a4cc-6ad52a4fd481",
+          "message_id": 13,
+          "name": "deepseek-17652539370066415826911984120197.jpg"
+        },
+        {
+          "file_id": "file-bcf1cc78-ff9b-4598-8c04-0580cff34ac0",
+          "message_id": 15,
+          "name": "deepseek-17658681085766540978038957405075.jpg"
+        },
+        {
+          "file_id": "file-1f531af6-422f-4a0d-8a0f-b660e1a87c44",
+          "message_id": 27,
+          "name": "deepseek-17676927949343287665555565212491.jpg"
+        },
+        {
+          "file_id": "file-96aa484a-779a-4985-8671-1551bce2f68c",
+          "message_id": 29,
+          "name": "deepseek-17676981122128798928523503602318.jpg"
+        },
+        {
+          "file_id": "file-63afabc1-9878-4c0b-8531-f34e119d11ee",
+          "message_id": 31,
+          "name": "deepseek-1767700019683106817205902638651.jpg"
+        },
+        {
+          "file_id": "file-30b9f52f-4dfc-4238-a355-3ac3bfe2091c",
+          "message_id": 33,
+          "name": "deepseek-17677011046288929371049754251262.jpg"
+        },
+        {
+          "file_id": "file-b164d74c-e563-4812-b848-f15453954267",
+          "message_id": 35,
+          "name": "deepseek-1767702533367906821200933214227.jpg"
+        }
+      ],
+      "continue_checking": [
+        "正文、缩进、代码、公式、列表、表格和链接",
+        "其它附件及未列入名单的新图片"
+      ]
+    },
+    "05": {
+      "url": "https://chat.deepseek.com/share/xsq5djrwsxs6ragp19",
+      "classification": "accepted_official_download_limitation",
+      "accepted_missing_images": [
+        {
+          "file_id": "file-eef37ca9-8ab1-4af8-a340-cd28f8cb9996",
+          "message_id": 175,
+          "name": "1000006476.jpg"
+        }
+      ],
+      "continue_checking": [
+        "正文、缩进、代码、公式、列表、表格和链接",
+        "其它附件及未列入名单的新图片"
+      ]
+    },
+    "06": {
+      "url": "https://chat.deepseek.com/a/chat/s/2e73dea0-411a-4618-94fa-4d6b7c1550ff",
+      "classification": "accepted_official_download_limitation",
+      "accepted_missing_images": [
+        {
+          "file_id": "file-eef37ca9-8ab1-4af8-a340-cd28f8cb9996",
+          "message_id": 175,
+          "name": "1000006476.jpg"
+        }
+      ],
+      "continue_checking": [
+        "正文、缩进、代码、公式、列表、表格和链接",
+        "其它附件及未列入名单的新图片"
+      ]
+    }
+  }
+}

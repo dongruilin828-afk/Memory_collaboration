@@ -5,6 +5,7 @@ import re
 import markdownify
 from bs4 import BeautifulSoup
 from rich.console import Console
+from . import deepseek_source
 
 
 DISPLAY_NAME = "DeepSeek"
@@ -52,7 +53,42 @@ def _replace_math_with_placeholders(node):
     return replacements
 
 
-def _node_to_markdown(node, image_map):
+class _DeepSeekMarkdownConverter(markdownify.MarkdownConverter):
+    def process_text(self, el, parent_tags=None):
+        if 'pre' in (parent_tags or set()):
+            return str(el)
+        return super().process_text(el, parent_tags)
+
+    def convert_pre(self, el, text, parent_tags):
+        code = el.find('code')
+        value = (code or el).get_text()
+        fence = '`' * max(3, 1 + max((len(m[0]) for m in re.finditer(r'`+', value)), default=0))
+        language = el.get('data-deepseek-language', '')
+        return '\n\n' + fence + language + '\n' + value + ('' if value.endswith('\n') else '\n') + fence + '\n\n'
+
+    def convert_br(self, el, text, parent_tags):
+        return '<br>' if 'table' in parent_tags else super().convert_br(el, text, parent_tags)
+
+    def convert_strong(self, el, text, parent_tags):
+        return '<strong>' + text + '</strong>'
+
+    convert_b = convert_strong
+
+    def convert_em(self, el, text, parent_tags):
+        return '<em>' + text + '</em>'
+
+    convert_i = convert_em
+
+    def convert_ul(self, el, text, parent_tags):
+        result = super().convert_ul(el, text, parent_tags)
+        if el.find_parent(['ul', 'ol']) is None:
+            result += '\n\n<!-- DeepSeek list boundary -->\n\n'
+        return result
+
+    convert_ol = convert_ul
+
+
+def _node_to_markdown(node, image_map, original=None):
     """将 DeepSeek 消息节点转换为保留公式和本地图片的 Markdown。"""
     content = BeautifulSoup(str(node), "html.parser")
     root = content.find()
@@ -60,8 +96,9 @@ def _node_to_markdown(node, image_map):
         "script, style, noscript, button, .md-code-block-banner-wrap"
     ):
         removable.decompose()
-    for citation in root.select("a:has(.ds-markdown-cite)"):
-        citation.decompose()
+    for hidden in root.select('.ds-markdown-cite span[style]'):
+        if re.search(r'opacity\s*:\s*0(?:\D|$)', hidden.get('style', '')):
+            hidden.decompose()
     for marker in root.find_all("span"):
         if marker.parent is None or marker.attrs is None:
             continue
@@ -82,17 +119,36 @@ def _node_to_markdown(node, image_map):
             if isinstance(previous, str) and previous.endswith("-"):
                 previous.replace_with(previous[:-1])
             marker.decompose()
-    for citation in root.find_all("a", string=re.compile(r"^-\d+$")):
-        citation.decompose()
+    # A rendered Mermaid SVG does not contain its editable diagram source.
+    diagrams = []
+    if original:
+        for part in original.get('fragments', []):
+            if part.get('type') == 'RESPONSE':
+                diagrams.extend(re.finditer(r'(?ms)^ {0,3}(`{3,}|~{3,})mermaid[^\n]*\n(.*?)^ {0,3}\1[ \t]*(?:\n|$)', part.get('content', '')))
+    for svg, diagram in zip(root.select('svg[id^="mermaid"]'), diagrams):
+        pre = content.new_tag('pre', attrs={'data-deepseek-language': 'mermaid'})
+        code = content.new_tag('code'); code.string = diagram[2]; pre.append(code)
+        svg.replace_with(pre)
     for img in root.find_all("img"):
         src = img.get("src") or img.get("data-src")
         if src in image_map:
             img["src"] = image_map[src]
 
     replacements = _replace_math_with_placeholders(root)
-    text = markdownify.markdownify(str(root), heading_style="ATX").strip()
+    text = _DeepSeekMarkdownConverter(heading_style="ATX", escape_misc=True).convert(str(root)).strip()
     for token, latex in replacements.items():
-        text = text.replace(token, latex)
+        def restore(match):
+            if not latex.startswith('\n\n$$'):
+                return latex
+            before = text[text.rfind('\n', 0, match.start()) + 1:match.start()]
+            leading = re.match(r'([ \t]*(?:>[ \t]*)*)([ \t]*)(?:([-+*]|\d+\.)[ \t]+)?', before)
+            prefix = leading[1] + leading[2]
+            if leading[3]:
+                prefix += ' ' * (len(leading[0]) - len(prefix))
+            if '>' in prefix:
+                return '\n' + prefix + '\n' + '\n'.join(prefix + line for line in latex.strip('\n').split('\n')) + '\n' + prefix + '\n' + prefix
+            return '\n\n' + '\n'.join(prefix + line for line in latex.strip('\n').split('\n')) + '\n\n' + prefix
+        text = re.sub(re.escape(token), restore, text)
     return text
 
 
@@ -101,6 +157,14 @@ async def collect_html(page):
     item_selector = "[data-virtual-list-item-key]"
     if await page.locator(f"{item_selector} .ds-message").count() == 0:
         return None
+
+    source = None
+    source_error = ""
+    try:
+        source = await deepseek_source.read_conversation(page)
+    except Exception as error:
+        source_error = str(error) if isinstance(error, deepseek_source.SourceError) else type(error).__name__
+        console.print(f"[dim]DeepSeek 原站消息核验暂不可用：{source_error}[/dim]")
 
     scroll_container = None
     captured = {}
@@ -170,7 +234,7 @@ async def collect_html(page):
 
         scroll_top = 0
         max_scroll_top = 0
-        for _ in range(500):
+        for _ in range(max(500, 20 * len(source["messages"])) if source else 500):
             await scroll_container.evaluate(
                 "(element, top) => element.scrollTo(0, top)",
                 scroll_top
@@ -194,7 +258,7 @@ async def collect_html(page):
             if scroll_top >= max_scroll_top:
                 break
 
-            step = max(int(metrics["clientHeight"] * 0.5), 800)
+            step = max(int(metrics["clientHeight"] * 0.5), 100)
             next_scroll_top = min(scroll_top + step, max_scroll_top)
             if next_scroll_top <= scroll_top:
                 break
@@ -223,12 +287,24 @@ async def collect_html(page):
         )
 
         if ordered_items:
+            source_html = ""
+            if source:
+                expected = [str(m["message_id"]) for m in source["messages"]]
+                missing = set(expected) - set(captured)
+                if missing:
+                    source_error = f"当前分支仍有 {len(missing)} 条消息未在页面中采集，不能宣称完整。"
+                ordered_items = [captured[key] for key in expected if key in captured]
+                source_html = deepseek_source.embed_source(source)
+                console.print(f"[dim]已核对 DeepSeek 当前分支：{len(ordered_items)}/{len(expected)} 条消息。[/dim]")
+            if source_error:
+                from html import escape
+                source_html += '<meta name="deepseek-source-error" content="' + escape(source_error, quote=True) + '">'
             console.print(
-                f"[dim]已从 DeepSeek 虚拟列表中完整收集 "
+                f"[dim]已从 DeepSeek 虚拟列表中收集 "
                 f"{len(ordered_items)} 条消息。[/dim]"
             )
             item_html = "\n".join(item["html"] for item in ordered_items)
-            return f"<!DOCTYPE html><html><body>{item_html}</body></html>"
+            return f"<!DOCTYPE html><html><body>{item_html}{source_html}</body></html>"
 
     except Exception as e:
         console.print(
@@ -249,6 +325,9 @@ def parse_messages(soup, image_map=None):
         image_map = {}
 
     parsed_messages = []
+    source = deepseek_source.source_from_soup(soup)
+    source_messages = {str(m["message_id"]): m for m in source["messages"]} if source else {}
+    name_counts = deepseek_source.name_counts(source or {})
     ignored_ui_text = {
         "复制", "重新生成", "编辑", "分享", "下载", "点赞", "踩"
     }
@@ -264,15 +343,20 @@ def parse_messages(soup, image_map=None):
     )
 
     for item in soup.select('[data-virtual-list-item-key]'):
+        original = source_messages.get(item.get('data-virtual-list-item-key'))
+        if source and original is None:
+            continue
         message_node = item.select_one('.ds-message')
         if message_node is None:
             continue
 
         answer_node = item.select_one('.ds-assistant-message-main-content')
         if answer_node is not None:
-            md_text = _node_to_markdown(answer_node, image_map)
-            if md_text:
+            md_text = _node_to_markdown(answer_node, image_map, original)
+            if md_text or (original and original.get("role") == "ASSISTANT") or item.select_one('.ds-think-content'):
                 message = {'role': 'AI', 'content': md_text}
+                if original:
+                    message['source_id'] = original['message_id']
                 thinking_node = item.select_one('.ds-think-content')
                 if thinking_node is not None:
                     reasoning = _node_to_markdown(thinking_node, image_map)
@@ -281,9 +365,44 @@ def parse_messages(soup, image_map=None):
                 parsed_messages.append(message)
             continue
 
+        if (original and original.get("role") == "ASSISTANT") or item.select_one('.ds-think-content'):
+            thinking = item.select_one('.ds-think-content')
+            message = {'role': 'AI', 'content': ''}
+            if original:
+                message['source_id'] = original['message_id']
+            if thinking is not None:
+                message['reasoning'] = _node_to_markdown(thinking, image_map)
+            parsed_messages.append(message)
+            continue
+
+        if original and original.get("role") == "USER":
+            parts = []
+            for fragment in original.get("fragments", []):
+                if isinstance(fragment.get("content"), str):
+                    parts.append(fragment["content"])
+                for file in fragment.get("files", []):
+                    name = file.get("file_name") or "附件"
+                    label = re.sub(r'([\\\[\]*_`])', r'\\\1', name)
+                    href = deepseek_source.file_href(file, image_map, name_counts)
+                    if deepseek_source.is_image(file):
+                        parts.append(f'![{label}]({href})' if href else f'🖼️ **[用户上传图片]** `{name}`（DeepSeek 原文件未能下载）')
+                    else:
+                        parts.append(f'[📄 {label}]({href})' if href else f'📎 **[上传文件]** `{name}`（原文件未能下载）')
+            parsed_messages.append({'role': 'User', 'content': '\n\n'.join(parts), 'source_id': original['message_id']})
+            continue
+
         user_soup = BeautifulSoup(str(message_node), 'html.parser')
         user_message = user_soup.select_one('.ds-message')
         user_parts = []
+        # The visible input is plain Markdown in a pre-wrapped span. Its blank
+        # lines and indentation are content, not UI whitespace.
+        input_node = user_message.select_one('.ds-collapsible-text')
+        input_text = None
+        if input_node is not None:
+            for br in input_node.find_all('br'):
+                br.replace_with('\n')
+            input_text = input_node.get_text(separator='', strip=False)
+            input_node.decompose()
 
         # DeepSeek 的历史分享图片可能已经从文件服务失效。此时前端只
         # 留下一个带宽高样式和 tabindex 的错误占位组件，没有 img/src。
@@ -347,7 +466,9 @@ def parse_messages(soup, image_map=None):
                 clean_lines.append(line)
             index += 1
 
-        if clean_lines:
+        if input_text is not None:
+            user_parts.append(input_text)
+        elif clean_lines:
             user_parts.append('\n'.join(clean_lines))
 
         if not user_parts and has_failed_image_placeholder:
