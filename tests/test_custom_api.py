@@ -1,4 +1,5 @@
 """Custom endpoint routing, real local HTTP requests, and secret persistence."""
+import io
 import json
 import os
 import tempfile
@@ -23,6 +24,60 @@ def settings():
 
 
 class CustomAPISettingsTests(unittest.TestCase):
+    def test_kimi_official_api_omits_temperature_in_generation_and_connection(self):
+        for url in ("https://api.moonshot.cn/v1",
+                    "https://api.moonshot.ai/v1/chat/completions",
+                    "https://API.MOONSHOT.CN:443/v1/"):
+            with self.subTest(url=url):
+                config = summary.custom_summary_config({
+                    **settings(), "url": url, "model": "kimi-k3.1-pro",
+                    "thinking_level": "auto",
+                })
+                requests = []
+
+                def respond(request, **kwargs):
+                    requests.append(request)
+                    response = io.BytesIO(json.dumps({"choices": [{
+                        "message": {"content": '{"ok": true}'}, "finish_reason": "stop",
+                    }]}).encode())
+                    response.status = 200
+                    return response
+
+                with patch.object(summary, "urlopen", side_effect=respond):
+                    gateway = summary.create_gateway(config, api_key="placeholder")
+                    self.assertEqual(gateway.generate_json("test", {"type": "object"}), {"ok": True})
+                    self.assertEqual(summary.test_api_connection(config, "placeholder"),
+                                     "连接成功 · kimi-k3.1-pro · 200")
+                self.assertEqual(len(requests), 2)
+                for request, token_limit in zip(requests, (16384, 1024)):
+                    payload = json.loads(request.data)
+                    self.assertNotIn("temperature", payload)
+                    self.assertNotIn("reasoning_effort", payload)
+                    self.assertEqual(payload["model"], "kimi-k3.1-pro")
+                    self.assertEqual(payload["max_tokens"], token_limit)
+                    self.assertEqual(payload["response_format"], {"type": "json_object"})
+                    self.assertFalse(payload["stream"])
+                    self.assertEqual(request.full_url, config.api_base + "/chat/completions")
+
+    def test_other_apis_keep_temperature_even_with_kimi_name_model_or_similar_url(self):
+        configs = [summary.custom_summary_config({
+            **settings(), "name": "Kimi", "model": "kimi-k3.1-pro", "url": url,
+        }) for url in (
+            "https://example.test/v1", "https://api.deepseek.com/v1",
+            "https://api.siliconflow.cn/v1", "https://api.moonshot.cn.example.test/v1",
+            "https://proxy.test/api.moonshot.ai/v1",
+        )]
+        configs.extend(summary.SummaryConfig(provider=provider, model="kimi-k3.1-pro")
+                       for provider in ("deepseek", "siliconflow"))
+        with patch.dict(os.environ, {"DEEPSEEK_API_BASE": "https://api.moonshot.cn/v1",
+                                     "SILICONFLOW_API_BASE": "https://api.moonshot.ai/v1"}):
+            for config in configs:
+                with self.subTest(provider=config.provider, url=config.api_base):
+                    response = io.BytesIO(b'{"choices":[{"message":{"content":"{}"}}]}')
+                    with patch.object(summary, "urlopen", return_value=response) as request:
+                        summary.create_gateway(config, api_key="placeholder").generate_json("test", {})
+                    self.assertEqual(json.loads(request.call_args.args[0].data)["temperature"], 0.1)
+
     def test_multiple_profiles_keep_legacy_keys_and_independent_order(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
         store.save_custom_api(settings(), "old-key")
