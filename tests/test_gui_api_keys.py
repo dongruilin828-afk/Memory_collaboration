@@ -762,7 +762,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertEqual(updates, ["send"])
         self.assertEqual(statuses, [])
 
-    def test_start_captures_url_and_modes_and_ignores_duplicate_start(self):
+    def test_start_captures_inputs_and_second_click_stops_without_new_task(self):
         url = ["https://example.com/start"]
         fake_gui, _opened = self._fake_gui(raw=True)
         fake_gui.capsule_entry = SimpleNamespace(get_text=lambda: url[0])
@@ -770,6 +770,8 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         fake_gui._run_generation_task = lambda *_args: None
         fake_gui._set_inputs_locked = lambda _locked: None
         fake_gui._update_generate_button_state = lambda: None
+        stops = []
+        fake_gui._on_stop_generate = lambda: stops.append(True)
         fake_gui.done_badge = SimpleNamespace(pack_forget=lambda: None)
         fake_gui.progress_bar = SimpleNamespace(
             reset=lambda: None, set_progress=lambda _value: None,
@@ -799,6 +801,7 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
             "raw": True, "normal": False, "simple": False, "detailed": False,
         })
         self.assertTrue(captured["started"])
+        self.assertEqual(stops, [True])
         prompt.assert_called_once()
 
     def test_direct_summary_uses_file_modes_and_ignores_raw_and_login(self):
@@ -850,7 +853,8 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
                 "## 🔵 👤 用户提问\n\n替换文件内容\n",
                 encoding="utf-8",
             )
-            fake_gui = SimpleNamespace(
+            fake_gui = object.__new__(AIMemoryGUI)
+            fake_gui.__dict__.update(
                 selected_summary_file=source_path,
                 is_running=False,
                 card_raw=SimpleNamespace(checked=True),

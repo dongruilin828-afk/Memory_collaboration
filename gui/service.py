@@ -6882,6 +6882,7 @@ def generate_output_bundle(
     source_platform: Optional[str] = None,
     source_name: Optional[str] = None,
     source_dir: Optional[Path] = None,
+    cancel_check: Callable[[], None] = lambda: None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -6890,6 +6891,7 @@ def generate_output_bundle(
     兼容命令行式分类选择。普通版和详细版复用同一选择结果；极简版和仅抓取
     模式不会触发选择。
     """
+    cancel_check()
     if not messages:
         raise ValueError("没有可生成的对话消息。")
     if not any(bool(value) for value in modes.values()):
@@ -7153,6 +7155,7 @@ def generate_output_bundle(
                 f"正在切换到 {next_config.provider}/{next_config.model}..."
             )
 
+    cancel_check()
     if base_result is None:
         if last_error is not None:
             raise last_error
@@ -7192,6 +7195,7 @@ def generate_output_bundle(
             gateway,
             **({"source_platform": source_platform} if source_platform in {"doubao", "豆包", "ChatGPT", "chatgpt"} else {}),
         )
+        cancel_check()
         simple_meta = build_simple_metadata(
             base_result,
             provider=config.provider,

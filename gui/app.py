@@ -250,6 +250,9 @@ class AIMemoryGUI:
         root.iconphoto(True, self._window_icon)
 
         self.is_running = False
+        self._generation_cancel_event = threading.Event()
+        self._generation_loop = None
+        self._generation_async_task = None
         self._generation_completed = False
         self._generation_progress_reset = False
         self.selected_summary_file: Path | None = None
@@ -1594,10 +1597,12 @@ class AIMemoryGUI:
             REGENERATE_BUTTON_LABEL if completed else GENERATE_BUTTON_LABEL
         )
         if getattr(self, "is_running", False):
-            self.btn_generate.set_enabled(False)
+            stopping = self._generation_cancelled()
+            self.btn_generate._text = "正在停止…" if stopping else "停止生成"
+            self.btn_generate.set_enabled(not stopping)
             if hasattr(self, "generation_ready_badge"):
                 self.generation_ready_badge.config(
-                    text="  ●  生成中  ", fg=COLOR_ACCENT_BLUE,
+                    text="  ●  停止中  " if stopping else "  ●  生成中  ", fg=COLOR_ACCENT_BLUE,
                     bg=COLOR_ACCENT_BG,
                 )
             return
@@ -1687,8 +1692,50 @@ class AIMemoryGUI:
 
     # ---------------- 开始生成 / 直接总结 ----------------
 
+    def _generation_cancelled(self):
+        event = getattr(self, "_generation_cancel_event", None)
+        return event is not None and event.is_set()
+
+    def _check_generation_cancelled(self):
+        if self._generation_cancelled():
+            # CancelledError bypasses backend retry/fallback handlers.
+            raise asyncio.CancelledError()
+
+    def _wait_for_generation_event(self, event):
+        while not event.wait(0.1):
+            self._check_generation_cancelled()
+            if self._ui_dispatcher.closed.is_set():
+                raise RuntimeError("界面已关闭，无法继续等待用户操作。")
+        self._check_generation_cancelled()
+
+    def _post_generation_ui(self, callback, *, visible=False):
+        cancel_event = getattr(self, "_generation_cancel_event", None)
+
+        def apply():
+            if cancel_event is None or not cancel_event.is_set():
+                callback()
+
+        self._post_ui(apply, visible=visible)
+
+    def _on_stop_generate(self):
+        if not self.is_running or self._generation_cancelled():
+            return
+        self._generation_cancel_event.set()
+        self.progress_bar.reset()
+        self.percent_var.set("0%")
+        self.status_var.set("正在停止生成，请等待当前操作退出...")
+        self._update_generate_button_state()
+        loop = getattr(self, "_generation_loop", None)
+        task = getattr(self, "_generation_async_task", None)
+        if loop is not None and task is not None:
+            try:
+                loop.call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                pass  # The worker may have already closed its event loop.
+
     def _on_start_generate(self):
         if getattr(self, "is_running", False):
+            self._on_stop_generate()
             return
         if getattr(self, "generation_source", None) == "file":
             self._on_direct_summary()
@@ -1744,6 +1791,7 @@ class AIMemoryGUI:
             return
         save_dir_path, output_filename = output_target
 
+        self._generation_cancel_event = threading.Event()
         self.is_running = True
         self._generation_progress_reset = False
         self.done_badge.pack_forget()
@@ -1830,6 +1878,7 @@ class AIMemoryGUI:
             return
         save_dir_path, output_filename = output_target
 
+        self._generation_cancel_event = threading.Event()
         self.is_running = True
         self._generation_progress_reset = False
         self.done_badge.pack_forget()
@@ -1874,8 +1923,8 @@ class AIMemoryGUI:
             finally:
                 answered.set()
 
-        self._post_ui(ask, visible=True)
-        self._ui_dispatcher.wait(answered)
+        self._post_generation_ui(ask, visible=True)
+        self._wait_for_generation_event(answered)
         return result["confirmed"]
 
     def _request_attachment_web_link(self, missing_names: list[str] | None = None) -> str | None:
@@ -1974,8 +2023,8 @@ class AIMemoryGUI:
                 answered.set()
                 raise
 
-        self._post_ui(show_dialog, visible=True)
-        self._ui_dispatcher.wait(answered)
+        self._post_generation_ui(show_dialog, visible=True)
+        self._wait_for_generation_event(answered)
         return result["url"]
 
     def _show_login_dialog(
@@ -2244,9 +2293,9 @@ class AIMemoryGUI:
             except Exception:
                 on_selected(())
 
-        self._post_ui(show_dialog, visible=True)
+        self._post_generation_ui(show_dialog, visible=True)
         selection_started = time.perf_counter()
-        self._ui_dispatcher.wait(selection_ready)
+        self._wait_for_generation_event(selection_ready)
         wait_seconds = time.perf_counter() - selection_started
         selected = selection_holder["topics"]
         run_log.event(
@@ -2280,6 +2329,7 @@ class AIMemoryGUI:
     ):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        self._generation_loop = loop
         task_started = time.perf_counter()
         run_succeeded = False
         direct_summary = source_path is not None
@@ -2314,18 +2364,20 @@ class AIMemoryGUI:
         login_event = asyncio.Event()
 
         def update_progress(val: float, msg: str):
+            self._check_generation_cancelled()
             run_log.event(
                 "progress", msg,
                 ui_progress=round(float(val), 3),
             )
             percent_str = f"{int(val * 100)}%"
-            self._post_ui(lambda: [
+            self._post_generation_ui(lambda: [
                 self.progress_bar.set_progress(val),
                 self.status_var.set(msg),
                 self.percent_var.set(percent_str),
             ])
 
         try:
+            self._check_generation_cancelled()
             fetch_started = time.perf_counter()
             source_name = None
             source_dir = None
@@ -2357,13 +2409,13 @@ class AIMemoryGUI:
                     result_dir,
                     asset_owner,
                 )
-                fetch_res = loop.run_until_complete(
+                fetch_task = loop.create_task(
                     fetch_chat_pipeline(
                         url=url,
                         need_login=need_login,
                         login_ready_event=login_event,
                         login_required_callback=(
-                            lambda: self._post_ui(
+                            lambda: self._post_generation_ui(
                                 lambda: self._show_login_dialog(loop, login_event),
                                 visible=True,
                             )
@@ -2383,6 +2435,12 @@ class AIMemoryGUI:
                         debug_html_file=app_settings.debug_html_file,
                     )
                 )
+                self._generation_async_task = fetch_task
+                if self._generation_cancelled():
+                    fetch_task.cancel()
+                fetch_res = loop.run_until_complete(fetch_task)
+                self._generation_async_task = None
+                self._check_generation_cancelled()
                 fetch_seconds = time.perf_counter() - fetch_started
                 login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
                 fetch_active_seconds = max(
@@ -2402,7 +2460,7 @@ class AIMemoryGUI:
                     run_log.event("fetch_warning", warning)
                 if fetch_res.error or not fetch_res.messages:
                     err = fetch_res.error or "未能提取到有效对话内容。"
-                    self._post_ui(
+                    self._post_generation_ui(
                         lambda: messagebox.showerror("生成失败", err, parent=self.root),
                         visible=True,
                     )
@@ -2411,7 +2469,7 @@ class AIMemoryGUI:
                 messages = fetch_res.messages
                 if fetch_warnings:
                     warning_text = _format_fetch_warnings(fetch_warnings)
-                    self._post_ui(
+                    self._post_generation_ui(
                         lambda text=warning_text: messagebox.showwarning(
                             "抓取完成，但部分附件未下载", text, parent=self.root,
                         ),
@@ -2476,7 +2534,9 @@ class AIMemoryGUI:
                     else None
                 ),
                 progress=lambda message: update_progress(0.72, message),
+                cancel_check=self._check_generation_cancelled,
             )
+            self._check_generation_cancelled()
             generation_seconds = (
                 time.perf_counter() - generation_started - selection_wait_seconds
             )
@@ -2510,7 +2570,7 @@ class AIMemoryGUI:
                     f"总计 {total_seconds:.1f} 秒。可在历史记录中查看。"
                 ) if saved_files else "所有任务生成完成！",
             )
-            self._post_ui(lambda: self._show_completed_badge(5))
+            self._post_generation_ui(lambda: self._show_completed_badge(5))
             from datetime import datetime as _dt
             history_record = {
                 "title": (
@@ -2529,15 +2589,22 @@ class AIMemoryGUI:
                 "saved_files": saved_files,
                 "output_dir": str(result_dir.resolve()),
             }
-            self._post_ui(
+            self._post_generation_ui(
                 lambda r=history_record: self._add_history_record(r)
             )
             run_succeeded = True
-            self._post_ui(
+            self._post_generation_ui(
                 lambda: setattr(self, "_generation_completed", True)
             )
 
+        except asyncio.CancelledError:
+            run_log.event("run_cancelled", "用户停止生成")
+            self._post_ui(lambda: self.status_var.set("已停止生成"))
         except Exception as e:
+            if self._generation_cancelled():
+                run_log.event("run_cancelled", "用户停止生成")
+                self._post_ui(lambda: self.status_var.set("已停止生成"))
+                return
             err_msg = "处理失败，请检查网络、额度和模型配置。"
             try:
                 from scripts.gemini_summarizer import safe_error_message
@@ -2548,7 +2615,7 @@ class AIMemoryGUI:
                 "run_error", err_msg, error_type=type(e).__name__,
             )
             update_progress(0.0, f"❌ 处理发生错误: {err_msg}")
-            self._post_ui(
+            self._post_generation_ui(
                 lambda: messagebox.showerror("处理失败", f"生成失败：{err_msg}", parent=self.root),
                 visible=True,
             )
@@ -2560,6 +2627,8 @@ class AIMemoryGUI:
                 total_seconds=round(time.perf_counter() - task_started, 3),
             )
             run_log.close()
+            self._generation_async_task = None
+            self._generation_loop = None
             loop.close()
             self._post_ui(self._on_task_finished)
 
