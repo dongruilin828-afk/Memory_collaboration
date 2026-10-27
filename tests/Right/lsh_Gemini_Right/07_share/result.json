@@ -1,0 +1,24 @@
+{
+  "image_map": {
+    "blob:https://gemini.google.com/d7ae4b8c-1be3-40ef-8baa-6775146b0011": "./images/img_1_be0dc3d5.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "生成一张图片给我"
+    },
+    {
+      "role": "AI",
+      "content": "![Gemini 生成的图片](./images/img_1_be0dc3d5.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://share.gemini.google/XSTuvlOkdqRJ",
+  "elapsed": 14.707022699993104,
+  "files": {
+    "images/img_1_be0dc3d5.png": "90d46ac903abf969cba598df1aa92e99e48014273909ab7cd04380a5ec84c515"
+  }
+}

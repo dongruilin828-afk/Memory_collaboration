@@ -1,0 +1,33 @@
+{
+  "started_at": "2026-10-27T20:03:45.168125+08:00",
+  "mode": "capture_only",
+  "summary_api_calls": 0,
+  "source_file": "tests/tests.txt",
+  "url_count": 18,
+  "login_preflight": "First private conversation was opened independently with agent-browser; logged-in conversation content was visible.",
+  "core_code_modified": false,
+  "source_sha256": {
+    "gui/service.py": "ccfaa18ff779ced2663db789aae0562a080ed6af70d8142515be940c00f9ba25",
+    "scripts/providers/gemini.py": "a78fda430b97e76f0d3b30a4b7450a31f5d11aa7abcf2deb80f8d2653e28d6b8",
+    "scripts/providers/__init__.py": "b14e8fb0194ea13a668634611449be9376521f0ffe02f93daf66ed956c7db72b",
+    "scripts/markdown_exporter.py": "55d6f656a7ae5e93fb1996038008cbfc1a5a9910994ebd712b223b1634c6ae7c",
+    "tests/tests.txt": "d356d3369e21e3f65d89d4acb1d4f1faefcdb514517fc5e916ba115555fa4827"
+  },
+  "finished_at": "2026-10-27T21:22:52+08:00",
+  "capture_finished_at": "2026-10-27T20:18:17+08:00",
+  "capture_cases": 18,
+  "captured_messages": 161,
+  "image_files": 23,
+  "document_files": 24,
+  "capture_error_cases": [],
+  "capture_warning_cases": [],
+  "independent_web_pages_reviewed": 18,
+  "source_files_unchanged": true,
+  "login": "Existing project profile was usable. No user login was requested.",
+  "report": "抓取网页核对报告.md",
+  "comparison": "web_comparison.json",
+  "web_evidence": "web_review/live_page_review.json",
+  "review_notes": "Live-page review used agent-browser and targeted independent Playwright reopening to resolve delayed rendering. Review-only tool timeouts/retries did not rerun or modify the production capture outputs.",
+  "helper_code_location": ".local_sync",
+  "capture_helper_sha256": "363fa4a3036d6568c45f360db78642a073a172838dfcf26a35ec20cc038cdc98"
+}

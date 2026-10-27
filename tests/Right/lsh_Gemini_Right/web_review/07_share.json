@@ -1,0 +1,503 @@
+{
+  "case": "07",
+  "route": "share",
+  "url": "https://share.gemini.google/XSTuvlOkdqRJ",
+  "key": "07_share",
+  "review_method": "independent Playwright page reopening and per-message visible scroll",
+  "prior_agentbrowser_status": {
+    "error": null,
+    "node_count": 2,
+    "empty_ai_nodes": []
+  },
+  "review_started_at": "2026-10-27T20:47:51.028670+08:00",
+  "observations": [
+    {
+      "phase": "visible_0_0",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:21.024Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 766.95556640625,
+                "height": 418.67431640625
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    },
+    {
+      "phase": "visible_0_1",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:21.596Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 720,
+                "height": 393.04168701171875
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    },
+    {
+      "phase": "visible_1_0",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:22.170Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 720,
+                "height": 393.04168701171875
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    },
+    {
+      "phase": "visible_1_1",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:22.741Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 720,
+                "height": 393.04168701171875
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    },
+    {
+      "phase": "generated_image_load_check",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:22.784Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 720,
+                "height": 393.04168701171875
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    },
+    {
+      "phase": "final",
+      "state": {
+        "url": "https://gemini.google.com/share/7e2ee650a146?social_preview=false&skid=49dcc9bf-1f5b-42c5-a8dc-4404d02d4d45",
+        "title": "‎Gemini - 直接体验 Google AI 黑科技",
+        "reviewed_at": "2026-10-27T12:48:22.816Z",
+        "nodes": [
+          {
+            "index": 1,
+            "role": "User",
+            "id": "user-query-content-0",
+            "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+            "prose": "生成一张图片给我",
+            "dom_prose": "生成一张图片给我",
+            "chars": 21,
+            "visible": true,
+            "generated_images": 0,
+            "loading": false,
+            "files": [],
+            "images": [],
+            "code": [],
+            "math": []
+          },
+          {
+            "index": 2,
+            "role": "AI",
+            "id": null,
+            "text": "",
+            "prose": "",
+            "dom_prose": "",
+            "chars": 0,
+            "visible": true,
+            "generated_images": 1,
+            "loading": false,
+            "files": [],
+            "images": [
+              {
+                "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+                "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+                "naturalWidth": 1024,
+                "naturalHeight": 559,
+                "complete": true,
+                "visible": true,
+                "width": 720,
+                "height": 393.04168701171875
+              }
+            ],
+            "code": [],
+            "math": []
+          }
+        ],
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-bg-blob",
+            "top": 0,
+            "height": 766,
+            "total": 4008
+          },
+          {
+            "tag": "DIV",
+            "classes": "nl-blob nl-fg-blob",
+            "top": 0,
+            "height": 920,
+            "total": 4022
+          }
+        ],
+        "code_buttons": []
+      }
+    }
+  ],
+  "screenshots": [
+    "07_share_top.png",
+    "07_share_bottom.png"
+  ],
+  "code_panels_expanded": 0,
+  "live_nodes": [
+    {
+      "index": 1,
+      "role": "User",
+      "id": "user-query-content-0",
+      "text": "你说 生成一张图片给我\n\n生成一张图片给我",
+      "prose": "生成一张图片给我",
+      "dom_prose": "生成一张图片给我",
+      "chars": 21,
+      "visible": true,
+      "generated_images": 0,
+      "loading": false,
+      "files": [],
+      "images": [],
+      "code": [],
+      "math": [],
+      "observed_phases": [
+        "visible_0_0",
+        "visible_0_1",
+        "visible_1_0",
+        "visible_1_1",
+        "generated_image_load_check",
+        "final"
+      ]
+    },
+    {
+      "index": 2,
+      "role": "AI",
+      "id": null,
+      "text": "",
+      "prose": "",
+      "dom_prose": "",
+      "chars": 0,
+      "visible": true,
+      "generated_images": 1,
+      "loading": false,
+      "files": [],
+      "images": [
+        {
+          "alt": "A candid, documentary-style photograph of a lively outdoor fresh food market in Singapore on a sunny day. The scene is bustling with people. In the foreground, a multi-generational Singaporean family (grandparents, parents, two children) browse a vibrant fruit and vegetable stall. The older woman, wearing a patterned blouse and holding a reusable bag, is looking at red dragon fruit, while the father, in a casual shirt and shorts, carries a young child (about 4 years old) on his shoulders who is pointing happily at some bananas. The stall itself is a riot of color: piles of fresh, ripe tropical fruits (durian, mangosteen, rambutan, pineapples, bananas) and leafy green vegetables, all under a striped canvas awning. A vendor, an older man with a friendly, weathered face and a stained apron, is weighing some tomatoes on a traditional scale, chatting with a customer. Numerous other shoppers, of Chinese, Malay, and Indian descent, fill the crowded, narrow aisles between stalls, some carrying shopping baskets, others looking at items. The market structure features metal frames and is shaded by various colorful umbrellas and temporary tarps. In the background, there's a mix of other stalls selling fresh fish (packed on ice), spices, and cooked food, with visible signage in English, Chinese (like '鲜果蔬菜' - Fresh Fruit & Vegetables), Malay, and Tamil. Beyond the market's edge, typical Singapore HDB (Housing Development Board) high-rise apartment blocks with clothes drying on poles rise against a blue sky with some soft white clouds. The ground is worn concrete, bustling with activity. The light is natural, warm daylight, creating soft shadows. The photo has a slightly shallow depth of field, keeping the main family and vendor sharp while the background people and environment blur, conveying the chaotic energy and sense of place. The film grain texture gives it a authentic, photojournalistic feel. Shot on a Canon EOS 5D Mark IV. Film stock grain., AI generated，AI 生成",
+          "source": "https://gemini.google.comhttps://gemini.google.com/113b1d79-080c-4201-a570-c83de631276a",
+          "naturalWidth": 1024,
+          "naturalHeight": 559,
+          "complete": true,
+          "visible": true,
+          "width": 720,
+          "height": 393.04168701171875
+        }
+      ],
+      "code": [],
+      "math": [],
+      "observed_phases": [
+        "visible_0_0",
+        "visible_0_1",
+        "visible_1_0",
+        "visible_1_1",
+        "generated_image_load_check",
+        "final"
+      ]
+    }
+  ],
+  "node_count": 2,
+  "empty_ai_nodes": []
+}

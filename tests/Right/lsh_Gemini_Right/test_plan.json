@@ -1,0 +1,110 @@
+[
+  {
+    "case": "01",
+    "route": "share",
+    "url": "https://share.gemini.google/HymSbEybiIJM",
+    "key": "01_share"
+  },
+  {
+    "case": "01",
+    "route": "private",
+    "url": "https://gemini.google.com/app/ac82cb7f8d13b59c",
+    "key": "01_private"
+  },
+  {
+    "case": "02",
+    "route": "share",
+    "url": "https://share.gemini.google/CUt2oGPW7CVu",
+    "key": "02_share"
+  },
+  {
+    "case": "02",
+    "route": "private",
+    "url": "https://gemini.google.com/app/c51893873d0cdb6f",
+    "key": "02_private"
+  },
+  {
+    "case": "03",
+    "route": "share",
+    "url": "https://share.gemini.google/Il3J4d20WfhV",
+    "key": "03_share"
+  },
+  {
+    "case": "03",
+    "route": "private",
+    "url": "https://gemini.google.com/app/1ce28de499699970",
+    "key": "03_private"
+  },
+  {
+    "case": "04",
+    "route": "share",
+    "url": "https://share.gemini.google/FAmmDwFBwSba",
+    "key": "04_share"
+  },
+  {
+    "case": "04",
+    "route": "private",
+    "url": "https://gemini.google.com/app/2277e345714d57b1",
+    "key": "04_private"
+  },
+  {
+    "case": "05",
+    "route": "share",
+    "url": "https://share.gemini.google/OuIfNykRILLv",
+    "key": "05_share"
+  },
+  {
+    "case": "05",
+    "route": "private",
+    "url": "https://gemini.google.com/app/ebd8f9cf4e7706f2",
+    "key": "05_private"
+  },
+  {
+    "case": "06",
+    "route": "share",
+    "url": "https://share.gemini.google/NqKPsocx1aFo",
+    "key": "06_share"
+  },
+  {
+    "case": "06",
+    "route": "private",
+    "url": "https://gemini.google.com/app/081c2c6a667f6e5a",
+    "key": "06_private"
+  },
+  {
+    "case": "07",
+    "route": "share",
+    "url": "https://share.gemini.google/XSTuvlOkdqRJ",
+    "key": "07_share"
+  },
+  {
+    "case": "07",
+    "route": "private",
+    "url": "https://gemini.google.com/app/c02dce38395ed9a3",
+    "key": "07_private"
+  },
+  {
+    "case": "08",
+    "route": "share",
+    "url": "https://share.gemini.google/Goq6O7BLDArj",
+    "key": "08_share"
+  },
+  {
+    "case": "08",
+    "route": "private",
+    "url": "https://gemini.google.com/app/058650b27dade1e6",
+    "key": "08_private"
+  },
+  {
+    "case": "09",
+    "route": "share",
+    "url": "https://share.gemini.google/WOiitYUO9Unf",
+    "key": "09_share"
+  },
+  {
+    "case": "09",
+    "route": "private",
+    "url": "https://gemini.google.com/app/b37433958e0701f7",
+    "key": "09_private"
+  }
+]

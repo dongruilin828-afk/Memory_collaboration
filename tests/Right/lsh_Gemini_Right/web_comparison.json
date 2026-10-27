@@ -1,0 +1,6648 @@
+{
+  "metadata": {
+    "finished_at": "2026-10-27T20:57:04.445851+08:00",
+    "capture_pages": 18,
+    "captured_messages": 161,
+    "live_pages_opened": 18,
+    "live_scroll_reviews": 18,
+    "capture_error_pages": [],
+    "capture_warning_pages": [],
+    "live_review_error_pages": [],
+    "message_count_or_role_discrepancies": [],
+    "persistent_empty_ai_nodes": [
+      {
+        "key": "07_private",
+        "nodes": [
+          2
+        ]
+      },
+      {
+        "key": "08_share",
+        "nodes": [
+          12
+        ]
+      },
+      {
+        "key": "08_private",
+        "nodes": [
+          12
+        ]
+      }
+    ],
+    "prose_comparison_candidates": [
+      {
+        "key": "08_share",
+        "message": 11,
+        "live_node": 11,
+        "similarity": 0.5385
+      },
+      {
+        "key": "09_share",
+        "message": 4,
+        "live_node": 4,
+        "similarity": 0.9973
+      },
+      {
+        "key": "09_private",
+        "message": 4,
+        "live_node": 4,
+        "similarity": 0.9973
+      }
+    ],
+    "code_comparison_candidates": [
+      {
+        "key": "04_share",
+        "message": 10,
+        "block": 1,
+        "source_chars": 8263
+      },
+      {
+        "key": "04_private",
+        "message": 10,
+        "block": 1,
+        "source_chars": 8263
+      },
+      {
+        "key": "09_share",
+        "message": 4,
+        "block": 1,
+        "source_chars": 1314
+      },
+      {
+        "key": "09_share",
+        "message": 4,
+        "block": 3,
+        "source_chars": 3663
+      },
+      {
+        "key": "09_share",
+        "message": 6,
+        "block": 1,
+        "source_chars": 374
+      },
+      {
+        "key": "09_share",
+        "message": 6,
+        "block": 3,
+        "source_chars": 3048
+      },
+      {
+        "key": "09_share",
+        "message": 6,
+        "block": 5,
+        "source_chars": 3332
+      },
+      {
+        "key": "09_private",
+        "message": 4,
+        "block": 1,
+        "source_chars": 1314
+      },
+      {
+        "key": "09_private",
+        "message": 4,
+        "block": 3,
+        "source_chars": 3663
+      },
+      {
+        "key": "09_private",
+        "message": 6,
+        "block": 1,
+        "source_chars": 374
+      },
+      {
+        "key": "09_private",
+        "message": 6,
+        "block": 3,
+        "source_chars": 3048
+      },
+      {
+        "key": "09_private",
+        "message": 6,
+        "block": 5,
+        "source_chars": 3332
+      }
+    ],
+    "formula_comparison_candidates": [],
+    "image_dimension_differences": [
+      {
+        "key": "01_private",
+        "message": 1,
+        "live_node": 1,
+        "live_natural": [
+          512,
+          116
+        ],
+        "captured": [
+          768,
+          174
+        ],
+        "generated": false
+      },
+      {
+        "key": "01_private",
+        "message": 3,
+        "live_node": 3,
+        "live_natural": [
+          512,
+          266
+        ],
+        "captured": [
+          768,
+          399
+        ],
+        "generated": false
+      },
+      {
+        "key": "01_private",
+        "message": 5,
+        "live_node": 5,
+        "live_natural": [
+          512,
+          266
+        ],
+        "captured": [
+          768,
+          399
+        ],
+        "generated": false
+      },
+      {
+        "key": "02_private",
+        "message": 1,
+        "live_node": 1,
+        "live_natural": [
+          233,
+          512
+        ],
+        "captured": [
+          350,
+          768
+        ],
+        "generated": false
+      },
+      {
+        "key": "02_private",
+        "message": 7,
+        "live_node": 7,
+        "live_natural": [
+          233,
+          512
+        ],
+        "captured": [
+          350,
+          768
+        ],
+        "generated": false
+      },
+      {
+        "key": "02_private",
+        "message": 9,
+        "live_node": 9,
+        "live_natural": [
+          233,
+          512
+        ],
+        "captured": [
+          350,
+          768
+        ],
+        "generated": false
+      },
+      {
+        "key": "02_private",
+        "message": 11,
+        "live_node": 11,
+        "live_natural": [
+          512,
+          266
+        ],
+        "captured": [
+          768,
+          399
+        ],
+        "generated": false
+      },
+      {
+        "key": "02_private",
+        "message": 19,
+        "live_node": 19,
+        "live_natural": [
+          179,
+          512
+        ],
+        "captured": [
+          269,
+          768
+        ],
+        "generated": false
+      },
+      {
+        "key": "04_share",
+        "message": 8,
+        "live_node": 8,
+        "live_natural": [
+          1024,
+          559
+        ],
+        "captured": [
+          720,
+          394
+        ],
+        "generated": true
+      },
+      {
+        "key": "04_private",
+        "message": 8,
+        "live_node": 8,
+        "live_natural": [
+          1024,
+          559
+        ],
+        "captured": [
+          1064,
+          581
+        ],
+        "generated": true
+      },
+      {
+        "key": "07_share",
+        "message": 2,
+        "live_node": 2,
+        "live_natural": [
+          1024,
+          559
+        ],
+        "captured": [
+          720,
+          394
+        ],
+        "generated": true
+      },
+      {
+        "key": "08_private",
+        "message": 9,
+        "live_node": 9,
+        "live_natural": [
+          351,
+          81
+        ],
+        "captured": [
+          527,
+          122
+        ],
+        "generated": false
+      },
+      {
+        "key": "09_private",
+        "message": 4,
+        "live_node": 4,
+        "live_natural": [
+          1500,
+          400
+        ],
+        "captured": [
+          2250,
+          600
+        ],
+        "generated": false
+      }
+    ],
+    "asset_files": 47,
+    "broken_local_refs": [],
+    "source_files_unchanged": {
+      "gui/service.py": true,
+      "scripts/providers/gemini.py": true,
+      "scripts/providers/__init__.py": true,
+      "scripts/markdown_exporter.py": true,
+      "tests/tests.txt": true
+    },
+    "summary_api_calls": 0,
+    "final_report_at": "2026-10-27T21:22:52+08:00"
+  },
+  "pages": [
+    {
+      "case": "01",
+      "route": "share",
+      "url": "https://share.gemini.google/HymSbEybiIJM",
+      "key": "01_share",
+      "captured_messages": 6,
+      "live_dom_nodes": 6,
+      "live_meaningful_nodes": 6,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_3e98baa6.png",
+              "width": 512,
+              "height": 116
+            }
+          ]
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 280,
+          "capture_prose_chars": 280,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_2_a8cc8f47.png",
+              "width": 512,
+              "height": 266
+            }
+          ]
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 201,
+          "capture_prose_chars": 201,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 34,
+          "capture_prose_chars": 34,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_3_56a9c493.jpg",
+              "width": 512,
+              "height": 266
+            }
+          ]
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 238,
+          "capture_prose_chars": 238,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "01_share",
+          "path": "images/img_1_3e98baa6.png",
+          "bytes": 22807,
+          "sha256": "b54abdfd96f6ae35e536d50a4a47d8780542fc63e4d08eb50f78993d7bf71eec",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            512,
+            116
+          ],
+          "decoded": true
+        },
+        {
+          "key": "01_share",
+          "path": "images/img_2_a8cc8f47.png",
+          "bytes": 19764,
+          "sha256": "003e55162a8124bcf97b4b59474ce4c230b072424f399cd2bbee00a367bb2cac",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            512,
+            266
+          ],
+          "decoded": true
+        },
+        {
+          "key": "01_share",
+          "path": "images/img_3_56a9c493.jpg",
+          "bytes": 25170,
+          "sha256": "d0f633ce962f96fd59fbdbefb84e292f140025ec3cb5d54595d475b5f028bd90",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            512,
+            266
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "01",
+      "route": "private",
+      "url": "https://gemini.google.com/app/ac82cb7f8d13b59c",
+      "key": "01_private",
+      "captured_messages": 6,
+      "live_dom_nodes": 6,
+      "live_meaningful_nodes": 6,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_812e38a1.png",
+              "width": 768,
+              "height": 174
+            }
+          ]
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 280,
+          "capture_prose_chars": 280,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_2_e8cc9133.png",
+              "width": 768,
+              "height": 399
+            }
+          ]
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 201,
+          "capture_prose_chars": 201,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 34,
+          "capture_prose_chars": 34,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_3_37c96e31.png",
+              "width": 768,
+              "height": 399
+            }
+          ]
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 238,
+          "capture_prose_chars": 238,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "01_private",
+          "path": "images/img_1_812e38a1.png",
+          "bytes": 46472,
+          "sha256": "70d34504b2f85c9f4e5c45162d9e96ebb1dca7163ff119eb00f483c057cdff08",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            768,
+            174
+          ],
+          "decoded": true
+        },
+        {
+          "key": "01_private",
+          "path": "images/img_2_e8cc9133.png",
+          "bytes": 40088,
+          "sha256": "e2a6db0f217f3c805fdc2d94f10beb865a383c8c31064b3753ede81aefafd304",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            768,
+            399
+          ],
+          "decoded": true
+        },
+        {
+          "key": "01_private",
+          "path": "images/img_3_37c96e31.png",
+          "bytes": 109190,
+          "sha256": "b6c8f87e4224c193bfd1122c2601583757bb1fc429f2e07a1d8e8b309eda408b",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            768,
+            399
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "02",
+      "route": "share",
+      "url": "https://share.gemini.google/CUt2oGPW7CVu",
+      "key": "02_share",
+      "captured_messages": 26,
+      "live_dom_nodes": 26,
+      "live_meaningful_nodes": 26,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 4,
+          "capture_prose_chars": 4,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_ce034918.jpg",
+              "width": 233,
+              "height": 512
+            }
+          ]
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 586,
+          "capture_prose_chars": 586,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 26,
+          "capture_prose_chars": 26,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 484,
+          "capture_prose_chars": 484,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 14,
+          "capture_prose_chars": 14,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 541,
+          "capture_prose_chars": 541,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 2,
+          "capture_prose_chars": 2,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_2_bcdc10cf.jpg",
+              "width": 233,
+              "height": 512
+            }
+          ]
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 609,
+          "capture_prose_chars": 609,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 6,
+          "capture_prose_chars": 6,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_3_4b0b95aa.jpg",
+              "width": 233,
+              "height": 512
+            }
+          ]
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 516,
+          "capture_prose_chars": 516,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 4,
+          "capture_prose_chars": 4,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_4_5e09eca7.jpg",
+              "width": 512,
+              "height": 266
+            }
+          ]
+        },
+        {
+          "capture_message": 12,
+          "live_node": 12,
+          "role": "AI",
+          "live_prose_chars": 801,
+          "capture_prose_chars": 801,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 14,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 876,
+          "capture_prose_chars": 876,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 15,
+          "live_node": 15,
+          "role": "User",
+          "live_prose_chars": 24,
+          "capture_prose_chars": 24,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 16,
+          "live_node": 16,
+          "role": "AI",
+          "live_prose_chars": 578,
+          "capture_prose_chars": 578,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 17,
+          "live_node": 17,
+          "role": "User",
+          "live_prose_chars": 16,
+          "capture_prose_chars": 16,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 18,
+          "live_node": 18,
+          "role": "AI",
+          "live_prose_chars": 580,
+          "capture_prose_chars": 580,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 19,
+          "live_node": 19,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 5,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_5_29934582.jpg",
+              "width": 179,
+              "height": 512
+            }
+          ]
+        },
+        {
+          "capture_message": 20,
+          "live_node": 20,
+          "role": "AI",
+          "live_prose_chars": 486,
+          "capture_prose_chars": 486,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 21,
+          "live_node": 21,
+          "role": "User",
+          "live_prose_chars": 6,
+          "capture_prose_chars": 6,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 22,
+          "live_node": 22,
+          "role": "AI",
+          "live_prose_chars": 580,
+          "capture_prose_chars": 580,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 23,
+          "live_node": 23,
+          "role": "User",
+          "live_prose_chars": 9,
+          "capture_prose_chars": 9,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 24,
+          "live_node": 24,
+          "role": "AI",
+          "live_prose_chars": 682,
+          "capture_prose_chars": 682,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 25,
+          "live_node": 25,
+          "role": "User",
+          "live_prose_chars": 11,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 26,
+          "live_node": 26,
+          "role": "AI",
+          "live_prose_chars": 334,
+          "capture_prose_chars": 334,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "02_share",
+          "path": "images/img_1_ce034918.jpg",
+          "bytes": 26013,
+          "sha256": "3f1db810df3e74e08624f2dc39c3088e29ba147e59c8bf83ac2fe3f60882f492",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            233,
+            512
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_share",
+          "path": "images/img_2_bcdc10cf.jpg",
+          "bytes": 16201,
+          "sha256": "0717a282da90c728f2082cf85738108a65c30607d0b8eb0a4746009c6645ca7c",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            233,
+            512
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_share",
+          "path": "images/img_3_4b0b95aa.jpg",
+          "bytes": 18746,
+          "sha256": "74a42a9221dc952793cb420d84998aed713046b972f66c6f3b68a0cff9a8dd8f",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            233,
+            512
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_share",
+          "path": "images/img_4_5e09eca7.jpg",
+          "bytes": 31626,
+          "sha256": "d000c3b326651c51bb9fccae3d79a3619d44c133b5d3a6d068c8f5b38b8679e2",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            512,
+            266
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_share",
+          "path": "images/img_5_29934582.jpg",
+          "bytes": 41181,
+          "sha256": "9611bd97b418747ccb28a087243cc2ad4c61ff1df53cbe6431cb0198cf97f3b1",
+          "matches_result_manifest": true,
+          "format": "JPEG",
+          "dimensions": [
+            179,
+            512
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "02",
+      "route": "private",
+      "url": "https://gemini.google.com/app/c51893873d0cdb6f",
+      "key": "02_private",
+      "captured_messages": 26,
+      "live_dom_nodes": 26,
+      "live_meaningful_nodes": 26,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 4,
+          "capture_prose_chars": 4,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_aa033295.png",
+              "width": 350,
+              "height": 768
+            }
+          ]
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 586,
+          "capture_prose_chars": 586,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 26,
+          "capture_prose_chars": 26,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 484,
+          "capture_prose_chars": 484,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 14,
+          "capture_prose_chars": 14,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 541,
+          "capture_prose_chars": 541,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 2,
+          "capture_prose_chars": 2,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_2_25d27bec.png",
+              "width": 350,
+              "height": 768
+            }
+          ]
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 609,
+          "capture_prose_chars": 609,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 6,
+          "capture_prose_chars": 6,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_3_11d540af.png",
+              "width": 350,
+              "height": 768
+            }
+          ]
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 516,
+          "capture_prose_chars": 516,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 4,
+          "capture_prose_chars": 4,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_4_b5cd2439.png",
+              "width": 768,
+              "height": 399
+            }
+          ]
+        },
+        {
+          "capture_message": 12,
+          "live_node": 12,
+          "role": "AI",
+          "live_prose_chars": 801,
+          "capture_prose_chars": 801,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 14,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 876,
+          "capture_prose_chars": 876,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 15,
+          "live_node": 15,
+          "role": "User",
+          "live_prose_chars": 24,
+          "capture_prose_chars": 24,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 16,
+          "live_node": 16,
+          "role": "AI",
+          "live_prose_chars": 578,
+          "capture_prose_chars": 578,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 17,
+          "live_node": 17,
+          "role": "User",
+          "live_prose_chars": 16,
+          "capture_prose_chars": 16,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 18,
+          "live_node": 18,
+          "role": "AI",
+          "live_prose_chars": 580,
+          "capture_prose_chars": 580,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 19,
+          "live_node": 19,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 5,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_5_b041d28d.png",
+              "width": 269,
+              "height": 768
+            }
+          ]
+        },
+        {
+          "capture_message": 20,
+          "live_node": 20,
+          "role": "AI",
+          "live_prose_chars": 486,
+          "capture_prose_chars": 486,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 21,
+          "live_node": 21,
+          "role": "User",
+          "live_prose_chars": 6,
+          "capture_prose_chars": 6,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 22,
+          "live_node": 22,
+          "role": "AI",
+          "live_prose_chars": 580,
+          "capture_prose_chars": 580,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 23,
+          "live_node": 23,
+          "role": "User",
+          "live_prose_chars": 9,
+          "capture_prose_chars": 9,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 24,
+          "live_node": 24,
+          "role": "AI",
+          "live_prose_chars": 682,
+          "capture_prose_chars": 682,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 25,
+          "live_node": 25,
+          "role": "User",
+          "live_prose_chars": 11,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 26,
+          "live_node": 26,
+          "role": "AI",
+          "live_prose_chars": 334,
+          "capture_prose_chars": 334,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "02_private",
+          "path": "images/img_1_aa033295.png",
+          "bytes": 93385,
+          "sha256": "1f88f80e7653834fea135e097484ff7b2ee4acc35b085afa7a1c72c50a61752d",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            350,
+            768
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_private",
+          "path": "images/img_2_25d27bec.png",
+          "bytes": 63297,
+          "sha256": "51836bc7e33a738d10fa9264407d0988e2904302655af13a70f7d9863f8ee1ca",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            350,
+            768
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_private",
+          "path": "images/img_3_11d540af.png",
+          "bytes": 73688,
+          "sha256": "16d391f48decd52299ec4005382178f58c6e416edd73fa8023be9b20add8ea01",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            350,
+            768
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_private",
+          "path": "images/img_4_b5cd2439.png",
+          "bytes": 115427,
+          "sha256": "94a7ffdfbfc0ba31b03f4160db716dda08c4ee538ebf3a671124d46867a141a4",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            768,
+            399
+          ],
+          "decoded": true
+        },
+        {
+          "key": "02_private",
+          "path": "images/img_5_b041d28d.png",
+          "bytes": 152754,
+          "sha256": "7a8ab386705c8734146571c0b27050f733a62a582a10420b0895d4875b171d3d",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            269,
+            768
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "03",
+      "route": "share",
+      "url": "https://share.gemini.google/Il3J4d20WfhV",
+      "key": "03_share",
+      "captured_messages": 4,
+      "live_dom_nodes": 4,
+      "live_meaningful_nodes": 4,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 19,
+          "capture_prose_chars": 19,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 2819,
+          "capture_prose_chars": 2819,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": true,
+              "source_chars": 41
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "03_share",
+          "path": "documents/pj1.pdf",
+          "bytes": 157001,
+          "sha256": "d7e394eccb41f73ce2291c9b711ee4cbe3487a3afe0871ed5a3eabc4b04f6888",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        }
+      ]
+    },
+    {
+      "case": "03",
+      "route": "private",
+      "url": "https://gemini.google.com/app/1ce28de499699970",
+      "key": "03_private",
+      "captured_messages": 4,
+      "live_dom_nodes": 4,
+      "live_meaningful_nodes": 4,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 19,
+          "capture_prose_chars": 19,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 5,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 2819,
+          "capture_prose_chars": 2819,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": true,
+              "source_chars": 41
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "03_private",
+          "path": "documents/pj1.pdf",
+          "bytes": 157001,
+          "sha256": "d7e394eccb41f73ce2291c9b711ee4cbe3487a3afe0871ed5a3eabc4b04f6888",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        }
+      ]
+    },
+    {
+      "case": "04",
+      "route": "share",
+      "url": "https://share.gemini.google/FAmmDwFBwSba",
+      "key": "04_share",
+      "captured_messages": 14,
+      "live_dom_nodes": 14,
+      "live_meaningful_nodes": 14,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 82,
+          "capture_prose_chars": 82,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 565,
+          "capture_prose_chars": 565,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": true,
+              "source_chars": 233
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 7,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 343,
+          "capture_prose_chars": 351,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 4,
+          "capture_code_blocks": 4,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 546
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 186
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 543
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 359
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 158,
+          "capture_prose_chars": 162,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 2,
+          "capture_code_blocks": 2,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 495
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 447
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 37,
+          "capture_prose_chars": 37,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_5203ce78.png",
+              "width": 720,
+              "height": 394
+            }
+          ]
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 20,
+          "capture_prose_chars": 20,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 403,
+          "capture_prose_chars": 403,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": true,
+              "source_chars": 8263
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 52,
+          "capture_prose_chars": 52,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 12,
+          "live_node": 12,
+          "role": "AI",
+          "live_prose_chars": 563,
+          "capture_prose_chars": 563,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 35,
+          "capture_prose_chars": 35,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 14,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 339,
+          "capture_prose_chars": 339,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "04_share",
+          "path": "images/img_1_5203ce78.png",
+          "bytes": 120583,
+          "sha256": "5a31cc1f7b1a8bb9f0e738f0af319a49e448c8dadbf0faf14c51b97160091640",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            720,
+            394
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "04",
+      "route": "private",
+      "url": "https://gemini.google.com/app/2277e345714d57b1",
+      "key": "04_private",
+      "captured_messages": 14,
+      "live_dom_nodes": 14,
+      "live_meaningful_nodes": 14,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 82,
+          "capture_prose_chars": 82,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 565,
+          "capture_prose_chars": 565,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": true,
+              "source_chars": 233
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 7,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 343,
+          "capture_prose_chars": 351,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 4,
+          "capture_code_blocks": 4,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 546
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 186
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 543
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 359
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 10,
+          "capture_prose_chars": 10,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 158,
+          "capture_prose_chars": 162,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 2,
+          "capture_code_blocks": 2,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 495
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 447
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 37,
+          "capture_prose_chars": 37,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_4a261f7a.png",
+              "width": 1064,
+              "height": 581
+            }
+          ]
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 20,
+          "capture_prose_chars": 20,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 403,
+          "capture_prose_chars": 403,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 1,
+          "capture_code_blocks": 1,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": true,
+              "source_chars": 8263
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 52,
+          "capture_prose_chars": 52,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 12,
+          "live_node": 12,
+          "role": "AI",
+          "live_prose_chars": 563,
+          "capture_prose_chars": 563,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 35,
+          "capture_prose_chars": 35,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 14,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 339,
+          "capture_prose_chars": 339,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "04_private",
+          "path": "images/img_1_4a261f7a.png",
+          "bytes": 221550,
+          "sha256": "1229d03fc58eeac7ef7591c91300721cc7b82eedafccfc19512c930237362c59",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            1064,
+            581
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "05",
+      "route": "share",
+      "url": "https://share.gemini.google/OuIfNykRILLv",
+      "key": "05_share",
+      "captured_messages": 8,
+      "live_dom_nodes": 8,
+      "live_meaningful_nodes": 8,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 82,
+          "capture_prose_chars": 82,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 721,
+          "capture_prose_chars": 721,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            },
+            {
+              "formula": 33,
+              "source_latex_present": true
+            },
+            {
+              "formula": 34,
+              "source_latex_present": true
+            },
+            {
+              "formula": 35,
+              "source_latex_present": true
+            },
+            {
+              "formula": 36,
+              "source_latex_present": true
+            },
+            {
+              "formula": 37,
+              "source_latex_present": true
+            },
+            {
+              "formula": 38,
+              "source_latex_present": true
+            },
+            {
+              "formula": 39,
+              "source_latex_present": true
+            },
+            {
+              "formula": 40,
+              "source_latex_present": true
+            },
+            {
+              "formula": 41,
+              "source_latex_present": true
+            },
+            {
+              "formula": 42,
+              "source_latex_present": true
+            },
+            {
+              "formula": 43,
+              "source_latex_present": true
+            },
+            {
+              "formula": 44,
+              "source_latex_present": true
+            },
+            {
+              "formula": 45,
+              "source_latex_present": true
+            },
+            {
+              "formula": 46,
+              "source_latex_present": true
+            },
+            {
+              "formula": 47,
+              "source_latex_present": true
+            },
+            {
+              "formula": 48,
+              "source_latex_present": true
+            },
+            {
+              "formula": 49,
+              "source_latex_present": true
+            },
+            {
+              "formula": 50,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 7,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 509,
+          "capture_prose_chars": 509,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 51,
+          "capture_prose_chars": 51,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 776,
+          "capture_prose_chars": 776,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            },
+            {
+              "formula": 33,
+              "source_latex_present": true
+            },
+            {
+              "formula": 34,
+              "source_latex_present": true
+            },
+            {
+              "formula": 35,
+              "source_latex_present": true
+            },
+            {
+              "formula": 36,
+              "source_latex_present": true
+            },
+            {
+              "formula": 37,
+              "source_latex_present": true
+            },
+            {
+              "formula": 38,
+              "source_latex_present": true
+            },
+            {
+              "formula": 39,
+              "source_latex_present": true
+            },
+            {
+              "formula": 40,
+              "source_latex_present": true
+            },
+            {
+              "formula": 41,
+              "source_latex_present": true
+            },
+            {
+              "formula": 42,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 37,
+          "capture_prose_chars": 37,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 311,
+          "capture_prose_chars": 311,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": []
+    },
+    {
+      "case": "05",
+      "route": "private",
+      "url": "https://gemini.google.com/app/ebd8f9cf4e7706f2",
+      "key": "05_private",
+      "captured_messages": 8,
+      "live_dom_nodes": 8,
+      "live_meaningful_nodes": 8,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 82,
+          "capture_prose_chars": 82,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 721,
+          "capture_prose_chars": 721,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            },
+            {
+              "formula": 33,
+              "source_latex_present": true
+            },
+            {
+              "formula": 34,
+              "source_latex_present": true
+            },
+            {
+              "formula": 35,
+              "source_latex_present": true
+            },
+            {
+              "formula": 36,
+              "source_latex_present": true
+            },
+            {
+              "formula": 37,
+              "source_latex_present": true
+            },
+            {
+              "formula": 38,
+              "source_latex_present": true
+            },
+            {
+              "formula": 39,
+              "source_latex_present": true
+            },
+            {
+              "formula": 40,
+              "source_latex_present": true
+            },
+            {
+              "formula": 41,
+              "source_latex_present": true
+            },
+            {
+              "formula": 42,
+              "source_latex_present": true
+            },
+            {
+              "formula": 43,
+              "source_latex_present": true
+            },
+            {
+              "formula": 44,
+              "source_latex_present": true
+            },
+            {
+              "formula": 45,
+              "source_latex_present": true
+            },
+            {
+              "formula": 46,
+              "source_latex_present": true
+            },
+            {
+              "formula": 47,
+              "source_latex_present": true
+            },
+            {
+              "formula": 48,
+              "source_latex_present": true
+            },
+            {
+              "formula": 49,
+              "source_latex_present": true
+            },
+            {
+              "formula": 50,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 7,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 509,
+          "capture_prose_chars": 509,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 51,
+          "capture_prose_chars": 51,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 776,
+          "capture_prose_chars": 776,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            },
+            {
+              "formula": 29,
+              "source_latex_present": true
+            },
+            {
+              "formula": 30,
+              "source_latex_present": true
+            },
+            {
+              "formula": 31,
+              "source_latex_present": true
+            },
+            {
+              "formula": 32,
+              "source_latex_present": true
+            },
+            {
+              "formula": 33,
+              "source_latex_present": true
+            },
+            {
+              "formula": 34,
+              "source_latex_present": true
+            },
+            {
+              "formula": 35,
+              "source_latex_present": true
+            },
+            {
+              "formula": 36,
+              "source_latex_present": true
+            },
+            {
+              "formula": 37,
+              "source_latex_present": true
+            },
+            {
+              "formula": 38,
+              "source_latex_present": true
+            },
+            {
+              "formula": 39,
+              "source_latex_present": true
+            },
+            {
+              "formula": 40,
+              "source_latex_present": true
+            },
+            {
+              "formula": 41,
+              "source_latex_present": true
+            },
+            {
+              "formula": 42,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 37,
+          "capture_prose_chars": 37,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 311,
+          "capture_prose_chars": 311,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": []
+    },
+    {
+      "case": "06",
+      "route": "share",
+      "url": "https://share.gemini.google/NqKPsocx1aFo",
+      "key": "06_share",
+      "captured_messages": 2,
+      "live_dom_nodes": 2,
+      "live_meaningful_nodes": 2,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 91,
+          "capture_prose_chars": 125,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1143,
+          "capture_prose_chars": 1143,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "06_share",
+          "path": "documents/文献.rar",
+          "bytes": 4868752,
+          "sha256": "20f20946e48ad5ebe5b094b34207290a219faaa6946307a8c8ccd1a97cea0a66",
+          "matches_result_manifest": true,
+          "rar_signature_valid": true
+        },
+        {
+          "key": "06_share",
+          "path": "documents/望道-计算与智能创新学院-董锐麟-25803050309.docx",
+          "bytes": 42661,
+          "sha256": "dd974ece9e3dbd3987952f00ff247c2b73223d8854b0fb25dbafd8d8ea8b3bbb",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        }
+      ]
+    },
+    {
+      "case": "06",
+      "route": "private",
+      "url": "https://gemini.google.com/app/081c2c6a667f6e5a",
+      "key": "06_private",
+      "captured_messages": 2,
+      "live_dom_nodes": 2,
+      "live_meaningful_nodes": 2,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 91,
+          "capture_prose_chars": 125,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1143,
+          "capture_prose_chars": 1143,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "06_private",
+          "path": "documents/文献.rar",
+          "bytes": 4868752,
+          "sha256": "20f20946e48ad5ebe5b094b34207290a219faaa6946307a8c8ccd1a97cea0a66",
+          "matches_result_manifest": true,
+          "rar_signature_valid": true
+        },
+        {
+          "key": "06_private",
+          "path": "documents/望道-计算与智能创新学院-董锐麟-25803050309.docx",
+          "bytes": 42661,
+          "sha256": "dd974ece9e3dbd3987952f00ff247c2b73223d8854b0fb25dbafd8d8ea8b3bbb",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        }
+      ]
+    },
+    {
+      "case": "07",
+      "route": "share",
+      "url": "https://share.gemini.google/XSTuvlOkdqRJ",
+      "key": "07_share",
+      "captured_messages": 2,
+      "live_dom_nodes": 2,
+      "live_meaningful_nodes": 2,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 8,
+          "capture_prose_chars": 8,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_be0dc3d5.png",
+              "width": 720,
+              "height": 394
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "key": "07_share",
+          "path": "images/img_1_be0dc3d5.png",
+          "bytes": 587848,
+          "sha256": "90d46ac903abf969cba598df1aa92e99e48014273909ab7cd04380a5ec84c515",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            720,
+            394
+          ],
+          "decoded": true
+        }
+      ]
+    },
+    {
+      "case": "07",
+      "route": "private",
+      "url": "https://gemini.google.com/app/c02dce38395ed9a3",
+      "key": "07_private",
+      "captured_messages": 1,
+      "live_dom_nodes": 2,
+      "live_meaningful_nodes": 1,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [
+        2
+      ],
+      "unresolved_generated_ai_nodes": [
+        2
+      ],
+      "code_panels_expanded": 0,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 8,
+          "capture_prose_chars": 8,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": []
+    },
+    {
+      "case": "08",
+      "route": "share",
+      "url": "https://share.gemini.google/Goq6O7BLDArj",
+      "key": "08_share",
+      "captured_messages": 13,
+      "live_dom_nodes": 14,
+      "live_meaningful_nodes": 13,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [
+        12
+      ],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 56,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1747,
+          "capture_prose_chars": 1747,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 32,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 361,
+          "capture_prose_chars": 361,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 9,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 1942,
+          "capture_prose_chars": 1942,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 19,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 357,
+          "capture_prose_chars": 361,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 2,
+          "capture_code_blocks": 2,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 326
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 339
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_ad0828f9.png",
+              "width": 351,
+              "height": 81
+            }
+          ]
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 1172,
+          "capture_prose_chars": 1172,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 15,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": false,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [],
+          "prose_similarity": 0.5385
+        },
+        {
+          "capture_message": 12,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 475,
+          "capture_prose_chars": 491,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 8,
+          "capture_code_blocks": 8,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 436
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 347
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 183
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 399
+            },
+            {
+              "block": 5,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 203
+            },
+            {
+              "block": 6,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 533
+            },
+            {
+              "block": 7,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 34
+            },
+            {
+              "block": 8,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 178
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "08_share",
+          "path": "images/img_1_ad0828f9.png",
+          "bytes": 15405,
+          "sha256": "15fa784a3a0c0ffa9068dc352fdb5614aa8d4a68720279b2df357a53953c5279",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            351,
+            81
+          ],
+          "decoded": true
+        },
+        {
+          "key": "08_share",
+          "path": "documents/problem2_moisture.csv",
+          "bytes": 322,
+          "sha256": "520859dce146f8695f79b45f06e866b4acf5c2bf428b760d1e7f82ae6d18101c",
+          "matches_result_manifest": true,
+          "utf8_decodable": true
+        },
+        {
+          "key": "08_share",
+          "path": "documents/result1.xlsx",
+          "bytes": 10073,
+          "sha256": "23b261b295c1b787d000eebbca6521c37075107b6fcf78724f8d395ce1798ff4",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "08_share",
+          "path": "documents/复旦大学计算与智能创新学院2025级人工智能领军人才班2025-2026学年本科优秀学生奖学金评定细则-公示版.pdf",
+          "bytes": 372072,
+          "sha256": "e507419c8fc15d4b9b19d087129eb9c8c270a38df004888a2e129f553f13d6e2",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        },
+        {
+          "key": "08_share",
+          "path": "documents/工作交接极简版.md",
+          "bytes": 3044,
+          "sha256": "efdd942cb6b93b5a56b759a9ad378ac13e40950b574067bef552a8b9943387da",
+          "matches_result_manifest": true,
+          "utf8_decodable": true
+        },
+        {
+          "key": "08_share",
+          "path": "documents/附件3：复旦大学计算与智能创新学院本科生奖学金专家评审申请表.doc",
+          "bytes": 44544,
+          "sha256": "ef24d02ae39b6bb4b26979197e0bcf48233de0403c6e5b2d28fb60dd3a8b4c98",
+          "matches_result_manifest": true,
+          "ole_signature_valid": true
+        }
+      ]
+    },
+    {
+      "case": "08",
+      "route": "private",
+      "url": "https://gemini.google.com/app/058650b27dade1e6",
+      "key": "08_private",
+      "captured_messages": 13,
+      "live_dom_nodes": 14,
+      "live_meaningful_nodes": 13,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [
+        12
+      ],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 56,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1747,
+          "capture_prose_chars": 1747,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 32,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 361,
+          "capture_prose_chars": 361,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 9,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 1942,
+          "capture_prose_chars": 1942,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 7,
+          "live_node": 7,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 19,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 8,
+          "live_node": 8,
+          "role": "AI",
+          "live_prose_chars": 357,
+          "capture_prose_chars": 361,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 2,
+          "capture_code_blocks": 2,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 326
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 339
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 9,
+          "live_node": 9,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 0,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_6b44f017.png",
+              "width": 527,
+              "height": 122
+            }
+          ]
+        },
+        {
+          "capture_message": 10,
+          "live_node": 10,
+          "role": "AI",
+          "live_prose_chars": 1172,
+          "capture_prose_chars": 1172,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 11,
+          "live_node": 11,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 12,
+          "live_node": 13,
+          "role": "User",
+          "live_prose_chars": 0,
+          "capture_prose_chars": 11,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 13,
+          "live_node": 14,
+          "role": "AI",
+          "live_prose_chars": 475,
+          "capture_prose_chars": 491,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 8,
+          "capture_code_blocks": 8,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 436
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 347
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 183
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 399
+            },
+            {
+              "block": 5,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 203
+            },
+            {
+              "block": 6,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 533
+            },
+            {
+              "block": 7,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 34
+            },
+            {
+              "block": 8,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 178
+            }
+          ],
+          "math_coverage": [],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "08_private",
+          "path": "images/img_1_6b44f017.png",
+          "bytes": 22906,
+          "sha256": "bd24fa25113db7e0bf88d027c974cc7a1bbb31340a9fc79aab7ed0b58814ad2a",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            527,
+            122
+          ],
+          "decoded": true
+        },
+        {
+          "key": "08_private",
+          "path": "documents/problem2_moisture.csv",
+          "bytes": 322,
+          "sha256": "520859dce146f8695f79b45f06e866b4acf5c2bf428b760d1e7f82ae6d18101c",
+          "matches_result_manifest": true,
+          "utf8_decodable": true
+        },
+        {
+          "key": "08_private",
+          "path": "documents/result1.xlsx",
+          "bytes": 10073,
+          "sha256": "23b261b295c1b787d000eebbca6521c37075107b6fcf78724f8d395ce1798ff4",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "08_private",
+          "path": "documents/复旦大学计算与智能创新学院2025级人工智能领军人才班2025-2026学年本科优秀学生奖学金评定细则-公示版.pdf",
+          "bytes": 372072,
+          "sha256": "e507419c8fc15d4b9b19d087129eb9c8c270a38df004888a2e129f553f13d6e2",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        },
+        {
+          "key": "08_private",
+          "path": "documents/工作交接极简版.md",
+          "bytes": 3044,
+          "sha256": "efdd942cb6b93b5a56b759a9ad378ac13e40950b574067bef552a8b9943387da",
+          "matches_result_manifest": true,
+          "utf8_decodable": true
+        },
+        {
+          "key": "08_private",
+          "path": "documents/附件3：复旦大学计算与智能创新学院本科生奖学金专家评审申请表.doc",
+          "bytes": 44544,
+          "sha256": "ef24d02ae39b6bb4b26979197e0bcf48233de0403c6e5b2d28fb60dd3a8b4c98",
+          "matches_result_manifest": true,
+          "ole_signature_valid": true
+        }
+      ]
+    },
+    {
+      "case": "09",
+      "route": "share",
+      "url": "https://share.gemini.google/WOiitYUO9Unf",
+      "key": "09_share",
+      "captured_messages": 6,
+      "live_dom_nodes": 6,
+      "live_meaningful_nodes": 6,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 26,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1231,
+          "capture_prose_chars": 1231,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 14,
+          "capture_prose_chars": 14,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 1483,
+          "capture_prose_chars": 1491,
+          "live_prose_present_in_capture": false,
+          "live_code_blocks": 4,
+          "capture_code_blocks": 4,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 1314
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 285
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 3663
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 853
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_82d9e186.png",
+              "width": 1500,
+              "height": 400
+            }
+          ],
+          "prose_similarity": 0.9973
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 12,
+          "capture_prose_chars": 23,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 434,
+          "capture_prose_chars": 442,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 5,
+          "capture_code_blocks": 5,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 374
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 1669
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 3048
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 946
+            },
+            {
+              "block": 5,
+              "exact_code_in_capture": false,
+              "visible_during_review": true,
+              "source_chars": 3332
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "09_share",
+          "path": "images/img_1_82d9e186.png",
+          "bytes": 59754,
+          "sha256": "e6591e124a2b3d1fa08e669fe733c8f6b8abc2c1c6a928e59ec867933413c975",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            1500,
+            400
+          ],
+          "decoded": true
+        },
+        {
+          "key": "09_share",
+          "path": "documents/A题.pdf",
+          "bytes": 553320,
+          "sha256": "052d8014bff5727c019b72e44fdffaf5c145ce04050dd938baaf3527db331736",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        },
+        {
+          "key": "09_share",
+          "path": "documents/result1.xlsx",
+          "bytes": 339621,
+          "sha256": "f3496ba087c9afaaaefae3af51cb14ea81ce2b89e59a2c6314e3bc9abd8e2a66",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "09_share",
+          "path": "documents/附件1.xlsx",
+          "bytes": 16586,
+          "sha256": "7ef32870abeef420b89560b2530ff60dfe4255917805151d89988d0311af9dd7",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "09_share",
+          "path": "documents/附件2.xlsx",
+          "bytes": 11485,
+          "sha256": "5563acbfa4b4afb10cc6c03e2207e5369bf39da27576672aff14cc5c32e704af",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        }
+      ]
+    },
+    {
+      "case": "09",
+      "route": "private",
+      "url": "https://gemini.google.com/app/b37433958e0701f7",
+      "key": "09_private",
+      "captured_messages": 6,
+      "live_dom_nodes": 6,
+      "live_meaningful_nodes": 6,
+      "roles_equal": true,
+      "capture_error": null,
+      "capture_warnings": [],
+      "review_error": null,
+      "empty_live_ai_nodes": [],
+      "unresolved_generated_ai_nodes": [],
+      "code_panels_expanded": 2,
+      "messages_checked": [
+        {
+          "capture_message": 1,
+          "live_node": 1,
+          "role": "User",
+          "live_prose_chars": 7,
+          "capture_prose_chars": 26,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 2,
+          "live_node": 2,
+          "role": "AI",
+          "live_prose_chars": 1231,
+          "capture_prose_chars": 1231,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        },
+        {
+          "capture_message": 3,
+          "live_node": 3,
+          "role": "User",
+          "live_prose_chars": 14,
+          "capture_prose_chars": 14,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 4,
+          "live_node": 4,
+          "role": "AI",
+          "live_prose_chars": 1483,
+          "capture_prose_chars": 1491,
+          "live_prose_present_in_capture": false,
+          "live_code_blocks": 4,
+          "capture_code_blocks": 4,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 1314
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 285
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 3663
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 853
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            },
+            {
+              "formula": 6,
+              "source_latex_present": true
+            },
+            {
+              "formula": 7,
+              "source_latex_present": true
+            },
+            {
+              "formula": 8,
+              "source_latex_present": true
+            },
+            {
+              "formula": 9,
+              "source_latex_present": true
+            },
+            {
+              "formula": 10,
+              "source_latex_present": true
+            },
+            {
+              "formula": 11,
+              "source_latex_present": true
+            },
+            {
+              "formula": 12,
+              "source_latex_present": true
+            },
+            {
+              "formula": 13,
+              "source_latex_present": true
+            },
+            {
+              "formula": 14,
+              "source_latex_present": true
+            },
+            {
+              "formula": 15,
+              "source_latex_present": true
+            },
+            {
+              "formula": 16,
+              "source_latex_present": true
+            },
+            {
+              "formula": 17,
+              "source_latex_present": true
+            },
+            {
+              "formula": 18,
+              "source_latex_present": true
+            },
+            {
+              "formula": 19,
+              "source_latex_present": true
+            },
+            {
+              "formula": 20,
+              "source_latex_present": true
+            },
+            {
+              "formula": 21,
+              "source_latex_present": true
+            },
+            {
+              "formula": 22,
+              "source_latex_present": true
+            },
+            {
+              "formula": 23,
+              "source_latex_present": true
+            },
+            {
+              "formula": 24,
+              "source_latex_present": true
+            },
+            {
+              "formula": 25,
+              "source_latex_present": true
+            },
+            {
+              "formula": 26,
+              "source_latex_present": true
+            },
+            {
+              "formula": 27,
+              "source_latex_present": true
+            },
+            {
+              "formula": 28,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": [
+            {
+              "ref": "./images/img_1_3c40894c.png",
+              "width": 2250,
+              "height": 600
+            }
+          ],
+          "prose_similarity": 0.9973
+        },
+        {
+          "capture_message": 5,
+          "live_node": 5,
+          "role": "User",
+          "live_prose_chars": 12,
+          "capture_prose_chars": 23,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 0,
+          "capture_code_blocks": 0,
+          "code_coverage": [],
+          "math_coverage": [],
+          "image_refs": []
+        },
+        {
+          "capture_message": 6,
+          "live_node": 6,
+          "role": "AI",
+          "live_prose_chars": 434,
+          "capture_prose_chars": 442,
+          "live_prose_present_in_capture": true,
+          "live_code_blocks": 5,
+          "capture_code_blocks": 5,
+          "code_coverage": [
+            {
+              "block": 1,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 374
+            },
+            {
+              "block": 2,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 1669
+            },
+            {
+              "block": 3,
+              "exact_code_in_capture": false,
+              "visible_during_review": false,
+              "source_chars": 3048
+            },
+            {
+              "block": 4,
+              "exact_code_in_capture": true,
+              "visible_during_review": false,
+              "source_chars": 946
+            },
+            {
+              "block": 5,
+              "exact_code_in_capture": false,
+              "visible_during_review": true,
+              "source_chars": 3332
+            }
+          ],
+          "math_coverage": [
+            {
+              "formula": 1,
+              "source_latex_present": true
+            },
+            {
+              "formula": 2,
+              "source_latex_present": true
+            },
+            {
+              "formula": 3,
+              "source_latex_present": true
+            },
+            {
+              "formula": 4,
+              "source_latex_present": true
+            },
+            {
+              "formula": 5,
+              "source_latex_present": true
+            }
+          ],
+          "image_refs": []
+        }
+      ],
+      "files": [
+        {
+          "key": "09_private",
+          "path": "images/img_1_3c40894c.png",
+          "bytes": 141435,
+          "sha256": "88ca35b8ff371f1ae4339a8d016c76523b08716301897d3eee4098448c57d86a",
+          "matches_result_manifest": true,
+          "format": "PNG",
+          "dimensions": [
+            2250,
+            600
+          ],
+          "decoded": true
+        },
+        {
+          "key": "09_private",
+          "path": "documents/A题.pdf",
+          "bytes": 553320,
+          "sha256": "052d8014bff5727c019b72e44fdffaf5c145ce04050dd938baaf3527db331736",
+          "matches_result_manifest": true,
+          "pdf_signature_valid": true
+        },
+        {
+          "key": "09_private",
+          "path": "documents/result1.xlsx",
+          "bytes": 339621,
+          "sha256": "f3496ba087c9afaaaefae3af51cb14ea81ce2b89e59a2c6314e3bc9abd8e2a66",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "09_private",
+          "path": "documents/附件1.xlsx",
+          "bytes": 16586,
+          "sha256": "7ef32870abeef420b89560b2530ff60dfe4255917805151d89988d0311af9dd7",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        },
+        {
+          "key": "09_private",
+          "path": "documents/附件2.xlsx",
+          "bytes": 11485,
+          "sha256": "5563acbfa4b4afb10cc6c03e2207e5369bf39da27576672aff14cc5c32e704af",
+          "matches_result_manifest": true,
+          "zip_crc_valid": true,
+          "required_zip_part_present": true
+        }
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "case": "01",
+      "share_messages": 6,
+      "private_messages": 6,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": false
+    },
+    {
+      "case": "02",
+      "share_messages": 26,
+      "private_messages": 26,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": false
+    },
+    {
+      "case": "03",
+      "share_messages": 4,
+      "private_messages": 4,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": true
+    },
+    {
+      "case": "04",
+      "share_messages": 14,
+      "private_messages": 14,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": false
+    },
+    {
+      "case": "05",
+      "share_messages": 8,
+      "private_messages": 8,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": true
+    },
+    {
+      "case": "06",
+      "share_messages": 2,
+      "private_messages": 2,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": true
+    },
+    {
+      "case": "07",
+      "share_messages": 2,
+      "private_messages": 1,
+      "message_sequence_equal_after_path_normalization": false,
+      "asset_hash_counters_equal": false
+    },
+    {
+      "case": "08",
+      "share_messages": 13,
+      "private_messages": 13,
+      "message_sequence_equal_after_path_normalization": true,
+      "asset_hash_counters_equal": false
+    },
+    {
+      "case": "09",
+      "share_messages": 6,
+      "private_messages": 6,
+      "message_sequence_equal_after_path_normalization": false,
+      "asset_hash_counters_equal": false
+    }
+  ],
+  "assets": [
+    {
+      "key": "01_share",
+      "path": "images/img_1_3e98baa6.png",
+      "bytes": 22807,
+      "sha256": "b54abdfd96f6ae35e536d50a4a47d8780542fc63e4d08eb50f78993d7bf71eec",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        512,
+        116
+      ],
+      "decoded": true
+    },
+    {
+      "key": "01_share",
+      "path": "images/img_2_a8cc8f47.png",
+      "bytes": 19764,
+      "sha256": "003e55162a8124bcf97b4b59474ce4c230b072424f399cd2bbee00a367bb2cac",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        512,
+        266
+      ],
+      "decoded": true
+    },
+    {
+      "key": "01_share",
+      "path": "images/img_3_56a9c493.jpg",
+      "bytes": 25170,
+      "sha256": "d0f633ce962f96fd59fbdbefb84e292f140025ec3cb5d54595d475b5f028bd90",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        512,
+        266
+      ],
+      "decoded": true
+    },
+    {
+      "key": "01_private",
+      "path": "images/img_1_812e38a1.png",
+      "bytes": 46472,
+      "sha256": "70d34504b2f85c9f4e5c45162d9e96ebb1dca7163ff119eb00f483c057cdff08",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        768,
+        174
+      ],
+      "decoded": true
+    },
+    {
+      "key": "01_private",
+      "path": "images/img_2_e8cc9133.png",
+      "bytes": 40088,
+      "sha256": "e2a6db0f217f3c805fdc2d94f10beb865a383c8c31064b3753ede81aefafd304",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        768,
+        399
+      ],
+      "decoded": true
+    },
+    {
+      "key": "01_private",
+      "path": "images/img_3_37c96e31.png",
+      "bytes": 109190,
+      "sha256": "b6c8f87e4224c193bfd1122c2601583757bb1fc429f2e07a1d8e8b309eda408b",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        768,
+        399
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_share",
+      "path": "images/img_1_ce034918.jpg",
+      "bytes": 26013,
+      "sha256": "3f1db810df3e74e08624f2dc39c3088e29ba147e59c8bf83ac2fe3f60882f492",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        233,
+        512
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_share",
+      "path": "images/img_2_bcdc10cf.jpg",
+      "bytes": 16201,
+      "sha256": "0717a282da90c728f2082cf85738108a65c30607d0b8eb0a4746009c6645ca7c",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        233,
+        512
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_share",
+      "path": "images/img_3_4b0b95aa.jpg",
+      "bytes": 18746,
+      "sha256": "74a42a9221dc952793cb420d84998aed713046b972f66c6f3b68a0cff9a8dd8f",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        233,
+        512
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_share",
+      "path": "images/img_4_5e09eca7.jpg",
+      "bytes": 31626,
+      "sha256": "d000c3b326651c51bb9fccae3d79a3619d44c133b5d3a6d068c8f5b38b8679e2",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        512,
+        266
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_share",
+      "path": "images/img_5_29934582.jpg",
+      "bytes": 41181,
+      "sha256": "9611bd97b418747ccb28a087243cc2ad4c61ff1df53cbe6431cb0198cf97f3b1",
+      "matches_result_manifest": true,
+      "format": "JPEG",
+      "dimensions": [
+        179,
+        512
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_private",
+      "path": "images/img_1_aa033295.png",
+      "bytes": 93385,
+      "sha256": "1f88f80e7653834fea135e097484ff7b2ee4acc35b085afa7a1c72c50a61752d",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        350,
+        768
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_private",
+      "path": "images/img_2_25d27bec.png",
+      "bytes": 63297,
+      "sha256": "51836bc7e33a738d10fa9264407d0988e2904302655af13a70f7d9863f8ee1ca",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        350,
+        768
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_private",
+      "path": "images/img_3_11d540af.png",
+      "bytes": 73688,
+      "sha256": "16d391f48decd52299ec4005382178f58c6e416edd73fa8023be9b20add8ea01",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        350,
+        768
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_private",
+      "path": "images/img_4_b5cd2439.png",
+      "bytes": 115427,
+      "sha256": "94a7ffdfbfc0ba31b03f4160db716dda08c4ee538ebf3a671124d46867a141a4",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        768,
+        399
+      ],
+      "decoded": true
+    },
+    {
+      "key": "02_private",
+      "path": "images/img_5_b041d28d.png",
+      "bytes": 152754,
+      "sha256": "7a8ab386705c8734146571c0b27050f733a62a582a10420b0895d4875b171d3d",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        269,
+        768
+      ],
+      "decoded": true
+    },
+    {
+      "key": "03_share",
+      "path": "documents/pj1.pdf",
+      "bytes": 157001,
+      "sha256": "d7e394eccb41f73ce2291c9b711ee4cbe3487a3afe0871ed5a3eabc4b04f6888",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "03_private",
+      "path": "documents/pj1.pdf",
+      "bytes": 157001,
+      "sha256": "d7e394eccb41f73ce2291c9b711ee4cbe3487a3afe0871ed5a3eabc4b04f6888",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "04_share",
+      "path": "images/img_1_5203ce78.png",
+      "bytes": 120583,
+      "sha256": "5a31cc1f7b1a8bb9f0e738f0af319a49e448c8dadbf0faf14c51b97160091640",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        720,
+        394
+      ],
+      "decoded": true
+    },
+    {
+      "key": "04_private",
+      "path": "images/img_1_4a261f7a.png",
+      "bytes": 221550,
+      "sha256": "1229d03fc58eeac7ef7591c91300721cc7b82eedafccfc19512c930237362c59",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        1064,
+        581
+      ],
+      "decoded": true
+    },
+    {
+      "key": "06_share",
+      "path": "documents/文献.rar",
+      "bytes": 4868752,
+      "sha256": "20f20946e48ad5ebe5b094b34207290a219faaa6946307a8c8ccd1a97cea0a66",
+      "matches_result_manifest": true,
+      "rar_signature_valid": true
+    },
+    {
+      "key": "06_share",
+      "path": "documents/望道-计算与智能创新学院-董锐麟-25803050309.docx",
+      "bytes": 42661,
+      "sha256": "dd974ece9e3dbd3987952f00ff247c2b73223d8854b0fb25dbafd8d8ea8b3bbb",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "06_private",
+      "path": "documents/文献.rar",
+      "bytes": 4868752,
+      "sha256": "20f20946e48ad5ebe5b094b34207290a219faaa6946307a8c8ccd1a97cea0a66",
+      "matches_result_manifest": true,
+      "rar_signature_valid": true
+    },
+    {
+      "key": "06_private",
+      "path": "documents/望道-计算与智能创新学院-董锐麟-25803050309.docx",
+      "bytes": 42661,
+      "sha256": "dd974ece9e3dbd3987952f00ff247c2b73223d8854b0fb25dbafd8d8ea8b3bbb",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "07_share",
+      "path": "images/img_1_be0dc3d5.png",
+      "bytes": 587848,
+      "sha256": "90d46ac903abf969cba598df1aa92e99e48014273909ab7cd04380a5ec84c515",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        720,
+        394
+      ],
+      "decoded": true
+    },
+    {
+      "key": "08_share",
+      "path": "images/img_1_ad0828f9.png",
+      "bytes": 15405,
+      "sha256": "15fa784a3a0c0ffa9068dc352fdb5614aa8d4a68720279b2df357a53953c5279",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        351,
+        81
+      ],
+      "decoded": true
+    },
+    {
+      "key": "08_share",
+      "path": "documents/problem2_moisture.csv",
+      "bytes": 322,
+      "sha256": "520859dce146f8695f79b45f06e866b4acf5c2bf428b760d1e7f82ae6d18101c",
+      "matches_result_manifest": true,
+      "utf8_decodable": true
+    },
+    {
+      "key": "08_share",
+      "path": "documents/result1.xlsx",
+      "bytes": 10073,
+      "sha256": "23b261b295c1b787d000eebbca6521c37075107b6fcf78724f8d395ce1798ff4",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "08_share",
+      "path": "documents/复旦大学计算与智能创新学院2025级人工智能领军人才班2025-2026学年本科优秀学生奖学金评定细则-公示版.pdf",
+      "bytes": 372072,
+      "sha256": "e507419c8fc15d4b9b19d087129eb9c8c270a38df004888a2e129f553f13d6e2",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "08_share",
+      "path": "documents/工作交接极简版.md",
+      "bytes": 3044,
+      "sha256": "efdd942cb6b93b5a56b759a9ad378ac13e40950b574067bef552a8b9943387da",
+      "matches_result_manifest": true,
+      "utf8_decodable": true
+    },
+    {
+      "key": "08_share",
+      "path": "documents/附件3：复旦大学计算与智能创新学院本科生奖学金专家评审申请表.doc",
+      "bytes": 44544,
+      "sha256": "ef24d02ae39b6bb4b26979197e0bcf48233de0403c6e5b2d28fb60dd3a8b4c98",
+      "matches_result_manifest": true,
+      "ole_signature_valid": true
+    },
+    {
+      "key": "08_private",
+      "path": "images/img_1_6b44f017.png",
+      "bytes": 22906,
+      "sha256": "bd24fa25113db7e0bf88d027c974cc7a1bbb31340a9fc79aab7ed0b58814ad2a",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        527,
+        122
+      ],
+      "decoded": true
+    },
+    {
+      "key": "08_private",
+      "path": "documents/problem2_moisture.csv",
+      "bytes": 322,
+      "sha256": "520859dce146f8695f79b45f06e866b4acf5c2bf428b760d1e7f82ae6d18101c",
+      "matches_result_manifest": true,
+      "utf8_decodable": true
+    },
+    {
+      "key": "08_private",
+      "path": "documents/result1.xlsx",
+      "bytes": 10073,
+      "sha256": "23b261b295c1b787d000eebbca6521c37075107b6fcf78724f8d395ce1798ff4",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "08_private",
+      "path": "documents/复旦大学计算与智能创新学院2025级人工智能领军人才班2025-2026学年本科优秀学生奖学金评定细则-公示版.pdf",
+      "bytes": 372072,
+      "sha256": "e507419c8fc15d4b9b19d087129eb9c8c270a38df004888a2e129f553f13d6e2",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "08_private",
+      "path": "documents/工作交接极简版.md",
+      "bytes": 3044,
+      "sha256": "efdd942cb6b93b5a56b759a9ad378ac13e40950b574067bef552a8b9943387da",
+      "matches_result_manifest": true,
+      "utf8_decodable": true
+    },
+    {
+      "key": "08_private",
+      "path": "documents/附件3：复旦大学计算与智能创新学院本科生奖学金专家评审申请表.doc",
+      "bytes": 44544,
+      "sha256": "ef24d02ae39b6bb4b26979197e0bcf48233de0403c6e5b2d28fb60dd3a8b4c98",
+      "matches_result_manifest": true,
+      "ole_signature_valid": true
+    },
+    {
+      "key": "09_share",
+      "path": "images/img_1_82d9e186.png",
+      "bytes": 59754,
+      "sha256": "e6591e124a2b3d1fa08e669fe733c8f6b8abc2c1c6a928e59ec867933413c975",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        1500,
+        400
+      ],
+      "decoded": true
+    },
+    {
+      "key": "09_share",
+      "path": "documents/A题.pdf",
+      "bytes": 553320,
+      "sha256": "052d8014bff5727c019b72e44fdffaf5c145ce04050dd938baaf3527db331736",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "09_share",
+      "path": "documents/result1.xlsx",
+      "bytes": 339621,
+      "sha256": "f3496ba087c9afaaaefae3af51cb14ea81ce2b89e59a2c6314e3bc9abd8e2a66",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "09_share",
+      "path": "documents/附件1.xlsx",
+      "bytes": 16586,
+      "sha256": "7ef32870abeef420b89560b2530ff60dfe4255917805151d89988d0311af9dd7",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "09_share",
+      "path": "documents/附件2.xlsx",
+      "bytes": 11485,
+      "sha256": "5563acbfa4b4afb10cc6c03e2207e5369bf39da27576672aff14cc5c32e704af",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "09_private",
+      "path": "images/img_1_3c40894c.png",
+      "bytes": 141435,
+      "sha256": "88ca35b8ff371f1ae4339a8d016c76523b08716301897d3eee4098448c57d86a",
+      "matches_result_manifest": true,
+      "format": "PNG",
+      "dimensions": [
+        2250,
+        600
+      ],
+      "decoded": true
+    },
+    {
+      "key": "09_private",
+      "path": "documents/A题.pdf",
+      "bytes": 553320,
+      "sha256": "052d8014bff5727c019b72e44fdffaf5c145ce04050dd938baaf3527db331736",
+      "matches_result_manifest": true,
+      "pdf_signature_valid": true
+    },
+    {
+      "key": "09_private",
+      "path": "documents/result1.xlsx",
+      "bytes": 339621,
+      "sha256": "f3496ba087c9afaaaefae3af51cb14ea81ce2b89e59a2c6314e3bc9abd8e2a66",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "09_private",
+      "path": "documents/附件1.xlsx",
+      "bytes": 16586,
+      "sha256": "7ef32870abeef420b89560b2530ff60dfe4255917805151d89988d0311af9dd7",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    },
+    {
+      "key": "09_private",
+      "path": "documents/附件2.xlsx",
+      "bytes": 11485,
+      "sha256": "5563acbfa4b4afb10cc6c03e2207e5369bf39da27576672aff14cc5c32e704af",
+      "matches_result_manifest": true,
+      "zip_crc_valid": true,
+      "required_zip_part_present": true
+    }
+  ],
+  "manual_code_whitespace_review": [
+    {
+      "key": "04_share",
+      "message": 10,
+      "block": 1,
+      "source_chars": 8263,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "04_private",
+      "message": 10,
+      "block": 1,
+      "source_chars": 8263,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_share",
+      "message": 4,
+      "block": 1,
+      "source_chars": 1314,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_share",
+      "message": 4,
+      "block": 3,
+      "source_chars": 3663,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_share",
+      "message": 6,
+      "block": 1,
+      "source_chars": 374,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_share",
+      "message": 6,
+      "block": 3,
+      "source_chars": 3048,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_share",
+      "message": 6,
+      "block": 5,
+      "source_chars": 3332,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_private",
+      "message": 4,
+      "block": 1,
+      "source_chars": 1314,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_private",
+      "message": 4,
+      "block": 3,
+      "source_chars": 3663,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_private",
+      "message": 6,
+      "block": 1,
+      "source_chars": 374,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_private",
+      "message": 6,
+      "block": 3,
+      "source_chars": 3048,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    },
+    {
+      "key": "09_private",
+      "message": 6,
+      "block": 5,
+      "source_chars": 3332,
+      "only_blank_line_or_trailing_whitespace_difference": true
+    }
+  ],
+  "pair_asset_checks": [
+    {
+      "case": "01",
+      "images": false,
+      "documents": true
+    },
+    {
+      "case": "02",
+      "images": false,
+      "documents": true
+    },
+    {
+      "case": "03",
+      "images": true,
+      "documents": true
+    },
+    {
+      "case": "04",
+      "images": false,
+      "documents": true
+    },
+    {
+      "case": "05",
+      "images": true,
+      "documents": true
+    },
+    {
+      "case": "06",
+      "images": true,
+      "documents": true
+    },
+    {
+      "case": "07",
+      "images": false,
+      "documents": true
+    },
+    {
+      "case": "08",
+      "images": false,
+      "documents": true
+    },
+    {
+      "case": "09",
+      "images": false,
+      "documents": true
+    }
+  ],
+  "remaining_remote_media_links": [],
+  "paired_image_resampling_checks": [
+    {
+      "case": "01",
+      "message": 1,
+      "share_dimensions": [
+        512,
+        116
+      ],
+      "private_dimensions": [
+        768,
+        174
+      ],
+      "compared_size": [
+        512,
+        116
+      ],
+      "mean_absolute_channel_difference": 2.4547,
+      "same_bytes": false
+    },
+    {
+      "case": "01",
+      "message": 3,
+      "share_dimensions": [
+        512,
+        266
+      ],
+      "private_dimensions": [
+        768,
+        399
+      ],
+      "compared_size": [
+        512,
+        266
+      ],
+      "mean_absolute_channel_difference": 0.6163,
+      "same_bytes": false
+    },
+    {
+      "case": "01",
+      "message": 5,
+      "share_dimensions": [
+        512,
+        266
+      ],
+      "private_dimensions": [
+        768,
+        399
+      ],
+      "compared_size": [
+        512,
+        266
+      ],
+      "mean_absolute_channel_difference": 1.3943,
+      "same_bytes": false
+    },
+    {
+      "case": "02",
+      "message": 1,
+      "share_dimensions": [
+        233,
+        512
+      ],
+      "private_dimensions": [
+        350,
+        768
+      ],
+      "compared_size": [
+        233,
+        512
+      ],
+      "mean_absolute_channel_difference": 2.2318,
+      "same_bytes": false
+    },
+    {
+      "case": "02",
+      "message": 7,
+      "share_dimensions": [
+        233,
+        512
+      ],
+      "private_dimensions": [
+        350,
+        768
+      ],
+      "compared_size": [
+        233,
+        512
+      ],
+      "mean_absolute_channel_difference": 1.5257,
+      "same_bytes": false
+    },
+    {
+      "case": "02",
+      "message": 9,
+      "share_dimensions": [
+        233,
+        512
+      ],
+      "private_dimensions": [
+        350,
+        768
+      ],
+      "compared_size": [
+        233,
+        512
+      ],
+      "mean_absolute_channel_difference": 1.7358,
+      "same_bytes": false
+    },
+    {
+      "case": "02",
+      "message": 11,
+      "share_dimensions": [
+        512,
+        266
+      ],
+      "private_dimensions": [
+        768,
+        399
+      ],
+      "compared_size": [
+        512,
+        266
+      ],
+      "mean_absolute_channel_difference": 2.649,
+      "same_bytes": false
+    },
+    {
+      "case": "02",
+      "message": 19,
+      "share_dimensions": [
+        179,
+        512
+      ],
+      "private_dimensions": [
+        269,
+        768
+      ],
+      "compared_size": [
+        179,
+        512
+      ],
+      "mean_absolute_channel_difference": 7.3848,
+      "same_bytes": false
+    },
+    {
+      "case": "04",
+      "message": 8,
+      "share_dimensions": [
+        720,
+        394
+      ],
+      "private_dimensions": [
+        1064,
+        581
+      ],
+      "compared_size": [
+        720,
+        394
+      ],
+      "mean_absolute_channel_difference": 2.616,
+      "same_bytes": false
+    },
+    {
+      "case": "08",
+      "message": 9,
+      "share_dimensions": [
+        351,
+        81
+      ],
+      "private_dimensions": [
+        527,
+        122
+      ],
+      "compared_size": [
+        351,
+        81
+      ],
+      "mean_absolute_channel_difference": 2.7747,
+      "same_bytes": false
+    },
+    {
+      "case": "09",
+      "message": 4,
+      "share_dimensions": [
+        1500,
+        400
+      ],
+      "private_dimensions": [
+        2250,
+        600
+      ],
+      "compared_size": [
+        1500,
+        400
+      ],
+      "mean_absolute_channel_difference": 2.182,
+      "same_bytes": false
+    }
+  ],
+  "check_counts": {
+    "visible_code_blocks_checked": 56,
+    "formulas_checked": 470,
+    "paired_images": 11,
+    "maximum_pair_mean_absolute_channel_difference": 7.3848
+  },
+  "manual_review": {
+    "reviewed_at": "2026-10-27T21:22:52+08:00",
+    "confirmed_findings": [
+      {
+        "kind": "silent_incomplete_generated_image",
+        "pages": [
+          "07_private"
+        ],
+        "detail": "Capture contains one User message, zero images, zero warnings. The independent private page contains a generated-image AI node still loading after an additional bounded 30-second wait. The capture does not retain that incomplete reply/status. This does not prove a fully loaded visible private image was lost."
+      },
+      {
+        "kind": "image_size_not_preserved",
+        "pages": [
+          "04_share",
+          "07_share"
+        ],
+        "detail": "Both images are 1024x559 in live img natural dimensions, but the saved files are 720x394. Other private-page images have enlarged stored dimensions, e.g. 09_private 2250x600 vs live 1500x400. Natural dimensions of the displayed page image are not asserted to be the uploaded original-file dimensions."
+      },
+      {
+        "kind": "code_whitespace_not_verbatim",
+        "pages": [
+          "04_share",
+          "04_private",
+          "09_share",
+          "09_private"
+        ],
+        "detail": "Twelve paired occurrences (six different code fragments) differ only in blank-line indentation or trailing spaces. Removing line-end spaces makes the source/capture code equal; no omitted executable statement or stdout block was found in these comparisons."
+      }
+    ],
+    "not_confirmed_as_capture_defects": [
+      {
+        "pages": [
+          "08_share",
+          "08_private"
+        ],
+        "detail": "The twelfth raw AI DOM node remains empty in the capture snapshot and independent live review. No readable reply body was found; do not call it a confirmed lost answer."
+      },
+      {
+        "pages": [
+          "08_share"
+        ],
+        "detail": "The prose comparison candidate is a file-card UI label (uploaded file not displayed). The capture instead points to the successfully downloaded result1.xlsx, whose archive structure/CRC passed."
+      },
+      {
+        "pages": [
+          "09_share",
+          "09_private"
+        ],
+        "detail": "The only normalized prose deltas are inserted code-output labels. The image alt text is a remote URL on both the actual page and the capture; the actual image src in the export is local. It is not an unlocalized remote image target."
+      }
+    ],
+    "limits": "Only capture and live source-page comparison were performed. No summary APIs or interactive animation execution were tested. File checks establish saved-file format/integrity and route-pair hashes; they do not prove every original server file is byte-identical to an independently downloaded native original."
+  }
+}
