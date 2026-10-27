@@ -5,7 +5,7 @@
 
 ## 🔵 👤 用户提问
 
-![deepseek-1792980310401_5882534571704332684.webp](./images/img_1_e603cd4d.webp)
+![deepseek-1792980310401\_5882534571704332684.webp](./images/img_1_e603cd4d.webp)
 
 转为表形式
 

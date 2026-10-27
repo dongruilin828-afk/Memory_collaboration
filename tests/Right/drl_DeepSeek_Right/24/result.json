@@ -3,7 +3,7 @@
   "messages": [
     {
       "role": "User",
-      "content": "[📄 第五版.docx](./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx)\n\n[📄 大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf](./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf)\n\n第二篇论文有能支撑我报告中观点的部分吗",
+      "content": "[📄 第五版.docx](./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx)\n\n[📄 大语言模型检索增强生成优化技术研究综述\\_袁乐(1).pdf](./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf)\n\n第二篇论文有能支撑我报告中观点的部分吗",
       "source_id": 1
     },
     {
@@ -25,18 +25,18 @@
     }
   ],
   "document_map": {
-    "/file?file_id=fd31100b-83aa-442c-883d-1438526ee230&state=tx1IQqUnrZNE35ZYD2NOezuwmvzJvMtroMnxSfKg7MeLkQ9UHBXnHFYO4K%2B1VEPle%2F0jUl75spJnFhdgmRztf5TCsjubiElyrjSeHSg%2B754KLTexZQFpp6et60JSI0FL4tl3MNBV%2BnK5IaK6NWuboc4jliP0BmEyvBH7HuN9Ne0jSGo368vcCjszY8gOQJUu2CPR7lKuQOsSfDwmOElPJ0JIt91HNf%2BX1qHZYPnQJ9QQj9FfriUD%2FuPFuJnqQsuNCJEbfGGztQ7NQi435OqvXCaaHaqhM%2FbddR0edKczEcCVPjmgH%2Frl%2BuNElb41uedttWcdBZkDODzoAC7pSuauI0jBSti6s6Jr7sDnzFkbGYSPS6IyHtmp5gwRxepJcNmHeg%3D%3D": "./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx",
     "第五版.docx": "./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx",
     "https://files.deepseeksvc.com/api/file?file_id=fd31100b-83aa-442c-883d-1438526ee230&state=tx1IQqUnrZNE35ZYD2NOezuwmvzJvMtroMnxSfKg7MeLkQ9UHBXnHFYO4K%2B1VEPle%2F0jUl75spJnFhdgmRztf5TCsjubiElyrjSeHSg%2B754KLTexZQFpp6et60JSI0FL4tl3MNBV%2BnK5IaK6NWuboc4jliP0BmEyvBH7HuN9Ne0jSGo368vcCjszY8gOQJUu2CPR7lKuQOsSfDwmOElPJ0JIt91HNf%2BX1qHZYPnQJ9QQj9FfriUD%2FuPFuJnqQsuNCJEbfGGztQ7NQi435OqvXCaaHaqhM%2FbddR0edKczEcCVPjmgH%2Frl%2BuNElb41uedttWcdBZkDODzoAC7pSuauI0jBSti6s6Jr7sDnzFkbGYSPS6IyHtmp5gwRxepJcNmHeg%3D%3D&ty=r": "./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx",
+    "/file?file_id=fd31100b-83aa-442c-883d-1438526ee230&state=tx1IQqUnrZNE35ZYD2NOezuwmvzJvMtroMnxSfKg7MeLkQ9UHBXnHFYO4K%2B1VEPle%2F0jUl75spJnFhdgmRztf5TCsjubiElyrjSeHSg%2B754KLTexZQFpp6et60JSI0FL4tl3MNBV%2BnK5IaK6NWuboc4jliP0BmEyvBH7HuN9Ne0jSGo368vcCjszY8gOQJUu2CPR7lKuQOsSfDwmOElPJ0JIt91HNf%2BX1qHZYPnQJ9QQj9FfriUD%2FuPFuJnqQsuNCJEbfGGztQ7NQi435OqvXCaaHaqhM%2FbddR0edKczEcCVPjmgH%2Frl%2BuNElb41uedttWcdBZkDODzoAC7pSuauI0jBSti6s6Jr7sDnzFkbGYSPS6IyHtmp5gwRxepJcNmHeg%3D%3D": "./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx",
     "大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf",
-    "https://files.deepseeksvc.com/api/file?file_id=49a06e9f-0a88-440a-b6a5-5227e9a5c165&state=yfXWXCVTWkYUjyj2Y6CIvLEyj16%2Bvwpm%2F6L8SFCskgWZwT19huqOKRjJv%2F4Xrr33ENrIEycweugiD0Ldgm9j0KMpK43iQqulSSIhiVug32MVRnkXQCcHYviF6ZtbxgF7hsRHtlpgYNm9DWtx1X2BJtjK6nx5jgCs2s%2BPGG9e3UXYBgFCOeep3uFvaQPFqw8oGLCDo9yiuQYapjLHRgnJPTKH9qvGFDSOqFPwx4MqmZ8mmvjdBYQ9phey7q64kNk7T0SUZS%2F8zvG%2Buz8msQesI71pLM2QdjF5EVj4qAFIiErW0uV18kuiK5tCSTDEZABgiH1kwWX%2B3Hj%2FeVfEwJZt1Zwv7uMyCc2gFfooLaWPgUha7SBBnCXKtBCCRdaocNDqvQ%3D%3D&ty=r": "./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf",
-    "/file?file_id=49a06e9f-0a88-440a-b6a5-5227e9a5c165&state=yfXWXCVTWkYUjyj2Y6CIvLEyj16%2Bvwpm%2F6L8SFCskgWZwT19huqOKRjJv%2F4Xrr33ENrIEycweugiD0Ldgm9j0KMpK43iQqulSSIhiVug32MVRnkXQCcHYviF6ZtbxgF7hsRHtlpgYNm9DWtx1X2BJtjK6nx5jgCs2s%2BPGG9e3UXYBgFCOeep3uFvaQPFqw8oGLCDo9yiuQYapjLHRgnJPTKH9qvGFDSOqFPwx4MqmZ8mmvjdBYQ9phey7q64kNk7T0SUZS%2F8zvG%2Buz8msQesI71pLM2QdjF5EVj4qAFIiErW0uV18kuiK5tCSTDEZABgiH1kwWX%2B3Hj%2FeVfEwJZt1Zwv7uMyCc2gFfooLaWPgUha7SBBnCXKtBCCRdaocNDqvQ%3D%3D": "./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf"
+    "/file?file_id=49a06e9f-0a88-440a-b6a5-5227e9a5c165&state=yfXWXCVTWkYUjyj2Y6CIvLEyj16%2Bvwpm%2F6L8SFCskgWZwT19huqOKRjJv%2F4Xrr33ENrIEycweugiD0Ldgm9j0KMpK43iQqulSSIhiVug32MVRnkXQCcHYviF6ZtbxgF7hsRHtlpgYNm9DWtx1X2BJtjK6nx5jgCs2s%2BPGG9e3UXYBgFCOeep3uFvaQPFqw8oGLCDo9yiuQYapjLHRgnJPTKH9qvGFDSOqFPwx4MqmZ8mmvjdBYQ9phey7q64kNk7T0SUZS%2F8zvG%2Buz8msQesI71pLM2QdjF5EVj4qAFIiErW0uV18kuiK5tCSTDEZABgiH1kwWX%2B3Hj%2FeVfEwJZt1Zwv7uMyCc2gFfooLaWPgUha7SBBnCXKtBCCRdaocNDqvQ%3D%3D": "./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf",
+    "https://files.deepseeksvc.com/api/file?file_id=49a06e9f-0a88-440a-b6a5-5227e9a5c165&state=yfXWXCVTWkYUjyj2Y6CIvLEyj16%2Bvwpm%2F6L8SFCskgWZwT19huqOKRjJv%2F4Xrr33ENrIEycweugiD0Ldgm9j0KMpK43iQqulSSIhiVug32MVRnkXQCcHYviF6ZtbxgF7hsRHtlpgYNm9DWtx1X2BJtjK6nx5jgCs2s%2BPGG9e3UXYBgFCOeep3uFvaQPFqw8oGLCDo9yiuQYapjLHRgnJPTKH9qvGFDSOqFPwx4MqmZ8mmvjdBYQ9phey7q64kNk7T0SUZS%2F8zvG%2Buz8msQesI71pLM2QdjF5EVj4qAFIiErW0uV18kuiK5tCSTDEZABgiH1kwWX%2B3Hj%2FeVfEwJZt1Zwv7uMyCc2gFfooLaWPgUha7SBBnCXKtBCCRdaocNDqvQ%3D%3D&ty=r": "./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf"
   },
   "error": null,
   "warnings": [],
   "user_wait_seconds": 0.0,
   "url": "https://chat.deepseek.com/a/chat/s/d778225a-a930-4f01-b96d-491118c2ee0f",
-  "elapsed": 18.370117300000857,
+  "elapsed": 19.297695699999167,
   "files": {
     "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
     "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"

@@ -1,29 +1,20 @@
 {
   "case": "17",
   "url": "https://chat.deepseek.com/share/uqsngdvmluy2zdkac3",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\17",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\17",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "3d5836b47bc3affbdf915cd4a0d5b9c554c02f8ddfd514dc3def935c23332771",
-    "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
-    "result.json": "87528664fba45986c8ad488a680ee7e966972c63816edbad828ecd9df42bda76",
-    "run.log": "b64e34ee4e360cc6eab9e196f08207789f47f68438e282e8839d498b566a9351",
-    "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e",
-    "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
-    "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 4,
   "files": {
     "audit.json": "3d5836b47bc3affbdf915cd4a0d5b9c554c02f8ddfd514dc3def935c23332771",
-    "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
-    "result.json": "87528664fba45986c8ad488a680ee7e966972c63816edbad828ecd9df42bda76",
-    "run.log": "b64e34ee4e360cc6eab9e196f08207789f47f68438e282e8839d498b566a9351",
-    "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e",
     "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
-    "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
-  }
+    "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f",
+    "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+    "result.json": "61180bbac38997b0f6df5c1759e792d9e6022bef890da0cf92e6dcacfd1a451b",
+    "run.log": "60010071ee4dc0caf3ac5110e6aec8731ae4d8e6835635597525e09bb3bb9010",
+    "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

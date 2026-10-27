@@ -1,0 +1,1212 @@
+{
+  "source": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755",
+  "approved_cases": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "27",
+    "28"
+  ],
+  "pending_cases": [
+    "25",
+    "26"
+  ],
+  "approval": "用户人工核验除25/26外全通过；替换通过部分，删除公式不对的注释，其余注释保留。",
+  "previous": {
+    "01": {
+      "previous_record": {
+        "case": "01",
+        "url": "https://chat.deepseek.com/share/6dkkhnkldu7b1s308m",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\01",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "a3bd41416983f3ebd559ac7d9eda08971520b6c9a4d00830ea6c5d62d0edda25",
+          "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+          "result.json": "a5af231fb9bc982a7c48c6b4f1802c100b3435ac5d4ca2f95c2e65255f3d3296",
+          "run.log": "f7d6959178d14d60c2f7782a78a3d34c72f168b8ea48e9a7d6fa4b61a0e1c437",
+          "snapshot.html": "e10a22ef6c87a0fc7049f29082c08c2df8aa59067eb19583a5f073ab7cf8f56e"
+        },
+        "files": {
+          "audit.json": "a3bd41416983f3ebd559ac7d9eda08971520b6c9a4d00830ea6c5d62d0edda25",
+          "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+          "result.json": "a5af231fb9bc982a7c48c6b4f1802c100b3435ac5d4ca2f95c2e65255f3d3296",
+          "run.log": "f7d6959178d14d60c2f7782a78a3d34c72f168b8ea48e9a7d6fa4b61a0e1c437",
+          "snapshot.html": "e10a22ef6c87a0fc7049f29082c08c2df8aa59067eb19583a5f073ab7cf8f56e"
+        }
+      },
+      "previous_files": {
+        "audit.json": "a3bd41416983f3ebd559ac7d9eda08971520b6c9a4d00830ea6c5d62d0edda25",
+        "baseline_source.json": "b4438dd4dcdd8bbfcecd3cd84285ad3499e74b6d7159548baf59bf4068cc7c89",
+        "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+        "result.json": "a5af231fb9bc982a7c48c6b4f1802c100b3435ac5d4ca2f95c2e65255f3d3296",
+        "run.log": "f7d6959178d14d60c2f7782a78a3d34c72f168b8ea48e9a7d6fa4b61a0e1c437",
+        "snapshot.html": "e10a22ef6c87a0fc7049f29082c08c2df8aa59067eb19583a5f073ab7cf8f56e"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "02": {
+      "previous_record": {
+        "case": "02",
+        "url": "https://chat.deepseek.com/a/chat/s/f85ea7a3-1978-4eec-ba22-b9dc1be1e5e8",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\02",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "5edee12eabb3dbf6334ab8d73d39e048e2ddcc29e30466f4a4587bf822dc7d3f",
+          "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+          "result.json": "091b48a48e049709f25ad4ca1cd52aad2c559c804fba489dbb30830d321acf37",
+          "run.log": "28fd1d85b2f3dac6d2014f83684a0c352f5e52d688302019a2384be54cb53d8b",
+          "snapshot.html": "1eab980829ec33fdff80be9b0555ce02b4556af8f71399508b8d2541a615bfbe"
+        },
+        "files": {
+          "audit.json": "5edee12eabb3dbf6334ab8d73d39e048e2ddcc29e30466f4a4587bf822dc7d3f",
+          "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+          "result.json": "091b48a48e049709f25ad4ca1cd52aad2c559c804fba489dbb30830d321acf37",
+          "run.log": "28fd1d85b2f3dac6d2014f83684a0c352f5e52d688302019a2384be54cb53d8b",
+          "snapshot.html": "1eab980829ec33fdff80be9b0555ce02b4556af8f71399508b8d2541a615bfbe"
+        }
+      },
+      "previous_files": {
+        "audit.json": "5edee12eabb3dbf6334ab8d73d39e048e2ddcc29e30466f4a4587bf822dc7d3f",
+        "baseline_source.json": "02df9d33d51eda3bf2dca64a33e8f750a3f379e82dd86935c10886af2685cdff",
+        "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
+        "result.json": "091b48a48e049709f25ad4ca1cd52aad2c559c804fba489dbb30830d321acf37",
+        "run.log": "28fd1d85b2f3dac6d2014f83684a0c352f5e52d688302019a2384be54cb53d8b",
+        "snapshot.html": "1eab980829ec33fdff80be9b0555ce02b4556af8f71399508b8d2541a615bfbe"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "03": {
+      "previous_record": {
+        "case": "03",
+        "url": "https://chat.deepseek.com/share/r88uc0nakpauyhq846",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\image_fix_rerun\\03",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "04c83cc2c1b21c34818d443beaafce31b7874dbc430112ddf3f6b899ee34cf84",
+          "export.md": "ade83c05fbba0347c9368098dd53a84f5c13ed3fa45f8eb823089ab7d6726506",
+          "result.json": "f0ea6cf7f239ae8c8eb92deeca347b6f908e4dd2c317d6205620f0a74b6febbc",
+          "run.log": "9eaabd9e86991e342dbba785c9cd1adab4fb2c56985698a3279d15d17c027595",
+          "snapshot.html": "f65245328251f96e8b662f36b275b2721b8fbb662d8182cdf9b40f9f000dc951"
+        },
+        "files": {
+          "audit.json": "04c83cc2c1b21c34818d443beaafce31b7874dbc430112ddf3f6b899ee34cf84",
+          "export.md": "ade83c05fbba0347c9368098dd53a84f5c13ed3fa45f8eb823089ab7d6726506",
+          "result.json": "f0ea6cf7f239ae8c8eb92deeca347b6f908e4dd2c317d6205620f0a74b6febbc",
+          "run.log": "9eaabd9e86991e342dbba785c9cd1adab4fb2c56985698a3279d15d17c027595",
+          "snapshot.html": "f65245328251f96e8b662f36b275b2721b8fbb662d8182cdf9b40f9f000dc951",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "04c83cc2c1b21c34818d443beaafce31b7874dbc430112ddf3f6b899ee34cf84",
+        "baseline_source.json": "8840b8beab4718e422ee8d22bcf45faeb586c6f8037df1924542f5457172ffc0",
+        "export.md": "ade83c05fbba0347c9368098dd53a84f5c13ed3fa45f8eb823089ab7d6726506",
+        "result.json": "f0ea6cf7f239ae8c8eb92deeca347b6f908e4dd2c317d6205620f0a74b6febbc",
+        "run.log": "9eaabd9e86991e342dbba785c9cd1adab4fb2c56985698a3279d15d17c027595",
+        "snapshot.html": "f65245328251f96e8b662f36b275b2721b8fbb662d8182cdf9b40f9f000dc951",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "04": {
+      "previous_record": {
+        "case": "04",
+        "url": "https://chat.deepseek.com/a/chat/s/e39a0607-3dd9-47b9-ac1e-6156254c809a",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\image_fix_rerun\\04",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "0145b86fcb3c136853b5df839a28ddf0bbce88fc6a66b419e9a4ec109064937f",
+          "export.md": "5ac711c3c5ceb823d9116e44d1d08c9cd2b862af3c94dc5fa8240a191858cfac",
+          "result.json": "8add8dbffbec948818b271e773657d03649e00ba3d39b8547fbdf9ee1b163dfe",
+          "run.log": "5cdf187e0843edddf04d4eaff99c9afe9f7afeb7cb9eb42d8fdda227e00ea388",
+          "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b"
+        },
+        "files": {
+          "audit.json": "0145b86fcb3c136853b5df839a28ddf0bbce88fc6a66b419e9a4ec109064937f",
+          "export.md": "5ac711c3c5ceb823d9116e44d1d08c9cd2b862af3c94dc5fa8240a191858cfac",
+          "result.json": "8add8dbffbec948818b271e773657d03649e00ba3d39b8547fbdf9ee1b163dfe",
+          "run.log": "5cdf187e0843edddf04d4eaff99c9afe9f7afeb7cb9eb42d8fdda227e00ea388",
+          "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "0145b86fcb3c136853b5df839a28ddf0bbce88fc6a66b419e9a4ec109064937f",
+        "baseline_source.json": "d6283b7ee127603183fb381dd1ed310a4d962cf720655777e1b2e1b4e6ace99b",
+        "export.md": "5ac711c3c5ceb823d9116e44d1d08c9cd2b862af3c94dc5fa8240a191858cfac",
+        "result.json": "8add8dbffbec948818b271e773657d03649e00ba3d39b8547fbdf9ee1b163dfe",
+        "run.log": "5cdf187e0843edddf04d4eaff99c9afe9f7afeb7cb9eb42d8fdda227e00ea388",
+        "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "05": {
+      "previous_record": {
+        "case": "05",
+        "url": "https://chat.deepseek.com/share/xsq5djrwsxs6ragp19",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\image_fix_rerun\\05",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "0709156ec09b4ba88d5f5fba1509695c71329c1519d40b8ab0a77c67f47fc876",
+          "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+          "result.json": "938370d94f8603293e91fbf3dbe6904e615fb7ad944fea88348d636fd52550b9",
+          "run.log": "130ca964ca2fa893f888cacff1522fb36545341749ff0c378d890826780a5969",
+          "snapshot.html": "3c957aba7ec8d335ab56a062889335531d44cb04a89ce5565cf37c9d36df68dc"
+        },
+        "files": {
+          "audit.json": "0709156ec09b4ba88d5f5fba1509695c71329c1519d40b8ab0a77c67f47fc876",
+          "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+          "result.json": "938370d94f8603293e91fbf3dbe6904e615fb7ad944fea88348d636fd52550b9",
+          "run.log": "130ca964ca2fa893f888cacff1522fb36545341749ff0c378d890826780a5969",
+          "snapshot.html": "3c957aba7ec8d335ab56a062889335531d44cb04a89ce5565cf37c9d36df68dc",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "0709156ec09b4ba88d5f5fba1509695c71329c1519d40b8ab0a77c67f47fc876",
+        "baseline_source.json": "9fd3576e60694517a37446d4682cadaa59e2279bb80fbb4a206750fa4b4aed33",
+        "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+        "result.json": "938370d94f8603293e91fbf3dbe6904e615fb7ad944fea88348d636fd52550b9",
+        "run.log": "130ca964ca2fa893f888cacff1522fb36545341749ff0c378d890826780a5969",
+        "snapshot.html": "3c957aba7ec8d335ab56a062889335531d44cb04a89ce5565cf37c9d36df68dc",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "06": {
+      "previous_record": {
+        "case": "06",
+        "url": "https://chat.deepseek.com/a/chat/s/2e73dea0-411a-4618-94fa-4d6b7c1550ff",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\image_fix_rerun\\06",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "076ccf0f8e4633d42254c704da8d2898feb4bb98881948e2a950658226624971",
+          "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+          "result.json": "c606d1cea2b264f8b9ec1e90b8c7bb29b3e51a90bc1bceef174ffa48fad9aded",
+          "run.log": "8aedaf9f3f0b4fafde519dd512724b425eda968ae5fb0da2c20e66699f310711",
+          "snapshot.html": "2bda5b6840c7e50fc771e3ff6e3d99b982cc3892d0e7a1646bc13eff43e4f5f3"
+        },
+        "files": {
+          "audit.json": "076ccf0f8e4633d42254c704da8d2898feb4bb98881948e2a950658226624971",
+          "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+          "result.json": "c606d1cea2b264f8b9ec1e90b8c7bb29b3e51a90bc1bceef174ffa48fad9aded",
+          "run.log": "8aedaf9f3f0b4fafde519dd512724b425eda968ae5fb0da2c20e66699f310711",
+          "snapshot.html": "2bda5b6840c7e50fc771e3ff6e3d99b982cc3892d0e7a1646bc13eff43e4f5f3",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "076ccf0f8e4633d42254c704da8d2898feb4bb98881948e2a950658226624971",
+        "baseline_source.json": "ceee0a092c5686401e594761891eec3831823909b2455c6c16d5d1984c89d6d9",
+        "export.md": "576e818318c9224b63775c3aede57f82c2f5aa5adfe264fb3319d24b3738af13",
+        "result.json": "c606d1cea2b264f8b9ec1e90b8c7bb29b3e51a90bc1bceef174ffa48fad9aded",
+        "run.log": "8aedaf9f3f0b4fafde519dd512724b425eda968ae5fb0da2c20e66699f310711",
+        "snapshot.html": "2bda5b6840c7e50fc771e3ff6e3d99b982cc3892d0e7a1646bc13eff43e4f5f3",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "07": {
+      "previous_record": {
+        "case": "07",
+        "question": 4,
+        "url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
+        "original_url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek07重试",
+        "reason": "用户明确批准；新版分享导出与已核验私有入口的236条消息及图片内容完全一致。",
+        "approved_date": "2026-10-27",
+        "messages": 236,
+        "files": {
+          "export.md": "eb25e79e451fe6581e31172aa49ad49351d2d82a081b2c39e72d0638ac9653fd",
+          "result.json": "47e495fd28b1ee0d5e76f734758a8ff5b9547eb1f409dd9a9f296a4932cd63db",
+          "verification.json": "eadff0d84e1350b2719aae7cbfd84f6cf3db44068bc3dcd5619306a90556c590",
+          "images/deepseek_5569e0e8-4b7a-4f08-9eb1-2998784e64fa_f6fc49b0.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+        },
+        "original_files_unchanged": false,
+        "export_transformation": "仅将图片链接改为标准目录内 images/ 相对路径；正文、缩进、空行及换行编码保持源文件原样。",
+        "superseded": {
+          "case": "07",
+          "question": 4,
+          "url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
+          "original_url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
+          "original_directory": "D:\\大学\\复旦大学\\课程\\大二上\\强国之路\\tests\\Right\\02_DeepSeek_Right\\15",
+          "reason": "同一入口 URL",
+          "files": {
+            "export.md": "e27041a136bf325d143e88ff07c7451b1b355f4f43457bc4b96406c6564c75c7",
+            "result.json": "1c4c1a3feb9a441a151b3550766dbf82629a2c678c964fa5f279eca9d013b95d",
+            "run.log": "c648d32e9f5af53816fe7e444c927dde9126fe96b9be673e7c104ac3878d3b6e",
+            "snapshot.html": "063fb657a4063aa6874f49f2692dce7761169afb4ccc87e6491e4732182b7104"
+          },
+          "original_files_unchanged": true
+        },
+        "stale_evidence_removed": [
+          "snapshot.html",
+          "run.log"
+        ],
+        "evidence_note": "新版 GUI 未保存分享页原始 HTML/日志，不保留旧114条快照冒充新版证据；原始旧标准仍在02_DeepSeek_Right/15。",
+        "manual_review": "2026-10-27 用户人工核对：非公式部分完全一致；既有新版07标准保留。"
+      },
+      "previous_files": {
+        "baseline_source.json": "1da170bbcab263747fc0b1595498fdc2900917d8e6a85d3dabe569a879493caa",
+        "export.md": "eb25e79e451fe6581e31172aa49ad49351d2d82a081b2c39e72d0638ac9653fd",
+        "images/deepseek_5569e0e8-4b7a-4f08-9eb1-2998784e64fa_f6fc49b0.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c",
+        "result.json": "47e495fd28b1ee0d5e76f734758a8ff5b9547eb1f409dd9a9f296a4932cd63db",
+        "verification.json": "eadff0d84e1350b2719aae7cbfd84f6cf3db44068bc3dcd5619306a90556c590"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "08": {
+      "previous_record": {
+        "case": "08",
+        "url": "https://chat.deepseek.com/a/chat/s/1a0b2085-c59e-4b0a-83e7-37aeab412590",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\08",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "a36d2c179a5a09e913ee0a648f558ad57bc94bdab54111459c97f07b4bca1f95",
+          "export.md": "0c3c5297cebde7760a89f672d9b230d8e5f2db74cacd844c0c5f687309aef1dd",
+          "result.json": "952a67bc62922f70f34c2a18775d56ea6b2662b73e0ad02e23a6150c2ca5cedd",
+          "run.log": "07a4c2a90ea135e18cef6f1bb6d6b2e8f96d2edf0c15dfc39244a919f73da668",
+          "snapshot.html": "bd556b67c640c5e142251c9de9748982bb93afe957d8372ee25a84e0aedd6033",
+          "images/img_1_b608ea47.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+        },
+        "files": {
+          "audit.json": "a36d2c179a5a09e913ee0a648f558ad57bc94bdab54111459c97f07b4bca1f95",
+          "export.md": "0c3c5297cebde7760a89f672d9b230d8e5f2db74cacd844c0c5f687309aef1dd",
+          "result.json": "952a67bc62922f70f34c2a18775d56ea6b2662b73e0ad02e23a6150c2ca5cedd",
+          "run.log": "07a4c2a90ea135e18cef6f1bb6d6b2e8f96d2edf0c15dfc39244a919f73da668",
+          "snapshot.html": "bd556b67c640c5e142251c9de9748982bb93afe957d8372ee25a84e0aedd6033",
+          "images/img_1_b608ea47.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+        }
+      },
+      "previous_files": {
+        "audit.json": "a36d2c179a5a09e913ee0a648f558ad57bc94bdab54111459c97f07b4bca1f95",
+        "baseline_source.json": "01ecda87218df514f795d8cd143f23ff262b2d1d7d3e95652d61c5e5641b0399",
+        "export.md": "0c3c5297cebde7760a89f672d9b230d8e5f2db74cacd844c0c5f687309aef1dd",
+        "images/img_1_b608ea47.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c",
+        "result.json": "952a67bc62922f70f34c2a18775d56ea6b2662b73e0ad02e23a6150c2ca5cedd",
+        "run.log": "07a4c2a90ea135e18cef6f1bb6d6b2e8f96d2edf0c15dfc39244a919f73da668",
+        "snapshot.html": "bd556b67c640c5e142251c9de9748982bb93afe957d8372ee25a84e0aedd6033"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "09": {
+      "previous_record": {
+        "case": "09",
+        "url": "https://chat.deepseek.com/share/m9lqbh6xyvlbjuysdc",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\09",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "addd75d8f738332dd126918a005bde2f42c1f4d56dd97a63c35f843a908f9f35",
+          "export.md": "e46523eed6a948bd982cdf1cd7b029252390c68fbbbefe87876a6c64fdc4cbb8",
+          "result.json": "b6a619ee767ad014e32f0028bd1b6c9f70f6d9c9ea7afbd368aca55e6f0206d7",
+          "run.log": "4c269f8dbbd71a16fbadde108f1fde01dcbd2af1312a26752d362764b4606406",
+          "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c",
+          "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
+        },
+        "files": {
+          "audit.json": "addd75d8f738332dd126918a005bde2f42c1f4d56dd97a63c35f843a908f9f35",
+          "export.md": "e46523eed6a948bd982cdf1cd7b029252390c68fbbbefe87876a6c64fdc4cbb8",
+          "result.json": "b6a619ee767ad014e32f0028bd1b6c9f70f6d9c9ea7afbd368aca55e6f0206d7",
+          "run.log": "4c269f8dbbd71a16fbadde108f1fde01dcbd2af1312a26752d362764b4606406",
+          "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c",
+          "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
+        }
+      },
+      "previous_files": {
+        "audit.json": "addd75d8f738332dd126918a005bde2f42c1f4d56dd97a63c35f843a908f9f35",
+        "baseline_source.json": "b92ac789042495038fd909fd3f4376b0aac1a730e37c8c911eb656631099f887",
+        "export.md": "e46523eed6a948bd982cdf1cd7b029252390c68fbbbefe87876a6c64fdc4cbb8",
+        "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97",
+        "result.json": "b6a619ee767ad014e32f0028bd1b6c9f70f6d9c9ea7afbd368aca55e6f0206d7",
+        "run.log": "4c269f8dbbd71a16fbadde108f1fde01dcbd2af1312a26752d362764b4606406",
+        "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "10": {
+      "previous_record": {
+        "case": "10",
+        "url": "https://chat.deepseek.com/a/chat/s/7116150a-3c9b-4f5d-858e-d6e4a1ae8a72",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\10",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "b939e3bddd0c4c6b4d1bf9ff0f9c2cdd9b6b1b79db88852f3e00fe92a7b37d8b",
+          "export.md": "af1bbe246b5ac8182fcfa2ef93d0acb4423ac3e6aa21fa09051bc65c4cdb3ec6",
+          "result.json": "10db12172b7f73627f2d4e54d65f910b2845a2266f3323b476580f7f803517cc",
+          "run.log": "ebd873008f48b94e72c110d0ec93198259d35dd2ad23593966511e52488417d4",
+          "snapshot.html": "1a2066bc41be81786cd93d4b3cef83493d0afc878e67ea887662968cdd8331c2",
+          "images/img_1_74d4b1c0.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
+        },
+        "files": {
+          "audit.json": "b939e3bddd0c4c6b4d1bf9ff0f9c2cdd9b6b1b79db88852f3e00fe92a7b37d8b",
+          "export.md": "af1bbe246b5ac8182fcfa2ef93d0acb4423ac3e6aa21fa09051bc65c4cdb3ec6",
+          "result.json": "10db12172b7f73627f2d4e54d65f910b2845a2266f3323b476580f7f803517cc",
+          "run.log": "ebd873008f48b94e72c110d0ec93198259d35dd2ad23593966511e52488417d4",
+          "snapshot.html": "1a2066bc41be81786cd93d4b3cef83493d0afc878e67ea887662968cdd8331c2",
+          "images/img_1_74d4b1c0.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
+        }
+      },
+      "previous_files": {
+        "audit.json": "b939e3bddd0c4c6b4d1bf9ff0f9c2cdd9b6b1b79db88852f3e00fe92a7b37d8b",
+        "baseline_source.json": "6fc10612ae0086cb89ea4c2b1639f53ff19de5dcdeccaef1318515d785c546b3",
+        "export.md": "af1bbe246b5ac8182fcfa2ef93d0acb4423ac3e6aa21fa09051bc65c4cdb3ec6",
+        "images/img_1_74d4b1c0.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97",
+        "result.json": "10db12172b7f73627f2d4e54d65f910b2845a2266f3323b476580f7f803517cc",
+        "run.log": "ebd873008f48b94e72c110d0ec93198259d35dd2ad23593966511e52488417d4",
+        "snapshot.html": "1a2066bc41be81786cd93d4b3cef83493d0afc878e67ea887662968cdd8331c2"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "11": {
+      "previous_record": {
+        "case": "11",
+        "url": "https://chat.deepseek.com/share/xxv4e99bimvt1p0uo2",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\11",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "b789f1e036c84e3453650b0d86ffb4756dfcd77f170859f889af40c70fda29ef",
+          "export.md": "0e6cca840a80232d82b2233c8dfa483fa81350922ec74a5dd4c3c860b642dae3",
+          "result.json": "fff6a46193d470760eb78b63947484be1b49f11b400f8d7acd0a457f82f51cd4",
+          "run.log": "4f66586ef54e28a9878079790e300406e58c96aaf28713f54e78bbabc38cc4f1",
+          "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834",
+          "images/img_1_e262fd84.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+          "images/img_2_0d2969dc.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+          "images/img_3_882c2e47.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+          "images/img_4_864700fa.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+          "images/img_5_67cf44c1.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+          "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+        },
+        "files": {
+          "audit.json": "b789f1e036c84e3453650b0d86ffb4756dfcd77f170859f889af40c70fda29ef",
+          "export.md": "0e6cca840a80232d82b2233c8dfa483fa81350922ec74a5dd4c3c860b642dae3",
+          "result.json": "fff6a46193d470760eb78b63947484be1b49f11b400f8d7acd0a457f82f51cd4",
+          "run.log": "4f66586ef54e28a9878079790e300406e58c96aaf28713f54e78bbabc38cc4f1",
+          "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834",
+          "images/img_1_e262fd84.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+          "images/img_2_0d2969dc.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+          "images/img_3_882c2e47.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+          "images/img_4_864700fa.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+          "images/img_5_67cf44c1.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+          "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+        }
+      },
+      "previous_files": {
+        "audit.json": "b789f1e036c84e3453650b0d86ffb4756dfcd77f170859f889af40c70fda29ef",
+        "baseline_source.json": "74382425b9fdb4d497ae040466b8ebf42e3c03fb7ee4546857dbebc7e2a40cbe",
+        "export.md": "0e6cca840a80232d82b2233c8dfa483fa81350922ec74a5dd4c3c860b642dae3",
+        "images/img_1_e262fd84.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+        "images/img_2_0d2969dc.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+        "images/img_3_882c2e47.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+        "images/img_4_864700fa.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+        "images/img_5_67cf44c1.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+        "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035",
+        "result.json": "fff6a46193d470760eb78b63947484be1b49f11b400f8d7acd0a457f82f51cd4",
+        "run.log": "4f66586ef54e28a9878079790e300406e58c96aaf28713f54e78bbabc38cc4f1",
+        "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "12": {
+      "previous_record": {
+        "case": "12",
+        "url": "https://chat.deepseek.com/a/chat/s/73abec8f-9b69-4a8f-a52d-b9fcce8dcfb2",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\12",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "e355bfa062a456d63aebc9e925102b1b377cbfd41c3c07824f7215e40cca3b20",
+          "export.md": "3af00b5650f1dbcae3fcc1e95182f4ec81911844ab43d14d598f8fd2b5843c4b",
+          "result.json": "edf5ab2d484c1cfdf772adeb65ece43ed99f90da641f4dd1273170f5d1bf16d3",
+          "run.log": "3c3b25359292eb4b190facaaf1acfb5d3a8709f43e46199a5686cbe04c88b8d4",
+          "snapshot.html": "0056a8ecf1c0db886a44a4566a518289f382c60c9925e00abc8534406665ac36",
+          "images/img_1_08cb648b.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+          "images/img_2_2796ed35.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+          "images/img_3_e43ef30d.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+          "images/img_4_7a8ba4e0.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+          "images/img_5_adab5301.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+          "images/img_6_eadd58b9.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+        },
+        "files": {
+          "audit.json": "e355bfa062a456d63aebc9e925102b1b377cbfd41c3c07824f7215e40cca3b20",
+          "export.md": "3af00b5650f1dbcae3fcc1e95182f4ec81911844ab43d14d598f8fd2b5843c4b",
+          "result.json": "edf5ab2d484c1cfdf772adeb65ece43ed99f90da641f4dd1273170f5d1bf16d3",
+          "run.log": "3c3b25359292eb4b190facaaf1acfb5d3a8709f43e46199a5686cbe04c88b8d4",
+          "snapshot.html": "0056a8ecf1c0db886a44a4566a518289f382c60c9925e00abc8534406665ac36",
+          "images/img_1_08cb648b.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+          "images/img_2_2796ed35.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+          "images/img_3_e43ef30d.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+          "images/img_4_7a8ba4e0.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+          "images/img_5_adab5301.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+          "images/img_6_eadd58b9.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+        }
+      },
+      "previous_files": {
+        "audit.json": "e355bfa062a456d63aebc9e925102b1b377cbfd41c3c07824f7215e40cca3b20",
+        "baseline_source.json": "b6d7a0e05a8cbc7b2c230e2ae6ca7b722d2dff82f8094cc406832b760d9cdcc1",
+        "export.md": "3af00b5650f1dbcae3fcc1e95182f4ec81911844ab43d14d598f8fd2b5843c4b",
+        "images/img_1_08cb648b.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+        "images/img_2_2796ed35.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+        "images/img_3_e43ef30d.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+        "images/img_4_7a8ba4e0.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+        "images/img_5_adab5301.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+        "images/img_6_eadd58b9.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035",
+        "result.json": "edf5ab2d484c1cfdf772adeb65ece43ed99f90da641f4dd1273170f5d1bf16d3",
+        "run.log": "3c3b25359292eb4b190facaaf1acfb5d3a8709f43e46199a5686cbe04c88b8d4",
+        "snapshot.html": "0056a8ecf1c0db886a44a4566a518289f382c60c9925e00abc8534406665ac36"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "13": {
+      "previous_record": {
+        "case": "13",
+        "url": "https://chat.deepseek.com/share/029zqjgtwefnb42uw3",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\13",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "9f5d9906c9817e674aac74f54f885ea9cf25b833768ea8ed3d4970ff6b9027e2",
+          "export.md": "7ddd5f369862004ca4883de5517ec2bc1287b8c38dc6e7ce0ebd571a4d568028",
+          "result.json": "553753633e8a936ce9b6300cbcd01dd80c3a2a3a596bd262fbaf1ae367c1a71e",
+          "run.log": "cddc520eda245cf3700763b9606c63bf4b36119c14839fea4b4c7c239e0e642d",
+          "snapshot.html": "f878a5535aa0b8ba2d63304eeeddaeae99728c8769221685a69d87493ae7da83",
+          "images/img_1_2c9c2d20.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_2_21bebf62.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_3_6b0106f3.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+          "images/img_4_fb1fac02.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+          "images/img_5_5e558b27.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+          "images/img_6_081d363d.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        },
+        "files": {
+          "audit.json": "9f5d9906c9817e674aac74f54f885ea9cf25b833768ea8ed3d4970ff6b9027e2",
+          "export.md": "7ddd5f369862004ca4883de5517ec2bc1287b8c38dc6e7ce0ebd571a4d568028",
+          "result.json": "553753633e8a936ce9b6300cbcd01dd80c3a2a3a596bd262fbaf1ae367c1a71e",
+          "run.log": "cddc520eda245cf3700763b9606c63bf4b36119c14839fea4b4c7c239e0e642d",
+          "snapshot.html": "f878a5535aa0b8ba2d63304eeeddaeae99728c8769221685a69d87493ae7da83",
+          "images/img_1_2c9c2d20.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_2_21bebf62.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_3_6b0106f3.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+          "images/img_4_fb1fac02.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+          "images/img_5_5e558b27.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+          "images/img_6_081d363d.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        }
+      },
+      "previous_files": {
+        "audit.json": "9f5d9906c9817e674aac74f54f885ea9cf25b833768ea8ed3d4970ff6b9027e2",
+        "baseline_source.json": "cbc531f78d92c86abf3c2ceabf4b5314db709230413afdb16edc813bea793b48",
+        "export.md": "7ddd5f369862004ca4883de5517ec2bc1287b8c38dc6e7ce0ebd571a4d568028",
+        "images/img_1_2c9c2d20.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+        "images/img_2_21bebf62.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+        "images/img_3_6b0106f3.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+        "images/img_4_fb1fac02.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+        "images/img_5_5e558b27.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+        "images/img_6_081d363d.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32",
+        "result.json": "553753633e8a936ce9b6300cbcd01dd80c3a2a3a596bd262fbaf1ae367c1a71e",
+        "run.log": "cddc520eda245cf3700763b9606c63bf4b36119c14839fea4b4c7c239e0e642d",
+        "snapshot.html": "f878a5535aa0b8ba2d63304eeeddaeae99728c8769221685a69d87493ae7da83"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "14": {
+      "previous_record": {
+        "case": "14",
+        "url": "https://chat.deepseek.com/a/chat/s/0a438c82-9c76-4466-a5d7-7a9cc372d588",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\14",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "6e165636e887a574bfc09562aac7b860eb6f6f7ba17c3e74cd746bbadbae909b",
+          "export.md": "de81f5c1fab859bd91cc4631773c1bf5defc8d481cbd56fbc925e1085efc6b2d",
+          "result.json": "d6e6f8f6b39222d7ac58ef709d00658c43cfc654a9e4f4f67abb6ffb950218d4",
+          "run.log": "d5dc295b2e44c39186e7fef2e382150024d1b5afac1c45c3fcb1ed63494ca9ba",
+          "snapshot.html": "e4ffb61e06da9251a7f8808a4675a2795bd0421a627318b0052c2fbb908a9740",
+          "images/img_1_f2a8760b.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_2_28698366.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_3_776f6b0d.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+          "images/img_4_e0e6dcac.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+          "images/img_5_9f9dd339.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+          "images/img_6_8199c14f.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        },
+        "files": {
+          "audit.json": "6e165636e887a574bfc09562aac7b860eb6f6f7ba17c3e74cd746bbadbae909b",
+          "export.md": "de81f5c1fab859bd91cc4631773c1bf5defc8d481cbd56fbc925e1085efc6b2d",
+          "result.json": "d6e6f8f6b39222d7ac58ef709d00658c43cfc654a9e4f4f67abb6ffb950218d4",
+          "run.log": "d5dc295b2e44c39186e7fef2e382150024d1b5afac1c45c3fcb1ed63494ca9ba",
+          "snapshot.html": "e4ffb61e06da9251a7f8808a4675a2795bd0421a627318b0052c2fbb908a9740",
+          "images/img_1_f2a8760b.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_2_28698366.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+          "images/img_3_776f6b0d.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+          "images/img_4_e0e6dcac.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+          "images/img_5_9f9dd339.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+          "images/img_6_8199c14f.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        }
+      },
+      "previous_files": {
+        "audit.json": "6e165636e887a574bfc09562aac7b860eb6f6f7ba17c3e74cd746bbadbae909b",
+        "baseline_source.json": "d5df81578d7e280c87ff5289429475554d1308dcd794786596fd8da796a34247",
+        "export.md": "de81f5c1fab859bd91cc4631773c1bf5defc8d481cbd56fbc925e1085efc6b2d",
+        "images/img_1_f2a8760b.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+        "images/img_2_28698366.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+        "images/img_3_776f6b0d.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+        "images/img_4_e0e6dcac.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+        "images/img_5_9f9dd339.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+        "images/img_6_8199c14f.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32",
+        "result.json": "d6e6f8f6b39222d7ac58ef709d00658c43cfc654a9e4f4f67abb6ffb950218d4",
+        "run.log": "d5dc295b2e44c39186e7fef2e382150024d1b5afac1c45c3fcb1ed63494ca9ba",
+        "snapshot.html": "e4ffb61e06da9251a7f8808a4675a2795bd0421a627318b0052c2fbb908a9740"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "15": {
+      "previous_record": {
+        "case": "15",
+        "url": "https://chat.deepseek.com/share/i0bs2ajzzmvcsgv3dp",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\15",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "1d7f3afe35a00437a6130aaef4453cdc06d688c1eb113728a541ae3a9e492c97",
+          "export.md": "004dde6b85fd5dcf42adbb64648ee207ca7c1cd316b760f131b7be875fdf27ea",
+          "result.json": "51b8d4ff1ed9f1202e0a7d56417168b60b174dca995f27a4f0857f38e5c41e23",
+          "run.log": "6212a2ee7b8cc6dc5bb16deaad0c06b358dcf4e2c2ee2704a4adc69ca69b33a3",
+          "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0",
+          "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+          "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        },
+        "files": {
+          "audit.json": "1d7f3afe35a00437a6130aaef4453cdc06d688c1eb113728a541ae3a9e492c97",
+          "export.md": "004dde6b85fd5dcf42adbb64648ee207ca7c1cd316b760f131b7be875fdf27ea",
+          "result.json": "51b8d4ff1ed9f1202e0a7d56417168b60b174dca995f27a4f0857f38e5c41e23",
+          "run.log": "6212a2ee7b8cc6dc5bb16deaad0c06b358dcf4e2c2ee2704a4adc69ca69b33a3",
+          "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0",
+          "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+          "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        }
+      },
+      "previous_files": {
+        "audit.json": "1d7f3afe35a00437a6130aaef4453cdc06d688c1eb113728a541ae3a9e492c97",
+        "baseline_source.json": "7beef3c2dd282e37fbeb5ed1034492625a49f034039d3421f62b3077e8e92e92",
+        "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+        "export.md": "004dde6b85fd5dcf42adbb64648ee207ca7c1cd316b760f131b7be875fdf27ea",
+        "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32",
+        "result.json": "51b8d4ff1ed9f1202e0a7d56417168b60b174dca995f27a4f0857f38e5c41e23",
+        "run.log": "6212a2ee7b8cc6dc5bb16deaad0c06b358dcf4e2c2ee2704a4adc69ca69b33a3",
+        "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "16": {
+      "previous_record": {
+        "case": "16",
+        "url": "https://chat.deepseek.com/a/chat/s/1977bf73-370e-4d22-a610-c9a33c216865",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\16",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "4061ea6731b124c0b8428e8b8173421636113076c3ac9053e90ae82ac19833b3",
+          "export.md": "e98df97f2beb82b0f89a2eff6d3f681d07d13515e0b60bcdc6fd63b52e1651c7",
+          "result.json": "eee89b5eb73f04e0c8b574b95fd12ab37caab3c4c0bb3894825a7836d154b2d3",
+          "run.log": "a5539a079b3e39b10d2db44e406527c044022f076f10e6a6f7981a0ba075d024",
+          "snapshot.html": "84cdd78cb7ee76659e46239506b5de7b1b0cb967500d5436626978c356bd9b31",
+          "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+          "images/img_1_962dd36c.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        },
+        "files": {
+          "audit.json": "4061ea6731b124c0b8428e8b8173421636113076c3ac9053e90ae82ac19833b3",
+          "export.md": "e98df97f2beb82b0f89a2eff6d3f681d07d13515e0b60bcdc6fd63b52e1651c7",
+          "result.json": "eee89b5eb73f04e0c8b574b95fd12ab37caab3c4c0bb3894825a7836d154b2d3",
+          "run.log": "a5539a079b3e39b10d2db44e406527c044022f076f10e6a6f7981a0ba075d024",
+          "snapshot.html": "84cdd78cb7ee76659e46239506b5de7b1b0cb967500d5436626978c356bd9b31",
+          "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+          "images/img_1_962dd36c.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+        }
+      },
+      "previous_files": {
+        "audit.json": "4061ea6731b124c0b8428e8b8173421636113076c3ac9053e90ae82ac19833b3",
+        "baseline_source.json": "a202701ed1fff6ce8ea73abf395be9cdd28eab73f4b7af5e38c6c4f54f7a9fbc",
+        "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
+        "export.md": "e98df97f2beb82b0f89a2eff6d3f681d07d13515e0b60bcdc6fd63b52e1651c7",
+        "images/img_1_962dd36c.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32",
+        "result.json": "eee89b5eb73f04e0c8b574b95fd12ab37caab3c4c0bb3894825a7836d154b2d3",
+        "run.log": "a5539a079b3e39b10d2db44e406527c044022f076f10e6a6f7981a0ba075d024",
+        "snapshot.html": "84cdd78cb7ee76659e46239506b5de7b1b0cb967500d5436626978c356bd9b31"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "17": {
+      "previous_record": {
+        "case": "17",
+        "url": "https://chat.deepseek.com/share/uqsngdvmluy2zdkac3",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\17",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "3d5836b47bc3affbdf915cd4a0d5b9c554c02f8ddfd514dc3def935c23332771",
+          "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+          "result.json": "87528664fba45986c8ad488a680ee7e966972c63816edbad828ecd9df42bda76",
+          "run.log": "b64e34ee4e360cc6eab9e196f08207789f47f68438e282e8839d498b566a9351",
+          "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e",
+          "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+          "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+        },
+        "files": {
+          "audit.json": "3d5836b47bc3affbdf915cd4a0d5b9c554c02f8ddfd514dc3def935c23332771",
+          "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+          "result.json": "87528664fba45986c8ad488a680ee7e966972c63816edbad828ecd9df42bda76",
+          "run.log": "b64e34ee4e360cc6eab9e196f08207789f47f68438e282e8839d498b566a9351",
+          "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e",
+          "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+          "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+        }
+      },
+      "previous_files": {
+        "audit.json": "3d5836b47bc3affbdf915cd4a0d5b9c554c02f8ddfd514dc3def935c23332771",
+        "baseline_source.json": "da8a64a3a8c20b601c7bae8825086deb10eda23315e3601001ca53905eb2c489",
+        "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+        "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f",
+        "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+        "result.json": "87528664fba45986c8ad488a680ee7e966972c63816edbad828ecd9df42bda76",
+        "run.log": "b64e34ee4e360cc6eab9e196f08207789f47f68438e282e8839d498b566a9351",
+        "snapshot.html": "d4d443d241ec14c47ae8591661e44feb5afca99d7991923ba5e1092e47bb281e"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "18": {
+      "previous_record": {
+        "case": "18",
+        "url": "https://chat.deepseek.com/a/chat/s/50e7af55-dfc9-4788-a03a-74030fe95233",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\18",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "fe5623b8a3471771a8a5eaa7937b4be2e8a8fd70980756236c8c5e8935a55821",
+          "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+          "result.json": "7d7a6df49f2405e3f20083af33453ef6f41a92daa43f80c3944a1988e787edff",
+          "run.log": "53f82b2f25b5b233e88a0e885e847cc99130a15c776e51edd32a91c518458f10",
+          "snapshot.html": "2009164694e476184e57dab3db376062345618a6a376d7a4268f5816052fd076",
+          "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+          "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+        },
+        "files": {
+          "audit.json": "fe5623b8a3471771a8a5eaa7937b4be2e8a8fd70980756236c8c5e8935a55821",
+          "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+          "result.json": "7d7a6df49f2405e3f20083af33453ef6f41a92daa43f80c3944a1988e787edff",
+          "run.log": "53f82b2f25b5b233e88a0e885e847cc99130a15c776e51edd32a91c518458f10",
+          "snapshot.html": "2009164694e476184e57dab3db376062345618a6a376d7a4268f5816052fd076",
+          "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+          "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+        }
+      },
+      "previous_files": {
+        "audit.json": "fe5623b8a3471771a8a5eaa7937b4be2e8a8fd70980756236c8c5e8935a55821",
+        "baseline_source.json": "544c44e8d7928b4a6ad8f53372c08577dc88454c34e1cb193c8f8ed801b3238a",
+        "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+        "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f",
+        "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+        "result.json": "7d7a6df49f2405e3f20083af33453ef6f41a92daa43f80c3944a1988e787edff",
+        "run.log": "53f82b2f25b5b233e88a0e885e847cc99130a15c776e51edd32a91c518458f10",
+        "snapshot.html": "2009164694e476184e57dab3db376062345618a6a376d7a4268f5816052fd076"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "19": {
+      "previous_record": {
+        "case": "19",
+        "url": "https://chat.deepseek.com/share/pakbof30bo2syhpj4m",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\19",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "a67239f0f158ecb7063eb419f0ad0b2be9853443bba1faab2c4f160b942e177b",
+          "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+          "result.json": "fc959e2b7eb87135fa6196ece7fa34db9ee80970026ceb81e70b09dc424e2b43",
+          "run.log": "580b80387a75a2bc77aa00e26a39c724174ead5de6fdb1671ad4aea7f5dadc9a",
+          "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71"
+        },
+        "files": {
+          "audit.json": "a67239f0f158ecb7063eb419f0ad0b2be9853443bba1faab2c4f160b942e177b",
+          "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+          "result.json": "fc959e2b7eb87135fa6196ece7fa34db9ee80970026ceb81e70b09dc424e2b43",
+          "run.log": "580b80387a75a2bc77aa00e26a39c724174ead5de6fdb1671ad4aea7f5dadc9a",
+          "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "a67239f0f158ecb7063eb419f0ad0b2be9853443bba1faab2c4f160b942e177b",
+        "baseline_source.json": "8c9c53d705c730b7351022855ed6d4c6b170f3f6fdf9dec530f3ad747ee55d99",
+        "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+        "result.json": "fc959e2b7eb87135fa6196ece7fa34db9ee80970026ceb81e70b09dc424e2b43",
+        "run.log": "580b80387a75a2bc77aa00e26a39c724174ead5de6fdb1671ad4aea7f5dadc9a",
+        "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "20": {
+      "previous_record": {
+        "case": "20",
+        "url": "https://chat.deepseek.com/a/chat/s/7bac0e6f-d625-4244-ab92-aa4c4f244005",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\20",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+        "has_formulas": true,
+        "formula_status": "display_pending_fix_content_correct",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "5debb89806e02b4d4dc761baf0c3c2f17e814400bf2078635eae9ce3226edc3e",
+          "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+          "result.json": "41aa392f90ae4cac12df6ce2af7e8d0cbe9ce0612c01640e7609d3f640b6e9c0",
+          "run.log": "a3e0d2391cdd36601ed124491cdb403b4768fe745ad23dfa038f6e0b81b162a0",
+          "snapshot.html": "5628c9297ad6592eadd04ab20474ede0eb7e7fe6c580dcf08d2a6c9e79e5d63b"
+        },
+        "files": {
+          "audit.json": "5debb89806e02b4d4dc761baf0c3c2f17e814400bf2078635eae9ce3226edc3e",
+          "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+          "result.json": "41aa392f90ae4cac12df6ce2af7e8d0cbe9ce0612c01640e7609d3f640b6e9c0",
+          "run.log": "a3e0d2391cdd36601ed124491cdb403b4768fe745ad23dfa038f6e0b81b162a0",
+          "snapshot.html": "5628c9297ad6592eadd04ab20474ede0eb7e7fe6c580dcf08d2a6c9e79e5d63b",
+          "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+        }
+      },
+      "previous_files": {
+        "audit.json": "5debb89806e02b4d4dc761baf0c3c2f17e814400bf2078635eae9ce3226edc3e",
+        "baseline_source.json": "b85146e4ecc8c8ea6688a4eb34a207c2a93bbe79c7fadbdeb8d854fcd0b56366",
+        "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+        "result.json": "41aa392f90ae4cac12df6ce2af7e8d0cbe9ce0612c01640e7609d3f640b6e9c0",
+        "run.log": "a3e0d2391cdd36601ed124491cdb403b4768fe745ad23dfa038f6e0b81b162a0",
+        "snapshot.html": "5628c9297ad6592eadd04ab20474ede0eb7e7fe6c580dcf08d2a6c9e79e5d63b",
+        "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+      },
+      "removed_formula_notes": [
+        "注释.txt"
+      ],
+      "retained_notes": []
+    },
+    "21": {
+      "previous_record": {
+        "case": "21",
+        "url": "https://chat.deepseek.com/share/2tlxcim17pawzthx5v",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\21",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "7afc0ec8a337bfb681779ca42cae832ed9e08e771ace74b3db95a9d3fe25d933",
+          "export.md": "7e790db79d8aa0faf028f6ef39f646ba8b677e3313507bccaa62f9c95636ae01",
+          "result.json": "9baa55280fc7b6dda9905bf7c661762b8481b29753639964a7ffe884d226c241",
+          "run.log": "34d267b7e99ee493448496bcec8c21a293b41038da346654d451bff427b2cb50",
+          "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b",
+          "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
+        },
+        "files": {
+          "audit.json": "7afc0ec8a337bfb681779ca42cae832ed9e08e771ace74b3db95a9d3fe25d933",
+          "export.md": "7e790db79d8aa0faf028f6ef39f646ba8b677e3313507bccaa62f9c95636ae01",
+          "result.json": "9baa55280fc7b6dda9905bf7c661762b8481b29753639964a7ffe884d226c241",
+          "run.log": "34d267b7e99ee493448496bcec8c21a293b41038da346654d451bff427b2cb50",
+          "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b",
+          "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
+        }
+      },
+      "previous_files": {
+        "audit.json": "7afc0ec8a337bfb681779ca42cae832ed9e08e771ace74b3db95a9d3fe25d933",
+        "baseline_source.json": "133805c774ade5d948665d139b8d80563c81d004ed075122bf72788fd02fbf6d",
+        "export.md": "7e790db79d8aa0faf028f6ef39f646ba8b677e3313507bccaa62f9c95636ae01",
+        "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2",
+        "result.json": "9baa55280fc7b6dda9905bf7c661762b8481b29753639964a7ffe884d226c241",
+        "run.log": "34d267b7e99ee493448496bcec8c21a293b41038da346654d451bff427b2cb50",
+        "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "22": {
+      "previous_record": {
+        "case": "22",
+        "url": "https://chat.deepseek.com/a/chat/s/ca4c2b81-498e-4b0c-ae92-0122e6a009bf",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\22",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "d1cc1d297f5af316d7cb5a0e68e2d9c8c855939a0bfe25509e937294d57d5e54",
+          "export.md": "ad2a2cb9ec76e8d5f4e21d24f368057b19b9a7ddea940ca078f9d6baeca1e532",
+          "result.json": "5d381efb05cbb4c43a5823481c39a349c4d3491aba2aa84425658596aceb5ce8",
+          "run.log": "705166c165b458ea4ba8882f97b9ab73a2ad00d0a832e390ed50a599f06275cc",
+          "snapshot.html": "fd6fa9e12f2ee0568d12fdc9eec02356ae0a5542084fabf134d15c85f5f59c69",
+          "images/img_1_5b12170e.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
+        },
+        "files": {
+          "audit.json": "d1cc1d297f5af316d7cb5a0e68e2d9c8c855939a0bfe25509e937294d57d5e54",
+          "export.md": "ad2a2cb9ec76e8d5f4e21d24f368057b19b9a7ddea940ca078f9d6baeca1e532",
+          "result.json": "5d381efb05cbb4c43a5823481c39a349c4d3491aba2aa84425658596aceb5ce8",
+          "run.log": "705166c165b458ea4ba8882f97b9ab73a2ad00d0a832e390ed50a599f06275cc",
+          "snapshot.html": "fd6fa9e12f2ee0568d12fdc9eec02356ae0a5542084fabf134d15c85f5f59c69",
+          "images/img_1_5b12170e.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
+        }
+      },
+      "previous_files": {
+        "audit.json": "d1cc1d297f5af316d7cb5a0e68e2d9c8c855939a0bfe25509e937294d57d5e54",
+        "baseline_source.json": "6bd6e7f7c3bceb8bd71e38d2829c207d37ff3f257a862ecf6cd099c20810f339",
+        "export.md": "ad2a2cb9ec76e8d5f4e21d24f368057b19b9a7ddea940ca078f9d6baeca1e532",
+        "images/img_1_5b12170e.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2",
+        "result.json": "5d381efb05cbb4c43a5823481c39a349c4d3491aba2aa84425658596aceb5ce8",
+        "run.log": "705166c165b458ea4ba8882f97b9ab73a2ad00d0a832e390ed50a599f06275cc",
+        "snapshot.html": "fd6fa9e12f2ee0568d12fdc9eec02356ae0a5542084fabf134d15c85f5f59c69"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "23": {
+      "previous_record": {
+        "case": "23",
+        "url": "https://chat.deepseek.com/share/u6gl0cctac4utr7lh8",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\23",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "880329c41279bb14fefefbeab4b81e54739070189dae8d50e7951592354296c7",
+          "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+          "result.json": "3a1ed039a4f333b8a614ce38ee90874b28053200475acdf4d721ce659d0cced3",
+          "run.log": "871b4d767b751983fde2b589becd2cf89eee7d129bba7d3b97c112d7c02f3ad2",
+          "snapshot.html": "743884e6b984acbaacca03db1dda182704c2194362d3bc1b88577e0638f65b23",
+          "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+          "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+        },
+        "files": {
+          "audit.json": "880329c41279bb14fefefbeab4b81e54739070189dae8d50e7951592354296c7",
+          "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+          "result.json": "3a1ed039a4f333b8a614ce38ee90874b28053200475acdf4d721ce659d0cced3",
+          "run.log": "871b4d767b751983fde2b589becd2cf89eee7d129bba7d3b97c112d7c02f3ad2",
+          "snapshot.html": "743884e6b984acbaacca03db1dda182704c2194362d3bc1b88577e0638f65b23",
+          "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+          "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+        }
+      },
+      "previous_files": {
+        "audit.json": "880329c41279bb14fefefbeab4b81e54739070189dae8d50e7951592354296c7",
+        "baseline_source.json": "844c93dfc86662e27cac826c6fe55200aee350cf7deefe0adb0d172767d330cb",
+        "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+        "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1",
+        "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+        "result.json": "3a1ed039a4f333b8a614ce38ee90874b28053200475acdf4d721ce659d0cced3",
+        "run.log": "871b4d767b751983fde2b589becd2cf89eee7d129bba7d3b97c112d7c02f3ad2",
+        "snapshot.html": "743884e6b984acbaacca03db1dda182704c2194362d3bc1b88577e0638f65b23"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "24": {
+      "previous_record": {
+        "case": "24",
+        "url": "https://chat.deepseek.com/a/chat/s/d778225a-a930-4f01-b96d-491118c2ee0f",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\24",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "3d06071f70527ca02f960bd853f8f8e261f2de2a779c33da0c87a37a548cc7b7",
+          "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+          "result.json": "35d7a2390d1c777c1785988a1758bb5d436fa709a633fd0a4b87fd6c648c13e2",
+          "run.log": "1e39dfabb66c8e8a61178116c62a9a24495706d8ad36a0213148c5d9a624a5f0",
+          "snapshot.html": "adf78ca4d9f6d6f70ba93251bc47a2e15169222b872a8544cf576d13eae53733",
+          "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+          "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+        },
+        "files": {
+          "audit.json": "3d06071f70527ca02f960bd853f8f8e261f2de2a779c33da0c87a37a548cc7b7",
+          "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+          "result.json": "35d7a2390d1c777c1785988a1758bb5d436fa709a633fd0a4b87fd6c648c13e2",
+          "run.log": "1e39dfabb66c8e8a61178116c62a9a24495706d8ad36a0213148c5d9a624a5f0",
+          "snapshot.html": "adf78ca4d9f6d6f70ba93251bc47a2e15169222b872a8544cf576d13eae53733",
+          "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+          "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+        }
+      },
+      "previous_files": {
+        "audit.json": "3d06071f70527ca02f960bd853f8f8e261f2de2a779c33da0c87a37a548cc7b7",
+        "baseline_source.json": "f9d4b8e075b73d0cfd60448eba852b0045f6efa86599e10d771a12f3839f82ee",
+        "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+        "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1",
+        "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+        "result.json": "35d7a2390d1c777c1785988a1758bb5d436fa709a633fd0a4b87fd6c648c13e2",
+        "run.log": "1e39dfabb66c8e8a61178116c62a9a24495706d8ad36a0213148c5d9a624a5f0",
+        "snapshot.html": "adf78ca4d9f6d6f70ba93251bc47a2e15169222b872a8544cf576d13eae53733"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "27": {
+      "previous_record": {
+        "case": "27",
+        "url": "https://chat.deepseek.com/share/noi5l7fmb3w29nblo3",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\27",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "591fc45f40003b675eea8db85fe0994fc0fdd7f09c53e5f878911c841f458c3e",
+          "export.md": "c9d8f8e3ff3250e5e0e68f0103ab9fa92656baf0b667bbd070f043f58087e834",
+          "result.json": "9f839407394687584aeb397e0cd844bea7b01f239de2b4f5a935939bd63602dc",
+          "run.log": "109457ad8a58c000d60d63c01d561acca1993714a98cbcfc853e66ae5d8d2a8d",
+          "snapshot.html": "9937a53cbae8ea3e8a1c44c46d972fbf4cb987ee91ccb787d24836777a351c90",
+          "images/img_1_2486a3f8.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9"
+        },
+        "files": {
+          "audit.json": "591fc45f40003b675eea8db85fe0994fc0fdd7f09c53e5f878911c841f458c3e",
+          "export.md": "c9d8f8e3ff3250e5e0e68f0103ab9fa92656baf0b667bbd070f043f58087e834",
+          "result.json": "9f839407394687584aeb397e0cd844bea7b01f239de2b4f5a935939bd63602dc",
+          "run.log": "109457ad8a58c000d60d63c01d561acca1993714a98cbcfc853e66ae5d8d2a8d",
+          "snapshot.html": "9937a53cbae8ea3e8a1c44c46d972fbf4cb987ee91ccb787d24836777a351c90",
+          "images/img_1_2486a3f8.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9"
+        }
+      },
+      "previous_files": {
+        "audit.json": "591fc45f40003b675eea8db85fe0994fc0fdd7f09c53e5f878911c841f458c3e",
+        "baseline_source.json": "49a39eb848090ed977883ad5e8b116c3f0c4cdae78de5dd80acc2b03ed30265e",
+        "export.md": "c9d8f8e3ff3250e5e0e68f0103ab9fa92656baf0b667bbd070f043f58087e834",
+        "images/img_1_2486a3f8.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9",
+        "result.json": "9f839407394687584aeb397e0cd844bea7b01f239de2b4f5a935939bd63602dc",
+        "run.log": "109457ad8a58c000d60d63c01d561acca1993714a98cbcfc853e66ae5d8d2a8d",
+        "snapshot.html": "9937a53cbae8ea3e8a1c44c46d972fbf4cb987ee91ccb787d24836777a351c90"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    },
+    "28": {
+      "previous_record": {
+        "case": "28",
+        "url": "https://chat.deepseek.com/a/chat/s/c046d369-4125-4eb2-a772-8e8f88a6d91f",
+        "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\28",
+        "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+        "approved_date": "2026-10-27",
+        "approval_scope": "完整人工认可结果",
+        "has_formulas": false,
+        "formula_status": "not_applicable",
+        "moved_without_content_changes": true,
+        "original_files_sha256": {
+          "audit.json": "36f79311e32d369039b0816285eeba098c8dea42c26579524da70052b914b891",
+          "export.md": "08efc209c6fafb849732dcc18b57d9bbd51e8a5dbc9c9c54bbef0531edf6885e",
+          "result.json": "99e946f176940eb5ce015632841b2b6fd6b8b906a31b291ba2631dceccdf3336",
+          "run.log": "397ac4bbe8b14a9de62e49e332a6ccb239bf2116b98e2be2aabd9a95846a6706",
+          "snapshot.html": "cb4ddbc5eea4b2f693f3586c6679db409f48ea1b121d3b22c21227c1b1a0d64b",
+          "images/img_1_e603cd4d.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9"
+        },
+        "files": {
+          "audit.json": "36f79311e32d369039b0816285eeba098c8dea42c26579524da70052b914b891",
+          "export.md": "08efc209c6fafb849732dcc18b57d9bbd51e8a5dbc9c9c54bbef0531edf6885e",
+          "result.json": "99e946f176940eb5ce015632841b2b6fd6b8b906a31b291ba2631dceccdf3336",
+          "run.log": "397ac4bbe8b14a9de62e49e332a6ccb239bf2116b98e2be2aabd9a95846a6706",
+          "snapshot.html": "cb4ddbc5eea4b2f693f3586c6679db409f48ea1b121d3b22c21227c1b1a0d64b",
+          "images/img_1_e603cd4d.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9"
+        }
+      },
+      "previous_files": {
+        "audit.json": "36f79311e32d369039b0816285eeba098c8dea42c26579524da70052b914b891",
+        "baseline_source.json": "d8c3a455c44d02f7dfee10ff9cdf5cd630577ea8f40c83706f06bdbca0214311",
+        "export.md": "08efc209c6fafb849732dcc18b57d9bbd51e8a5dbc9c9c54bbef0531edf6885e",
+        "images/img_1_e603cd4d.webp": "21dc90b69d08124eee37017787261ec34a7f5b81fdf500188a8df1cdc49d47b9",
+        "result.json": "99e946f176940eb5ce015632841b2b6fd6b8b906a31b291ba2631dceccdf3336",
+        "run.log": "397ac4bbe8b14a9de62e49e332a6ccb239bf2116b98e2be2aabd9a95846a6706",
+        "snapshot.html": "cb4ddbc5eea4b2f693f3586c6679db409f48ea1b121d3b22c21227c1b1a0d64b"
+      },
+      "removed_formula_notes": [],
+      "retained_notes": []
+    }
+  },
+  "untouched_pending_files": {
+    "25": {
+      "audit.json": "1598951b00264f1961506a2460f309fa427af12f198eafa510540c121524d84d",
+      "baseline_source.json": "c23dfdfb861f02ae24fb0da8f1766cf310660c19e1b0dcf8bc1c816ff15f799b",
+      "documents/[.txt": "613510ec62f1788cf2c77c37a356860cfb8974d408b4a49aeeca51361b320a57",
+      "documents/[_19038fdc.txt": "19038fdc4bd4ded0e6fc65d02620e68231a4bd2310f56cca0a6e1ba29f4c75b9",
+      "documents/[_790c2ea8.txt": "790c2ea8b27ca7ee04dd69293c25db684f75741fce8e2129589be3eaa82068aa",
+      "documents/[_b1b835d8.txt": "b1b835d8caa0fa3d16d1db5239e346e715aa8210ebce109e8c320e30d5d6d355",
+      "documents/declare $mep.txt": "9ea1977584aee44f2b5d1747646f5aad2a2a1161c4a8a93c7fbc3637baee88b4",
+      "documents/declare $mep_a7b06f04.txt": "a7b06f0445bcbbaa370ea8ab36abd43e0a255fe969c67e0ac9633c9a12ae53b2",
+      "documents/export.md": "060b8d53ad582a74030ec24c8988f707928a4c0e29adc082e687da5896e9cdda",
+      "documents/export_182ba68a.md": "182ba68a1a25dee050460a25f1e69bbf9eaf6463ccc0cd4864a4ef37e2fa44e5",
+      "documents/export_26471f40.md": "26471f405a3b778f6f1a503a1ca3957c0038ae65e82ed16d29ff43f9b229d67c",
+      "documents/export_51ada16e.md": "51ada16ec5262431af6b0ed184e117ebc1ef64407422a146c03cc396d6e3bb2f",
+      "documents/代码：.txt": "bb1bc25e60700c3094d726804b73772d9c587573465b5309da25896c5b4cf2dd",
+      "documents/代码：_27283ae9.txt": "27283ae9765f1443cbfa270357a1c125ff104626b1ad32b8935c88e5f357e6d6",
+      "documents/我们现在来到stage4，给你一份最新版的代码，你先理解一下.txt": "ac9a8def22ecd3a4bc8f5f908c5d7765cac2240d6df5878dce07d5cb04ea812a",
+      "documents/我们现在来到stage4，给你一份最新版的代码，你先理解一下_2257f4fa.txt": "2257f4faba1793848ef2cea0ea727b0191e3eb48b95138afc9611d1124f42d2b",
+      "export.md": "0c61a0a5b582d17298149cb0c80b19de177c945e1a7ad943f2025a73650e9f39",
+      "result.json": "c024dfb8920da520bfdd5f333fcff2d158c2b3402ed6bc90d1051c446c5ce01a",
+      "run.log": "db67ff4772fae32670df55c4c3624732e3ef161b1fe60aa71f8f2526363f0855",
+      "snapshot.html": "022c25f171d11a7b5c1f7afde40388bbbb11e9303bc899cae4faa69d966f83c3"
+    },
+    "26": {
+      "audit.json": "7b8d0588f925355b57f40a5d7899b218569da17bd6a4a147422370634026168f",
+      "baseline_source.json": "f58281dc51191382e455478ff649cf83ecc1a277a7ec20af1bc4f5cdc1c2059f",
+      "documents/[.txt": "613510ec62f1788cf2c77c37a356860cfb8974d408b4a49aeeca51361b320a57",
+      "documents/[_19038fdc.txt": "19038fdc4bd4ded0e6fc65d02620e68231a4bd2310f56cca0a6e1ba29f4c75b9",
+      "documents/[_790c2ea8.txt": "790c2ea8b27ca7ee04dd69293c25db684f75741fce8e2129589be3eaa82068aa",
+      "documents/[_b1b835d8.txt": "b1b835d8caa0fa3d16d1db5239e346e715aa8210ebce109e8c320e30d5d6d355",
+      "documents/declare $mep.txt": "9ea1977584aee44f2b5d1747646f5aad2a2a1161c4a8a93c7fbc3637baee88b4",
+      "documents/declare $mep_a7b06f04.txt": "a7b06f0445bcbbaa370ea8ab36abd43e0a255fe969c67e0ac9633c9a12ae53b2",
+      "documents/export.md": "060b8d53ad582a74030ec24c8988f707928a4c0e29adc082e687da5896e9cdda",
+      "documents/export_182ba68a.md": "182ba68a1a25dee050460a25f1e69bbf9eaf6463ccc0cd4864a4ef37e2fa44e5",
+      "documents/export_26471f40.md": "26471f405a3b778f6f1a503a1ca3957c0038ae65e82ed16d29ff43f9b229d67c",
+      "documents/export_51ada16e.md": "51ada16ec5262431af6b0ed184e117ebc1ef64407422a146c03cc396d6e3bb2f",
+      "documents/代码：.txt": "bb1bc25e60700c3094d726804b73772d9c587573465b5309da25896c5b4cf2dd",
+      "documents/代码：_27283ae9.txt": "27283ae9765f1443cbfa270357a1c125ff104626b1ad32b8935c88e5f357e6d6",
+      "documents/我们现在来到stage4，给你一份最新版的代码，你先理解一下.txt": "ac9a8def22ecd3a4bc8f5f908c5d7765cac2240d6df5878dce07d5cb04ea812a",
+      "documents/我们现在来到stage4，给你一份最新版的代码，你先理解一下_2257f4fa.txt": "2257f4faba1793848ef2cea0ea727b0191e3eb48b95138afc9611d1124f42d2b",
+      "export.md": "0c61a0a5b582d17298149cb0c80b19de177c945e1a7ad943f2025a73650e9f39",
+      "result.json": "a9638e4e6fdcd9ba58d28985933bc107fed0dfd50006b13e8a61b36589d357d0",
+      "run.log": "227a187376a4e87b421f30b8e321523d7fb30cbee7a7d08799283ecd0013757b",
+      "snapshot.html": "37d68be6fa74e26e164069f2c897827a1b3fb429cf6d7985b6e957f0b7667901"
+    }
+  }
+}

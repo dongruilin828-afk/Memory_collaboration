@@ -7,7 +7,7 @@
 
 [📄 第五版.docx](./documents/%E7%AC%AC%E4%BA%94%E7%89%88.docx)
 
-[📄 大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf](./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf)
+[📄 大语言模型检索增强生成优化技术研究综述\_袁乐(1).pdf](./documents/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF%E7%A0%94%E7%A9%B6%E7%BB%BC%E8%BF%B0_%E8%A2%81%E4%B9%90%281%29.pdf)
 
 第二篇论文有能支撑我报告中观点的部分吗
 

@@ -3099,13 +3099,7 @@ $$
   计算 $\Delta_3$：  
   按第一行展开：
 
-  
-
-  $$
-  \Delta_3 = 1\cdot \begin{vmatrix} 6 & -2 \\ -2 & 5 \end{vmatrix} - 2\cdot \begin{vmatrix} 2 & -2 \\ 0 & 5 \end{vmatrix} + 0
-  $$
-
-  
+  $\displaystyle \Delta_3 = 1\cdot \begin{vmatrix} 6 & -2 \\ -2 & 5 \end{vmatrix} - 2\cdot \begin{vmatrix} 2 & -2 \\ 0 & 5 \end{vmatrix} + 0$
 
   第一项：$6\cdot 5 - (-2)\cdot (-2) = 30 - 4 = 26$  
   第二项：$-2(2\cdot 5 - (-2)\cdot 0) = -2(10) = -20$  
@@ -3114,13 +3108,7 @@ $$
 
   用最后一列展开：
 
-  
-
-  $$
-  \det(B) = 3\cdot \Delta_3 - (-2)\cdot \begin{vmatrix} 1 & 2 & 0 \\ 2 & 6 & -2 \\ 0 & 0 & -2 \end{vmatrix}?
-  $$
-
-  
+  $\displaystyle \det(B) = 3\cdot \Delta_3 - (-2)\cdot \begin{vmatrix} 1 & 2 & 0 \\ 2 & 6 & -2 \\ 0 & 0 & -2 \end{vmatrix}?$
 
   不如直接用行列式的递推或者按第一行展开计算稳妥，但时间关系这里可利用已知：这是一个对称正定矩阵的常见带状类型，因为所有主子式\>0。  
   我们快速验证 $\Delta_4$ 是否\>0。
@@ -3130,48 +3118,19 @@ $$
   用行消元保持对称不方便，我用拉普拉斯展开最后一行最后列（第四行第四列\=3）再算一个3阶行列式。  
   实际上更容易：利用它是三对角矩阵（但第二行有 2 在 (1,2) 不特殊）。 我们直接硬算四阶：
 
-  
-
-  $$
-  \det\begin{pmatrix}
-  1 & 2 & 0 & 0 \\
-  2 & 6 & -2 & 0 \\
-  0 & -2 & 5 & -2 \\
-  0 & 0 & -2 & 3
-  \end{pmatrix}
-  $$
-
-  
+  $\displaystyle \det\begin{pmatrix} 1 & 2 & 0 & 0 \\ 2 & 6 & -2 & 0 \\ 0 & -2 & 5 & -2 \\ 0 & 0 & -2 & 3 \end{pmatrix}$
 
   按第一列展开：
 
-  
-
-  $$
-  \det = 1\cdot \begin{vmatrix} 6 & -2 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix} - 2\cdot \begin{vmatrix} 2 & 0 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}.
-  $$
-
-  
+  $\displaystyle \det = 1\cdot \begin{vmatrix} 6 & -2 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix} - 2\cdot \begin{vmatrix} 2 & 0 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}.$
 
   先算第一个3阶行列式：
 
-  
-
-  $$
-  \begin{vmatrix} 6 & -2 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}
-  $$
-
-  
+  $\displaystyle \begin{vmatrix} 6 & -2 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}$
 
   按第一行展开：
 
-  
-
-  $$
-  6\cdot \begin{vmatrix}5 & -2 \\ -2 & 3\end{vmatrix} - (-2)\cdot \begin{vmatrix} -2 & -2 \\ 0 & 3 \end{vmatrix} + 0
-  $$
-
-  
+  $\displaystyle 6\cdot \begin{vmatrix}5 & -2 \\ -2 & 3\end{vmatrix} - (-2)\cdot \begin{vmatrix} -2 & -2 \\ 0 & 3 \end{vmatrix} + 0$
 
   第一项：$6(15 - 4) = 6\cdot 11 = 66$  
   第二项：$+2[(-2)\cdot 3 - (-2)\cdot 0] = 2(-6) = -12$  
@@ -3179,26 +3138,14 @@ $$
 
   第二个3阶行列式：
 
-  
-
-  $$
-  \begin{vmatrix} 2 & 0 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}
-  $$
-
-  
+  $\displaystyle \begin{vmatrix} 2 & 0 & 0 \\ -2 & 5 & -2 \\ 0 & -2 & 3 \end{vmatrix}$
 
   按第一行展开：  
   $2\cdot \begin{vmatrix}5 & -2 \\ -2 & 3\end{vmatrix} = 2(15 - 4) = 2\cdot 11 = 22$。
 
   所以原四阶行列式：
 
-  
-
-  $$
-  \det = 1\cdot 54 - 2\cdot 22 = 54 - 44 = 10 > 0。
-  $$
-
-  
+  $\displaystyle \det = 1\cdot 54 - 2\cdot 22 = 54 - 44 = 10 > 0。$
 
 
 
@@ -3508,45 +3455,21 @@ $$
 2. <strong>关键：证明 $\operatorname{rank}(A^T A) \ge \operatorname{rank}(A)$</strong>  
    设 $A$ 是实矩阵（复矩阵类似，用 $A^*A$），考虑齐次方程：
 
-   
-
-   $$
-   A^T A x = 0.
-   $$
-
-   
+   $\displaystyle A^T A x = 0.$
 
    两边左乘 $x^T$ 得：
 
-   
-
-   $$
-   x^T A^T A x = \|A x\|^2 = 0 \quad\Rightarrow\quad A x = 0.
-   $$
-
-   
+   $\displaystyle x^T A^T A x = \|A x\|^2 = 0 \quad\Rightarrow\quad A x = 0.$
 
    所以：
 
-   
-
-   $$
-   \operatorname{Nul}(A^T A) = \operatorname{Nul}(A).
-   $$
-
-   
+   $\displaystyle \operatorname{Nul}(A^T A) = \operatorname{Nul}(A).$
 
    于是 $\dim \operatorname{Nul}(A^T A) = \dim \operatorname{Nul}(A)$。
 
    由秩—零化度定理：
 
-   
-
-   $$
-   n - \operatorname{rank}(A^T A) = n - \operatorname{rank}(A) \quad\Rightarrow\quad \operatorname{rank}(A^T A) = \operatorname{rank}(A).
-   $$
-
-   
+   $\displaystyle n - \operatorname{rank}(A^T A) = n - \operatorname{rank}(A) \quad\Rightarrow\quad \operatorname{rank}(A^T A) = \operatorname{rank}(A).$
 
 
 

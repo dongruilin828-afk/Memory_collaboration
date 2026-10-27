@@ -5,6 +5,6 @@
 [19] 正在等待 DeepSeek 对话内容渲染...
 [19] 正在检查并下载页面中的图片资产...
 [19] 图片资产处理完成：发现 0 个引用，去重并过滤装饰图后 0 个，成功下载或复用 0 个，耗时 0.0 秒。
-[19] 文档附件处理完成：发现 0 个可用引用，成功下载或复用 0 个，耗时 0.0 秒。
+[19] 文档附件处理完成：发现 0 个可用引用，成功下载或复用 0 个，耗时 0.1 秒。
 [19] 检测到 DeepSeek 对话格式，使用专用解析器。
-[19] 完成：{"case": "19", "question": 10, "title": "含公式：有限集可列性辨析", "declared_route": "分享页", "route": "分享页", "url": "https://chat.deepseek.com/share/pakbof30bo2syhpj4m", "input_issue": "", "messages": 6, "error": null, "warnings": [], "elapsed": 11.238973000001351, "images": 0, "documents": 0}
+[19] 完成：{"case": "19", "question": 10, "title": "含公式：有限集可列性辨析", "declared_route": "分享页", "route": "分享页", "url": "https://chat.deepseek.com/share/pakbof30bo2syhpj4m", "input_issue": "", "messages": 6, "error": null, "warnings": [], "elapsed": 14.513129399994796, "images": 0, "documents": 0}

@@ -5,9 +5,9 @@
 
 ## 🔵 👤 用户提问
 
-[📄 \[.txt](./documents/%5B.txt)
+[📄 &#91;.txt](./documents/%5B.txt)
 
-[📄 \[.txt](./documents/%5B_b1b835d8.txt)
+[📄 &#91;.txt](./documents/%5B_b1b835d8.txt)
 
 比较两份文本一致性
 
@@ -39,9 +39,9 @@
 
 ## 🔵 👤 用户提问
 
-[📄 \[.txt](./documents/%5B_790c2ea8.txt)
+[📄 &#91;.txt](./documents/%5B_790c2ea8.txt)
 
-[📄 \[.txt](./documents/%5B_19038fdc.txt)
+[📄 &#91;.txt](./documents/%5B_19038fdc.txt)
 
 任务同上
 

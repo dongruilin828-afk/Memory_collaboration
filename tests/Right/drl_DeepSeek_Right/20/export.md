@@ -18,13 +18,7 @@
    那么<strong>有限集一定可列</strong>。  
    因为任何有限集都可以和某个自然数子集 $\{1,2,\dots,n\}$ 一一对应，也可以按顺序枚举为
 
-   
-
-   $$
-   a_1,a_2,\dots,a_n
-   $$
-
-   
+   $\displaystyle a_1,a_2,\dots,a_n$
 2. <strong>如果“可列”严格指“可数无限”，即与自然数集 $\mathbb N$ 一一对应</strong>  
    那么<strong>有限集不可列</strong>。  
    因为有限集不能和 $\mathbb N$ 建立一一对应。
@@ -61,23 +55,11 @@
 > 若集合 $A$ 能与自然数集 $\mathbb N$ 建立一一对应，则称 $A$ 为<strong>可列集</strong>。  
 > 即存在双射
 >
-> 
-> 
-> $$
-> f:\mathbb N\to A
-> $$
-> 
-> 
+> $\displaystyle f:\mathbb N\to A$
 >
 > 也就是说，$A$ 的元素可以无重复、无遗漏地排成一个无穷序列：
 >
-> 
-> 
-> $$
-> a_1,a_2,a_3,\dots
-> $$
-> 
-> 
+> $\displaystyle a_1,a_2,a_3,\dots$
 
 所以按这个一般定义：
 
@@ -146,13 +128,7 @@ $$
 * 在 ZFC 中，任何无限集都包含一个可数无限子集，因此它的基数至少是 $\aleph_0$。
 * 所以无限集的基数只能是：
 
-  
-
-  $$
-  \aleph_0,\ \aleph_1,\ \aleph_2,\dots
-  $$
-
-  
+  $\displaystyle \aleph_0,\ \aleph_1,\ \aleph_2,\dots$
 
   或者更大的基数；不可能有比 $\aleph_0$ 更小的无限基数。
 

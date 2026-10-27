@@ -392,6 +392,7 @@ def parse_messages(soup, image_map=None):
                     if deepseek_source.is_image(file):
                         parts.append(f'![{label}]({href})' if href else f'🖼️ **[用户上传图片]** `{name}`（DeepSeek 原文件未能下载）')
                     else:
+                        label = label.replace(r'\[', '&#91;').replace(r'\]', '&#93;')
                         parts.append(f'[📄 {label}]({href})' if href else f'📎 **[上传文件]** `{name}`（原文件未能下载）')
             parsed_messages.append({'role': 'User', 'content': '\n\n'.join(parts), 'source_id': original['message_id']})
             continue

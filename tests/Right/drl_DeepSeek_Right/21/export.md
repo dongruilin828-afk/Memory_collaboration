@@ -5,7 +5,7 @@
 
 ## 🔵 👤 用户提问
 
-![IMG20260928161028_8650080550728254323.webp](./images/img_1_fc523021.webp)
+![IMG20260928161028\_8650080550728254323.webp](./images/img_1_fc523021.webp)
 
 
 <hr style="border: 0; border-top: 5px solid #9333EA; margin: 48px 0 24px 0;">

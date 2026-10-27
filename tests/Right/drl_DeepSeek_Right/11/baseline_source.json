@@ -1,37 +1,24 @@
 {
   "case": "11",
   "url": "https://chat.deepseek.com/share/xxv4e99bimvt1p0uo2",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\11",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\11",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "b789f1e036c84e3453650b0d86ffb4756dfcd77f170859f889af40c70fda29ef",
-    "export.md": "0e6cca840a80232d82b2233c8dfa483fa81350922ec74a5dd4c3c860b642dae3",
-    "result.json": "fff6a46193d470760eb78b63947484be1b49f11b400f8d7acd0a457f82f51cd4",
-    "run.log": "4f66586ef54e28a9878079790e300406e58c96aaf28713f54e78bbabc38cc4f1",
-    "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834",
-    "images/img_1_e262fd84.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
-    "images/img_2_0d2969dc.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
-    "images/img_3_882c2e47.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
-    "images/img_4_864700fa.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
-    "images/img_5_67cf44c1.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
-    "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 26,
   "files": {
     "audit.json": "b789f1e036c84e3453650b0d86ffb4756dfcd77f170859f889af40c70fda29ef",
     "export.md": "0e6cca840a80232d82b2233c8dfa483fa81350922ec74a5dd4c3c860b642dae3",
-    "result.json": "fff6a46193d470760eb78b63947484be1b49f11b400f8d7acd0a457f82f51cd4",
-    "run.log": "4f66586ef54e28a9878079790e300406e58c96aaf28713f54e78bbabc38cc4f1",
-    "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834",
     "images/img_1_e262fd84.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
     "images/img_2_0d2969dc.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
     "images/img_3_882c2e47.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
     "images/img_4_864700fa.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
     "images/img_5_67cf44c1.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
-    "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
-  }
+    "images/img_6_90d0f594.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035",
+    "result.json": "3c6c4ce0c3b0c8fdf49fce6ca4bc566ef437f24d49abdc699b22caf9ec6608a3",
+    "run.log": "4bf486aed258a9c3fc5a623b5d76b3fd2a0a9f04f0132a82df2dcb0f5131280c",
+    "snapshot.html": "24598543691ee87cc1586a153cbf03fa4960fd9b4b9e52e48943fa8817760834"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

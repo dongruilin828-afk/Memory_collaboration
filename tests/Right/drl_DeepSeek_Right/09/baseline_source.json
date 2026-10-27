@@ -1,27 +1,19 @@
 {
   "case": "09",
   "url": "https://chat.deepseek.com/share/m9lqbh6xyvlbjuysdc",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\09",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\09",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "addd75d8f738332dd126918a005bde2f42c1f4d56dd97a63c35f843a908f9f35",
-    "export.md": "e46523eed6a948bd982cdf1cd7b029252390c68fbbbefe87876a6c64fdc4cbb8",
-    "result.json": "b6a619ee767ad014e32f0028bd1b6c9f70f6d9c9ea7afbd368aca55e6f0206d7",
-    "run.log": "4c269f8dbbd71a16fbadde108f1fde01dcbd2af1312a26752d362764b4606406",
-    "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c",
-    "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 8,
   "files": {
     "audit.json": "addd75d8f738332dd126918a005bde2f42c1f4d56dd97a63c35f843a908f9f35",
     "export.md": "e46523eed6a948bd982cdf1cd7b029252390c68fbbbefe87876a6c64fdc4cbb8",
-    "result.json": "b6a619ee767ad014e32f0028bd1b6c9f70f6d9c9ea7afbd368aca55e6f0206d7",
-    "run.log": "4c269f8dbbd71a16fbadde108f1fde01dcbd2af1312a26752d362764b4606406",
-    "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c",
-    "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97"
-  }
+    "images/img_1_778692ff.webp": "9c22c6733d6f02959799ae319a3c132acc0080c2224e23bcc9fe0f7e65537b97",
+    "result.json": "8d3be0848438f8ed6d4f3e25fa1d22b10a7fae1044705d533b508235176e0367",
+    "run.log": "f1a8a812377a78be06fed442e2793d54db77a2be46b84c1da236096fc6e141b1",
+    "snapshot.html": "964b9a95a15acaab0e577ab300ba3e62e76d74bf5579a237eafb1cef54c9a69c"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

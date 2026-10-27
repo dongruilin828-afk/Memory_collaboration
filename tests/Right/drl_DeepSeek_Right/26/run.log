@@ -6,6 +6,6 @@
 [26] 正在等待 DeepSeek 对话内容渲染...
 [26] 正在检查并下载页面中的图片资产...
 [26] 图片资产处理完成：发现 0 个引用，去重并过滤装饰图后 0 个，成功下载或复用 0 个，耗时 0.0 秒。
-[26] 文档附件处理完成：发现 19 个可用引用，成功下载或复用 14 个，耗时 7.4 秒。
+[26] 文档附件处理完成：发现 19 个可用引用，成功下载或复用 14 个，耗时 34.4 秒。
 [26] 检测到 DeepSeek 对话格式，使用专用解析器。
-[26] 完成：{"case": "26", "question": 13, "title": "含多文件·含代码：两份文本完全一致", "declared_route": "私有页", "route": "私有页", "url": "https://chat.deepseek.com/a/chat/s/0d97ee2b-c2e9-4508-a18c-fd6bf2220e1c", "input_issue": "", "messages": 20, "error": null, "warnings": [], "elapsed": 38.02938220000033, "images": 0, "documents": 14}
+[26] 完成：{"case": "26", "question": 13, "title": "含多文件·含代码：两份文本完全一致", "declared_route": "私有页", "route": "私有页", "url": "https://chat.deepseek.com/a/chat/s/0d97ee2b-c2e9-4508-a18c-fd6bf2220e1c", "input_issue": "", "messages": 20, "error": null, "warnings": [], "elapsed": 67.20748829999502, "images": 0, "documents": 14}

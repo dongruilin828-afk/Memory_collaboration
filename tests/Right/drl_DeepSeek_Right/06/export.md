@@ -421,13 +421,7 @@
 
 * <strong>公式</strong>：
 
-  
-
-  $$
-  C(n, m) = \frac{n!}{m!(n-m)!}
-  $$
-
-  
+  $\displaystyle C(n, m) = \frac{n!}{m!(n-m)!}$
 
   其中 $n!$ 为阶乘，且 $0! = 1$。
 * <strong>例子</strong>：
@@ -474,17 +468,7 @@
 * <strong>$n$ 可以为 0</strong>，但需满足 $m \leq n$ 且 $m \geq 0$。
 * <strong>常见取值</strong>：
 
-  
-
-  $$
-  C(0, m) = 
-  \begin{cases} 
-  1 & \text{如果 } m = 0, \\
-  0 & \text{如果 } m > 0.
-  \end{cases}
-  $$
-
-  
+  $\displaystyle C(0, m) =  \begin{cases}  1 & \text{如果 } m = 0, \\ 0 & \text{如果 } m > 0. \end{cases}$
 
 
 

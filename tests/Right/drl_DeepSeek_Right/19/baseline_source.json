@@ -1,26 +1,18 @@
 {
   "case": "19",
   "url": "https://chat.deepseek.com/share/pakbof30bo2syhpj4m",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\19",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\19",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
-  "has_formulas": true,
-  "formula_status": "display_pending_fix_content_correct",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "a67239f0f158ecb7063eb419f0ad0b2be9853443bba1faab2c4f160b942e177b",
-    "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
-    "result.json": "fc959e2b7eb87135fa6196ece7fa34db9ee80970026ceb81e70b09dc424e2b43",
-    "run.log": "580b80387a75a2bc77aa00e26a39c724174ead5de6fdb1671ad4aea7f5dadc9a",
-    "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 6,
   "files": {
     "audit.json": "a67239f0f158ecb7063eb419f0ad0b2be9853443bba1faab2c4f160b942e177b",
-    "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
-    "result.json": "fc959e2b7eb87135fa6196ece7fa34db9ee80970026ceb81e70b09dc424e2b43",
-    "run.log": "580b80387a75a2bc77aa00e26a39c724174ead5de6fdb1671ad4aea7f5dadc9a",
-    "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71",
-    "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
-  }
+    "export.md": "7663468ed6e7e210d3c2ceb026b1217a7a09c5b471ae62def25190b9f46d7d4a",
+    "result.json": "b29b6e348bb493f83714bce27f53601ca62c4cbb6888445a18744229a66ab452",
+    "run.log": "5f6503043ae2513c996ebab7cacb71017c523b8a8d98c3fc9c59373f2ec884ee",
+    "snapshot.html": "240bf61421d0c74d87302caac8bc33ba061b8f5ae8d233aeb6375012af679b71"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "visual_approved"
 }

@@ -1,25 +1,18 @@
 {
   "case": "01",
   "url": "https://chat.deepseek.com/share/6dkkhnkldu7b1s308m",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\01",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\01",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "a3bd41416983f3ebd559ac7d9eda08971520b6c9a4d00830ea6c5d62d0edda25",
-    "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
-    "result.json": "a5af231fb9bc982a7c48c6b4f1802c100b3435ac5d4ca2f95c2e65255f3d3296",
-    "run.log": "f7d6959178d14d60c2f7782a78a3d34c72f168b8ea48e9a7d6fa4b61a0e1c437",
-    "snapshot.html": "e10a22ef6c87a0fc7049f29082c08c2df8aa59067eb19583a5f073ab7cf8f56e"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 24,
   "files": {
     "audit.json": "a3bd41416983f3ebd559ac7d9eda08971520b6c9a4d00830ea6c5d62d0edda25",
     "export.md": "8a149748b9ac117113472e7a6f5282ec4ead5de2e28977709fa022a790addbae",
-    "result.json": "a5af231fb9bc982a7c48c6b4f1802c100b3435ac5d4ca2f95c2e65255f3d3296",
-    "run.log": "f7d6959178d14d60c2f7782a78a3d34c72f168b8ea48e9a7d6fa4b61a0e1c437",
+    "result.json": "0e3635334ba2ff7cf77bcee64141144b1dd4c539bd66e34e02e08666e14978ea",
+    "run.log": "bcead3cc1b62957298734dca2911a0ca7e5bd07a1c70497fa773e1e1efb36e01",
     "snapshot.html": "e10a22ef6c87a0fc7049f29082c08c2df8aa59067eb19583a5f073ab7cf8f56e"
-  }
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

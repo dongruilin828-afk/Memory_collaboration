@@ -1,29 +1,20 @@
 {
   "case": "15",
   "url": "https://chat.deepseek.com/share/i0bs2ajzzmvcsgv3dp",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\15",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\15",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "1d7f3afe35a00437a6130aaef4453cdc06d688c1eb113728a541ae3a9e492c97",
-    "export.md": "004dde6b85fd5dcf42adbb64648ee207ca7c1cd316b760f131b7be875fdf27ea",
-    "result.json": "51b8d4ff1ed9f1202e0a7d56417168b60b174dca995f27a4f0857f38e5c41e23",
-    "run.log": "6212a2ee7b8cc6dc5bb16deaad0c06b358dcf4e2c2ee2704a4adc69ca69b33a3",
-    "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0",
-    "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
-    "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 6,
   "files": {
     "audit.json": "1d7f3afe35a00437a6130aaef4453cdc06d688c1eb113728a541ae3a9e492c97",
-    "export.md": "004dde6b85fd5dcf42adbb64648ee207ca7c1cd316b760f131b7be875fdf27ea",
-    "result.json": "51b8d4ff1ed9f1202e0a7d56417168b60b174dca995f27a4f0857f38e5c41e23",
-    "run.log": "6212a2ee7b8cc6dc5bb16deaad0c06b358dcf4e2c2ee2704a4adc69ca69b33a3",
-    "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0",
     "documents/AI_memory_export.md": "fafc4165bf5450534530c1f08389d6f86fb36ae0955117a04dbb78b3054c9114",
-    "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
-  }
+    "export.md": "6420188c9b3a0576812b01a3eb25d00a01193ff04f2552f1c05f6d42db705626",
+    "images/img_1_a07059c4.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32",
+    "result.json": "064a10df15c68c06a5580b054d3dd8f5418adfb73e3c4b6b78796249aa59ecab",
+    "run.log": "4f60a381a1f67051f45844f6ac18117dabc58d34020bf1de6ef9fb638240cc4c",
+    "snapshot.html": "d65ac106d795e9b898a1a7cede0da63991f01c73c857847db15c00f13e54b5a0"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

@@ -117,10 +117,17 @@ class DeepSeekSourceTests(unittest.TestCase):
         self.assertEqual(parsed[0]['content'].count('原文件未能下载'), 1)
 
     def test_filename_brackets_do_not_break_the_attachment_label(self):
-        attachment=dict(id=FILE1,file_name='[.txt',file_size=10,is_image=False)
-        parsed=deepseek.parse_messages(BeautifulSoup(html([message('比对',[attachment])]),'html.parser'),
-                                       {'deepseek-file:'+FILE1:'./documents/a.txt'})
-        self.assertIn('[📄 \\[.txt](./documents/a.txt)',parsed[0]['content'])
+        from markdown_it import MarkdownIt
+        for name in ['[.txt', '].txt', '[版本].txt']:
+            with self.subTest(name=name):
+                attachment=dict(id=FILE1,file_name=name,file_size=10,is_image=False)
+                parsed=deepseek.parse_messages(BeautifulSoup(html([message('比对',[attachment])]),'html.parser'),
+                                               {'deepseek-file:'+FILE1:'./documents/a.txt'})
+                content=parsed[0]['content']
+                self.assertNotIn(r'\[',content)
+                self.assertNotIn(r'\]',content)
+                links=BeautifulSoup(MarkdownIt().render(content),'html.parser').find_all('a')
+                self.assertEqual([(a.get_text(),a['href']) for a in links], [('📄 '+name,'./documents/a.txt')])
 
     def test_collapsed_input_fallback_does_not_strip_indentation(self):
         soup=BeautifulSoup('<div data-virtual-list-item-key="1"><div class="ds-message"><div class="ds-collapsible-text"><span>a\n\n    b\n</span></div></div></div>', 'html.parser')

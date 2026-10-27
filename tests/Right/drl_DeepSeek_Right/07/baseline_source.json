@@ -1,39 +1,19 @@
 {
   "case": "07",
-  "question": 4,
   "url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
-  "original_url": "https://chat.deepseek.com/share/fxkhnxz4tt2u6qxbfk",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek07重试",
-  "reason": "用户明确批准；新版分享导出与已核验私有入口的236条消息及图片内容完全一致。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\07",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
   "messages": 236,
   "files": {
+    "audit.json": "485bfee71e50225959a972fdc65c4b87720613f5989425625873abb0315a4183",
     "export.md": "eb25e79e451fe6581e31172aa49ad49351d2d82a081b2c39e72d0638ac9653fd",
-    "result.json": "47e495fd28b1ee0d5e76f734758a8ff5b9547eb1f409dd9a9f296a4932cd63db",
-    "verification.json": "eadff0d84e1350b2719aae7cbfd84f6cf3db44068bc3dcd5619306a90556c590",
-    "images/deepseek_5569e0e8-4b7a-4f08-9eb1-2998784e64fa_f6fc49b0.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c"
+    "images/deepseek_5569e0e8-4b7a-4f08-9eb1-2998784e64fa_f6fc49b0.webp": "f6fc49b085f374497133d83a2e2e50edc4631b398cda8d1f12dc9f7fcfffc27c",
+    "result.json": "86baff6ba50c2ecfebbc9ce85d411768ed6b7b360d157f45fd3ebfb15f211dd0",
+    "run.log": "3ed9a155fbdad5dcbc4f549ea058415a01745e300dc52721ad2c16a56dc056d5",
+    "snapshot.html": "67d31dd8cd22e0861d22c9eabea079ab2c835bac8ffa5bb0742b767c6e218923"
   },
-  "original_files_unchanged": false,
-  "export_transformation": "仅将图片链接改为标准目录内 images/ 相对路径；正文、缩进、空行及换行编码保持源文件原样。",
-  "superseded": {
-    "case": "07",
-    "question": 4,
-    "url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
-    "original_url": "https://chat.deepseek.com/share/4133abpjsbgjlmut6n",
-    "original_directory": "D:\\大学\\复旦大学\\课程\\大二上\\强国之路\\tests\\Right\\02_DeepSeek_Right\\15",
-    "reason": "同一入口 URL",
-    "files": {
-      "export.md": "e27041a136bf325d143e88ff07c7451b1b355f4f43457bc4b96406c6564c75c7",
-      "result.json": "1c4c1a3feb9a441a151b3550766dbf82629a2c678c964fa5f279eca9d013b95d",
-      "run.log": "c648d32e9f5af53816fe7e444c927dde9126fe96b9be673e7c104ac3878d3b6e",
-      "snapshot.html": "063fb657a4063aa6874f49f2692dce7761169afb4ccc87e6491e4732182b7104"
-    },
-    "original_files_unchanged": true
-  },
-  "stale_evidence_removed": [
-    "snapshot.html",
-    "run.log"
-  ],
-  "evidence_note": "新版 GUI 未保存分享页原始 HTML/日志，不保留旧114条快照冒充新版证据；原始旧标准仍在02_DeepSeek_Right/15。",
-  "manual_review": "2026-10-27 用户人工核对：非公式部分完全一致；既有新版07标准保留。"
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

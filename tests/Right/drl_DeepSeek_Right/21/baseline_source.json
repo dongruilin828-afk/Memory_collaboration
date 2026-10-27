@@ -1,27 +1,19 @@
 {
   "case": "21",
   "url": "https://chat.deepseek.com/share/2tlxcim17pawzthx5v",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\21",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\21",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "完整人工认可结果",
-  "has_formulas": false,
-  "formula_status": "not_applicable",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "7afc0ec8a337bfb681779ca42cae832ed9e08e771ace74b3db95a9d3fe25d933",
-    "export.md": "7e790db79d8aa0faf028f6ef39f646ba8b677e3313507bccaa62f9c95636ae01",
-    "result.json": "9baa55280fc7b6dda9905bf7c661762b8481b29753639964a7ffe884d226c241",
-    "run.log": "34d267b7e99ee493448496bcec8c21a293b41038da346654d451bff427b2cb50",
-    "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b",
-    "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 2,
   "files": {
     "audit.json": "7afc0ec8a337bfb681779ca42cae832ed9e08e771ace74b3db95a9d3fe25d933",
-    "export.md": "7e790db79d8aa0faf028f6ef39f646ba8b677e3313507bccaa62f9c95636ae01",
-    "result.json": "9baa55280fc7b6dda9905bf7c661762b8481b29753639964a7ffe884d226c241",
-    "run.log": "34d267b7e99ee493448496bcec8c21a293b41038da346654d451bff427b2cb50",
-    "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b",
-    "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2"
-  }
+    "export.md": "bf1d8c056d19316b6bce7d5fe32125c0621d13815118166c146a596ef1d3c127",
+    "images/img_1_fc523021.webp": "c5cdc233278bf801abf0c8da2cbc4257bc489a72890a378ba94e734594bd0ff2",
+    "result.json": "e366b21b233f90dec510eed85b7242b20b590bc9c831df8f6a82619aad8988c1",
+    "run.log": "c23b9625886a01132eae13f4558dcb05fbeae659c06c1e6ca2ba862ab9076e7b",
+    "snapshot.html": "db3b0228b823e7c3396005ebe8b9fd2ec402a1d59a2edc2d1857f1d7e19c8b8b"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "not_applicable"
 }

@@ -1,26 +1,18 @@
 {
   "case": "04",
   "url": "https://chat.deepseek.com/a/chat/s/e39a0607-3dd9-47b9-ac1e-6156254c809a",
-  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\image_fix_rerun\\04",
-  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_月华公式全量_20261027_153755\\04",
+  "reason": "用户人工核验本轮除25/26外全部通过，明确要求替换标准答案。",
   "approved_date": "2026-10-27",
-  "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
-  "has_formulas": true,
-  "formula_status": "display_pending_fix_content_correct",
-  "moved_without_content_changes": true,
-  "original_files_sha256": {
-    "audit.json": "0145b86fcb3c136853b5df839a28ddf0bbce88fc6a66b419e9a4ec109064937f",
-    "export.md": "5ac711c3c5ceb823d9116e44d1d08c9cd2b862af3c94dc5fa8240a191858cfac",
-    "result.json": "8add8dbffbec948818b271e773657d03649e00ba3d39b8547fbdf9ee1b163dfe",
-    "run.log": "5cdf187e0843edddf04d4eaff99c9afe9f7afeb7cb9eb42d8fdda227e00ea388",
-    "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b"
-  },
+  "approval_scope": "完整结果含公式显示，用户人工验收通过",
+  "messages": 28,
   "files": {
     "audit.json": "0145b86fcb3c136853b5df839a28ddf0bbce88fc6a66b419e9a4ec109064937f",
     "export.md": "5ac711c3c5ceb823d9116e44d1d08c9cd2b862af3c94dc5fa8240a191858cfac",
-    "result.json": "8add8dbffbec948818b271e773657d03649e00ba3d39b8547fbdf9ee1b163dfe",
-    "run.log": "5cdf187e0843edddf04d4eaff99c9afe9f7afeb7cb9eb42d8fdda227e00ea388",
-    "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b",
-    "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
-  }
+    "result.json": "d3c643319fe3ff7ec36cceb1bd6eba680140851ffddfa048852444cdf764c5ed",
+    "run.log": "105ded0f2e1aa34395e897b02ccfddc2eb8b765c9f115a9f61fd57fcf0c910b3",
+    "snapshot.html": "7a1f562b3db9dae10c17f9ee485275c22d1b81211320a126efb1d887815ef35b"
+  },
+  "copied_without_content_changes": true,
+  "formula_status": "visual_approved"
 }
