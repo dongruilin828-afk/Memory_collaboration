@@ -102,6 +102,9 @@ from gui.theme import (
     GENERATE_BUTTON_LABEL,
     GENERATION_SOURCE_LABELS,
     REGENERATE_BUTTON_LABEL,
+    SETTINGS_SECTION_PADX,
+    SETTINGS_PANEL_PADX,
+    SETTINGS_PAGE_PADX,
     _logo_png_path,
     _navigation_icon_path,
     _round_rectangle,
@@ -472,7 +475,8 @@ class AIMemoryGUI:
         # Include page, section, panel/border and API-page padding; placed rows
         # do not contribute their requested width to their ancestors.
         api_width = (max(row.winfo_reqwidth() for row in api_rows.values())
-                     + 2 * (24 + 80 + 24 + 1 + 18)) if api_rows else 0
+                     + 2 * (24 + SETTINGS_SECTION_PADX + SETTINGS_PANEL_PADX
+                            + 1 + SETTINGS_PAGE_PADX)) if api_rows else 0
         if api_rows and not settings_page._drag_state["active"]:
             settings_page._layout_api_rows()
         required_content_width = max(self._generation_section.winfo_reqwidth() + 104, api_width)
@@ -2674,15 +2678,15 @@ class AIMemoryGUI:
         page.configure(bg=COLOR_BG_APP)
 
         section = tk.Frame(page, bg=COLOR_BG_APP)
-        section.pack(fill=tk.BOTH, expand=True, padx=80, pady=(24, 24))
+        section.pack(fill=tk.BOTH, expand=True, padx=SETTINGS_SECTION_PADX, pady=16)
 
         tk.Label(
             section, text="设置", font=FONT_TITLE,
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP, anchor="w",
-        ).pack(fill=tk.X, pady=(0, 16))
+        ).pack(fill=tk.X, pady=(0, 12))
 
         panel = tk.Frame(
-            section, bg=COLOR_CARD, padx=24, pady=18,
+            section, bg=COLOR_CARD, padx=SETTINGS_PANEL_PADX, pady=16,
             highlightthickness=1, highlightbackground=COLOR_BORDER,
             highlightcolor=COLOR_BORDER, takefocus=False,
         )
@@ -2694,8 +2698,8 @@ class AIMemoryGUI:
         tabs.pack(fill=tk.X, pady=(0, 10))
         page_host = tk.Frame(panel, bg=COLOR_CARD)
         page_host.pack(fill=tk.BOTH, expand=True)
-        api_page = tk.Frame(page_host, bg=COLOR_CARD, padx=18, pady=14)
-        data_page = tk.Frame(page_host, bg=COLOR_CARD, padx=18, pady=14)
+        api_page = tk.Frame(page_host, bg=COLOR_CARD, padx=SETTINGS_PAGE_PADX, pady=12)
+        data_page = tk.Frame(page_host, bg=COLOR_CARD, padx=SETTINGS_PAGE_PADX, pady=12)
         editor_host = tk.Frame(page_host, bg=COLOR_CARD)
         api_page.pack(fill=tk.BOTH, expand=True)
         active_settings_page = {"key": "api"}

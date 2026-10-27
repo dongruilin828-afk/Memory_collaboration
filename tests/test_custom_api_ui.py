@@ -116,6 +116,53 @@ class CustomAPIUITests(unittest.TestCase):
         callback()
         self.assertEqual(self.saved, [])
 
+    def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
+        self.root.geometry("650x480")
+        dialog = self.dialog()
+        self.root.update()
+        canvas = dialog.scroll_canvas
+        form = canvas.winfo_children()[0]
+        label = next(widget for widget in form.winfo_children() if isinstance(widget, tk.Label))
+        outer_wheels = []
+        self.root.bind("<MouseWheel>", lambda _e: outer_wheels.append(True))
+        footer_y = dialog.save_button.winfo_rooty()
+        label.event_generate("<MouseWheel>", delta=-120)
+        positions = [canvas.canvasy(0)]
+        for _ in range(12):
+            layouts.GUIResponsiveGeometryTests._flush(self.root, 20)
+            positions.append(canvas.canvasy(0))
+        self.assertGreater(len(set(positions)), 3)
+        self.assertEqual(positions, sorted(positions))
+        self.assertAlmostEqual(positions[-1] - positions[0], 48, delta=1)
+        self.assertEqual(dialog.save_button.winfo_rooty(), footer_y)
+        protocol = dialog.variables["protocol"].get()
+        dialog.entries["protocol"].event_generate("<MouseWheel>", delta=-120)
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 220)
+        self.assertGreater(canvas.canvasy(0), positions[-1])
+        self.assertEqual(dialog.variables["protocol"].get(), protocol)
+        self.assertEqual(outer_wheels, [])
+
+    def test_small_wheel_deltas_accumulate_and_close_cancels_scroll_callbacks(self):
+        self.root.geometry("650x480")
+        dialog = self.dialog()
+        self.root.update()
+        canvas = dialog.scroll_canvas
+        start = canvas.canvasy(0)
+        for _ in range(10):
+            dialog.key_entry.event_generate("<MouseWheel>", delta=-1)
+            layouts.GUIResponsiveGeometryTests._flush(self.root, 20)
+        self.assertAlmostEqual(canvas.canvasy(0) - start, 4, delta=1)
+        before = canvas.yview()
+        dialog.key_entry.event_generate("<MouseWheel>", delta=0)
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 25)
+        self.assertEqual(canvas.yview(), before)
+        errors = []
+        self.root.report_callback_exception = lambda *args: errors.append(args)
+        dialog.key_entry.event_generate("<MouseWheel>", delta=-120)
+        dialog.close()
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 40)
+        self.assertEqual(errors, [])
+
     def test_settings_editor_saves_to_vault_and_updates_real_priority(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
         settings_store = layouts._SettingsStore()
