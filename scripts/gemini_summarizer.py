@@ -1084,6 +1084,9 @@ class SiliconFlowGateway:
                 "thinking": {"type": "enabled"},
             })
         elif self.config.provider == "custom":
+            # Kimi 官方接口固定温度，省略参数以使用该模型的默认值。
+            if urlparse(self._api_base).hostname in {"api.moonshot.cn", "api.moonshot.ai"}:
+                payload.pop("temperature")
             if self.config.json_mode != "prompt":
                 payload["response_format"] = (
                     {"type": "json_schema", "json_schema": {"name": "summary_response", "strict": True, "schema": schema}}
