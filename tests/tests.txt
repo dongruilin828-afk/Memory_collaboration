@@ -127,41 +127,24 @@ DeepSeek：
 
 Gemini：
 
-含图片：
-1. 分享链接：https://share.gemini.google/pjqqn6qvUB6M
-网页链接：https://gemini.google.com/app/9aa52a89087a7fdc
-2. 分享链接：https://share.gemini.google/qPCQf7RxJpln
-网页链接：https://gemini.google.com/app/25206e116e95657b
-3. 分享链接：https://share.gemini.google/8JQy4nayqTxW
-网页链接：https://gemini.google.com/app/79254554f8cae5bb
-
-含视频：
-分享链接：https://share.gemini.google/MlzBdrSeaSA9
-网页链接：https://gemini.google.com/app/dc93107f5b84c529
-
-超长含图：
-分享链接：https://share.gemini.google/YHIhw3SCWFZ7
-网页链接：https://gemini.google.com/app/74bdac5e23ee872f
-
-含公式：
-分享链接：https://share.gemini.google/QbI7BSGJmBrZ
-网页链接：https://gemini.google.com/app/b9ca4895bcf98c0c
-
-含文档和代码：
-1. 分享链接：https://share.gemini.google/N3NeBQVhFWIT
-网页链接：https://gemini.google.com/gem/801fad40429f/058c89ea8d4f09b5
-2. 分享链接：https://share.gemini.google/YINsLdHDRoWg
-网页链接：https://gemini.google.com/gem/801fad40429f/bf49992eb84f9bb3
-
-含文档：
-1. 分享链接：https://share.gemini.google/jGwTR2BHtPH7
-网页链接：https://gemini.google.com/gem/801fad40429f/dac313bedc53ce2c
-2. 分享链接：https://share.gemini.google/1BQu05r14JML
-网页链接：https://gemini.google.com/app/af95f37cadb0389
-
-含交互：
-分享链接：https://share.gemini.google/9JuZLH5UhwNF
-网页链接：https://gemini.google.com/app/80e5717a57f1859f
+1. 分享链接：https://share.gemini.google/HymSbEybiIJM
+网页链接：https://gemini.google.com/app/ac82cb7f8d13b59c
+2. 分享链接：https://share.gemini.google/CUt2oGPW7CVu
+网页链接：https://gemini.google.com/app/c51893873d0cdb6f
+3. 分享链接：https://share.gemini.google/Il3J4d20WfhV
+网页链接：https://gemini.google.com/app/1ce28de499699970
+4. 分享链接：https://share.gemini.google/FAmmDwFBwSba
+网页链接：https://gemini.google.com/app/2277e345714d57b1
+5. 分享链接：https://share.gemini.google/OuIfNykRILLv
+网页链接：https://gemini.google.com/app/ebd8f9cf4e7706f2
+6. 分享链接：https://share.gemini.google/NqKPsocx1aFo
+网页链接：https://gemini.google.com/app/081c2c6a667f6e5a
+7. 分享链接：https://share.gemini.google/XSTuvlOkdqRJ
+网页链接：https://gemini.google.com/app/c02dce38395ed9a3
+8. 分享链接：https://share.gemini.google/Goq6O7BLDArj
+网页链接：https://gemini.google.com/app/058650b27dade1e6
+9. 分享链接：https://share.gemini.google/WOiitYUO9Unf
+网页链接：https://gemini.google.com/app/b37433958e0701f7
 
 
 
@@ -259,3 +242,7 @@ Grok：
 含公式：
 分享链接：https://grok.com/share/bGVnYWN5_d878cb7b-a295-4047-a1ca-987a24c34c50
 网页链接：https://grok.com/c/ceaf0b7a-528e-4791-87d0-f1e0e540a273?rid=9b5f9418-2e41-46bb-8062-fa8b3382fa5b
+
+超长对话：
+分享链接：https://grok.com/share/bGVnYWN5_5e207377-57b5-4abc-808d-8e91a1b8f49a
+网页链接：https://grok.com/c/977c57a6-8ea2-464e-a817-ce7459b29c28?rid=5ced05f5-8d6a-4250-95f4-f6b793733783
