@@ -4972,17 +4972,30 @@ async def _close_browser_context_safely(
     logger: Optional[Callable[[str], None]] = None,
 ) -> None:
     """关闭浏览器；驱动已断开时保留此前结果并记录清理警告。"""
-    try:
-        await asyncio.wait_for(context.close(), timeout=10)
-    except Exception as error:
-        warning = f"浏览器清理异常（已保留此前抓取结果）：{error}"
-        if warning not in warnings:
-            warnings.append(warning)
-        if logger:
-            try:
-                logger(warning)
-            except Exception:
-                pass
+    async def close():
+        try:
+            await asyncio.wait_for(context.close(), timeout=10)
+        except Exception as error:
+            warning = f"浏览器清理异常（已保留此前抓取结果）：{error}"
+            if warning not in warnings:
+                warnings.append(warning)
+            if logger:
+                try:
+                    logger(warning)
+                except Exception:
+                    pass
+
+    closing = asyncio.create_task(close())
+    cancelled = False
+    while not closing.done():
+        try:
+            await asyncio.shield(closing)
+        except asyncio.CancelledError:
+            # Closing releases the persistent profile for the next generation.
+            cancelled = True
+    closing.result()
+    if cancelled:
+        raise asyncio.CancelledError()
 
 
 def _unavailable_asset_name(reference: str, fallback: str) -> str:
@@ -6882,6 +6895,8 @@ def generate_output_bundle(
     source_platform: Optional[str] = None,
     source_name: Optional[str] = None,
     source_dir: Optional[Path] = None,
+    cancel_check: Callable[[], None] = lambda: None,
+    cancel_event: Any = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -6890,6 +6905,19 @@ def generate_output_bundle(
     兼容命令行式分类选择。普通版和详细版复用同一选择结果；极简版和仅抓取
     模式不会触发选择。
     """
+    def check_cancelled():
+        if cancel_event is not None and cancel_event.is_set():
+            raise asyncio.CancelledError()
+        cancel_check()
+
+    check_cancelled()
+    report_progress = progress
+
+    def progress(message):
+        check_cancelled()
+        report_progress(message)
+
+    gateway_options = {"cancel_event": cancel_event} if cancel_event is not None else {}
     if not messages:
         raise ValueError("没有可生成的对话消息。")
     if not any(bool(value) for value in modes.values()):
@@ -7024,7 +7052,9 @@ def generate_output_bundle(
             provider_override="siliconflow", model_override="Qwen/Qwen3-8B",
         )
         vision_config = replace(vision_config, max_output_tokens=min(8192, vision_config.max_output_tokens))
-        doubao_media_gateway = create_gateway(vision_config, api_key=user_api_keys["siliconflow"])
+        doubao_media_gateway = create_gateway(
+            vision_config, api_key=user_api_keys["siliconflow"], **gateway_options,
+        )
 
     def next_usable_config(start_index: int) -> Optional[Any]:
         for later_config, _later_gateway in attempts[start_index:]:
@@ -7066,15 +7096,17 @@ def generate_output_bundle(
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
+        check_cancelled()
         if (getattr(candidate_config, "api_profile_id", "") or candidate_config.provider) in timed_out_providers:
             continue
         if candidate_gateway is None:
             if user_api_keys is None:
-                candidate_gateway = create_gateway(candidate_config)
+                candidate_gateway = create_gateway(candidate_config, **gateway_options)
             else:
                 candidate_gateway = create_gateway(
                     candidate_config,
                     api_key=user_api_keys[getattr(candidate_config, "api_profile_id", "") or candidate_config.provider],
+                    **gateway_options,
                 )
         progress(
             f"正在调用 {candidate_config.provider}/{candidate_config.model} "
@@ -7153,6 +7185,7 @@ def generate_output_bundle(
                 f"正在切换到 {next_config.provider}/{next_config.model}..."
             )
 
+    check_cancelled()
     if base_result is None:
         if last_error is not None:
             raise last_error
@@ -7192,6 +7225,7 @@ def generate_output_bundle(
             gateway,
             **({"source_platform": source_platform} if source_platform in {"doubao", "豆包", "ChatGPT", "chatgpt"} else {}),
         )
+        check_cancelled()
         simple_meta = build_simple_metadata(
             base_result,
             provider=config.provider,

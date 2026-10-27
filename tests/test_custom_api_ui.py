@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from gui.app import AIMemoryGUI
 from gui.credential_store import WindowsCredentialStore
-from gui.custom_api_dialog import CustomAPIDialog
+from gui.custom_api_dialog import CustomAPIEditor
 from tests import test_custom_api as api_tests
 from tests import test_gui_api_keys as old_tests
 from tests import test_gui_layout as layouts
@@ -61,9 +61,9 @@ class CustomAPIUITests(unittest.TestCase):
         self.root.destroy()
 
     def dialog(self):
-        dialog = CustomAPIDialog(self.root, api_tests.settings(), "placeholder-key",
+        dialog = CustomAPIEditor(self.root, api_tests.settings(), "placeholder-key",
                                  self.callbacks.put, lambda *args: self.saved.append(args))
-        dialog.withdraw()
+        dialog.pack(fill=tk.BOTH, expand=True)
         return dialog
 
     def test_cancel_discards_draft_save_normalizes_and_protocol_changes_choices(self):
@@ -75,8 +75,9 @@ class CustomAPIUITests(unittest.TestCase):
         dialog = self.dialog()
         dialog.variables["url"].set("https://my.test/v1/chat/completions")
         dialog.variables["thinking_level"].set("xhigh")
-        dialog.variables["protocol"].set("gemini")
-        dialog._protocol_changed()
+        dialog._protocol_display.set("Gemini 原生")
+        dialog.entries["protocol"].event_generate("<<ComboboxSelected>>")
+        self.assertEqual(dialog.variables["protocol"].get(), "gemini")
         self.assertEqual(dialog.variables["thinking_level"].get(), "auto")
         self.assertEqual(str(dialog.entries["json_mode"].cget("state")), "disabled")
         dialog.variables["protocol"].set("openai")
@@ -116,6 +117,71 @@ class CustomAPIUITests(unittest.TestCase):
         callback()
         self.assertEqual(self.saved, [])
 
+    def test_advanced_fields_keep_values_when_collapsed_and_key_visibility_toggles(self):
+        dialog = self.dialog()
+        self.root.update()
+        self.assertFalse(dialog.advanced_body.winfo_ismapped())
+        dialog.advanced_button.invoke()
+        self.root.update()
+        self.assertTrue(dialog.advanced_body.winfo_ismapped())
+        dialog.variables["max_output_tokens"].set("8192")
+        dialog.advanced_button.invoke()
+        self.root.update()
+        self.assertFalse(dialog.advanced_body.winfo_ismapped())
+        dialog.key_toggle.invoke()
+        self.assertEqual(dialog.key_entry.cget("show"), "")
+        self.assertEqual(dialog.key_toggle.cget("text"), "隐藏")
+        dialog.key_toggle.invoke()
+        self.assertEqual(dialog.key_entry.cget("show"), "*")
+        dialog.save()
+        self.assertEqual(self.saved[0][0]["max_output_tokens"], 8192)
+
+    def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
+        self.root.geometry("650x480")
+        dialog = self.dialog()
+        self.root.update()
+        canvas = dialog.scroll_canvas
+        label = dialog.protocol_hint
+        outer_wheels = []
+        self.root.bind("<MouseWheel>", lambda _e: outer_wheels.append(True))
+        footer_y = dialog.save_button.winfo_rooty()
+        label.event_generate("<MouseWheel>", delta=-120)
+        positions = [canvas.canvasy(0)]
+        for _ in range(12):
+            layouts.GUIResponsiveGeometryTests._flush(self.root, 20)
+            positions.append(canvas.canvasy(0))
+        self.assertGreater(len(set(positions)), 3)
+        self.assertEqual(positions, sorted(positions))
+        self.assertAlmostEqual(positions[-1] - positions[0], 48, delta=1)
+        self.assertEqual(dialog.save_button.winfo_rooty(), footer_y)
+        protocol = dialog.variables["protocol"].get()
+        dialog.entries["protocol"].event_generate("<MouseWheel>", delta=-120)
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 220)
+        self.assertGreater(canvas.canvasy(0), positions[-1])
+        self.assertEqual(dialog.variables["protocol"].get(), protocol)
+        self.assertEqual(outer_wheels, [])
+
+    def test_small_wheel_deltas_accumulate_and_close_cancels_scroll_callbacks(self):
+        self.root.geometry("650x480")
+        dialog = self.dialog()
+        self.root.update()
+        canvas = dialog.scroll_canvas
+        start = canvas.canvasy(0)
+        for _ in range(10):
+            dialog.key_entry.event_generate("<MouseWheel>", delta=-1)
+            layouts.GUIResponsiveGeometryTests._flush(self.root, 20)
+        self.assertAlmostEqual(canvas.canvasy(0) - start, 4, delta=1)
+        before = canvas.yview()
+        dialog.key_entry.event_generate("<MouseWheel>", delta=0)
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 25)
+        self.assertEqual(canvas.yview(), before)
+        errors = []
+        self.root.report_callback_exception = lambda *args: errors.append(args)
+        dialog.key_entry.event_generate("<MouseWheel>", delta=-120)
+        dialog.close()
+        layouts.GUIResponsiveGeometryTests._flush(self.root, 40)
+        self.assertEqual(errors, [])
+
     def test_settings_editor_saves_to_vault_and_updates_real_priority(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
         settings_store = layouts._SettingsStore()
@@ -123,10 +189,23 @@ class CustomAPIUITests(unittest.TestCase):
         with patch("gui.app.WindowsCredentialStore", return_value=store), \
                 patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
             app = AIMemoryGUI(self.root)
+        app._show_page(3)
+        self.root.update_idletasks()
         page = app.page_frames[3]
         self.assertNotIn("custom", page.api_key_vars)
+        windows_before = set(self.root.winfo_children())
+        draft = page.edit_custom_api()
+        self.root.update_idletasks()
+        self.assertIs(draft.winfo_toplevel(), self.root)
+        self.assertEqual(set(self.root.winfo_children()), windows_before)
+        self.assertTrue(draft.winfo_ismapped())
+        draft.variables["name"].set("discarded draft")
+        draft.cancel_button._command()
+        self.root.update_idletasks()
+        self.assertIsNone(page.custom_api_editor)
+        self.assertEqual(store.load_custom_apis(), {})
+        self.assertTrue(page.custom_api_button.winfo_ismapped())
         dialog = page.edit_custom_api()
-        dialog.withdraw()
         for name, value in api_tests.settings().items():
             dialog.variables[name].set(value)
         dialog.key_var.set("new-placeholder-key")
@@ -136,13 +215,21 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertTrue(profile_id.startswith("custom_"))
         self.assertEqual(store.load_provider_order()[0], profile_id)
         self.assertEqual(store.load_api_keys()[profile_id], "new-placeholder-key")
+        page.edit_custom_api()
+        page.show_page("data")
+        layouts.GUIResponsiveGeometryTests._flush(self.root)
+        self.assertIsNone(page.custom_api_editor)
+        self.assertTrue(page.data_page.winfo_ismapped())
+        page.show_page("api")
+        layouts.GUIResponsiveGeometryTests._flush(self.root)
+        self.assertTrue(page.custom_api_button.winfo_ismapped())
         self.assertEqual(page.api_key_vars[profile_id].get(), "new-placeholder-key")
         self.assertEqual(store.load_custom_apis()[profile_id]["model"], "my-model")
         self.root.update_idletasks()
         self.assertEqual(page.api_name_labels[profile_id].cget("text"), "我的接口")
         # Clicking the name edits this profile; adding creates a separate one.
         page.api_name_labels[profile_id].event_generate("<Button-1>")
-        edited = page.custom_api_dialog
+        edited = page.custom_api_editor
         self.assertEqual(edited.variables["name"].get(), "我的接口")
         edited.variables["name"].set("renamed")
         edited.save()
@@ -236,6 +323,25 @@ class CustomAPIGeometryTests(unittest.TestCase):
                     settle(root, app)
                     page = app.page_frames[3]
                     dialog = page.edit_custom_api()
+                    settle(root, app)
+                    self.assertIs(dialog.winfo_toplevel(), root)
+                    for button in (dialog.cancel_button, dialog.test_button, dialog.save_button):
+                        self.assertGreaterEqual(button.winfo_x(), 0)
+                        self.assertLessEqual(
+                            button.winfo_x() + button.winfo_width(), button.master.winfo_width(),
+                        )
+                    dialog.advanced_button.invoke()
+                    settle(root, app)
+                    canvas = dialog.scroll_canvas
+                    for entry in (*dialog.entries.values(), dialog.key_entry):
+                        self.assertGreaterEqual(entry.winfo_rootx(), canvas.winfo_rootx())
+                        self.assertLessEqual(
+                            entry.winfo_rootx() + entry.winfo_width(),
+                            canvas.winfo_rootx() + canvas.winfo_width(),
+                        )
+                        self.assertGreaterEqual(
+                            entry.winfo_height(), tkfont.Font(font=entry.cget("font")).metrics("linespace"),
+                        )
                     for name, value in api_tests.settings().items():
                         dialog.variables[name].set(value)
                     dialog.key_var.set("new-placeholder")

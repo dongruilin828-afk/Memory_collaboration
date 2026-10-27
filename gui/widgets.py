@@ -1309,6 +1309,7 @@ class FlatEntryBox(tk.Canvas):
             self._inner, textvariable=self.var, font=(FONT_FAMILY, 13),
             bg="#FFFFFF", fg=COLOR_TEXT_PRIMARY,
             insertbackground=COLOR_GENERATION_ACCENT,
+            insertwidth=2, insertontime=600, insertofftime=300,
             relief=tk.FLAT, bd=0, highlightthickness=0,
         )
         self.entry._responsive_min_font_size = 12
@@ -1316,7 +1317,7 @@ class FlatEntryBox(tk.Canvas):
         self.entry.pack(fill=tk.BOTH, expand=True)
 
         self._placeholder_label = tk.Label(
-            self._inner,
+            self.entry,
             text=self._placeholder,
             font=self._placeholder_font,
             fg="#94A3B8",
@@ -1430,12 +1431,14 @@ class FlatEntryBox(tk.Canvas):
         self.delete("placeholder")
         show_placeholder = (
             bool(self._placeholder)
-            and not self._focused
             and not self._locked
             and not self.var.get()
         )
         if show_placeholder:
-            self._placeholder_label.place(x=2, rely=0.5, anchor="w")
+            # Keep the native insertion cursor exposed beside the empty hint.
+            self._placeholder_label.place(
+                x=4, rely=0.5, anchor="w", relwidth=1, width=-4,
+            )
         else:
             self._placeholder_label.place_forget()
 
