@@ -9,24 +9,16 @@ from gui.theme import (
     COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED, COLOR_DANGER, COLOR_SUCCESS,
     FONT_BODY, FONT_H2, FONT_SMALL,
 )
-from gui.ui_dispatch import bind_visible_modal
 from gui.widgets import FlatButton
 from scripts.api_config import normalize_custom_api, middle_ellipsis
 from scripts.gemini_summarizer import custom_summary_config, test_api_connection
 
 
-class CustomAPIDialog(tk.Toplevel):
-    def __init__(self, parent, values, api_key, post_ui, on_save):
+class CustomAPIEditor(tk.Frame):
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None):
         super().__init__(parent)
-        self.title("自定义总结 API")
         self.configure(bg=COLOR_BG_APP)
-        self.transient(parent)
-        bind_visible_modal(self)
-        self.minsize(560, 460)
-        width, height = min(680, parent.winfo_screenwidth() - 32), min(650, parent.winfo_screenheight() - 80)
-        x = max(0, min(parent.winfo_screenwidth() - width, parent.winfo_rootx() + (parent.winfo_width() - width) // 2))
-        y = max(0, min(parent.winfo_screenheight() - height - 40, parent.winfo_rooty() + (parent.winfo_height() - height) // 2))
-        self.geometry(f"{width}x{height}+{x}+{y}")
+        self._on_close = on_close
         self._post_ui = post_ui
         self._on_save = on_save
         self._testing = False
@@ -39,8 +31,11 @@ class CustomAPIDialog(tk.Toplevel):
         self.priority_var = tk.BooleanVar(self, value=False)
         tk.Label(self, text="自定义总结 API", font=FONT_H2,
                  fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP).pack(anchor="w", padx=24, pady=(20, 4))
-        tk.Label(self, text="配置保存到本机 Windows 凭据管理器；测试只发送一条简短请求。",
-                 font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP).pack(anchor="w", padx=24, pady=(0, 12))
+        subtitle = tk.Label(self, text="配置保存到本机 Windows 凭据管理器；测试只发送一条简短请求。",
+                            font=FONT_SMALL, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP,
+                            anchor="w", justify=tk.LEFT, width=1)
+        subtitle.pack(fill=tk.X, padx=24, pady=(0, 12))
+        subtitle.bind("<Configure>", lambda e: subtitle.configure(wraplength=max(1, e.width)))
         actions = tk.Frame(self, bg=COLOR_BG_APP)
         actions.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(8, 16))
         self.save_button = FlatButton(actions, text="保存配置", command=self.save,
@@ -49,6 +44,9 @@ class CustomAPIDialog(tk.Toplevel):
         self.test_button = FlatButton(actions, text="测试", command=self.test,
                                       width=120, height=40, bg_parent=COLOR_BG_APP)
         self.test_button.pack(side=tk.RIGHT, padx=(0, 8))
+        self.cancel_button = FlatButton(actions, text="取消", command=self.close,
+                                        width=96, height=40, bg_parent=COLOR_BG_APP)
+        self.cancel_button.pack(side=tk.LEFT)
         self.status_var = tk.StringVar(self)
         self.status_label = tk.Label(self, font=FONT_SMALL, width=1,
                                      fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, justify=tk.LEFT, anchor="w")
@@ -124,8 +122,17 @@ class CustomAPIDialog(tk.Toplevel):
             return "break"
         for widget in (canvas, form, *self.entries.values(), self.key_entry):
             widget.bind("<MouseWheel>", wheel)
-        self.entries["name"].focus_set()
-        self.bind("<Escape>", lambda _e: self.destroy())
+        def bind_cancel(widget):
+            widget.bind("<Escape>", lambda _e: self.close())
+            for child in widget.winfo_children():
+                bind_cancel(child)
+
+        bind_cancel(self)
+
+    def close(self):
+        self.destroy()
+        if self._on_close:
+            self._on_close()
 
     def _protocol_changed(self):
         native = self.variables["protocol"].get() == "gemini"
@@ -149,7 +156,7 @@ class CustomAPIDialog(tk.Toplevel):
         except (ValueError, RuntimeError) as error:
             self._status(str(error))
             return
-        self.destroy()
+        self.close()
 
     def test(self):
         if self._testing:

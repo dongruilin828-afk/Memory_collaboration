@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import logging
 import mimetypes
@@ -15,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import zipfile
 from dataclasses import asdict, dataclass, replace
@@ -25,6 +27,8 @@ from typing import Any, Callable, Collection, Protocol
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from scripts.cancellation import check_cancelled, run_cancellable_request, wait_with_cancel
 
 
 DEFAULT_PROVIDER = "gemini"
@@ -789,6 +793,7 @@ class GeminiGateway:
         config: SummaryConfig,
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
+        cancel_event: threading.Event | None = None,
     ):
         api_key = str(api_key or (os.getenv("GEMINI_API_KEY") if config.provider != "custom" else "") or "").strip()
         if not api_key:
@@ -809,11 +814,13 @@ class GeminiGateway:
         self._types = types
         self._system_instruction = SYSTEM_INSTRUCTION
         self._last_status_code = None
+        self._cancel_event = cancel_event
+        self._genai = genai
 
         def record_status(response):
             self._last_status_code = response.status_code
 
-        self._client = genai.Client(
+        self._client = None if cancel_event is not None else genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=config.request_timeout_seconds * 1000,
@@ -823,12 +830,37 @@ class GeminiGateway:
         )
         self._sleep = sleep
 
+    async def _generate_async(self, contents, generation_options):
+        async def record_status(response):
+            self._last_status_code = response.status_code
+
+        client = self._genai.Client(
+            api_key=self._api_key,
+            http_options=self._types.HttpOptions(
+                timeout=self.config.request_timeout_seconds * 1000,
+                retry_options=self._types.HttpRetryOptions(attempts=1),
+                async_client_args={"event_hooks": {"response": [record_status]}},
+                **({"base_url": self.config.api_base} if self.config.provider == "custom" else {}),
+            ),
+        )
+        try:
+            async with client.aio as async_client:
+                return await async_client.models.generate_content(
+                    model=self.config.model,
+                    contents=contents,
+                    config=self._types.GenerateContentConfig(**generation_options),
+                )
+        finally:
+            # The SDK owns separate sync and async HTTP clients.
+            client.close()
+
     def generate_json(
         self,
         prompt: str,
         schema: dict[str, Any],
         media_assets: list[MediaAsset] | None = None
     ) -> dict[str, Any]:
+        check_cancelled(self._cancel_event)
         contents: list[Any] = [prompt]
         for asset in media_assets or []:
             if asset.local_path is None or asset.mime_type is None:
@@ -859,14 +891,20 @@ class GeminiGateway:
 
         last_error: BaseException | None = None
         for attempt in range(1, self.config.retries + 1):
+            check_cancelled(self._cancel_event)
             try:
-                response = self._client.models.generate_content(
-                    model=self.config.model,
-                    contents=contents,
-                    config=self._types.GenerateContentConfig(
-                        **generation_options
+                if self._cancel_event is not None:
+                    response = run_cancellable_request(
+                        lambda: self._generate_async(contents, generation_options),
+                        self._cancel_event,
                     )
-                )
+                else:
+                    response = self._client.models.generate_content(
+                        model=self.config.model,
+                        contents=contents,
+                        config=self._types.GenerateContentConfig(**generation_options),
+                    )
+                check_cancelled(self._cancel_event)
                 if not response.text:
                     raise GeminiSummaryError("Gemini 返回了空响应。")
                 parsed = json.loads(response.text)
@@ -876,6 +914,7 @@ class GeminiGateway:
                     )
                 return parsed
             except Exception as error:
+                check_cancelled(self._cancel_event)
                 last_error = error
                 status = getattr(error, "status_code", None) or getattr(error, "code", None)
                 if isinstance(status, int):
@@ -889,7 +928,7 @@ class GeminiGateway:
                         )
                     else:
                         wait_seconds = min(2 ** (attempt - 1), 8)
-                    self._sleep(wait_seconds)
+                    wait_with_cancel(wait_seconds, self._cancel_event, self._sleep)
 
         if _is_timeout_error(last_error):
             raise SummaryRequestTimeoutError(
@@ -987,6 +1026,7 @@ class SiliconFlowGateway:
         config: SummaryConfig,
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
+        cancel_event: threading.Event | None = None,
     ):
         if config.provider == "custom":
             provider_name = config.api_name or "自定义 API"
@@ -1016,6 +1056,36 @@ class SiliconFlowGateway:
         self._system_instruction = SYSTEM_INSTRUCTION
         self._doubao_output_limit = 0
         self._doubao_output_events = []
+        self._cancel_event = cancel_event
+
+    async def _request_async(self, request):
+        import httpx
+
+        sent_initial_request = False
+
+        async def protect_redirect_credentials(outgoing):
+            nonlocal sent_initial_request
+            if sent_initial_request and self.config.provider == "custom":
+                # Match urllib's add_unredirected_header, including same-origin redirects.
+                outgoing.headers.pop("authorization", None)
+            sent_initial_request = True
+
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            event_hooks={"request": [protect_redirect_credentials]},
+        ) as client:
+            response = await client.request(
+                request.get_method(), request.full_url, content=request.data,
+                headers=dict(request.header_items()),
+                timeout=self.config.request_timeout_seconds,
+            )
+            self._last_status_code = response.status_code
+            if response.status_code >= 400:
+                raise HTTPError(
+                    request.full_url, response.status_code, response.reason_phrase,
+                    response.headers, io.BytesIO(response.content),
+                )
+            return json.loads(response.content.decode("utf-8"))
 
     def generate_json(
         self,
@@ -1023,6 +1093,7 @@ class SiliconFlowGateway:
         schema: dict[str, Any],
         media_assets: list[MediaAsset] | None = None
     ) -> dict[str, Any]:
+        check_cancelled(self._cancel_event)
         schema_prompt = (
             prompt
             + "\n\n必须只返回一个符合下面 JSON Schema 的 JSON 对象，"
@@ -1116,6 +1187,7 @@ class SiliconFlowGateway:
             payload.pop('thinking_budget', None)
         last_error: BaseException | None = None
         for attempt in range(1, self.config.retries + 1):
+            check_cancelled(self._cancel_event)
             try:
                 request = Request(
                     f"{self._api_base}/chat/completions",
@@ -1129,14 +1201,18 @@ class SiliconFlowGateway:
                 if self.config.provider == "custom":
                     request.remove_header("Authorization")
                     request.add_unredirected_header("Authorization", f"Bearer {self._api_key}")
-                with urlopen(
-                    request,
-                    timeout=self.config.request_timeout_seconds,
-                ) as response:
-                    self._last_status_code = getattr(response, "status", None)
-                    response_data = json.loads(
-                        response.read().decode("utf-8")
+                if self._cancel_event is not None:
+                    response_data = run_cancellable_request(
+                        lambda: self._request_async(request), self._cancel_event,
                     )
+                else:
+                    with urlopen(
+                        request,
+                        timeout=self.config.request_timeout_seconds,
+                    ) as response:
+                        self._last_status_code = getattr(response, "status", None)
+                        response_data = json.loads(response.read().decode("utf-8"))
+                check_cancelled(self._cancel_event)
                 choice = response_data["choices"][0]
                 if self.config.provider == "custom" and choice.get("finish_reason") == "length":
                     raise SummaryOutputTruncatedError("自定义 API 输出达到 token 上限，结果被截断；请提高输出上限。")
@@ -1158,8 +1234,10 @@ class SiliconFlowGateway:
                 content = choice["message"]["content"]
                 return _parse_json_object(content)
             except SummaryOutputTruncatedError:
+                check_cancelled(self._cancel_event)
                 raise
             except HTTPError as error:
+                check_cancelled(self._cancel_event)
                 self._last_status_code = error.code
                 last_error = _OpenAICompatibleHTTPError(
                     self._provider_name, error.code,
@@ -1168,8 +1246,10 @@ class SiliconFlowGateway:
                 if error.code in {400, 401, 402, 403, 404, 422}:
                     break
             except (URLError, TimeoutError) as error:
+                check_cancelled(self._cancel_event)
                 last_error = error
             except Exception as error:
+                check_cancelled(self._cancel_event)
                 last_error = error
             if attempt < self.config.retries:
                 wait_seconds = (
@@ -1178,7 +1258,7 @@ class SiliconFlowGateway:
                     and _is_rate_limit_error(last_error)
                     else min(2 ** (attempt - 1), 8)
                 )
-                self._sleep(wait_seconds)
+                wait_with_cancel(wait_seconds, self._cancel_event, self._sleep)
 
         if _is_timeout_error(last_error):
             raise SummaryRequestTimeoutError(
@@ -1208,10 +1288,11 @@ class SiliconFlowGateway:
 def create_gateway(
     config: SummaryConfig,
     api_key: str | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> SummaryGateway:
     if config.provider in {"siliconflow", "deepseek"} or (config.provider == "custom" and config.api_protocol == "openai"):
-        return SiliconFlowGateway(config, api_key=api_key)
-    return GeminiGateway(config, api_key=api_key)
+        return SiliconFlowGateway(config, api_key=api_key, cancel_event=cancel_event)
+    return GeminiGateway(config, api_key=api_key, cancel_event=cancel_event)
 
 
 def custom_summary_config(values, base_config=None):

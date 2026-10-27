@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from gui.app import AIMemoryGUI
 from gui.credential_store import WindowsCredentialStore
-from gui.custom_api_dialog import CustomAPIDialog
+from gui.custom_api_dialog import CustomAPIEditor
 from tests import test_custom_api as api_tests
 from tests import test_gui_api_keys as old_tests
 from tests import test_gui_layout as layouts
@@ -61,9 +61,9 @@ class CustomAPIUITests(unittest.TestCase):
         self.root.destroy()
 
     def dialog(self):
-        dialog = CustomAPIDialog(self.root, api_tests.settings(), "placeholder-key",
+        dialog = CustomAPIEditor(self.root, api_tests.settings(), "placeholder-key",
                                  self.callbacks.put, lambda *args: self.saved.append(args))
-        dialog.withdraw()
+        dialog.pack(fill=tk.BOTH, expand=True)
         return dialog
 
     def test_cancel_discards_draft_save_normalizes_and_protocol_changes_choices(self):
@@ -123,10 +123,23 @@ class CustomAPIUITests(unittest.TestCase):
         with patch("gui.app.WindowsCredentialStore", return_value=store), \
                 patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
             app = AIMemoryGUI(self.root)
+        app._show_page(3)
+        self.root.update_idletasks()
         page = app.page_frames[3]
         self.assertNotIn("custom", page.api_key_vars)
+        windows_before = set(self.root.winfo_children())
+        draft = page.edit_custom_api()
+        self.root.update_idletasks()
+        self.assertIs(draft.winfo_toplevel(), self.root)
+        self.assertEqual(set(self.root.winfo_children()), windows_before)
+        self.assertTrue(draft.winfo_ismapped())
+        draft.variables["name"].set("discarded draft")
+        draft.cancel_button._command()
+        self.root.update_idletasks()
+        self.assertIsNone(page.custom_api_editor)
+        self.assertEqual(store.load_custom_apis(), {})
+        self.assertTrue(page.custom_api_button.winfo_ismapped())
         dialog = page.edit_custom_api()
-        dialog.withdraw()
         for name, value in api_tests.settings().items():
             dialog.variables[name].set(value)
         dialog.key_var.set("new-placeholder-key")
@@ -136,13 +149,21 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertTrue(profile_id.startswith("custom_"))
         self.assertEqual(store.load_provider_order()[0], profile_id)
         self.assertEqual(store.load_api_keys()[profile_id], "new-placeholder-key")
+        page.edit_custom_api()
+        page.show_page("data")
+        layouts.GUIResponsiveGeometryTests._flush(self.root)
+        self.assertIsNone(page.custom_api_editor)
+        self.assertTrue(page.data_page.winfo_ismapped())
+        page.show_page("api")
+        layouts.GUIResponsiveGeometryTests._flush(self.root)
+        self.assertTrue(page.custom_api_button.winfo_ismapped())
         self.assertEqual(page.api_key_vars[profile_id].get(), "new-placeholder-key")
         self.assertEqual(store.load_custom_apis()[profile_id]["model"], "my-model")
         self.root.update_idletasks()
         self.assertEqual(page.api_name_labels[profile_id].cget("text"), "我的接口")
         # Clicking the name edits this profile; adding creates a separate one.
         page.api_name_labels[profile_id].event_generate("<Button-1>")
-        edited = page.custom_api_dialog
+        edited = page.custom_api_editor
         self.assertEqual(edited.variables["name"].get(), "我的接口")
         edited.variables["name"].set("renamed")
         edited.save()
@@ -236,6 +257,13 @@ class CustomAPIGeometryTests(unittest.TestCase):
                     settle(root, app)
                     page = app.page_frames[3]
                     dialog = page.edit_custom_api()
+                    settle(root, app)
+                    self.assertIs(dialog.winfo_toplevel(), root)
+                    for button in (dialog.cancel_button, dialog.test_button, dialog.save_button):
+                        self.assertGreaterEqual(button.winfo_x(), 0)
+                        self.assertLessEqual(
+                            button.winfo_x() + button.winfo_width(), button.master.winfo_width(),
+                        )
                     for name, value in api_tests.settings().items():
                         dialog.variables[name].set(value)
                     dialog.key_var.set("new-placeholder")
