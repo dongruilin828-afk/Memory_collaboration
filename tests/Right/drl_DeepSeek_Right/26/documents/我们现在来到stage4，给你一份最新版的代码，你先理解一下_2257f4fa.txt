@@ -1,0 +1,290 @@
+我们现在来到stage4，给你一份最新版的代码，你先理解一下
+scoring_pipeline：
+
+# scoring_pipeline.py
+
+import copy
+from typing import List, Dict, Tuple
+
+# ==========================================
+
+# 权重配置隔离区 (Configuration)
+
+# ==========================================
+
+TEMPLATE_WEIGHTS = {
+"均衡型": {"rrf_norm": 0.4, "intensity": 0.2, "cost": 0.2, "indoor": 0.2},
+"轻松型": {"rrf_norm": 0.2, "intensity": 0.5, "cost": 0.1, "indoor": 0.2},
+"特色型": {"rrf_norm": 0.7, "intensity": 0.1, "cost": 0.1, "indoor": 0.1}
+}
+
+# ==========================================
+
+# 工序 1：特征项细化打分 (Feature Scoring)
+
+# ==========================================
+
+def score_features(poi: Dict, weather: str, travel_style: str = "休闲游", user_budget: str = "medium") -> Dict:
+"""
+将景点的类别属性映射为 0-100 的数值特征分数，并挂载回字典。
+【修复】打分方向会根据用户画像动态翻转，而非一刀切。
+"""
+scored_poi = copy.deepcopy(poi)
+
+# 1. 游玩强度打分 (intensity_score)
+
+# 【修复】根据用户旅行风格动态选择打分方向
+
+if travel_style == "特种兵打卡":
+
+# 特种兵玩家：高强度 = 高分
+
+intensity_map = {"low": 0, "medium_low": 30, "medium": 50, "medium_high": 80, "high": 100}
+else:
+
+# 休闲游/默认：低强度 = 高分
+
+intensity_map = {"low": 100, "medium_low": 80, "medium": 50, "medium_high": 30, "high": 0}
+scored_poi["intensity_score"] = intensity_map.get(poi.get("intensity", "medium"), 50)
+
+# 2. 消费水平打分 (cost_score)
+
+# 【修复】根据用户预算偏好动态选择打分方向
+
+if user_budget == "high":
+
+# 高预算用户：贵 = 品质高 = 高分
+
+cost_map = {"free": 30, "low": 50, "medium": 70, "high": 100}
+elif user_budget == "free":
+
+# 穷游党：免费 = 极度偏好
+
+cost_map = {"free": 100, "low": 60, "medium": 20, "high": 0}
+else:
+
+# 中等预算/默认：便宜略占优但不极端
+
+cost_map = {"free": 100, "low": 80, "medium": 50, "high": 20}
+scored_poi["cost_score"] = cost_map.get(poi.get("cost_level", "medium"), 50)
+
+# 3. 空间舒适度打分 (indoor_score)
+
+indoor_attr = poi.get("indoor_outdoor", "mixed")
+if weather == "rain":
+indoor_map = {"indoor": 100, "mixed": 80, "outdoor": 20}
+else:
+
+# 晴天则反转，稍微鼓励室外
+
+indoor_map = {"outdoor": 100, "mixed": 80, "indoor": 50}
+scored_poi["indoor_score"] = indoor_map.get(indoor_attr, 50)
+return scored_poi
+
+# ==========================================
+
+# 工序 2：多模板权重打分 (Multi-Template Scoring)
+
+# ==========================================
+
+def apply_template_weights(scored_candidates: List[Dict]) -> Dict[str, List[Dict]]:
+"""
+利用模板权重公式，分别为候选集计算“均衡型”、“轻松型”、“特色型”总分。
+返回 {模板名称: 排序好的全量候选池}
+"""
+template_results = {"均衡型": [], "轻松型": [], "特色型": []}
+for template_name, weights in TEMPLATE_WEIGHTS.items():
+candidates_for_template = copy.deepcopy(scored_candidates)
+for poi in candidates_for_template:
+
+# 【安全铁律】：必须使用 normalized_score 防止量纲爆炸，绝不触碰 raw_match_score！
+
+rrf_norm = poi.get("normalized_score", poi.get("match_score", 0))
+intensity_score = poi.get("intensity_score", 0)
+cost_score = poi.get("cost_score", 0)
+indoor_score = poi.get("indoor_score", 0)
+
+# 计算加权总分
+
+total_score = (
+rrf_norm * weights["rrf_norm"] +
+intensity_score * weights["intensity"] +
+cost_score * weights["cost"] +
+indoor_score * weights["indoor"]
+)
+poi["template_total_score"] = round(total_score, 2)
+poi["template_name"] = template_name
+
+# 降序排列
+
+candidates_for_template.sort(key=lambda x: x["template_total_score"], reverse=True)
+template_results[template_name] = candidates_for_template
+return template_results
+
+# ==========================================
+
+# 工序 3 & 4：种子选择器与多样性路线重排
+
+# ==========================================
+
+def get_mock_distance(area1: str, area2: str) -> float:
+"""
+模拟高德 API 的片区距离计算函数
+
+- 同一区：距离近（罚分少）
+- 临近区（如黄浦与静安）：距离中等
+- 跨度大（如黄浦与浦东/松江）：距离远（罚分多）
+  """
+  if area1 == area2:
+  return 0.0 # 极度友好
+  
+  # 简单模拟几个核心区的距离矩阵（0-100分，越低越好）
+  
+  core_areas = ["黄浦", "静安", "徐汇", "长宁"]
+  if area1 in core_areas and area2 in core_areas:
+  return 10.0 # 核心区内通勤友好
+  if "浦东" in [area1, area2] and any(a in core_areas for a in [area1, area2]):
+  return 30.0 # 跨江有一定通勤成本
+  return 60.0 # 远郊或默认高惩罚
+  def rerank_and_select_seeds(template_pools: Dict[str, List[Dict]], top_n: int = 3, pool_size: int = 8) -> Dict[str, List[Dict]]:
+  """
+  工序 3 (宽进): 截取 Pool Size (如前 8 个) 作为候选子集
+  工序 4 (严出): 使用贪心算法、多样性惩罚与路线距离模拟，挑出最佳的 Top N (如 3 个)
+  """
+  final_seeds = {}
+  for template_name, sorted_pool in template_pools.items():
+  
+  # 【工序 3：宽进】选定初步候选池
+  
+  working_pool = sorted_pool[:pool_size]
+  if not working_pool:
+  final_seeds[template_name] = []
+  continue
+  selected_seeds = []
+  
+  # 贪心第一步：绝对高分当做“首发锚点”
+  
+  anchor = working_pool.pop(0)
+  selected_seeds.append(anchor)
+  
+  # 贪心第二步：在剩下的候选人中挑选最优解
+  
+  while len(selected_seeds) < top_n and working_pool:
+  best_next_idx = -1
+  best_net_score = -float('inf')
+  
+  # 我们需要对比当前已选中的大类，进行多样性校验
+  
+  existing_categories = set()
+  for s in selected_seeds:
+  existing_categories.update(s.get("categories", []))
+  current_anchor_area = selected_seeds[-1].get("area", "")
+  for idx, candidate in enumerate(working_pool):
+  base_score = candidate["template_total_score"]
+  penalty = 0.0
+  
+  # 规则 1：多样性惩罚 (按重叠比例计算，而非一刀切)
+  
+  # 【修复】如果候选人有 2 个大类，其中 1 个与已选重复，
+  
+  # 惩罚 = 20 * (1/2) = 10 分。全部重复则满额 20 分。
+  
+  # 如果没有任何大类（异常情况），则不惩罚。
+  
+  candidate_categories = set(candidate.get("categories", []))
+  if candidate_categories:
+  overlap_count = len(existing_categories.intersection(candidate_categories))
+  overlap_ratio = overlap_count / len(candidate_categories)
+  penalty += 20.0 * overlap_ratio
+  
+  # 规则 2：路线友好度惩罚 (模拟高德 API)
+  
+  candidate_area = candidate.get("area", "")
+  dist_penalty = get_mock_distance(current_anchor_area, candidate_area)
+  
+  # 距离惩罚缩放到适当比例，比如最多扣 15 分
+  
+  penalty += (dist_penalty * 0.15)
+  net_score = base_score - penalty
+  if net_score > best_net_score:
+  best_net_score = net_score
+  best_next_idx = idx
+  
+  # 选中这一轮的最优解
+  
+  selected_seeds.append(working_pool.pop(best_next_idx))
+  final_seeds[template_name] = selected_seeds
+  return final_seeds
+  def run_scoring_pipeline(passed_candidates: List[Dict], trip_request: Dict) -> Dict[str, List[Dict]]:
+  """
+  主控制流：串联四道工序
+  """
+  print(f"\n [Stage 4: 多模板评分与方案种子生成] 启动！")
+  if not passed_candidates:
+  print(" [警告] 候选池为空，无法生成方案种子。")
+  return {}
+  weather = trip_request.get("constraints", {}).get("weather", "sunny")
+  travel_style = trip_request.get("travel_style", "休闲游")
+  user_budget = trip_request.get("constraints", {}).get("max_cost", "medium")
+  
+  # 1. 细化打分（传入用户画像，让打分方向动态适配）
+  
+  scored_candidates = [score_features(poi, weather, travel_style, user_budget) for poi in passed_candidates]
+  print(f"   [工序 1] 已完成特征项细化打分 (Feature Scoring)。")
+  
+  # 2. 多模板计算
+  
+  template_pools = apply_template_weights(scored_candidates)
+  print(f"   [工序 2] 已生成多模板权重池：均衡型、轻松型、特色型。")
+  
+  # 3 & 4. 选拔与重排
+  
+  # 宽进严出：池子大小自动设为 top_n 的 2~3 倍，这里先设定一个较大基础池子比如 10
+  
+  top_n = trip_request.get("constraints", {}).get("top_n", 3)
+  pool_size = max(10, top_n * 3)
+  final_seeds = rerank_and_select_seeds(template_pools, top_n=top_n, pool_size=pool_size)
+  print(f"   [工序 3 & 4] 已完成基于高德路线预判的贪心多样性重排！(目标输出 {top_n} 个)")
+  print(" 【最终入选的旅行方案种子】")
+  for t_name, seeds in final_seeds.items():
+  print(f"\n   >> 【{t_name}】方案推荐：")
+  for i, s in enumerate(seeds, 1):
+  cat_str = "/".join(s.get("categories", []))
+  area_str = s.get("area", "")
+  print(f"      {i}. {s['name']} (评分: {s['template_total_score']}, 片区: {area_str})")
+  print("="*60)
+  return final_seeds
+  begin_scoring：
+  
+  # test_scoring.py
+  
+  import sys
+  import os
+  
+  # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'candidate_recall')))
+  
+  from mock_data import MOCK_DB, COST_MAP
+  from recall_pipeline import run_recall_pipeline
+  from test_cases import TEST_PROFILES
+  from scoring_pipeline import run_scoring_pipeline
+  def run_scoring_tests():
+  
+  # 全部测试
+  
+  for idx in range(30):
+  profile = TEST_PROFILES[idx]
+  print(f"\n[测试 #{idx+1}] 画像: 目标={profile['travel_goal']}, 风格={profile['travel_style']}, 人群={profile['constraints'].get('group')}, 天气={profile['constraints'].get('weather')}, 预算={profile['constraints'].get('max_cost')}")
+  
+  # 1. 运行 Stage 1~3 (上一阶段)，获取通过硬过滤和兜底的最优质候选
+  
+  passed, discarded, steps = run_recall_pipeline(profile, MOCK_DB, COST_MAP)
+  if not passed:
+  print(" [警告] 没有候选景点被召回，跳过此测试。")
+  continue
+  
+  # 2. 运行 Stage 4，进行多模板打分与重排
+  
+  final_seeds = run_scoring_pipeline(passed, profile)
+  if __name__ == "__main__":
+  run_scoring_tests()
+  其中，mock_data 是我创立的假的模拟数据库，recall_pipeline是stage1~3中的冲突处理与候选召回的核心算法，test_cases是模拟的三十组用户需求

@@ -1,0 +1,29 @@
+{
+  "case": "18",
+  "url": "https://chat.deepseek.com/a/chat/s/50e7af55-dfc9-4788-a03a-74030fe95233",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\18",
+  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "approved_date": "2026-10-27",
+  "approval_scope": "完整人工认可结果",
+  "has_formulas": false,
+  "formula_status": "not_applicable",
+  "moved_without_content_changes": true,
+  "original_files_sha256": {
+    "audit.json": "fe5623b8a3471771a8a5eaa7937b4be2e8a8fd70980756236c8c5e8935a55821",
+    "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+    "result.json": "7d7a6df49f2405e3f20083af33453ef6f41a92daa43f80c3944a1988e787edff",
+    "run.log": "53f82b2f25b5b233e88a0e885e847cc99130a15c776e51edd32a91c518458f10",
+    "snapshot.html": "2009164694e476184e57dab3db376062345618a6a376d7a4268f5816052fd076",
+    "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+    "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+  },
+  "files": {
+    "audit.json": "fe5623b8a3471771a8a5eaa7937b4be2e8a8fd70980756236c8c5e8935a55821",
+    "export.md": "18a17e9c5ee4cbef10c966eff48499ce103272e9c6b3bea3f5359f0ca933c288",
+    "result.json": "7d7a6df49f2405e3f20083af33453ef6f41a92daa43f80c3944a1988e787edff",
+    "run.log": "53f82b2f25b5b233e88a0e885e847cc99130a15c776e51edd32a91c518458f10",
+    "snapshot.html": "2009164694e476184e57dab3db376062345618a6a376d7a4268f5816052fd076",
+    "documents/mddd.md": "71ad6136b0f61f6450233465476f86fa0990523adfee8312d6d2d4736dca505d",
+    "documents/豆包豆包.md": "5b00eb9c41ff9090abca0e1b047228757da611d5d3596853dc2eff4d2947049f"
+  }
+}

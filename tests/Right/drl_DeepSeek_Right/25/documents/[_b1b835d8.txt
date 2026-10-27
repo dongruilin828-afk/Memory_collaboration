@@ -1,0 +1,1232 @@
+[
+    {
+        "test_case_id": 1,
+        "description": "常规情侣周末游 - 中等预算，偏好休闲与打卡",
+        "basic_info": {
+            "departure_city": "杭州",
+            "destination_city": "上海",
+            "start_date": "2026-06-12",
+            "end_date": "2026-06-14",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["现代地标与都市景观", "逛吃与商业街区"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["摩天大楼", "观景台", "特色街区"],
+            "preferred_experience_tags": ["高空观景", "夜景", "网红打卡"],
+            "travel_goals": ["photo_checkin", "relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["外滩"],
+                "must_avoid": ["排队久"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["bus"],
+            "max_walking_minutes": 20,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 2,
+        "description": "特种兵大学生 - 极低预算，高强度，全天候打卡",
+        "basic_info": {
+            "departure_city": "南京",
+            "destination_city": "北京",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-02",
+            "travel_days": 2,
+            "traveler_count": 4,
+            "budget_level": "budget",
+            "companion_type": "classmates",
+            "preferred_poi_categories": ["历史古迹", "博物馆与展览"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["古建筑", "红色景点"],
+            "preferred_experience_tags": ["历史人文", "深度游"],
+            "travel_goals": ["exploration", "photo_checkin"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["天安门广场", "故宫博物院"],
+                "must_avoid": ["高消费场所"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "no_preference"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway", "bicycle"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 60,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 3,
+        "description": "带娃家庭游 - 高预算，低强度，避开拥挤人群",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "三亚",
+            "start_date": "2026-08-10",
+            "end_date": "2026-08-14",
+            "travel_days": 5,
+            "traveler_count": 3,
+            "budget_level": "high",
+            "companion_type": "parent_child",
+            "preferred_poi_categories": ["自然风光", "主题乐园与游乐场"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海滩", "度假村"],
+            "preferred_experience_tags": ["亲子互动", "玩水", "躺平度假"],
+            "travel_goals": ["relaxation", "family_time"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["台阶多", "人挤人"],
+                "special_groups": ["toddler"],
+                "accessibility_needs": ["stroller_accessible"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["bus", "subway"],
+            "max_walking_minutes": 15,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 4,
+        "description": "银发族夕阳红 - 注重无障碍，全公共交通，低消耗",
+        "basic_info": {
+            "departure_city": "武汉",
+            "destination_city": "西安",
+            "start_date": "2026-09-05",
+            "end_date": "2026-09-08",
+            "travel_days": 4,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "elderly",
+            "preferred_poi_categories": ["历史古迹", "宗教寺庙"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["遗址", "博物馆"],
+            "preferred_experience_tags": ["文化讲解", "慢节奏"],
+            "travel_goals": ["cultural_immersion"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["兵马俑"],
+                "must_avoid": ["爬山", "没有电梯的地方"],
+                "special_groups": ["senior"],
+                "accessibility_needs": ["wheelchair_accessible", "elevator"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi", "bus"],
+            "avoid_modes": ["walking"],
+            "max_walking_minutes": 10,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 5,
+        "description": "商务出差顺便游 - 奢华预算，单人，极短时间打车直达",
+        "basic_info": {
+            "departure_city": "深圳",
+            "destination_city": "上海",
+            "start_date": "2026-06-15",
+            "end_date": "2026-06-15",
+            "travel_days": 1,
+            "traveler_count": 1,
+            "budget_level": "luxury",
+            "companion_type": "business",
+            "preferred_poi_categories": ["现代地标与都市景观", "高级餐饮"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["顶级CBD", "米其林餐厅"],
+            "preferred_experience_tags": ["尊享服务", "全景视野"],
+            "travel_goals": ["brief_tour", "dining"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["上海中心大厦"],
+                "must_avoid": ["拥挤的旅游团"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_low",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["subway", "bus", "walking"],
+            "max_walking_minutes": 5,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 6,
+        "description": "闺蜜探店游 - 纯室内，偏好咖啡馆与小众街区",
+        "basic_info": {
+            "departure_city": "广州",
+            "destination_city": "成都",
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-03",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "affordable",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["逛吃与商业街区", "文创艺术空间"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["特色巷子", "独立书店", "咖啡馆"],
+            "preferred_experience_tags": ["下午茶", "汉服拍照", "慢生活"],
+            "travel_goals": ["photo_checkin", "foodie"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["户外暴晒"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["bus"],
+            "max_walking_minutes": 30,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 7,
+        "description": "孕妇安全游 - 极度关注身体状态与医疗距离",
+        "basic_info": {
+            "departure_city": "天津",
+            "destination_city": "大连",
+            "start_date": "2026-07-20",
+            "end_date": "2026-07-22",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["自然风光", "休闲公园"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海滨栈道", "阴凉绿地"],
+            "preferred_experience_tags": ["散步", "呼吸新鲜空气"],
+            "travel_goals": ["relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["剧烈运动", "长途颠簸", "人多拥挤"],
+                "special_groups": ["pregnant"],
+                "accessibility_needs": ["rest_areas_nearby", "clean_restrooms"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["bus", "subway"],
+            "max_walking_minutes": 10,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 8,
+        "description": "硬核徒步爱好者 - 极致拉满步行时长与户外属性",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "黄山",
+            "start_date": "2026-11-05",
+            "end_date": "2026-11-06",
+            "travel_days": 2,
+            "traveler_count": 1,
+            "budget_level": "affordable",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["自然风光", "户外运动"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["山峰", "峡谷"],
+            "preferred_experience_tags": ["登山", "观日出", "极限体力"],
+            "travel_goals": ["adventure", "fitness"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["迎客松", "光明顶"],
+                "must_avoid": ["索道"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "no_preference"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["walking"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 300,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "acceptable"
+        }
+    },
+    {
+        "test_case_id": 9,
+        "description": "铲屎官携宠出游 - 仅去允许宠物入内的地方",
+        "basic_info": {
+            "departure_city": "杭州",
+            "destination_city": "安吉",
+            "start_date": "2026-06-20",
+            "end_date": "2026-06-21",
+            "travel_days": 2,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "family",
+            "preferred_poi_categories": ["自然风光", "主题乐园与游乐场"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["大草坪", "露营地"],
+            "preferred_experience_tags": ["宠物友好", "飞盘", "草地野餐"],
+            "travel_goals": ["relaxation", "pet_social"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["室内商场", "禁止宠物入内的公园"],
+                "special_groups": ["pet_owner"],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["subway", "bus"],
+            "max_walking_minutes": 60,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 10,
+        "description": "纯穷游羊毛党 - 免费景点硬约束",
+        "basic_info": {
+            "departure_city": "石家庄",
+            "destination_city": "北京",
+            "start_date": "2026-06-15",
+            "end_date": "2026-06-17",
+            "travel_days": 3,
+            "traveler_count": 1,
+            "budget_level": "budget",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["城市公园", "现代地标与都市景观"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["胡同", "开放式街区"],
+            "preferred_experience_tags": ["街拍", "CityWalk"],
+            "travel_goals": ["exploration", "budget_travel"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["需要门票的地方", "收费导览"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": true
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "no_preference"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["bicycle", "walking"],
+            "avoid_modes": ["taxi", "subway"],
+            "max_walking_minutes": 120,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "acceptable"
+        }
+    },
+    {
+        "test_case_id": 11,
+        "description": "全家老少三代同游 - 复杂人群约束，众口难调",
+        "basic_info": {
+            "departure_city": "重庆",
+            "destination_city": "厦门",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-19",
+            "travel_days": 5,
+            "traveler_count": 6,
+            "budget_level": "high",
+            "companion_type": "family",
+            "preferred_poi_categories": ["自然风光", "逛吃与商业街区", "博物馆与展览"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海岛", "步行街", "科普馆"],
+            "preferred_experience_tags": ["全家福拍照", "海鲜大餐", "人文科普"],
+            "travel_goals": ["family_time", "sightseeing"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["鼓浪屿"],
+                "must_avoid": ["排队超过30分钟", "高危游乐设施"],
+                "special_groups": ["senior", "infant"],
+                "accessibility_needs": ["stroller_accessible", "elevator"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi", "chartered_car"],
+            "avoid_modes": ["bus"],
+            "max_walking_minutes": 25,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 12,
+        "description": "深夜蹦迪与夜景党 - 逆作息时间表测试",
+        "basic_info": {
+            "departure_city": "苏州",
+            "destination_city": "上海",
+            "start_date": "2026-10-31",
+            "end_date": "2026-11-01",
+            "travel_days": 2,
+            "traveler_count": 3,
+            "budget_level": "high",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["酒吧与夜生活", "现代地标与都市景观"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["Livehouse", "外滩夜景", "天台酒吧"],
+            "preferred_experience_tags": ["蹦迪", "微醺", "夜游"],
+            "travel_goals": ["entertainment", "relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["巨鹿路"],
+                "must_avoid": ["早起", "旅行团"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_high",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["subway"],
+            "max_walking_minutes": 15,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 13,
+        "description": "古镇文化沉浸游 - 喜爱小众静谧",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "苏州",
+            "start_date": "2026-06-08",
+            "end_date": "2026-06-09",
+            "travel_days": 2,
+            "traveler_count": 1,
+            "budget_level": "medium",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["历史古迹", "自然风光"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["园林", "水乡古镇", "青石板路"],
+            "preferred_experience_tags": ["听评弹", "品茶", "古风摄影"],
+            "travel_goals": ["cultural_immersion", "relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["过度商业化的街道", "大喇叭叫卖"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_low",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["walking", "boat"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 60,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "acceptable"
+        }
+    },
+    {
+        "test_case_id": 14,
+        "description": "残障人士无障碍出行 - 硬性过滤检验",
+        "basic_info": {
+            "departure_city": "济南",
+            "destination_city": "青岛",
+            "start_date": "2026-08-20",
+            "end_date": "2026-08-23",
+            "travel_days": 4,
+            "traveler_count": 2,
+            "budget_level": "affordable",
+            "companion_type": "family",
+            "preferred_poi_categories": ["自然风光", "现代地标与都市景观"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海滨广场", "平坦宽阔街道"],
+            "preferred_experience_tags": ["吹海风", "无障碍观景"],
+            "travel_goals": ["relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["五四广场"],
+                "must_avoid": ["台阶", "陡坡", "窄道"],
+                "special_groups": ["disabled"],
+                "accessibility_needs": ["wheelchair_accessible", "accessible_restrooms"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["bus", "subway"],
+            "max_walking_minutes": 5,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 15,
+        "description": "极奢酒店度假客 - 高端SPA与宅酒店",
+        "basic_info": {
+            "departure_city": "北京",
+            "destination_city": "三亚",
+            "start_date": "2026-12-20",
+            "end_date": "2026-12-25",
+            "travel_days": 6,
+            "traveler_count": 2,
+            "budget_level": "luxury",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["休闲理疗", "高级餐饮"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海景房", "无边泳池", "私人沙滩"],
+            "preferred_experience_tags": ["SPA按摩", "私厨定制", "游艇出海"],
+            "travel_goals": ["luxury_vacation", "relaxation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": ["所有大众景点", "任何需要排队的地方"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["public_transport", "walking"],
+            "max_walking_minutes": 0,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 16,
+        "description": "资深吃货寻味之旅 - 行程围绕餐馆建立",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "广州",
+            "start_date": "2026-09-10",
+            "end_date": "2026-09-13",
+            "travel_days": 4,
+            "traveler_count": 3,
+            "budget_level": "medium",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["逛吃与商业街区", "特色餐饮"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["老字号", "夜市", "大排档"],
+            "preferred_experience_tags": ["早茶", "宵夜", "街头小吃"],
+            "travel_goals": ["foodie"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["上下九步行街", "广州塔"],
+                "must_avoid": ["网红连锁店"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway", "walking"],
+            "avoid_modes": [],
+            "max_walking_minutes": 40,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 17,
+        "description": "亲子科学营 - 场馆控与研学路线",
+        "basic_info": {
+            "departure_city": "成都",
+            "destination_city": "上海",
+            "start_date": "2026-07-05",
+            "end_date": "2026-07-08",
+            "travel_days": 4,
+            "traveler_count": 3,
+            "budget_level": "affordable",
+            "companion_type": "parent_child",
+            "preferred_poi_categories": ["博物馆与展览", "科教场馆"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["科技馆", "天文馆", "自然博物馆"],
+            "preferred_experience_tags": ["互动实验", "科普讲解", "寓教于乐"],
+            "travel_goals": ["education", "family_time"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["上海天文馆", "上海科技馆"],
+                "must_avoid": ["纯购物场所"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_high",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["bus"],
+            "max_walking_minutes": 20,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 18,
+        "description": "二次元阿宅朝圣 - 特定文化圈层打卡",
+        "basic_info": {
+            "departure_city": "西安",
+            "destination_city": "上海",
+            "start_date": "2026-06-25",
+            "end_date": "2026-06-27",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "classmates",
+            "preferred_poi_categories": ["文创艺术空间", "主题活动"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["二次元谷子店", "漫展场馆", "女仆咖啡厅"],
+            "preferred_experience_tags": ["抽赏", "集邮", "Cosplay"],
+            "travel_goals": ["hobby_immersion", "shopping"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["百联ZX创趣场"],
+                "must_avoid": ["传统名胜古迹"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_high",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 45,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 19,
+        "description": "摄影法师采风 - 追逐日落光影，纯室外",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "舟山",
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-03",
+            "travel_days": 3,
+            "traveler_count": 1,
+            "budget_level": "affordable",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["自然风光", "特色乡村"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["灯塔", "渔村", "断崖"],
+            "preferred_experience_tags": ["航拍", "延时摄影", "追日落"],
+            "travel_goals": ["photography", "exploration"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["东极岛"],
+                "must_avoid": ["室内密闭空间"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["boat", "walking"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 120,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "no_preference"
+        }
+    },
+    {
+        "test_case_id": 20,
+        "description": "极速中转半日游 - 压榨时间，高效打卡",
+        "basic_info": {
+            "departure_city": "伦敦",
+            "destination_city": "上海",
+            "start_date": "2026-06-05",
+            "end_date": "2026-06-05",
+            "travel_days": 1,
+            "traveler_count": 1,
+            "budget_level": "medium",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["现代地标与都市景观"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["标志性建筑"],
+            "preferred_experience_tags": ["走马观花", "地标合影"],
+            "travel_goals": ["transit_tour", "photo_checkin"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["陆家嘴"],
+                "must_avoid": ["远离机场的区域", "深度游"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "no_preference"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["maglev", "subway"],
+            "avoid_modes": ["bus", "walking"],
+            "max_walking_minutes": 15,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 21,
+        "description": "毕业自驾大环线 - 偏好接受度极高",
+        "basic_info": {
+            "departure_city": "成都",
+            "destination_city": "川西",
+            "start_date": "2026-07-10",
+            "end_date": "2026-07-17",
+            "travel_days": 8,
+            "traveler_count": 4,
+            "budget_level": "medium",
+            "companion_type": "classmates",
+            "preferred_poi_categories": ["自然风光", "少数民族风情"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["雪山", "草原", "星空房"],
+            "preferred_experience_tags": ["公路旅行", "篝火晚会", "露营"],
+            "travel_goals": ["road_trip", "adventure"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["稻城亚丁"],
+                "must_avoid": ["高反风险极高的住宿点"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "outdoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["self_driving"],
+            "avoid_modes": ["subway", "bus", "taxi"],
+            "max_walking_minutes": 90,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 22,
+        "description": "情侣周年庆 - 浪漫至上，极简行程安排",
+        "basic_info": {
+            "departure_city": "广州",
+            "destination_city": "珠海",
+            "start_date": "2026-11-11",
+            "end_date": "2026-11-12",
+            "travel_days": 2,
+            "traveler_count": 2,
+            "budget_level": "luxury",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["主题乐园与游乐场", "浪漫体验"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海洋馆", "摩天轮", "情侣酒店"],
+            "preferred_experience_tags": ["看烟花", "烛光晚餐", "深海生物"],
+            "travel_goals": ["anniversary", "romance"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["长隆海洋王国"],
+                "must_avoid": ["行程紧凑", "早起"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["bus", "subway"],
+            "max_walking_minutes": 10,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 23,
+        "description": "盲盒随心飞体验客 - 无明显偏好，全靠推荐算法兜底",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "长沙",
+            "start_date": "2026-06-18",
+            "end_date": "2026-06-20",
+            "travel_days": 3,
+            "traveler_count": 1,
+            "budget_level": "affordable",
+            "companion_type": "solo",
+            "preferred_poi_categories": []
+        },
+        "travel_profile": {
+            "preferred_structure_tags": [],
+            "preferred_experience_tags": [],
+            "travel_goals": ["exploration"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": [],
+                "must_avoid": [],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "no_preference",
+                "crowd_preference": "no_preference"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": [],
+            "avoid_modes": [],
+            "max_walking_minutes": 30,
+            "taxi_acceptance": "no_preference",
+            "public_transport_acceptance": "no_preference"
+        }
+    },
+    {
+        "test_case_id": 24,
+        "description": "大型团建前序探路 - 关注场地容量与团队活动适宜性",
+        "basic_info": {
+            "departure_city": "北京",
+            "destination_city": "阿那亚",
+            "start_date": "2026-05-20",
+            "end_date": "2026-05-22",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "business",
+            "preferred_poi_categories": ["休闲公园", "文创艺术空间"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["海边沙滩", "大礼堂", "剧场"],
+            "preferred_experience_tags": ["场地考察", "团队游戏场地", "拍照出片"],
+            "travel_goals": ["scouting", "team_building_prep"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["孤独图书馆"],
+                "must_avoid": ["零散小摊贩", "无法容纳大团队的餐厅"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["walking", "shuttle_bus"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 45,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 25,
+        "description": "极繁主义者 - 标签超载，用来测试冲突消解策略",
+        "basic_info": {
+            "departure_city": "南京",
+            "destination_city": "杭州",
+            "start_date": "2026-09-28",
+            "end_date": "2026-09-30",
+            "travel_days": 3,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["自然风光", "逛吃与商业街区", "历史古迹", "现代地标与都市景观", "文创艺术空间"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["西湖", "高楼", "古街", "商场", "寺庙", "咖啡馆"],
+            "preferred_experience_tags": ["划船", "购物", "吃斋饭", "蹦迪", "看展"],
+            "travel_goals": ["photo_checkin", "foodie", "shopping", "relaxation", "adventure"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["西湖", "灵隐寺", "湖滨银泰"],
+                "must_avoid": ["人多"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "high",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway", "bicycle", "boat"],
+            "avoid_modes": [],
+            "max_walking_minutes": 120,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 26,
+        "description": "纯看展星人 - 只去博物馆和画廊，室内极致偏好",
+        "basic_info": {
+            "departure_city": "合肥",
+            "destination_city": "上海",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-17",
+            "travel_days": 3,
+            "traveler_count": 1,
+            "budget_level": "affordable",
+            "companion_type": "solo",
+            "preferred_poi_categories": ["博物馆与展览", "文创艺术空间"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["美术馆", "画廊", "创意园区"],
+            "preferred_experience_tags": ["艺术熏陶", "看展", "文创购买"],
+            "travel_goals": ["art_appreciation"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["上海博物馆"],
+                "must_avoid": ["室外暴晒", "自然景点"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["bicycle", "bus"],
+            "max_walking_minutes": 20,
+            "taxi_acceptance": "acceptable",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 27,
+        "description": "温泉养生游 - 针对秋冬季节的特定需求",
+        "basic_info": {
+            "departure_city": "上海",
+            "destination_city": "南京",
+            "start_date": "2026-11-20",
+            "end_date": "2026-11-21",
+            "travel_days": 2,
+            "traveler_count": 2,
+            "budget_level": "high",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["休闲理疗", "自然风光"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["温泉度假村", "山林"],
+            "preferred_experience_tags": ["泡汤", "养生", "私汤"],
+            "travel_goals": ["relaxation", "health"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["汤山温泉"],
+                "must_avoid": ["行程奔波", "吹冷风"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "low",
+                "indoor_outdoor_preference": "indoor",
+                "crowd_preference": "quiet"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["taxi"],
+            "avoid_modes": ["subway", "bus", "walking"],
+            "max_walking_minutes": 5,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "avoid"
+        }
+    },
+    {
+        "test_case_id": 28,
+        "description": "演唱会周边顺道游 - 有确定锚点的区域召回测试",
+        "basic_info": {
+            "departure_city": "厦门",
+            "destination_city": "上海",
+            "start_date": "2026-08-08",
+            "end_date": "2026-08-09",
+            "travel_days": 2,
+            "traveler_count": 2,
+            "budget_level": "medium",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["现代地标与都市景观", "逛吃与商业街区"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["体育场馆周边", "大型商场"],
+            "preferred_experience_tags": ["看演唱会", "应援打卡", "吃夜宵"],
+            "travel_goals": ["concert", "fan_meeting"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["上海体育场"],
+                "must_avoid": ["距离徐汇区太远的地方"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_low",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 30,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 29,
+        "description": "体育迷看球赛 - 激情与赛事导向",
+        "basic_info": {
+            "departure_city": "大连",
+            "destination_city": "北京",
+            "start_date": "2026-09-15",
+            "end_date": "2026-09-17",
+            "travel_days": 3,
+            "traveler_count": 4,
+            "budget_level": "affordable",
+            "companion_type": "friends",
+            "preferred_poi_categories": ["体育赛事", "酒吧与夜生活"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["工人体育场", "运动酒吧"],
+            "preferred_experience_tags": ["看球", "喝啤酒", "呐喊助威"],
+            "travel_goals": ["sports_event", "entertainment"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["工人体育场"],
+                "must_avoid": ["安静的场所"],
+                "special_groups": [],
+                "accessibility_needs": [],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium_high",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "lively"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway"],
+            "avoid_modes": ["taxi"],
+            "max_walking_minutes": 40,
+            "taxi_acceptance": "avoid",
+            "public_transport_acceptance": "preferred"
+        }
+    },
+    {
+        "test_case_id": 30,
+        "description": "过境免签老外游中国 - 特殊游客体验，偏好标志性传统文化",
+        "basic_info": {
+            "departure_city": "法兰克福",
+            "destination_city": "上海",
+            "start_date": "2026-10-10",
+            "end_date": "2026-10-14",
+            "travel_days": 5,
+            "traveler_count": 2,
+            "budget_level": "high",
+            "companion_type": "couple",
+            "preferred_poi_categories": ["历史古迹", "现代地标与都市景观", "特色餐饮"]
+        },
+        "travel_profile": {
+            "preferred_structure_tags": ["古典园林", "老洋房", "黄浦江"],
+            "preferred_experience_tags": ["吃小笼包", "看杂技", "黄浦江游船"],
+            "travel_goals": ["cultural_experience", "sightseeing"]
+        },
+        "constraints": {
+            "hard_constraints": {
+                "must_see": ["豫园", "外滩"],
+                "must_avoid": ["无英文指示牌的冷门景点"],
+                "special_groups": [],
+                "accessibility_needs": ["english_service"],
+                "free_only": false
+            },
+            "soft_constraints": {
+                "intensity_preference": "medium",
+                "indoor_outdoor_preference": "mixed",
+                "crowd_preference": "moderate"
+            }
+        },
+        "transport_preference": {
+            "preferred_modes": ["subway", "taxi"],
+            "avoid_modes": ["bus"],
+            "max_walking_minutes": 60,
+            "taxi_acceptance": "preferred",
+            "public_transport_acceptance": "preferred"
+        }
+    }
+]

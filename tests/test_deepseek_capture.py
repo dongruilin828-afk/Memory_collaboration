@@ -57,8 +57,8 @@ class DeepSeekSourceTests(unittest.TestCase):
             '<blockquote><span role="math" data-math-source="x" style="display:block"></span></blockquote></div>','html.parser').div
         output=deepseek._node_to_markdown(node,{})
         self.assertIn('literal \\\\\\\\',output)
-        self.assertIn('  $$\n  a+b\n  $$',output)
-        self.assertIn('> $$\n> x\n> $$',output)
+        self.assertIn('  $\\displaystyle a+b$',output)
+        self.assertIn('> $\\displaystyle x$',output)
         self.assertIn('<em>emphasis</em>',output)
 
     def test_current_branch_follows_parent_ids_instead_of_longest_or_sorted_cache(self):
@@ -75,6 +75,17 @@ class DeepSeekSourceTests(unittest.TestCase):
             source.current_branch(data, SESSION)
         with self.assertRaises(source.SourceError):
             source.current_branch(dict(chat_session=data['chat_session'], chat_messages=[], cache_control='MERGE'), SESSION)
+
+    def test_nested_display_math_keeps_matrix_row_breaks_and_comment_semantics(self):
+        from html import escape
+        latex='\\begin{pmatrix}\n1 & 2 \\\\ % row comment\n3 & 4\n\\end{pmatrix}'
+        node=BeautifulSoup('<div><ul><li><p>矩阵：</p><span role="math" style="display:block" data-math-source="'+escape(latex,quote=True)+'"></span><p>正文继续</p></li></ul>'
+                           '<pre><code>$$\nliteral \\\\ matrix\n$$</code></pre></div>','html.parser').div
+        output=deepseek._node_to_markdown(node,{})
+        self.assertIn('$\\displaystyle \\begin{pmatrix} 1 & 2 \\\\  3 & 4 \\end{pmatrix}$',output)
+        self.assertNotIn('% row comment',output)
+        self.assertIn('正文继续',output)
+        self.assertIn('```\n$$\nliteral \\\\ matrix\n$$\n```',output)
 
     def test_literal_markdown_indentation_blanks_and_ui_words_survive_actual_saved_export(self):
         body = '# 输入\n\n1. 步骤\n    - 子项\n\n```python\ndef f():\n    return 1\n```\n\n复制\n\n</script>\n'

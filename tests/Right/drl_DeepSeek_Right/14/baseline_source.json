@@ -1,0 +1,37 @@
+{
+  "case": "14",
+  "url": "https://chat.deepseek.com/a/chat/s/0a438c82-9c76-4466-a5d7-7a9cc372d588",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\14",
+  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "approved_date": "2026-10-27",
+  "approval_scope": "完整人工认可结果",
+  "has_formulas": false,
+  "formula_status": "not_applicable",
+  "moved_without_content_changes": true,
+  "original_files_sha256": {
+    "audit.json": "6e165636e887a574bfc09562aac7b860eb6f6f7ba17c3e74cd746bbadbae909b",
+    "export.md": "de81f5c1fab859bd91cc4631773c1bf5defc8d481cbd56fbc925e1085efc6b2d",
+    "result.json": "d6e6f8f6b39222d7ac58ef709d00658c43cfc654a9e4f4f67abb6ffb950218d4",
+    "run.log": "d5dc295b2e44c39186e7fef2e382150024d1b5afac1c45c3fcb1ed63494ca9ba",
+    "snapshot.html": "e4ffb61e06da9251a7f8808a4675a2795bd0421a627318b0052c2fbb908a9740",
+    "images/img_1_f2a8760b.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+    "images/img_2_28698366.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+    "images/img_3_776f6b0d.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+    "images/img_4_e0e6dcac.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+    "images/img_5_9f9dd339.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+    "images/img_6_8199c14f.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+  },
+  "files": {
+    "audit.json": "6e165636e887a574bfc09562aac7b860eb6f6f7ba17c3e74cd746bbadbae909b",
+    "export.md": "de81f5c1fab859bd91cc4631773c1bf5defc8d481cbd56fbc925e1085efc6b2d",
+    "result.json": "d6e6f8f6b39222d7ac58ef709d00658c43cfc654a9e4f4f67abb6ffb950218d4",
+    "run.log": "d5dc295b2e44c39186e7fef2e382150024d1b5afac1c45c3fcb1ed63494ca9ba",
+    "snapshot.html": "e4ffb61e06da9251a7f8808a4675a2795bd0421a627318b0052c2fbb908a9740",
+    "images/img_1_f2a8760b.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+    "images/img_2_28698366.webp": "9506c040d0b939b5d02e64d7828e8f29d89350235c6c53f236fe352f3653cdd9",
+    "images/img_3_776f6b0d.webp": "e1f9c212137d3e412d6e4d0869e0f6f7ffcf7917a5a36802ef5a6240898c0228",
+    "images/img_4_e0e6dcac.webp": "c4b1e70e805007f18b97b8602a5de5689d22e2af89fbe282879dce282e2d35ab",
+    "images/img_5_9f9dd339.webp": "c0d0e29c3ebf22fb2430aebf9adad44bfc5c942c65b0ba30413624013b51b7ed",
+    "images/img_6_8199c14f.webp": "e5b7e83d5fe6ab114bd48539ad5738782bc0db609829c5fb4636b6ceb000dc32"
+  }
+}

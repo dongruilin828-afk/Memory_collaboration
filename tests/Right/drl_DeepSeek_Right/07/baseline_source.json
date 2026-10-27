@@ -34,5 +34,6 @@
     "snapshot.html",
     "run.log"
   ],
-  "evidence_note": "新版 GUI 未保存分享页原始 HTML/日志，不保留旧114条快照冒充新版证据；原始旧标准仍在02_DeepSeek_Right/15。"
+  "evidence_note": "新版 GUI 未保存分享页原始 HTML/日志，不保留旧114条快照冒充新版证据；原始旧标准仍在02_DeepSeek_Right/15。",
+  "manual_review": "2026-10-27 用户人工核对：非公式部分完全一致；既有新版07标准保留。"
 }

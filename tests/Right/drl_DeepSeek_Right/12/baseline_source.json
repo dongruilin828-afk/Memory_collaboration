@@ -1,0 +1,37 @@
+{
+  "case": "12",
+  "url": "https://chat.deepseek.com/a/chat/s/73abec8f-9b69-4a8f-a52d-b9fcce8dcfb2",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\12",
+  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "approved_date": "2026-10-27",
+  "approval_scope": "完整人工认可结果",
+  "has_formulas": false,
+  "formula_status": "not_applicable",
+  "moved_without_content_changes": true,
+  "original_files_sha256": {
+    "audit.json": "e355bfa062a456d63aebc9e925102b1b377cbfd41c3c07824f7215e40cca3b20",
+    "export.md": "3af00b5650f1dbcae3fcc1e95182f4ec81911844ab43d14d598f8fd2b5843c4b",
+    "result.json": "edf5ab2d484c1cfdf772adeb65ece43ed99f90da641f4dd1273170f5d1bf16d3",
+    "run.log": "3c3b25359292eb4b190facaaf1acfb5d3a8709f43e46199a5686cbe04c88b8d4",
+    "snapshot.html": "0056a8ecf1c0db886a44a4566a518289f382c60c9925e00abc8534406665ac36",
+    "images/img_1_08cb648b.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+    "images/img_2_2796ed35.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+    "images/img_3_e43ef30d.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+    "images/img_4_7a8ba4e0.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+    "images/img_5_adab5301.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+    "images/img_6_eadd58b9.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+  },
+  "files": {
+    "audit.json": "e355bfa062a456d63aebc9e925102b1b377cbfd41c3c07824f7215e40cca3b20",
+    "export.md": "3af00b5650f1dbcae3fcc1e95182f4ec81911844ab43d14d598f8fd2b5843c4b",
+    "result.json": "edf5ab2d484c1cfdf772adeb65ece43ed99f90da641f4dd1273170f5d1bf16d3",
+    "run.log": "3c3b25359292eb4b190facaaf1acfb5d3a8709f43e46199a5686cbe04c88b8d4",
+    "snapshot.html": "0056a8ecf1c0db886a44a4566a518289f382c60c9925e00abc8534406665ac36",
+    "images/img_1_08cb648b.webp": "c02a29e5db795abb94fc4a62eeb7176eba6e82aafc8e175a2b9c68a11decb666",
+    "images/img_2_2796ed35.webp": "d4d64637074aec8bb634e66d2e43a5f26fa8e5ca011cbce9379fb253b91c9600",
+    "images/img_3_e43ef30d.webp": "a83a53d0b78578c5afa8eaee5220a57ef15ef646a09a821cdf4b3996dc5df5b2",
+    "images/img_4_7a8ba4e0.webp": "279cb59fd8e33fb2c21bd0fe622c1d76500c954f107278af6556b6dacd67b22b",
+    "images/img_5_adab5301.webp": "8bc2da1966e7f66c4ba2afd07fcefcc655a0abf157181e58e554470c898b2c4b",
+    "images/img_6_eadd58b9.webp": "22e9f0917751697bd55435ef358aaa3994ed67f5b4de477ab9177c244d2c5035"
+  }
+}

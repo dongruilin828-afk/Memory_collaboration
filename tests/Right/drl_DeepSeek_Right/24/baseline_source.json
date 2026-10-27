@@ -1,0 +1,29 @@
+{
+  "case": "24",
+  "url": "https://chat.deepseek.com/a/chat/s/d778225a-a930-4f01-b96d-491118c2ee0f",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\24",
+  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "approved_date": "2026-10-27",
+  "approval_scope": "完整人工认可结果",
+  "has_formulas": false,
+  "formula_status": "not_applicable",
+  "moved_without_content_changes": true,
+  "original_files_sha256": {
+    "audit.json": "3d06071f70527ca02f960bd853f8f8e261f2de2a779c33da0c87a37a548cc7b7",
+    "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+    "result.json": "35d7a2390d1c777c1785988a1758bb5d436fa709a633fd0a4b87fd6c648c13e2",
+    "run.log": "1e39dfabb66c8e8a61178116c62a9a24495706d8ad36a0213148c5d9a624a5f0",
+    "snapshot.html": "adf78ca4d9f6d6f70ba93251bc47a2e15169222b872a8544cf576d13eae53733",
+    "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+    "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+  },
+  "files": {
+    "audit.json": "3d06071f70527ca02f960bd853f8f8e261f2de2a779c33da0c87a37a548cc7b7",
+    "export.md": "41bd23f2d83abc5dd7e73f92817a5a4a3b73b37630bb0e8e8918ba647f3a138d",
+    "result.json": "35d7a2390d1c777c1785988a1758bb5d436fa709a633fd0a4b87fd6c648c13e2",
+    "run.log": "1e39dfabb66c8e8a61178116c62a9a24495706d8ad36a0213148c5d9a624a5f0",
+    "snapshot.html": "adf78ca4d9f6d6f70ba93251bc47a2e15169222b872a8544cf576d13eae53733",
+    "documents/大语言模型检索增强生成优化技术研究综述_袁乐(1).pdf": "ded2edc201e995b4c01ca3e4d1334e8ecd827dbe4b7996142dbe6db230a9bde5",
+    "documents/第五版.docx": "943e5be911c5b4b20291283550e95af8793af4c8827ce44bcd016a080deb88b1"
+  }
+}

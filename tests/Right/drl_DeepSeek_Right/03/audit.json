@@ -1,0 +1,48 @@
+{
+  "requested_url": "https://chat.deepseek.com/share/r88uc0nakpauyhq846",
+  "visits": [
+    {
+      "url": "https://chat.deepseek.com/share/r88uc0nakpauyhq846",
+      "title": "DeepSeek - 探索未至之境",
+      "dom_messages": 26
+    }
+  ],
+  "http_errors": [
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    },
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    },
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    },
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    },
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    },
+    {
+      "host": "files.deepseeksvc.com",
+      "path": "/api/file",
+      "status": 404,
+      "resource_type": "image"
+    }
+  ]
+}

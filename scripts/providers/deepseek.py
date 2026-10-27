@@ -145,8 +145,13 @@ def _node_to_markdown(node, image_map, original=None):
             prefix = leading[1] + leading[2]
             if leading[3]:
                 prefix += ' ' * (len(leading[0]) - len(prefix))
-            if '>' in prefix:
-                return '\n' + prefix + '\n' + '\n'.join(prefix + line for line in latex.strip('\n').split('\n')) + '\n' + prefix + '\n' + prefix
+            if prefix:
+                # Some Markdown readers do not parse indented/quoted $$ blocks.
+                # Keep the container intact and use its supported inline delimiter
+                # with display-style TeX; matrix row breaks (\\) stay literal.
+                body = latex.strip()[2:-2].strip()
+                body = re.sub(r'(?m)(^|[^\\])((?:\\\\)*)%[^\n]*', r'\1\2', body).replace('\n', ' ')
+                return '$\\displaystyle ' + body + '$'
             return '\n\n' + '\n'.join(prefix + line for line in latex.strip('\n').split('\n')) + '\n\n' + prefix
         text = re.sub(re.escape(token), restore, text)
     return text

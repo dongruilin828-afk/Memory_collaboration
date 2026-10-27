@@ -1,0 +1,26 @@
+{
+  "case": "20",
+  "url": "https://chat.deepseek.com/a/chat/s/7bac0e6f-d625-4244-ab92-aa4c4f244005",
+  "original_directory": "C:\\Users\\东东\\Desktop\\结果保存\\DeepSeek_drl逐页修复复核_20261027_082650\\capture_verified\\20",
+  "reason": "用户人工核对后明确要求将最终结果移入标准库。",
+  "approved_date": "2026-10-27",
+  "approval_scope": "公式内容本身正确；非公式部分完全一致；公式显示待修复验收",
+  "has_formulas": true,
+  "formula_status": "display_pending_fix_content_correct",
+  "moved_without_content_changes": true,
+  "original_files_sha256": {
+    "audit.json": "5debb89806e02b4d4dc761baf0c3c2f17e814400bf2078635eae9ce3226edc3e",
+    "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+    "result.json": "41aa392f90ae4cac12df6ce2af7e8d0cbe9ce0612c01640e7609d3f640b6e9c0",
+    "run.log": "a3e0d2391cdd36601ed124491cdb403b4768fe745ad23dfa038f6e0b81b162a0",
+    "snapshot.html": "5628c9297ad6592eadd04ab20474ede0eb7e7fe6c580dcf08d2a6c9e79e5d63b"
+  },
+  "files": {
+    "audit.json": "5debb89806e02b4d4dc761baf0c3c2f17e814400bf2078635eae9ce3226edc3e",
+    "export.md": "98c5b6e605cefbbbe0e5ab45f92fd7d03af1e64a710f8d10cbad7af905b86f85",
+    "result.json": "41aa392f90ae4cac12df6ce2af7e8d0cbe9ce0612c01640e7609d3f640b6e9c0",
+    "run.log": "a3e0d2391cdd36601ed124491cdb403b4768fe745ad23dfa038f6e0b81b162a0",
+    "snapshot.html": "5628c9297ad6592eadd04ab20474ede0eb7e7fe6c580dcf08d2a6c9e79e5d63b",
+    "注释.txt": "9532738616425d63b41a963bc5dee1ddf21f1931f278954eecc3a448185e8917"
+  }
+}
