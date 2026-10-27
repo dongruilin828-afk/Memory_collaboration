@@ -1,12 +1,14 @@
-正在调用 deepseek/deepseek-v4-pro 生成结构化分层总结...
-总结后端：deepseek；模型：deepseek-v4-pro
-正在识别媒体内容：第 1/1 批（6 个文件）
-媒体准备完成（50.20 秒）。
-正在提取细粒度记忆：第 1/1 批
-细粒度记忆提取完成：1 批（123.75 秒）。
-正在综合全局状态、对话断点和主题索引...
-全局综合完成（67.87 秒）。
-结构化总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\101_09附件下载修复_20261013\09\AI_memory_result.json
-可读总结已保存：C:\Users\Administrator\Desktop\Memory_collaboration-feat-ai-providers-capture-summary-2\tests\test_results\03_ChatGPT修复验证\101_09附件下载修复_20261013\09\AI_memory_summary.md
-正在生成极简版总览...
-总结完成：12 条消息
+正在后台检查 AI 对话内容...
+正在使用 内置 Chromium。
+正在加载 chatgpt.com 分享页...
+该平台无法在无界面模式读取会话，正在最小化浏览器中继续尝试...
+正在使用 内置 Chromium。
+已在最小化浏览器中复用登录状态，无需重复授权。
+已核验目标会话 ID，当前分支共 12 条可见消息。
+原会话附件 1/6：已保存。
+原会话附件 2/6：已保存。
+原会话附件 3/6：已保存。
+原会话附件 4/6：已保存。
+原会话附件 5/6：已保存。
+原会话附件 6/6：已保存。
+完成：12 条消息，1 张图片，5 个文档；错误 None；警告 []
