@@ -607,6 +607,11 @@ class AIMemoryGUI:
         self._schedule_history_viewport()
         self._schedule_scrollregion()
 
+    def _focus_home_input(self):
+        """首页布局就绪后允许直接输入，同时避免切页后抢走焦点。"""
+        if self._current_page == 0 and self.capsule_entry.entry.winfo_viewable():
+            self.capsule_entry.entry.focus_set()
+
     def _refresh_scrollregion(self):
         self._scrollregion_after_id = None
         if self.root.state() in {"iconic", "withdrawn"}:
@@ -729,6 +734,9 @@ class AIMemoryGUI:
         )
         self.capsule_entry.pack(fill=tk.X)
         self.capsule_entry.entry.bind("<Return>", self._on_omnibox_send)
+        self.capsule_entry.entry.bind(
+            "<Map>", lambda _event: self.root.after_idle(self._focus_home_input),
+        )
 
         # ===== 底部微型工具栏 =====
         toolbar = tk.Frame(omnibox_body, bg=COLOR_OMNIBOX_SURFACE)
