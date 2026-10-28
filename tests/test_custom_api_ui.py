@@ -143,7 +143,7 @@ class CustomAPIUITests(unittest.TestCase):
         dialog.advanced_button.invoke()
         self.root.update()
         style = ttk.Style(self.root)
-        for name in ("protocol", "thinking_level", "json_mode"):
+        for name in ("protocol", "json_mode"):
             combo = dialog.entries[name]
             original = combo.get()
             for state in (("readonly",), ("readonly", "focus"), ("readonly", "focus", "pressed")):
@@ -205,6 +205,18 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertTrue(surface._focused)
         surface._set_state(focused=False)
         self.assertEqual(dialog.key_entry.cget("selectbackground"), dialog.entries["name"].cget("selectbackground"))
+
+    def test_reasoning_slider_choice_is_saved(self):
+        dialog = self.dialog()
+        dialog.advanced_button.invoke()
+        self.root.update()
+        slider = dialog.entries["thinking_level"]
+        slider.focus_force()
+        self.root.update()
+        slider.event_generate("<End>")
+        self.assertEqual(dialog.variables["thinking_level"].get(), "xhigh")
+        dialog.save()
+        self.assertEqual(self.saved[0][0]["thinking_level"], "xhigh")
 
     def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
         self.root.geometry("650x480")
@@ -436,6 +448,36 @@ class CustomAPIUITests(unittest.TestCase):
 
 
 class CustomAPIGeometryTests(unittest.TestCase):
+    def test_reasoning_slider_keeps_field_and_grid_size_for_all_values(self):
+        for scaling in (1, 4 / 3, 2, 8 / 3):
+            root = tk.Tk()
+            root.attributes("-alpha", 0.0)
+            root.tk.call("tk", "scaling", scaling)
+            try:
+                dialog = CustomAPIEditor(root, {}, "", lambda _cb: None, lambda *_args: None)
+                dialog.pack(fill=tk.BOTH, expand=True)
+                dialog.advanced_button.invoke()
+                for width in (520, 740):
+                    with self.subTest(scaling=scaling, width=width):
+                        root.geometry(f"{width}x780")
+                        root.update()
+                        keys = ("thinking_level", "json_mode", "max_output_tokens", "request_timeout_seconds")
+                        def snapshot():
+                            fields = []
+                            for key in keys:
+                                surface = dialog.input_surfaces[key]
+                                fields.append((surface.winfo_rootx(), surface.winfo_rooty(),
+                                               surface.winfo_width(), surface.winfo_height()))
+                            return fields, dialog.advanced_body.winfo_reqheight()
+                        original = snapshot()
+                        self.assertEqual(original[0][0][2:], original[0][1][2:])
+                        for value in dialog.entries["thinking_level"].cget("values"):
+                            dialog.variables["thinking_level"].set(value)
+                            root.update()
+                            self.assertEqual(snapshot(), original)
+            finally:
+                root.destroy()
+
     def test_fixed_controls_and_entry_fit_at_minimum_width_across_dpi(self):
         for scaling in (1.0, 4 / 3, 5 / 3, 2.0, 8 / 3):
             with self.subTest(tk_scaling=scaling):

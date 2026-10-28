@@ -13,6 +13,7 @@ from gui.theme import (
 )
 from gui.widgets import FlatButton, MinimalScrollbar
 from gui.dropdown import RoundedCombobox
+from gui.reasoning_slider import ReasoningSlider
 from gui.ui_dispatch import bind_visible_modal
 from scripts.api_config import normalize_custom_api, middle_ellipsis
 from scripts.gemini_summarizer import custom_summary_config, test_api_connection
@@ -70,8 +71,12 @@ class _InputSurface(tk.Canvas):
 
     def _resize(self, event):
         if self._window is not None:
-            self.coords(self._window, 14, event.height / 2)
-            self.itemconfigure(self._window, width=max(1, event.width - 28))
+            slider = isinstance(self.control, ReasoningSlider)
+            inset = 6 if slider else 14
+            self.coords(self._window, inset, event.height / 2)
+            self.itemconfigure(self._window, width=max(1, event.width - 2 * inset))
+            if slider:
+                self.itemconfigure(self._window, height=max(1, event.height - 8))
         self.redraw()
 
     def redraw(self):
@@ -272,11 +277,22 @@ class CustomAPIEditor(tk.Frame):
 
         def field(parent, label, key, choices=None, hint=None):
             group = tk.Frame(parent, bg=COLOR_CARD)
-            tk.Label(group, text=label, font=FONT_BODY, bg=COLOR_CARD,
-                     fg=COLOR_TEXT_PRIMARY, anchor="w").pack(fill=tk.X, pady=(0, 6))
+            heading = tk.Frame(group, bg=COLOR_CARD) if key == "thinking_level" else group
+            if heading is not group:
+                heading.pack(fill=tk.X, pady=(0, 6))
+            label_widget = tk.Label(heading, text=label, font=FONT_BODY, bg=COLOR_CARD,
+                                    fg=COLOR_TEXT_PRIMARY, anchor="w")
+            if heading is group:
+                label_widget.pack(fill=tk.X, pady=(0, 6))
+            else:
+                label_widget.pack(side=tk.LEFT)
             surface = _InputSurface(group)
             surface.pack(fill=tk.X)
-            if choices:
+            if key == "thinking_level":
+                widget = ReasoningSlider(surface, variable=self.variables[key], values=choices, font=FONT_BODY)
+                tk.Label(heading, textvariable=widget.label_var, font=FONT_SMALL,
+                         fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="e").pack(side=tk.RIGHT)
+            elif choices:
                 variable = self._protocol_display if key == "protocol" else self.variables[key]
                 widget = RoundedCombobox(surface, textvariable=variable, values=choices,
                                       state="readonly", font=FONT_BODY, width=1,
