@@ -389,6 +389,18 @@ class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["warnings"]), 1)
         self.assertFalse(result["document_map"])
 
+    async def test_asset_auth_failure_is_propagated_without_changing_capture_shape(self):
+        data = payload(node("u", "user", "Q", attachments=[{"id": "file_zip", "name": "archive.zip"}]))
+        error = SourceError("HTTP 401")
+        error.auth_required = True
+        authorization = []
+        with tempfile.TemporaryDirectory() as temp, patch("gui.chatgpt_capture.read_asset", side_effect=error):
+            result = await capture_conversation(None, URL, data, images_dir=Path(temp), image_prefix="./images",
+                documents_dir=Path(temp), document_prefix="./docs", authorization_required=authorization)
+        self.assertEqual(authorization, [True])
+        self.assertNotIn('authorization_required', result)
+        self.assertTrue(result['warnings'])
+
 
 if __name__ == "__main__":
     unittest.main()

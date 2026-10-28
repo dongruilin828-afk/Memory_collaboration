@@ -63,7 +63,8 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                 }
                 phase='metadata';
                 let r=await fetch(target.href,opts());
-                if(!r.ok)return {status:r.status};
+                if(!r.ok)return {status:r.status,auth_required:backend && [401,403].includes(r.status)
+                    && r.headers.get('cf-mitigated')!=='challenge'};
                 if((r.headers.get('content-type')||'').includes('application/json')){
                     const data=await r.json();
                     const link=data.download_url||data.downloadUrl||data.url||data.data?.download_url||data.data?.url;
@@ -79,7 +80,8 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                     }
                     phase='download';
                     r=await fetch(download.href,options);
-                    if(!r.ok)return {status:r.status};
+                    if(!r.ok)return {status:r.status,auth_required:download.origin===location.origin
+                        && [401,403].includes(r.status) && r.headers.get('cf-mitigated')!=='challenge'};
                 }
                 if(Number(r.headers.get('content-length')||0)>maxBytes)return {error:'size_limit'};
                 phase='body';
@@ -129,7 +131,9 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
             break
         if attempt < 2:
             await page.wait_for_timeout(1500)
-    raise SourceError(f"原文件未能下载（{result.get('error') or 'HTTP ' + str(result.get('status', 0))}）。")
+    error = SourceError(f"原文件未能下载（{result.get('error') or 'HTTP ' + str(result.get('status', 0))}）。")
+    error.auth_required = result.get("auth_required") is True
+    raise error
 
 
 def save_asset(body: bytes, asset: Asset, directory: Path, prefix: str,
@@ -351,7 +355,8 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
 
 
 async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
-                               documents_dir, document_prefix, logger=None):
+                               documents_dir, document_prefix, logger=None,
+                               authorization_required: list[bool] | None = None):
     rows = source_messages(payload, url)
     if logger:
         logger(f"已核验目标会话 ID，当前分支共 {len(rows)} 条可见消息。")
@@ -396,6 +401,8 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
             if asset.source_reference.startswith("sandbox:"):
                 target_map[asset.source_reference] = reference
         except SourceError as error:
+            if authorization_required is not None and getattr(error, "auth_required", False):
+                authorization_required.append(True)
             failures[asset.key] = str(error)
             warnings.append(f"附件 {asset.name}（{asset.key}）未下载：{error}")
         if logger:

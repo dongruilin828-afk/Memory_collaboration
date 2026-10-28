@@ -1,4 +1,4 @@
-"""Two-tab, authenticated capture queue. Single-link parsing stays in service.py."""
+"""Three-worker authenticated capture queue; parsing stays in service.py."""
 
 from __future__ import annotations
 
@@ -25,15 +25,22 @@ from scripts.project_paths import BROWSER_USER_DATA_DIR
 from scripts.providers import provider_for_url
 
 
-MAX_CAPTURE_TABS = 2
+MAX_CAPTURE_TABS = 3
 
 # Site download buttons can call window.open or use target=_blank. In batch
 # pages only, keep these navigations in their owner tab (downloads stay downloads).
 _SAME_TAB_SCRIPT = """() => {
-    window.open = url => { if (url) location.assign(url); return null; };
+    const nativeOpen = window.open.bind(window);
+    window.open = (url, target, features) => {
+        if (window.__aimemoryAllowLoginPopup)
+            return nativeOpen(url, target, features);
+        if (url) location.assign(url);
+        return null;
+    };
     document.addEventListener('click', event => {
         const link = event.target.closest?.('a[target]');
-        if (link && !['_self', '_parent', '_top'].includes(link.target.toLowerCase()))
+        if (!window.__aimemoryAllowLoginPopup && link
+                && !['_self', '_parent', '_top'].includes(link.target.toLowerCase()))
             link.target = '_self';
     }, true);
 }"""
@@ -81,11 +88,13 @@ async def capture_links(
     cancel_event=None,
     progress: Callable[[int, int, str], None] = lambda *_: None,
     on_result: Callable[[dict], None] = lambda _: None,
+    authorize_login=None,
 ) -> list[dict]:
-    """Save each link independently; reuse one persistent context and at most two pages.
+    """Save links independently in one context with at most three capture pages.
 
     The output directory must be empty. This entry point never calls a summary API
-    or copies credentials. Expired sessions are reported per link, without login dialogs.
+    or copies credentials. The GUI can await human login; CLI failures stay per link.
+    Native login windows may temporarily add pages during human authorization.
     """
     links = validate_capture_links(links)
     output_dir = Path(output_dir).resolve()
@@ -141,8 +150,9 @@ async def capture_links(
                     playwright, headless=False, viewport={"width": 1920, "height": 10800},
                     no_viewport=False, start_minimized=True, profile_root=Path(browser_profile_root),
                 )
-                # Headed Chromium can exit when its last tab closes. Keep two
+                # Headed Chromium can exit when its last tab closes. Keep fixed
                 # worker pages alive until the entire batch finishes.
+                from gui.batch_login import BatchLoginCoordinator
                 pages = list(context.pages)
                 count = min(MAX_CAPTURE_TABS, len(links))
                 while len(pages) < count:
@@ -152,6 +162,7 @@ async def capture_links(
                 pages = pages[:count]
                 for page in pages:
                     await page.add_init_script(f"({_SAME_TAB_SCRIPT})()")
+                login = BatchLoginCoordinator(pages, authorize_login)
                 pending = iter(records)
 
                 async def worker(page):
@@ -175,6 +186,7 @@ async def capture_links(
                                     image_output_dir=target / "images", image_reference_base=target,
                                     document_output_dir=target / "documents", document_reference_base=target,
                                     debug_html_file=target / "debug.html", logger=report,
+                                    **({"authorize_login": login.authorize} if authorize_login is not None else {}),
                                 )
                                 payload = asdict(result)
                                 (target / "snapshot.html").write_text(payload.pop("html") or "", encoding="utf-8", newline="")
@@ -186,7 +198,8 @@ async def capture_links(
                                 _write_json(target / "result.json", payload)
                                 record.update(error=result.error, warnings=list(result.warnings),
                                               messages=len(result.messages), images=len(set(result.image_map.values())),
-                                              documents=len(set(result.document_map.values())))
+                                              documents=len(set(result.document_map.values())),
+                                              wait_seconds=result.user_wait_seconds)
                                 if result.error or not result.messages:
                                     record["status"] = "failed"
                                     record["error"] = result.error or "未能提取到有效对话内容。"

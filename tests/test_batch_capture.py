@@ -59,6 +59,27 @@ async def playwright():
 
 
 class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_batch_image_auth_marks_same_origin_but_not_cdn_or_challenge(self):
+        from gui.service import _download_image_candidates
+        for origin, challenge, expected in (
+            ('https://chat.deepseek.com', False, True),
+            ('https://images.example.com', False, False),
+            ('https://chat.deepseek.com', True, False),
+        ):
+            with self.subTest(origin=origin, challenge=challenge), tempfile.TemporaryDirectory() as temporary:
+                page = MagicMock()
+                page.url = 'https://chat.deepseek.com/c/exact'
+                page.evaluate = AsyncMock(return_value=None)
+                page.wait_for_timeout = AsyncMock()
+                response = SimpleNamespace(ok=False, status=403, headers={'cf-mitigated': 'challenge'} if challenge else {})
+                auth = []
+                with patch('gui.service._authenticated_page_get', AsyncMock(return_value=response)), patch(
+                    'gui.service.GUI_IMAGE_DOWNLOAD_ATTEMPTS', 1
+                ):
+                    await _download_image_candidates(page, [origin+'/fixture.png'], Path(temporary), './images',
+                                                     authentication_required=auth, detect_login=True)
+                self.assertEqual(bool(auth), expected)
+
     async def test_stop_during_browser_start_waits_for_startup_cleanup(self):
         entered, cleaned = asyncio.Event(), asyncio.Event()
         stop = threading.Event()
@@ -81,9 +102,9 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.wait_for(task, 2)
             self.assertTrue(cleaned.is_set())
 
-    async def test_two_pages_overlap_and_queue_preserves_identity_assets_and_failures(self):
+    async def test_three_pages_overlap_and_queue_preserves_identity_assets_and_failures(self):
         context = Context()
-        first_pair = asyncio.Event()
+        first_three = asyncio.Event()
         seen, finished = [], []
 
         async def fetch(url, **options):
@@ -91,10 +112,10 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(context.closed)
             self.assertFalse(options["need_login"])
             self.assertIs(options["shared_page"].context, context)
-            self.assertLessEqual(len(context.pages), 2)
-            if len(seen) == 2:
-                first_pair.set()
-            await asyncio.wait_for(first_pair.wait(), 2)
+            self.assertLessEqual(len(context.pages), 3)
+            if len(seen) == 3:
+                first_three.set()
+            await asyncio.wait_for(first_three.wait(), 2)
             if url == LINKS[1]:
                 raise RuntimeError("one link failed")
             target = options["document_output_dir"]
@@ -112,7 +133,7 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
                 "gui.batch_capture.launch_browser_context", launch
             ), patch("gui.batch_capture.fetch_chat_pipeline", side_effect=fetch):
                 records = await capture_links(LINKS, root, on_result=finished.append)
-            self.assertEqual(context.peak, 2)
+            self.assertEqual(context.peak, 3)
             self.assertTrue(context.closed)
             self.assertEqual(context.pages, [])
             launch.assert_awaited_once()
@@ -127,14 +148,14 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIn("documents/same.txt", json.loads((folder / "result.json").read_text(encoding="utf-8"))["files"])
             self.assertEqual(json.loads((root / "manifest.json").read_text(encoding="utf-8"))["items"], records)
 
-    async def test_stop_cancels_both_active_pages_and_keeps_queued_status(self):
+    async def test_stop_cancels_three_active_pages_and_keeps_queued_status(self):
         context = Context()
         stop = threading.Event()
         entered, cleaned = [], []
 
         async def fetch(url, **options):
             entered.append(url)
-            if len(entered) == 2:
+            if len(entered) == 3:
                 stop.set()
             try:
                 await asyncio.Event().wait()
@@ -149,7 +170,7 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
             ), patch("gui.batch_capture.fetch_chat_pipeline", side_effect=fetch):
                 with self.assertRaises(asyncio.CancelledError):
                     await capture_links(LINKS, root, cancel_event=stop)
-            self.assertEqual(len(entered), 2)
+            self.assertEqual(len(entered), 3)
             self.assertEqual(sorted(cleaned), sorted(entered))
             self.assertTrue(context.closed)
             self.assertEqual(context.pages, [])
@@ -237,6 +258,57 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("登录状态", result.error)
         self.assertEqual(result.messages, [])
 
+    async def test_expired_shared_login_awaits_authorization_and_rechecks_exact_source(self):
+        page = SimpleNamespace(context=object(), on=Mock(), remove_listener=Mock(), wait_for_timeout=AsyncMock())
+        url = 'https://chatgpt.com/c/11111111-1111-1111-1111-111111111111'
+        captured = dict(html='', messages=[dict(role='User', content='actual')], image_map={}, document_map={}, warnings=[])
+        reads = AsyncMock(side_effect=[SourceError('login expired'), {'mapping': {'actual': 1}}])
+        async def authorize(actual_page, target, ready, **options):
+            self.assertIs(actual_page, page)
+            self.assertEqual(target, url)
+            self.assertFalse(options['force'])
+            return await ready()
+        with patch('gui.service.goto_with_retry_gui', AsyncMock()), patch(
+            'gui.service.chatgpt_source.read_conversation', reads
+        ), patch('gui.chatgpt_capture.capture_conversation', AsyncMock(return_value=captured)):
+            result = await fetch_chat_pipeline(url, shared_page=page, authorize_login=authorize)
+        self.assertIsNone(result.error)
+        self.assertEqual(result.messages, captured['messages'])
+        self.assertEqual(reads.await_count, 2)
+
+    async def test_shared_asset_auth_retries_capture_once_after_force_authorization(self):
+        page = SimpleNamespace(context=object(), on=Mock(), remove_listener=Mock(), wait_for_timeout=AsyncMock())
+        url = 'https://chatgpt.com/c/11111111-1111-1111-1111-111111111111'
+        calls = []
+        async def capture(_page, _url, _payload, **options):
+            calls.append(options)
+            if len(calls) == 1:
+                options['authorization_required'].append(True)
+            return dict(html='', messages=[dict(role='User', content='actual')], image_map={}, document_map={}, warnings=[])
+        authorize = AsyncMock(return_value=True)
+        with patch('gui.service.goto_with_retry_gui', AsyncMock()), patch(
+            'gui.service.chatgpt_source.read_conversation', AsyncMock(return_value={'mapping': {'actual': 1}})
+        ), patch('gui.chatgpt_capture.capture_conversation', capture):
+            result = await fetch_chat_pipeline(url, shared_page=page, authorize_login=authorize)
+        self.assertIsNone(result.error)
+        self.assertEqual(len(calls), 2)
+        authorize.assert_awaited_once()
+        self.assertTrue(authorize.call_args.kwargs['force'])
+        self.assertNotIn('authorization_required', calls[1])
+
+    async def test_skipping_asset_authorization_marks_item_failed_instead_of_partial_success(self):
+        page = SimpleNamespace(context=object(), on=Mock(), remove_listener=Mock(), wait_for_timeout=AsyncMock())
+        url = 'https://chatgpt.com/c/11111111-1111-1111-1111-111111111111'
+        async def capture(_page, _url, _payload, **options):
+            options['authorization_required'].append(True)
+            return dict(html='', messages=[dict(role='User', content='partial')], image_map={}, document_map={}, warnings=[])
+        with patch('gui.service.goto_with_retry_gui', AsyncMock()), patch(
+            'gui.service.chatgpt_source.read_conversation', AsyncMock(return_value={'mapping': {'actual': 1}})
+        ), patch('gui.chatgpt_capture.capture_conversation', capture):
+            result = await fetch_chat_pipeline(url, shared_page=page, authorize_login=AsyncMock(return_value=False))
+        self.assertIn('已停止此项', result.error)
+        self.assertEqual(result.messages, [])
+
     async def test_online_documents_use_own_page_and_restore_without_a_third_tab(self):
         from gui.service import _save_doubao_ai_documents
         original = "https://www.doubao.com/chat/12345678"
@@ -306,13 +378,13 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
 
 @unittest.skipUnless(os.getenv("AI_MEMORY_BROWSER_SMOKE") == "1", "opt-in real Chromium check")
 class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
-    async def test_real_two_tab_pipeline_reuses_cookie_and_keeps_four_conversations_separate(self):
+    async def test_real_three_tab_pipeline_reuses_cookie_and_keeps_four_conversations_separate(self):
         from gui.service import launch_browser_context
         from urllib.parse import urlparse
 
         ids = [f"11111111-1111-1111-1111-{index:012d}" for index in range(1, 5)]
         links = [f"https://chatgpt.com/c/{identifier}" for identifier in ids]
-        first_pair = asyncio.Event()
+        first_three = asyncio.Event()
         requested = []
         observed = {"launches": 0, "peak": 0, "downloads": 0}
 
@@ -330,9 +402,9 @@ class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("batch_fixture=logged-in", request.headers.get("cookie", ""))
                 self.assertEqual(request.headers.get("authorization"), "Bearer fixture-token")
                 requested.append(identifier)
-                if len(requested) >= 2:
-                    first_pair.set()
-                await asyncio.wait_for(first_pair.wait(), 5)
+                if len(requested) >= 3:
+                    first_three.set()
+                await asyncio.wait_for(first_three.wait(), 5)
                 await request_route.fulfill(json={"conversation_id": identifier, "current_node": "answer",
                     "mapping": {key: {"id": key, "parent": parent, "message": {
                         "id": key, "author": {"role": role}, "recipient": "all", "metadata": {},
@@ -376,8 +448,8 @@ class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
         ):
             records = await asyncio.wait_for(capture_links(links, Path(temporary)/"results",
                                                           browser_profile_root=Path(temporary)/"profile"), 45)
-            self.assertEqual(observed, {"launches": 1, "peak": 2, "downloads": 4})
-            self.assertTrue(first_pair.is_set(), "two conversations must be in flight together")
+            self.assertEqual(observed, {"launches": 1, "peak": 3, "downloads": 4})
+            self.assertTrue(first_three.is_set(), "three conversations must be in flight together")
             for identifier, record in zip(ids, records):
                 self.assertEqual(record["status"], "completed", record)
                 self.assertEqual(record["messages"], 2)

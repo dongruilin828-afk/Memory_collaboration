@@ -20,7 +20,7 @@ class BatchCaptureDialog(tk.Toplevel):
         body = tk.Frame(self, bg=COLOR_BG_APP, padx=24, pady=20)
         body.pack(fill=tk.BOTH, expand=True)
         tk.Label(body, text="批量抓取链接", font=FONT_H2, fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP).pack(anchor="w")
-        self.hint = tk.Label(body, text="每行一个链接 · 最多两个标签页同时抓取 · 复用登录状态 · 仅导出原始对话及附件",
+        self.hint = tk.Label(body, text="每行一个链接 · 最多三个标签页同时抓取 · 复用登录状态 · 仅导出原始对话及附件",
                              font=FONT_BODY, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, anchor="w", justify="left")
         self.hint.pack(fill=tk.X, pady=(8, 12))
         entry_row = tk.Frame(body, bg=COLOR_CARD)
@@ -32,7 +32,7 @@ class BatchCaptureDialog(tk.Toplevel):
         self.links.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.configure(command=self.links.yview)
         self.links.insert("1.0", initial_text)
-        self.status = tk.Label(body, text="请先通过单链接功能完成所需平台的登录。", font=FONT_BODY,
+        self.status = tk.Label(body, text="如需登录，将打开浏览器并提示授权；登录窗口不计入三个抓取标签页。", font=FONT_BODY,
                                fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, anchor="w", justify="left")
         self.status.pack(fill=tk.X, pady=(12, 8))
         buttons = tk.Frame(body, bg=COLOR_BG_APP)
@@ -70,6 +70,41 @@ class BatchCaptureDialog(tk.Toplevel):
 
     def show_progress(self, text):
         self.status.configure(text=text, fg=COLOR_TEXT_MUTED)
+
+    def request_login(self, url, on_done):
+        login = tk.Toplevel(self)
+        login.title("批量抓取：需要登录授权")
+        login.configure(bg=COLOR_BG_APP)
+        login.transient(self)
+        bind_visible_modal(login)
+        content = tk.Frame(login, bg=COLOR_BG_APP, padx=24, pady=20)
+        content.pack(fill=tk.BOTH, expand=True)
+        text = tk.Label(content, text=(
+            "浏览器已定位到需要授权的页面。\n请在浏览器中登录或切换账号，完成后继续抓取。\n"
+            "请勿关闭共享浏览器；也可以跳过此项或停止整个批次。\n\n" + url
+        ), font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY, justify="left", anchor="w", wraplength=560)
+        text.pack(fill=tk.X, pady=(0, 16))
+        buttons = tk.Frame(content, bg=COLOR_BG_APP)
+        buttons.pack(fill=tk.X)
+
+        def finish(accepted):
+            on_done(accepted)
+            login.destroy()
+            if self.winfo_exists() and self.winfo_viewable():
+                self.grab_set()
+
+        tk.Button(buttons, text="已完成授权，继续", font=FONT_BODY,
+                  command=lambda: finish(True), padx=12, pady=8).pack(side=tk.RIGHT)
+        tk.Button(buttons, text="跳过此项", font=FONT_BODY,
+                  command=lambda: finish(False), padx=12, pady=8).pack(side=tk.RIGHT, padx=8)
+        tk.Button(buttons, text="停止全部", font=FONT_BODY, command=self.on_stop,
+                  padx=12, pady=8).pack(side=tk.LEFT)
+        login.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        content.bind("<Configure>", lambda event: text.configure(wraplength=max(1, event.width - 48)))
+        login.update_idletasks()
+        login.minsize(max(560, buttons.winfo_reqwidth() + 48), login.winfo_reqheight())
+        login.grab_set()
+        return login
 
     def finish(self, text):
         self.running = False

@@ -1853,6 +1853,7 @@ async def _download_image_candidates(
     authentication_required: Optional[list[bool]] = None,
     prefer_original: bool = False,
     failure_collector: Optional[dict[str, str]] = None,
+    detect_login: bool = False,
 ) -> dict[str, str]:
     """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
@@ -1869,6 +1870,17 @@ async def _download_image_candidates(
             )
 
     limit = max(1, min(int(concurrency), 8))
+
+    def requires_login(response, target):
+        if not detect_login or authentication_required is None:
+            return False
+        origin, resource = urlparse(str(page.url)), urlparse(target)
+        if (getattr(response, 'status', None) in {401, 403}
+                and (origin.scheme, origin.netloc.lower()) == (resource.scheme, resource.netloc.lower())
+                and dict(getattr(response, 'headers', {}) or {}).get('cf-mitigated') != 'challenge'):
+            authentication_required[:] = [True]
+            return True
+        return False
     semaphore = asyncio.Semaphore(limit)
     screenshot_lock = asyncio.Lock()
 
@@ -1958,6 +1970,8 @@ async def _download_image_candidates(
                     response = await _authenticated_page_get(
                         page, src, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                     )
+                    if requires_login(response, src):
+                        return src, None, f"http_{response.status}"
                     if response.ok:
                         headers = dict(getattr(response, "headers", {}) or {})
                         content_type = headers.get("content-type", "").split(
@@ -1988,11 +2002,14 @@ async def _download_image_candidates(
                             response = await _authenticated_page_get(
                                 page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                             )
+                            if requires_login(response, download_url):
+                                return src, None, f"http_{response.status}"
                             if not response.ok:
                                 status = getattr(response, "status", None)
                                 if (
                                     status in {401, 403}
                                     and authentication_required is not None
+                                    and not detect_login
                                 ):
                                     authentication_required[:] = [True]
                                     return src, None, f"http_{status}"
@@ -2013,6 +2030,8 @@ async def _download_image_candidates(
                                 response = await _authenticated_page_get(
                                     page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                                 )
+                                if requires_login(response, download_url):
+                                    return src, None, f"http_{response.status}"
                                 if not response.ok:
                                     status = getattr(response, "status", None)
                                     failure_reason = (
@@ -5195,6 +5214,7 @@ async def fetch_chat_pipeline(
     debug_html_file: Optional[Path] = None,
     *,
     shared_page: Any = None,
+    authorize_login: Optional[Callable[..., Any]] = None,
 ) -> FetchResult:
     """抓取单条链接；批量调用可借用专属页面，浏览器仍由批次拥有。"""
     if shared_page is not None and need_login:
@@ -5228,6 +5248,21 @@ async def fetch_chat_pipeline(
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
     user_wait_seconds = 0.0
+
+    async def authorize_shared(target, ready=None, *, force=False):
+        nonlocal user_wait_seconds
+        if shared_page is None or authorize_login is None:
+            return False
+        started = time.perf_counter()
+        try:
+            check = ready or (lambda: _page_has_conversation_content(shared_page, target))
+            confirmed = await authorize_login(shared_page, target, check, force=force)
+            if not confirmed:
+                raise RuntimeError("登录授权未完成或目标链接不可访问，已停止此项抓取。")
+            return True
+        finally:
+            user_wait_seconds += time.perf_counter() - started
+
     if image_output_dir is None:
         resolved_images_dir = Path(IMAGES_DIR).resolve()
         image_reference_prefix = "./images"
@@ -5469,6 +5504,8 @@ async def fetch_chat_pipeline(
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
                     content_ready = await requested_content_ready()
+                    if not content_ready and shared_page is not None and authorize_login is not None:
+                        content_ready = await authorize_shared(url, requested_content_ready)
                     if (
                         content_ready
                         and requested_host in {"chatgpt.com", "chat.openai.com"}
@@ -5644,12 +5681,23 @@ async def fetch_chat_pipeline(
                     # requested branch. Unrelated DOM/cache entries cannot win
                     # by being longer or having the same number of messages.
                     payload = verified_chatgpt_payload or await chatgpt_source.read_conversation(page, url)
+                    asset_authorization = []
                     captured = await capture_conversation(
                         page, url, payload,
                         images_dir=resolved_images_dir, image_prefix=image_reference_prefix,
                         documents_dir=resolved_documents_dir, document_prefix=document_reference_prefix,
                         logger=logger,
+                        **({"authorization_required": asset_authorization}
+                           if shared_page is not None and authorize_login is not None else {}),
                     )
+                    if asset_authorization and await authorize_shared(
+                        url, lambda: _chatgpt_session_is_authenticated(page, url), force=True,
+                    ):
+                        payload = await chatgpt_source.read_conversation(page, url)
+                        captured = await capture_conversation(
+                            page, url, payload, images_dir=resolved_images_dir, image_prefix=image_reference_prefix,
+                            documents_dir=resolved_documents_dir, document_prefix=document_reference_prefix, logger=logger,
+                        )
                     fetch_warnings.extend(captured["warnings"])
                     captured["warnings"] = fetch_warnings
                     completed_result = FetchResult(**captured, user_wait_seconds=user_wait_seconds)
@@ -5766,6 +5814,8 @@ async def fetch_chat_pipeline(
                     kimi_ready = await _page_has_conversation_content(
                         page, kimi_private_url
                     )
+                    if not kimi_ready and shared_page is not None and authorize_login is not None:
+                        kimi_ready = await authorize_shared(kimi_private_url)
                     if (
                         not kimi_ready
                         and login_confirmation_callback is not None
@@ -5936,7 +5986,15 @@ async def fetch_chat_pipeline(
                     image_warnings,
                     image_authentication_required,
                     failure_collector=image_failures,
+                    detect_login=shared_page is not None and authorize_login is not None,
                 )
+                if image_authentication_required and await authorize_shared(url, force=True):
+                    image_warnings.clear()
+                    image_failures.clear()
+                    image_map = await _download_image_candidates(
+                        page, image_candidates, resolved_images_dir, image_reference_prefix,
+                        image_download_concurrency, image_warnings, failure_collector=image_failures,
+                    )
                 if current_host in DOUBAO_HOSTS:
                     doubao.alias_generated_images(image_map, doubao_image_aliases)
                     fallback_sources = [source for source in doubao_image_aliases
@@ -6076,6 +6134,8 @@ async def fetch_chat_pipeline(
                     gemini_ready = await _page_has_conversation_content(
                         page, gemini_private_url
                     )
+                    if not gemini_ready and shared_page is not None and authorize_login is not None:
+                        gemini_ready = await authorize_shared(gemini_private_url)
                     if (
                         not gemini_ready
                         and login_confirmation_callback is not None
@@ -6216,6 +6276,14 @@ async def fetch_chat_pipeline(
                     failure_collector=document_failures,
                     authentication_required=document_authentication_required,
                 )
+                if document_authentication_required and await authorize_shared(url, force=True):
+                    document_warnings.clear()
+                    document_failures.clear()
+                    document_map = await _download_document_candidates(
+                        page, document_candidates, resolved_documents_dir, document_reference_prefix,
+                        document_download_concurrency, document_warnings, conversation_url=url,
+                        captured_documents=captured_document_responses, failure_collector=document_failures,
+                    )
                 missing_doubao_attachments = (
                     _doubao_unavailable_attachment_names(html, document_map)
                     if current_host in DOUBAO_HOSTS else []
@@ -6256,6 +6324,9 @@ async def fetch_chat_pipeline(
                     listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
                     await _page_has_conversation_content(page, url)
+                    if (shared_page is not None and authorize_login is not None
+                            and await page.get_by_role("button", name="登录", exact=True).first.is_visible()):
+                        await authorize_shared(url, force=True)
                     if (
                         await page.get_by_role("button", name="登录", exact=True).first.is_visible()
                         and login_ready_event is not None
@@ -6345,6 +6416,8 @@ async def fetch_chat_pipeline(
                     listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, retry_url, logger=logger)
                     ready = await _page_has_conversation_content(page, retry_url)
+                    if not ready and shared_page is not None and authorize_login is not None:
+                        ready = await authorize_shared(retry_url)
                     if not ready and (
                         login_confirmation_callback is None
                         or login_confirmation_callback()
@@ -6522,6 +6595,16 @@ async def fetch_chat_pipeline(
                             ).first.wait_for(state="visible", timeout=10000)
                         except Exception:
                             pass
+                        if (shared_page is not None and authorize_login is not None
+                                and await page.get_by_role("button", name="登录", exact=True).first.is_visible()):
+                            async def document_ready():
+                                if urlparse(page.url).path != urlparse(document_entry).path:
+                                    return False
+                                if urlparse(document_entry).path.startswith("/docx/"):
+                                    return (await page.get_by_role("button", name="下载", exact=True).first.is_visible()
+                                            and not await page.get_by_role("button", name="登录", exact=True).first.is_visible())
+                                return await _page_has_conversation_content(page, document_entry)
+                            await authorize_shared(document_entry, document_ready, force=True)
                         if (
                             await page.get_by_role("button", name="登录", exact=True).first.is_visible()
                             and login_required_callback is not None

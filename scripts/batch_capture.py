@@ -1,4 +1,4 @@
-"""Capture a list of links with one logged-in browser and at most two tabs."""
+"""Capture links with one logged-in browser and at most three capture tabs."""
 
 import argparse
 import asyncio

@@ -859,11 +859,12 @@ class AIMemoryGUI:
             if record["status"] != "completed":
                 return
             elapsed = record["elapsed_seconds"]
+            wait = record.get("wait_seconds", 0.0)
             history = dict(
                 title=f"批量抓取 {record['index']:03d} · {record['platform']}",
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), succeeded=True,
-                program_seconds=elapsed, fetch_seconds=elapsed, generation_seconds=0.0,
-                wait_seconds=0.0, total_seconds=elapsed, file_count=len(record["saved_files"]),
+                program_seconds=max(0.0, elapsed - wait), fetch_seconds=max(0.0, elapsed - wait), generation_seconds=0.0,
+                wait_seconds=wait, total_seconds=elapsed, file_count=len(record["saved_files"]),
                 saved_files=record["saved_files"], output_dir=record["output_dir"],
             )
             self._post_ui(lambda: self._add_history_record(history))
@@ -873,6 +874,7 @@ class AIMemoryGUI:
                 records = asyncio.run(capture_links(
                     links, output, browser_profile_root=settings.browser_profile_dir,
                     cancel_event=cancel_event, progress=progress, on_result=completed,
+                    authorize_login=lambda page, url: self._await_batch_login(dialog, url),
                 ))
                 success = sum(record["status"] == "completed" for record in records)
                 warnings = sum(bool(record["warnings"]) for record in records)
@@ -888,6 +890,42 @@ class AIMemoryGUI:
 
         threading.Thread(target=run, daemon=True).start()
         return True
+
+    async def _await_batch_login(self, batch_dialog, url):
+        loop = asyncio.get_running_loop()
+        answered = loop.create_future()
+        window = {"dialog": None}
+
+        def reply(accepted):
+            if answered.done() or loop.is_closed():
+                return
+            def complete():
+                if not answered.done():
+                    answered.set_result(accepted)
+            try:
+                loop.call_soon_threadsafe(complete)
+            except RuntimeError:
+                if not loop.is_closed():
+                    raise
+
+        def show():
+            if not answered.done() and batch_dialog.winfo_exists():
+                window["dialog"] = batch_dialog.request_login(url, reply)
+            elif not answered.done():
+                reply(False)
+
+        def close():
+            child = window["dialog"]
+            if child is not None and child.winfo_exists():
+                child.destroy()
+            if batch_dialog.winfo_exists() and batch_dialog.winfo_viewable():
+                batch_dialog.grab_set()
+
+        self._post_ui(show, visible=True)
+        try:
+            return await answered
+        finally:
+            self._post_ui(close)
 
     def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""
