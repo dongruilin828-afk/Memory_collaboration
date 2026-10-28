@@ -7051,7 +7051,8 @@ def generate_output_bundle(
         vision_config = SummaryConfig.from_env(
             provider_override="siliconflow", model_override="Qwen/Qwen3-8B",
         )
-        vision_config = replace(vision_config, max_output_tokens=min(8192, vision_config.max_output_tokens))
+        output_limit = vision_config.max_output_tokens
+        vision_config = replace(vision_config, max_output_tokens=min(8192, output_limit) if output_limit is not None else 8192)
         doubao_media_gateway = create_gateway(
             vision_config, api_key=user_api_keys["siliconflow"], **gateway_options,
         )

@@ -3,6 +3,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 import threading
+import time
 from PIL import Image, ImageDraw, ImageTk
 
 from gui.theme import (
@@ -11,12 +12,17 @@ from gui.theme import (
     COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED, COLOR_DANGER, COLOR_SUCCESS,
     FONT_BODY, FONT_BODY_BOLD, FONT_H2, FONT_SMALL, _round_rectangle,
 )
-from gui.widgets import FlatButton, MinimalScrollbar
+from gui.widgets import FlatButton, MinimalScrollbar, HoverTooltip
 from gui.dropdown import RoundedCombobox
-from gui.reasoning_slider import ReasoningSlider
+from gui.reasoning_slider import ReasoningSlider, AutoReasoningButton
 from gui.ui_dispatch import bind_visible_modal
 from scripts.api_config import normalize_custom_api, middle_ellipsis
 from scripts.gemini_summarizer import custom_summary_config, test_api_connection
+from scripts.reasoning_capabilities import (
+    ReasoningCapability, ReasoningCapabilityCache, capability_identity,
+    catalog_capability, discover_capability,
+)
+from scripts.reasoning_probe import probe_reasoning_capability
 
 
 class _InputSurface(tk.Canvas):
@@ -182,7 +188,7 @@ class _FormCard(tk.Canvas):
 
 
 class CustomAPIEditor(tk.Frame):
-    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None):
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None):
         super().__init__(parent)
         self.configure(bg=COLOR_BG_APP)
         self._on_close = on_close
@@ -193,10 +199,29 @@ class CustomAPIEditor(tk.Frame):
         self._scrollregion_after_id = None
         self._scrollregion = None
         self._scroll_target = None
+        self._reasoning_ready = False
+        self._reasoning_after_id = None
+        self._reasoning_revision = 0
+        self._reasoning_identity = None
+        self._reasoning_applying = False
+        self._reasoning_choices = {}
+        self._reasoning_overrides = {}
+        self._reasoning_observed = {}
+        self._reasoning_probe_cancel = None
+        self._reasoning_probe_revision = 0
+        self._reasoning_capability = ReasoningCapability()
+        self._reasoning_cache = ReasoningCapabilityCache(capability_cache_path)
+        self._reasoning_settings = None
+        self._reasoning_traces = []
+        self._reasoning_status = tk.StringVar(self, value="未识别")
+        self._reasoning_evidence = tk.StringVar(self, value="尚未识别；使用服务商默认思考设置。")
+        saved_reasoning = values.get("reasoning_config")
         defaults = dict(name="自定义 API", url="", model="", protocol="openai",
                         thinking_level="auto", json_mode="json_object",
                         max_output_tokens=16384, request_timeout_seconds=180)
-        defaults.update(values)
+        defaults.update({key: value for key, value in values.items() if key in defaults})
+        if defaults["max_output_tokens"] is None:
+            defaults["max_output_tokens"] = "无限制"
         self.variables = {key: tk.StringVar(self, value=str(value)) for key, value in defaults.items()}
         self.key_var = tk.StringVar(self, value=api_key)
         self.priority_var = tk.BooleanVar(self, value=False)
@@ -277,7 +302,7 @@ class CustomAPIEditor(tk.Frame):
 
         def field(parent, label, key, choices=None, hint=None):
             group = tk.Frame(parent, bg=COLOR_CARD)
-            heading = tk.Frame(group, bg=COLOR_CARD) if key == "thinking_level" else group
+            heading = tk.Frame(group, bg=COLOR_CARD) if key in {"thinking_level", "max_output_tokens"} else group
             if heading is not group:
                 heading.pack(fill=tk.X, pady=(0, 6))
             label_widget = tk.Label(heading, text=label, font=FONT_BODY, bg=COLOR_CARD,
@@ -286,12 +311,27 @@ class CustomAPIEditor(tk.Frame):
                 label_widget.pack(fill=tk.X, pady=(0, 6))
             else:
                 label_widget.pack(side=tk.LEFT)
+                # Native text buttons can request extra vertical padding at high DPI.
+                # Keep this heading exactly as tall as the original field label.
+                heading.configure(height=label_widget.winfo_reqheight(), width=1)
+                heading.pack_propagate(False)
             surface = _InputSurface(group)
             surface.pack(fill=tk.X)
             if key == "thinking_level":
-                widget = ReasoningSlider(surface, variable=self.variables[key], values=choices, font=FONT_BODY)
-                tk.Label(heading, textvariable=widget.label_var, font=FONT_SMALL,
-                         fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="e").pack(side=tk.RIGHT)
+                widget = ReasoningSlider(surface, variable=self.variables[key], values=(), font=FONT_BODY, state="disabled")
+                self.reasoning_auto_button = AutoReasoningButton(heading, variable=self.variables[key])
+                self.reasoning_auto_button.pack(side=tk.RIGHT)
+                HoverTooltip(self.reasoning_auto_button, "使用当前 API 和模型的默认思考设置；拖动滑条可切换为手动。")
+                self.reasoning_status_button = tk.Button(
+                    heading, textvariable=self._reasoning_status, font=FONT_SMALL,
+                    fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, activebackground=COLOR_CARD,
+                    activeforeground=COLOR_GENERATION_ACCENT, relief=tk.FLAT, bd=0,
+                    highlightthickness=0, padx=2, pady=0, cursor="hand2",
+                    command=self._open_reasoning_settings,
+                )
+                self.reasoning_status_button.pack(side=tk.RIGHT, padx=(4, 6))
+                self._reasoning_tooltip = HoverTooltip(self.reasoning_status_button,
+                                                       "点击查看档位来源、重新识别或手动设置。")
             elif choices:
                 variable = self._protocol_display if key == "protocol" else self.variables[key]
                 widget = RoundedCombobox(surface, textvariable=variable, values=choices,
@@ -303,6 +343,15 @@ class CustomAPIEditor(tk.Frame):
                                   insertbackground=COLOR_GENERATION_ACCENT,
                                   selectbackground="#EDE9FE", selectforeground=COLOR_TEXT_PRIMARY,
                                   relief=tk.FLAT, bd=0, highlightthickness=0, width=1)
+            if key == "max_output_tokens":
+                self.unlimited_output_button = tk.Button(
+                    heading, text="无限制", font=FONT_SMALL, fg=COLOR_GENERATION_ACCENT,
+                    bg=COLOR_CARD, activebackground=COLOR_CARD, activeforeground=COLOR_GENERATION_ACCENT,
+                    relief=tk.FLAT, bd=0, highlightthickness=0, padx=2, pady=0, cursor="hand2",
+                    command=self._set_unlimited_output,
+                )
+                self.unlimited_output_button.pack(side=tk.RIGHT)
+                HoverTooltip(self.unlimited_output_button, "不发送输出 Token 上限，使用服务商和模型的默认限制。")
             surface.attach(widget)
             self.input_surfaces[key] = surface
             if hint:
@@ -316,7 +365,8 @@ class CustomAPIEditor(tk.Frame):
             left, right = first(host), second(host)
             mode = [None]
             label_font = tkfont.Font(master=self, font=FONT_BODY)
-            threshold = 2 * (label_font.measure("最大输出 Token") + 72)
+            button_font = tkfont.Font(master=self, font=FONT_SMALL)
+            threshold = 2 * (label_font.measure("最大输出 Token") + max(72, button_font.measure("无限制") + 24))
             def layout(event):
                 dual = event is not None and event.width >= threshold
                 if dual == mode[0]:
@@ -388,9 +438,17 @@ class CustomAPIEditor(tk.Frame):
         pair(self.advanced_body,
              lambda host: field(host, "思考强度", "thinking_level", ["auto", "none", "minimal", "low", "medium", "high", "xhigh"]),
              lambda host: field(host, "JSON 输出", "json_mode", ["json_object", "json_schema", "prompt"]))
+        self.reasoning_evidence_label = tk.Label(
+            self.advanced_body, textvariable=self._reasoning_evidence, font=FONT_SMALL,
+            fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w", justify=tk.LEFT, width=1,
+        )
+        self.reasoning_evidence_label.pack(fill=tk.X, pady=(0, 12))
+        self.reasoning_evidence_label.bind(
+            "<Configure>", lambda e: self.reasoning_evidence_label.configure(wraplength=max(1, e.width)))
         pair(self.advanced_body,
              lambda host: field(host, "最大输出 Token", "max_output_tokens"),
              lambda host: field(host, "请求超时（秒）", "request_timeout_seconds"))
+        wrapped_label(self.advanced_body, "输出上限可填写数字或选择“无限制”；无限制仍受服务商和模型上限约束。", pady=(0, 8))
         protocol.bind("<<ComboboxSelected>>", self._select_protocol)
         self._protocol_changed()
         for button in (self.save_button, self.test_button, self.cancel_button, self.advanced_button):
@@ -410,6 +468,229 @@ class CustomAPIEditor(tk.Frame):
 
         bind_interactions(self)
         self.bind("<Destroy>", self._on_destroy, add="+")
+        context = self._reasoning_context()
+        if context is not None:
+            identity = capability_identity(*context[:3])
+            self._reasoning_choices[identity] = self.variables["thinking_level"].get()
+            if isinstance(saved_reasoning, dict) and saved_reasoning.get("identity") == identity:
+                try:
+                    restored = ReasoningCapability.from_dict(saved_reasoning)
+                    if saved_reasoning.get("override"):
+                        self._reasoning_overrides[identity] = restored
+                    elif saved_reasoning.get("scope") == capability_identity(*context):
+                        timestamp = saved_reasoning.get("observed_at")
+                        if (type(timestamp) in {int, float}
+                                and 0 <= time.time() - timestamp < self._reasoning_cache.ttl_seconds):
+                            self._reasoning_observed[capability_identity(*context)] = timestamp, restored
+                except (ValueError, TypeError):
+                    pass
+        self._reasoning_ready = True
+        for variable in (self.variables["url"], self.variables["model"], self.variables["protocol"], self.key_var):
+            trace = variable.trace_add("write", lambda *_args: self._schedule_reasoning_discovery())
+            self._reasoning_traces.append((variable, trace))
+        trace = self.variables["thinking_level"].trace_add("write", self._reasoning_value_changed)
+        self._reasoning_traces.append((self.variables["thinking_level"], trace))
+        self._schedule_reasoning_discovery()
+
+    def _reasoning_context(self):
+        context = (self.variables["url"].get().strip(), self.variables["protocol"].get(),
+                   self.variables["model"].get().strip(), self.key_var.get().strip())
+        try:
+            capability_identity(*context)
+            return context
+        except (ValueError, TypeError):
+            return None
+
+    def _schedule_reasoning_discovery(self, *, force=False):
+        if not self._reasoning_ready:
+            return
+        if self._reasoning_probe_cancel is not None:
+            self._cancel_reasoning_probe()
+            settings = self._reasoning_settings
+            if settings is not None and settings.winfo_exists():
+                settings.finish_probe(ReasoningCapability(), "配置已更改，请重新检测当前接口。")
+        self._reasoning_revision += 1
+        if self._reasoning_after_id is not None:
+            self.after_cancel(self._reasoning_after_id)
+            self._reasoning_after_id = None
+        context = self._reasoning_context()
+        if context is None:
+            self._reasoning_identity = None
+            self._apply_reasoning_capability(ReasoningCapability())
+            self._reasoning_status.set("待填写")
+            return
+        identity = capability_identity(*context[:3])
+        self._reasoning_identity = identity
+        self._reasoning_choices.setdefault(identity, "auto")
+        override = self._reasoning_overrides.get(identity)
+        if override is not None:
+            self._apply_reasoning_capability(override)
+            return
+        scope = capability_identity(*context)
+        if force:
+            self._reasoning_observed.pop(scope, None)
+        observed = self._reasoning_observed.get(scope)
+        if observed is not None and not 0 <= time.time() - observed[0] < self._reasoning_cache.ttl_seconds:
+            self._reasoning_observed.pop(scope, None)
+            observed = None
+        cached = None if force else (observed[1] if observed else self._reasoning_cache.get(scope))
+        capability = cached or catalog_capability(*context[:3])
+        self._apply_reasoning_capability(capability)
+        if cached is not None and not force:
+            return
+        if not context[3] and not force:
+            return
+        if not capability.known:
+            self._reasoning_status.set("识别中")
+        revision = self._reasoning_revision
+        self._reasoning_after_id = self.after(450, lambda: self._start_reasoning_discovery(context, revision, force))
+
+    def _start_reasoning_discovery(self, context, revision, force=False):
+        self._reasoning_after_id = None
+        def run():
+            try:
+                capability = discover_capability(*context, cache=self._reasoning_cache, force=force)
+            except Exception:
+                capability = ReasoningCapability()
+            self._post_ui(lambda: self._finish_reasoning_discovery(context, revision, capability))
+        threading.Thread(target=run, daemon=True).start()
+
+    def _finish_reasoning_discovery(self, context, revision, capability):
+        try:
+            if not self.winfo_exists() or revision != self._reasoning_revision or context != self._reasoning_context():
+                return
+        except tk.TclError:
+            return
+        if capability.known:
+            self._reasoning_observed[capability_identity(*context)] = time.time(), capability
+        self._apply_reasoning_capability(capability)
+
+    def _apply_reasoning_capability(self, capability):
+        self._reasoning_capability = capability
+        slider = self.entries["thinking_level"]
+        self._reasoning_applying = True
+        try:
+            slider.configure(values=capability.levels, default_level=capability.default_level,
+                             state="normal" if capability.known and capability.levels else "disabled")
+            wanted = self._reasoning_choices.get(self._reasoning_identity, "auto")
+            self.variables["thinking_level"].set(wanted if wanted in capability.levels else "auto")
+        finally:
+            self._reasoning_applying = False
+        self.input_surfaces["thinking_level"].redraw()
+        self._update_reasoning_status()
+        labels = [f"{value} Token" if value.isdecimal() else ReasoningSlider.LABELS.get(value, value)
+                  for value in capability.levels]
+        self._reasoning_tooltip._text = (
+            ("可用档位：" + "、".join(labels) + "。" if labels else "未确认可调整的思考档位，当前使用服务商默认。")
+            + (capability.note + "。" if capability.note else "")
+            + "点击查看来源、重新识别或手动设置。"
+        )
+        from gui.reasoning_settings import capability_source_text
+        evidence = capability_source_text(capability)
+        if capability.kind == "budget":
+            evidence += "；Token 预算，刻度由应用划分"
+            if capability.budget_min is not None and capability.budget_max is not None:
+                evidence += f"（{capability.budget_min}–{capability.budget_max}）"
+        if not capability.known:
+            evidence += "；使用服务商默认思考设置"
+        self._reasoning_evidence.set(evidence)
+        self._reasoning_tooltip._text = evidence + "。" + self._reasoning_tooltip._text
+
+    def _reasoning_value_changed(self, *_args):
+        if not self._reasoning_applying and self._reasoning_identity is not None:
+            value = self.variables["thinking_level"].get()
+            self._reasoning_choices[self._reasoning_identity] = value
+            if value != "auto" and value not in self._reasoning_capability.levels:
+                self._reasoning_applying = True
+                try:
+                    self.variables["thinking_level"].set("auto")
+                finally:
+                    self._reasoning_applying = False
+        self._update_reasoning_status()
+
+    def _update_reasoning_status(self):
+        capability = self._reasoning_capability
+        if not capability.known:
+            text = "未识别"
+        elif not capability.levels:
+            text = "仅默认"
+        else:
+            value = self.variables["thinking_level"].get()
+            text = ((f"{int(value) // 1024}k" if int(value) % 1024 == 0 else value)
+                    if value.isdecimal() else ReasoningSlider.LABELS.get(value, value if value != "auto" else "默认"))
+        self._reasoning_status.set(text)
+
+    def _open_reasoning_settings(self):
+        from gui.reasoning_settings import ReasoningSettingsDialog
+        if self._reasoning_settings is not None and self._reasoning_settings.winfo_exists():
+            self._reasoning_settings.lift()
+            return
+        context = self._reasoning_context()
+        if context is None:
+            self._status("请先填写有效的 API 地址和模型 ID。")
+            return
+        identity = capability_identity(*context[:3])
+        def applied(capability):
+            if identity != self._reasoning_identity or context != self._reasoning_context():
+                return
+            if capability is None:
+                self._reasoning_overrides.pop(identity, None)
+                self._schedule_reasoning_discovery(force=True)
+            else:
+                if capability.source == "manual":
+                    self._reasoning_overrides[identity] = capability
+                else:
+                    self._reasoning_overrides.pop(identity, None)
+                    self._reasoning_observed[capability_identity(*context)] = time.time(), capability
+                self._reasoning_revision += 1
+                if self._reasoning_after_id is not None:
+                    self.after_cancel(self._reasoning_after_id)
+                    self._reasoning_after_id = None
+                self._apply_reasoning_capability(capability)
+        self._reasoning_settings = ReasoningSettingsDialog(
+            self.winfo_toplevel(), context[1], self._reasoning_capability, applied, surface_factory=_InputSurface,
+            on_probe=self._start_reasoning_probe, on_cancel_probe=self._cancel_reasoning_probe,
+        )
+
+    def _cancel_reasoning_probe(self):
+        self._reasoning_probe_revision += 1
+        if self._reasoning_probe_cancel is not None:
+            self._reasoning_probe_cancel.set()
+            self._reasoning_probe_cancel = None
+
+    def _start_reasoning_probe(self, settings):
+        context = self._reasoning_context()
+        if context is None:
+            settings.finish_probe(ReasoningCapability(), "请先填写有效的 API 地址和模型 ID。")
+            return
+        self._cancel_reasoning_probe()
+        self._reasoning_revision += 1
+        if self._reasoning_after_id is not None:
+            self.after_cancel(self._reasoning_after_id)
+            self._reasoning_after_id = None
+        cancel = threading.Event()
+        self._reasoning_probe_cancel = cancel
+        revision = self._reasoning_probe_revision
+
+        def finish(capability, message):
+            try:
+                if (not self.winfo_exists() or revision != self._reasoning_probe_revision
+                        or context != self._reasoning_context()):
+                    return
+                self._reasoning_probe_cancel = None
+                if settings.winfo_exists():
+                    settings.finish_probe(capability, message)
+            except tk.TclError:
+                return
+
+        def run():
+            try:
+                result = probe_reasoning_capability(*context, cache=self._reasoning_cache, cancel_event=cancel)
+                capability, message = result.capability, result.message
+            except Exception:
+                capability, message = ReasoningCapability(), "兼容性检测未完成，请稍后重试或手动配置。"
+            self._post_ui(lambda: finish(capability, message))
+        threading.Thread(target=run, daemon=True).start()
 
     def _configure_dropdown_style(self):
         style = ttk.Style(self)
@@ -451,6 +732,13 @@ class CustomAPIEditor(tk.Frame):
         visible = bool(self.key_entry.cget("show"))
         self.key_entry.configure(show="" if visible else "*")
         self.key_toggle.configure(text="隐藏" if visible else "显示")
+
+    def _set_unlimited_output(self):
+        self.variables["max_output_tokens"].set("无限制")
+        entry = self.entries["max_output_tokens"]
+        entry.focus_set()
+        entry.selection_range(0, tk.END)
+        entry.icursor(tk.END)
 
     def _toggle_advanced(self):
         self._advanced_open = not self._advanced_open
@@ -534,6 +822,15 @@ class CustomAPIEditor(tk.Frame):
         if event.widget is not self:
             return
         self._cancel_scroll_animation()
+        self._cancel_reasoning_probe()
+        self._reasoning_revision += 1
+        if self._reasoning_after_id is not None:
+            self.after_cancel(self._reasoning_after_id)
+            self._reasoning_after_id = None
+        for variable, trace in self._reasoning_traces:
+            variable.trace_remove("write", trace)
+        if self._reasoning_settings is not None and self._reasoning_settings.winfo_exists():
+            self._reasoning_settings.destroy()
         if self._scrollregion_after_id is not None:
             self.after_cancel(self._scrollregion_after_id)
             self._scrollregion_after_id = None
@@ -554,10 +851,6 @@ class CustomAPIEditor(tk.Frame):
             "Gemini 原生接口，例如 https://generativelanguage.googleapis.com"
             if native else "OpenAI 兼容接口，例如 https://api.example.com/v1"
         ))
-        choices = ["auto", "low", "medium", "high"] if native else ["auto", "none", "minimal", "low", "medium", "high", "xhigh"]
-        self.entries["thinking_level"].configure(values=choices)
-        if self.variables["thinking_level"].get() not in choices:
-            self.variables["thinking_level"].set("auto")
         self.entries["json_mode"].configure(state="disabled" if native else "readonly")
         self.input_surfaces["json_mode"].redraw()
 
@@ -568,7 +861,17 @@ class CustomAPIEditor(tk.Frame):
         self._protocol_changed()
 
     def _values(self):
-        return {key: value.get() for key, value in self.variables.items()}
+        result = {key: value.get() for key, value in self.variables.items()}
+        if self._reasoning_identity is not None:
+            scope = capability_identity(*self._reasoning_context())
+            result["reasoning_config"] = {
+                **self._reasoning_capability.to_dict(), "identity": self._reasoning_identity,
+                "override": self._reasoning_identity in self._reasoning_overrides,
+                "scope": scope,
+            }
+            if scope in self._reasoning_observed:
+                result["reasoning_config"]["observed_at"] = self._reasoning_observed[scope][0]
+        return result
 
     def _status(self, text, success=False):
         self.status_var.set(text)
@@ -621,7 +924,7 @@ class CustomAPIEditor(tk.Frame):
 class CustomAPIDialog(tk.Toplevel):
     """Resizable modal window around the shared, scrollable API editor."""
 
-    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None):
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None):
         super().__init__(parent)
         self.withdraw()
         self._parent = parent.winfo_toplevel()
@@ -649,7 +952,8 @@ class CustomAPIDialog(tk.Toplevel):
         y = max(16, min(y, self.winfo_screenheight() - height - 64))
         self.geometry(f"{width}x{height}+{x}+{y}")
 
-        self.editor = CustomAPIEditor(self, values, api_key, post_ui, on_save, on_close=self.close)
+        self.editor = CustomAPIEditor(self, values, api_key, post_ui, on_save, on_close=self.close,
+                                      capability_cache_path=capability_cache_path)
         self.editor.pack(fill=tk.BOTH, expand=True)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind("<Escape>", self.editor._on_escape)

@@ -89,6 +89,30 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertEqual(self.saved[0][0]["url"], "https://my.test/v1")
         self.assertEqual(self.saved[0][1:], ("placeholder-key", True))
 
+    def test_unlimited_output_button_saves_reopens_and_allows_numeric_edit(self):
+        editor = CustomAPIEditor(self.root, api_tests.settings(), "", self.callbacks.put,
+                                 lambda *args: self.saved.append(args))
+        editor.pack(fill=tk.BOTH, expand=True)
+        editor.advanced_button.invoke()
+        self.root.update()
+        editor.unlimited_output_button.invoke()
+        self.assertEqual(editor.variables["max_output_tokens"].get(), "无限制")
+        self.assertEqual(str(editor.entries["max_output_tokens"].cget("state")), "normal")
+        editor.save()
+        saved = self.saved[0][0]
+        self.assertIsNone(saved["max_output_tokens"])
+        reopened = CustomAPIEditor(self.root, saved, "", self.callbacks.put,
+                                   lambda *args: self.saved.append(args))
+        reopened.pack(fill=tk.BOTH, expand=True)
+        reopened.advanced_button.invoke()
+        self.root.update()
+        self.assertEqual(reopened.variables["max_output_tokens"].get(), "无限制")
+        entry = reopened.entries["max_output_tokens"]
+        entry.delete(0, tk.END)
+        entry.insert(0, "8192")
+        reopened.save()
+        self.assertEqual(self.saved[-1][0]["max_output_tokens"], 8192)
+
     def test_pending_test_ignores_duplicate_and_does_not_validate_edited_draft(self):
         dialog = self.dialog()
         started, release = threading.Event(), threading.Event()
@@ -208,15 +232,18 @@ class CustomAPIUITests(unittest.TestCase):
 
     def test_reasoning_slider_choice_is_saved(self):
         dialog = self.dialog()
+        dialog.variables["url"].set("https://api.deepseek.com")
+        dialog.variables["model"].set("deepseek-flash")
         dialog.advanced_button.invoke()
         self.root.update()
         slider = dialog.entries["thinking_level"]
         slider.focus_force()
         self.root.update()
         slider.event_generate("<End>")
-        self.assertEqual(dialog.variables["thinking_level"].get(), "xhigh")
+        self.assertEqual(dialog.variables["thinking_level"].get(), "max")
         dialog.save()
-        self.assertEqual(self.saved[0][0]["thinking_level"], "xhigh")
+        self.assertEqual(self.saved[0][0]["thinking_level"], "max")
+        self.assertEqual(self.saved[0][0]["reasoning_config"]["kind"], "deepseek")
 
     def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
         self.root.geometry("650x480")
@@ -397,6 +424,59 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertFalse(popup.winfo_exists())
         self.assertIsNone(self.root.grab_current())
 
+    def test_popup_inputs_accept_keys_immediately_after_dismissing_protocol_menu(self):
+        dialog = CustomAPIDialog(self.root, {}, "", self.callbacks.put, lambda *_args: None)
+        self.root.update()
+        dialog.focus_force()  # Activate once; never repair focus after closing a menu.
+        self.root.update()
+        editor = dialog.editor
+        combo = editor.entries["protocol"]
+        for name in ("name", "url", "model", "api_key"):
+            for padded in (False, True):
+                with self.subTest(field=name, padded=padded):
+                    entry = editor.key_entry if name == "api_key" else editor.entries[name]
+                    combo.open_dropdown()
+                    self.root.update()
+                    popup = combo.popup
+                    self.assertIsNotNone(popup)
+                    target = editor.input_surfaces[name] if padded else entry
+                    # Transparent test windows cannot participate in native hit
+                    # testing. Keyboard focus and typed input are still real Tk.
+                    with patch.object(popup, "winfo_containing", return_value=target):
+                        popup._outside_click(SimpleNamespace(
+                            x_root=entry.winfo_rootx() + 3, y_root=entry.winfo_rooty() + 3))
+                    self.root.update()
+                    self.assertIs(self.root.focus_displayof(), entry)
+                    before = entry.get()
+                    self.root.focus_displayof().event_generate("<KeyPress-a>")
+                    self.root.update()
+                    self.assertEqual(len(entry.get()), len(before) + 1)
+                    self.assertIs(self.root.grab_current(), dialog)
+
+    def test_reasoning_dropdown_close_keeps_settings_entry_editable(self):
+        dialog = CustomAPIDialog(self.root, {"url": "https://unknown.test/v1", "model": "unknown"},
+                                 "", self.callbacks.put, lambda *_args: None)
+        self.root.update()
+        dialog.focus_force()
+        dialog.editor._open_reasoning_settings()
+        self.root.update()
+        settings = dialog.editor._reasoning_settings
+        combo = settings.template
+        combo.open_dropdown()
+        self.root.update()
+        combo.popup.choose(0)
+        self.root.update()
+        entry = settings.levels_entry
+        entry.event_generate("<ButtonPress-1>", x=4, y=4)
+        entry.event_generate("<ButtonRelease-1>", x=4, y=4)
+        self.root.update()
+        self.assertIs(self.root.focus_displayof(), entry)
+        before = entry.get()
+        self.root.focus_displayof().event_generate("<KeyPress-b>")
+        self.root.update()
+        self.assertEqual(len(entry.get()), len(before) + 1)
+        self.assertIs(self.root.grab_current(), settings)
+
     def test_settings_row_rejects_stale_success_after_key_edit(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
         store.save_api_keys({"gemini": "original-placeholder"})
@@ -454,7 +534,8 @@ class CustomAPIGeometryTests(unittest.TestCase):
             root.attributes("-alpha", 0.0)
             root.tk.call("tk", "scaling", scaling)
             try:
-                dialog = CustomAPIEditor(root, {}, "", lambda _cb: None, lambda *_args: None)
+                dialog = CustomAPIEditor(root, {"url": "https://api.deepseek.com", "model": "deepseek-flash"},
+                                         "", lambda _cb: None, lambda *_args: None)
                 dialog.pack(fill=tk.BOTH, expand=True)
                 dialog.advanced_button.invoke()
                 for width in (520, 740):
@@ -471,6 +552,9 @@ class CustomAPIGeometryTests(unittest.TestCase):
                             return fields, dialog.advanced_body.winfo_reqheight()
                         original = snapshot()
                         self.assertEqual(original[0][0][2:], original[0][1][2:])
+                        thinking_heading = dialog.input_surfaces["thinking_level"].master.winfo_children()[0]
+                        json_heading = dialog.input_surfaces["json_mode"].master.winfo_children()[0]
+                        self.assertEqual(thinking_heading.winfo_height(), json_heading.winfo_height())
                         for value in dialog.entries["thinking_level"].cget("values"):
                             dialog.variables["thinking_level"].set(value)
                             root.update()
@@ -515,6 +599,11 @@ class CustomAPIGeometryTests(unittest.TestCase):
                         )
                     dialog.advanced_button.invoke()
                     settle(root, app)
+                    unlimited = dialog.unlimited_output_button
+                    token_label = unlimited.master.winfo_children()[0]
+                    self.assertGreaterEqual(token_label.winfo_width(), token_label.winfo_reqwidth())
+                    self.assertGreaterEqual(unlimited.winfo_width(), unlimited.winfo_reqwidth())
+                    self.assertGreaterEqual(unlimited.winfo_x(), token_label.winfo_x() + token_label.winfo_width())
                     canvas = dialog.scroll_canvas
                     for entry in (*dialog.entries.values(), dialog.key_entry):
                         self.assertGreaterEqual(entry.winfo_rootx(), canvas.winfo_rootx())

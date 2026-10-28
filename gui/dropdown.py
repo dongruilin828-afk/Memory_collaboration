@@ -75,15 +75,25 @@ class RoundedCombobox(ttk.Combobox):
         self._popup.show()
         self.event_generate("<<DropdownOpened>>")
 
-    def close_dropdown(self, restore_focus=False):
+    def close_dropdown(self, restore_focus=False, *, focus_target=None):
         popup, self._popup = self._popup, None
         if popup is None:
             return
+        # On Windows, destroying the focused overrideredirect window first can
+        # deactivate the entire owner. Later focus_set() calls then do nothing.
+        # Transfer focus while the popup is still alive; a real FocusOut to
+        # another window must retain that window's focus and modal grab.
+        focus = self.focus_displayof()
+        current_grab = self.grab_current()
+        owns_focus = focus is not None and focus.winfo_toplevel() is popup
+        if (self.winfo_viewable() and current_grab in {None, popup}
+                and (owns_focus or restore_focus)):
+            target = focus_target if focus_target is not None else self
+            if target.winfo_exists() and target.winfo_viewable() and target.winfo_toplevel() is popup.owner:
+                target.focus_set()
         popup.dismiss()
         if self.winfo_exists():
             self.state(["!pressed"])
-            if restore_focus and self.winfo_viewable():
-                self.focus_set()
             self.event_generate("<<DropdownClosed>>")
 
     def _destroyed(self, event):
@@ -257,7 +267,18 @@ class _DropdownPopup(tk.Toplevel):
         x, y = event.x_root, event.y_root
         if not (self.winfo_rootx() <= x < self.winfo_rootx() + self._width and
                 self.winfo_rooty() <= y < self.winfo_rooty() + self._height):
-            self.combo.close_dropdown()
+            target = self.winfo_containing(x, y)
+            if target is not None and target.winfo_toplevel() is self.owner:
+                # Clicking the padded input surface should focus its embedded
+                # editor just like clicking directly on the native Entry.
+                control = getattr(target, "control", None)
+                if isinstance(control, tk.Widget):
+                    target = control
+                elif not isinstance(target, (tk.Entry, ttk.Entry, tk.Text, ttk.Combobox)):
+                    target = self.combo
+            else:
+                target = self.combo
+            self.combo.close_dropdown(focus_target=target)
         return "break"
 
     def _ensure_visible(self):
@@ -324,10 +345,11 @@ class _DropdownPopup(tk.Toplevel):
             self.after_cancel(self._focus_after)
         if self._host.popup is self:
             self._host.popup = None
-        if self.grab_current() is self:
+        owned_grab = self.grab_current() is self
+        if owned_grab:
             self.grab_release()
         previous = self._previous_grab
-        if previous is not None and previous.winfo_exists() and previous.winfo_viewable():
+        if owned_grab and previous is not None and previous.winfo_exists() and previous.winfo_viewable():
             if self._previous_grab_status == "global":
                 previous.grab_set_global()
             else:

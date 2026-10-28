@@ -4,6 +4,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 import unittest
+from unittest.mock import patch
 
 from gui.dropdown import RoundedCombobox
 
@@ -21,6 +22,8 @@ class RoundedComboboxTests(unittest.TestCase):
         self.root.tk.call("set", "::dropdown_test_bgerrors", "")
         self.root.tk.call("proc", "bgerror", "message", "lappend ::dropdown_test_bgerrors $message")
         self.addCleanup(self._close_root)
+        self.root.update()
+        self.root.focus_force()
         self.root.update()
 
     def _close_root(self):
@@ -53,6 +56,101 @@ class RoundedComboboxTests(unittest.TestCase):
     def key(self, widget, sequence):
         widget.event_generate(sequence)
         self.root.update()
+
+    def _entry_and_combo(self, parent=None):
+        owner = parent or self.root
+        entry = tk.Entry(owner)
+        entry.pack(fill=tk.X, padx=16, pady=16)
+        combo = self.combo(owner)
+        return entry, combo
+
+    def _open_without_forcing_focus(self, combo):
+        combo.open_dropdown()
+        self.root.update()
+        popup = combo.popup
+        self.assertIsNotNone(popup)
+        focus = self.root.focus_displayof()
+        self.assertIsNotNone(focus)
+        self.assertIs(focus.winfo_toplevel(), popup)
+        return popup
+
+    def _type_into_focused_entry(self, entry, character="x"):
+        focus = self.root.focus_displayof()
+        self.assertIs(focus, entry)
+        focus.event_generate(f"<KeyPress-{character}>")
+        focus.event_generate(f"<KeyRelease-{character}>")
+        self.root.update()
+        self.assertEqual(entry.get(), character)
+
+    def _click_entry_and_type(self, entry):
+        entry.event_generate("<ButtonPress-1>", x=10, y=8)
+        entry.event_generate("<ButtonRelease-1>", x=10, y=8)
+        self.root.update()
+        self._type_into_focused_entry(entry)
+
+    def test_choose_and_escape_leave_owner_entries_editable(self):
+        for action in ("choose", "escape"):
+            with self.subTest(action=action):
+                entry, combo = self._entry_and_combo()
+                popup = self._open_without_forcing_focus(combo)
+                if action == "choose":
+                    popup.choose(2)
+                else:
+                    popup._escape()
+                self.root.update()
+                self.assertIs(self.root.focus_displayof(), combo)
+                self._click_entry_and_type(entry)
+                combo.destroy()
+                entry.destroy()
+
+    def test_programmatic_close_preserves_keyboard_input_for_both_focus_options(self):
+        for restore_focus in (False, True):
+            with self.subTest(restore_focus=restore_focus):
+                entry, combo = self._entry_and_combo()
+                self._open_without_forcing_focus(combo)
+                combo.close_dropdown(restore_focus=restore_focus)
+                self.root.update()
+                self.assertIs(self.root.focus_displayof(), combo)
+                self._click_entry_and_type(entry)
+                combo.destroy()
+                entry.destroy()
+
+    def test_outside_entry_click_dismisses_and_allows_immediate_typing(self):
+        entry, combo = self._entry_and_combo()
+        popup = self._open_without_forcing_focus(combo)
+        x, y = entry.winfo_rootx() + 10, entry.winfo_rooty() + 8
+        # Alpha-zero Windows fixtures are excluded from the native hit test.
+        # Only that lookup is stubbed; focus and typing use the real Tk widgets.
+        with patch.object(tk.Misc, "winfo_containing", return_value=entry):
+            popup.canvas.event_generate(
+                "<ButtonPress-1>", x=x - popup.winfo_rootx(), y=y - popup.winfo_rooty(),
+                rootx=x, rooty=y,
+            )
+            self.root.update()
+        self.assertIsNone(combo.popup)
+        self._type_into_focused_entry(entry)
+
+    def test_dismiss_does_not_steal_focus_or_grab_from_a_newer_modal(self):
+        newer = tk.Toplevel(self.root)
+        newer.attributes("-alpha", 0.0)
+        other_entry = tk.Entry(newer)
+        other_entry.pack()
+        previous = tk.Toplevel(self.root)
+        previous.attributes("-alpha", 0.0)
+        previous.geometry("400x300")
+        _, combo = self._entry_and_combo(previous)
+        self.root.update()
+        combo.focus_set()
+        self.root.update()
+        previous.grab_set()
+        self._open_without_forcing_focus(combo)
+        other_entry.focus_set()
+        newer.grab_set()
+        combo.close_dropdown(restore_focus=True)
+        self.root.update()
+        self.assertIs(self.root.focus_displayof(), other_entry)
+        self.assertIs(self.root.grab_current(), newer)
+        self._type_into_focused_entry(other_entry)
 
     def test_keyboard_navigation_commits_once_and_preserves_combobox_api(self):
         value = tk.StringVar(self.root)

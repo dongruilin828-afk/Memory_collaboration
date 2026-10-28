@@ -2707,11 +2707,13 @@ class AIMemoryGUI:
             existing_keys = self.credential_store.load_api_keys()
             provider_order = list(self.credential_store.load_provider_order())
             custom_api_settings = getattr(self.credential_store, "load_custom_apis", lambda: {})()
+            deleted_builtin_apis = set(getattr(self.credential_store, "load_deleted_builtin_apis", lambda: ())())
             key_load_error = None
         except CredentialStoreError as error:
             existing_keys = {}
             provider_order = ["gemini", "siliconflow", "deepseek"]
             custom_api_settings = {}
+            deleted_builtin_apis = set()
             key_load_error = str(error)
 
         notice_var = tk.StringVar(value="")
@@ -2761,11 +2763,12 @@ class AIMemoryGUI:
         page.api_notice_label = notice_label
 
         # ----- API KEY 行 -----
-        providers = {
+        builtin_providers = {
             "gemini": "Google Gemini",
             "siliconflow": "SiliconFlow",
             "deepseek": "DeepSeek",
         }
+        providers = {key: name for key, name in builtin_providers.items() if key not in deleted_builtin_apis}
 
         providers.update({key: value["name"] for key, value in custom_api_settings.items()})
 
@@ -2784,6 +2787,7 @@ class AIMemoryGUI:
 
         api_key_vars: dict[str, tk.StringVar] = {}
         api_test_buttons = {}
+        api_delete_buttons = {}
         api_row_refs: dict[str, tk.Frame] = {}
         drag_state = {
             "active": False, "src": None, "tgt": None,
@@ -2796,6 +2800,9 @@ class AIMemoryGUI:
 
         def _layout_api_rows(animate=False, order=None, dragged=None):
             nonlocal row_height
+            delete_width = max((button.winfo_reqwidth() for button in api_delete_buttons.values()), default=0)
+            for row in api_row_refs.values():
+                row.columnconfigure(5, minsize=delete_width)
             row_height = max(34, max((row.winfo_reqheight() for row in api_row_refs.values()), default=0))
             if animation["after_id"] is not None:
                 try:
@@ -2944,6 +2951,15 @@ class AIMemoryGUI:
             )
             test_button.grid(row=0, column=3, padx=(4, 0))
             api_test_buttons[provider] = test_button
+            delete_button = tk.Button(
+                row, text="删除", font=FONT_SMALL, bg=COLOR_CARD, fg=COLOR_DANGER,
+                activebackground=COLOR_HOVER, activeforeground=COLOR_DANGER,
+                relief=tk.FLAT, bd=0, cursor="hand2", padx=6, pady=0,
+                command=lambda key=provider: _delete_api(key),
+            )
+            delete_button.grid(row=0, column=5, padx=(4, 0))
+            HoverTooltip(delete_button, "删除此 API 及已保存的 KEY")
+            api_delete_buttons[provider] = delete_button
             if provider == "gemini":
                 HoverTooltip(test_button, "使用 Gemini 3.8 Flash 发送一条简短测试请求")
 
@@ -3054,6 +3070,7 @@ class AIMemoryGUI:
         page.api_row_refs = api_row_refs
         page.api_key_vars = api_key_vars
         page.api_test_buttons = api_test_buttons
+        page.api_delete_buttons = api_delete_buttons
         page.ordered_providers = ordered_providers
         page.api_rows_frame = api_rows_frame
         page.api_animation = animation
@@ -3102,7 +3119,8 @@ class AIMemoryGUI:
             show_notice("正在发送测试请求…", 0)
 
             def finish(text):
-                if api_page.winfo_exists():
+                if (api_page.winfo_exists() and provider in api_key_vars
+                        and api_test_buttons.get(provider) is button and button.winfo_exists()):
                     button.configure(state="normal")
                     if api_key_vars[provider].get().strip() != key or (
                         is_custom_provider(provider) and tested_settings != custom_api_settings.get(provider)
@@ -3118,6 +3136,53 @@ class AIMemoryGUI:
                     text = str(error)
                 self._post_ui(lambda: finish(text))
             threading.Thread(target=run, daemon=True).start()
+
+        def _delete_api(profile_id):
+            if profile_id not in providers:
+                return
+            if key_load_error:
+                show_notice("原有配置未能读取，已阻止删除；请重启程序后重试。", 5000)
+                return
+            _cancel_api_reorder_animation()
+            name = providers[profile_id]
+            custom = is_custom_provider(profile_id)
+            detail = ("将同时移除此 API 的配置和已保存的 KEY。" if custom else
+                      "将从列表移除此内置 API，并清除已保存的 KEY。之后可通过“恢复内置 API”重新添加。")
+            if not messagebox.askyesno(
+                "删除 API", f"确定删除“{name}”？\n{detail}",
+                parent=self.root, icon="warning", default="no",
+            ):
+                return
+            try:
+                if custom:
+                    self.credential_store.delete_custom_api(profile_id)
+                else:
+                    self.credential_store.delete_builtin_api(profile_id)
+            except CredentialStoreError as error:
+                show_notice(str(error), 5000)
+                return
+            current_dialog = getattr(page, "custom_api_dialog", None)
+            if (current_dialog is not None and current_dialog.winfo_exists()
+                    and getattr(current_dialog, "api_profile_id", None) == profile_id):
+                current_dialog.close()
+            api_key_vars.pop(profile_id).set("")
+            existing_keys.pop(profile_id, None)
+            custom_api_settings.pop(profile_id, None)
+            providers.pop(profile_id)
+            ordered_providers[:] = [provider for provider in ordered_providers if provider != profile_id]
+            api_test_buttons.pop(profile_id)
+            api_delete_buttons.pop(profile_id)
+            api_name_labels.pop(profile_id)
+            api_row_refs.pop(profile_id).destroy()
+            if not custom:
+                deleted_builtin_apis.add(profile_id)
+                _update_builtin_restore_button()
+            _layout_api_rows(animate=True)
+            self._apply_responsive_scale(force=True)
+            show_notice(f"已删除“{name}”及其已保存的 KEY", 4000)
+
+        page.delete_api = _delete_api
+        page.delete_custom_api = _delete_api
 
         def _edit_custom_api(profile_id=None):
             from gui.custom_api_dialog import CustomAPIDialog
@@ -3158,7 +3223,9 @@ class AIMemoryGUI:
                 self.root, dict(custom_api_settings.get(profile_id, {})),
                 api_key_vars[profile_id].get() if not adding else "",
                 self._post_ui, saved, on_close=closed,
+                capability_cache_path=self.app_settings.log_dir / "reasoning_capabilities.json",
             )
+            dialog.api_profile_id = profile_id
             page.custom_api_dialog = dialog
             page.custom_api_editor = dialog.editor
             return dialog
@@ -3170,6 +3237,47 @@ class AIMemoryGUI:
             width=160, height=46, bg_parent=COLOR_CARD,
         )
         page.custom_api_button.pack(side=tk.LEFT, pady=(8, 0))
+
+        def _update_builtin_restore_button():
+            if deleted_builtin_apis:
+                page.restore_builtin_api_button.pack(before=page.custom_api_button, anchor="w", pady=(0, 6))
+            else:
+                page.restore_builtin_api_button.pack_forget()
+
+        def _restore_builtin_apis():
+            if not deleted_builtin_apis or key_load_error:
+                return
+            names = "、".join(name for key, name in builtin_providers.items() if key in deleted_builtin_apis)
+            if not messagebox.askyesno(
+                "恢复内置 API", f"恢复 {names}？\n恢复后需要重新填写 KEY。", parent=self.root, default="no",
+            ):
+                return
+            _cancel_api_reorder_animation()
+            error_text = None
+            for provider, name in builtin_providers.items():
+                if provider not in deleted_builtin_apis:
+                    continue
+                try:
+                    self.credential_store.restore_builtin_api(provider)
+                except CredentialStoreError as error:
+                    error_text = str(error)
+                    break
+                deleted_builtin_apis.remove(provider)
+                providers[provider] = name
+                existing_keys.pop(provider, None)
+                ordered_providers.append(provider)
+                _add_api_row(provider)
+            _update_builtin_restore_button()
+            _layout_api_rows(animate=True)
+            self._apply_responsive_scale(force=True)
+            show_notice(error_text or "已恢复内置 API，请重新填写 KEY 后安全保存。", 5000)
+
+        page.restore_builtin_api_button = tk.Button(
+            api_page, text="恢复内置 API", font=FONT_SMALL, command=_restore_builtin_apis,
+            fg=COLOR_GENERATION_ACCENT, bg=COLOR_CARD, activebackground=COLOR_HOVER,
+            activeforeground=COLOR_GENERATION_ACCENT, relief=tk.FLAT, bd=0, cursor="hand2", padx=0,
+        )
+        _update_builtin_restore_button()
 
         def _save_api_keys():
             _cancel_api_drag(animate=False)

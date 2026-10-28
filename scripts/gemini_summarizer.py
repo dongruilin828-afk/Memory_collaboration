@@ -581,7 +581,7 @@ class SummaryConfig:
     model: str = DEFAULT_MODEL
     chunk_chars: int = DEFAULT_CHUNK_CHARS
     short_conversation_chars: int = DEFAULT_SHORT_CONVERSATION_CHARS
-    max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS
+    max_output_tokens: int | None = DEFAULT_MAX_OUTPUT_TOKENS
     thinking_level: str = DEFAULT_THINKING_LEVEL
     retries: int = DEFAULT_RETRIES
     rate_limit_wait_seconds: int = DEFAULT_RATE_LIMIT_WAIT_SECONDS
@@ -594,6 +594,7 @@ class SummaryConfig:
     api_protocol: str = "openai"
     api_profile_id: str = ""
     json_mode: str = "json_object"
+    reasoning_config: dict[str, Any] | None = None
 
     @classmethod
     def from_env(
@@ -634,9 +635,9 @@ class SummaryConfig:
         thinking_level = (
             os.getenv("GEMINI_THINKING_LEVEL") or DEFAULT_THINKING_LEVEL
         ).strip().lower()
-        if thinking_level not in {"minimal", "low", "medium", "high"}:
+        if thinking_level not in {"auto", "minimal", "low", "medium", "high"}:
             raise GeminiSummaryError(
-                "GEMINI_THINKING_LEVEL 只能是 minimal、low、medium 或 high。"
+                "GEMINI_THINKING_LEVEL 只能是 auto、minimal、low、medium 或 high。"
             )
         return cls(
             provider=provider,
@@ -879,15 +880,20 @@ class GeminiGateway:
             "system_instruction": self._system_instruction,
             "response_mime_type": "application/json",
             "response_json_schema": schema,
-            "max_output_tokens": self.config.max_output_tokens
         }
-        if (self.config.model.startswith(("gemini-3", "gemini-4")) or self.config.provider == "custom") and self.config.thinking_level != "auto":
-            generation_options["thinking_config"] = self._types.ThinkingConfig(
-                thinking_level=(
-                    "low" if self.config.model.removeprefix("models/") == DEFAULT_MODEL and self.config.thinking_level == "minimal"
-                    else self.config.thinking_level
-                )
-            )
+        if self.config.max_output_tokens is not None:
+            generation_options["max_output_tokens"] = self.config.max_output_tokens
+        thinking = _gemini_reasoning_parameters(self.config)
+        if thinking:
+            level = thinking.get("thinking_level")
+            known_levels = {item.value.lower() for item in self._types.ThinkingLevel}
+            if level is not None and level.lower() not in known_levels:
+                # New server-declared enums must survive an older installed SDK.
+                generation_options["http_options"] = self._types.HttpOptions(extra_body={
+                    "generationConfig": {"thinkingConfig": {"thinkingLevel": level}},
+                })
+            else:
+                generation_options["thinking_config"] = self._types.ThinkingConfig(**thinking)
 
         last_error: BaseException | None = None
         for attempt in range(1, self.config.retries + 1):
@@ -1142,17 +1148,13 @@ class SiliconFlowGateway:
                 {"role": "user", "content": user_content}
             ],
             "temperature": 0.1,
-            "max_tokens": self.config.max_output_tokens,
             "stream": False
         }
+        if self.config.max_output_tokens is not None:
+            payload["max_tokens"] = self.config.max_output_tokens
         if self.config.provider == "deepseek":
             payload.update({
                 "response_format": {"type": "json_object"},
-                "reasoning_effort": (
-                    "low" if self.config.thinking_level in {"minimal", "low"}
-                    else "high"
-                ),
-                "thinking": {"type": "enabled"},
             })
         elif self.config.provider == "custom":
             # Kimi 官方接口固定温度，省略参数以使用该模型的默认值。
@@ -1163,8 +1165,6 @@ class SiliconFlowGateway:
                     {"type": "json_schema", "json_schema": {"name": "summary_response", "strict": True, "schema": schema}}
                     if self.config.json_mode == "json_schema" else {"type": "json_object"}
                 )
-            if self.config.thinking_level != "auto":
-                payload["reasoning_effort"] = self.config.thinking_level
         else:
             payload["response_format"] = {
                 "type": "json_schema",
@@ -1174,15 +1174,8 @@ class SiliconFlowGateway:
                     "schema": schema
                 }
             }
-        if (
-            self.config.provider == "siliconflow"
-            and "qwen3.5" in self.config.model.lower()
-        ):
-            payload["enable_thinking"] = True
-            payload["thinking_budget"] = min(
-                4096, max(128, self.config.max_output_tokens // 3)
-            )
-        if supported_assets and getattr(self, '_doubao_visual_model', None):
+        payload.update(_http_reasoning_parameters(self.config, self._api_base, request_model))
+        if supported_assets and getattr(self, '_doubao_visual_model', None) and self.config.thinking_level != "auto":
             payload['enable_thinking'] = False
             payload.pop('thinking_budget', None)
         last_error: BaseException | None = None
@@ -1215,9 +1208,13 @@ class SiliconFlowGateway:
                 check_cancelled(self._cancel_event)
                 choice = response_data["choices"][0]
                 if self.config.provider == "custom" and choice.get("finish_reason") == "length":
+                    if self.config.max_output_tokens is None:
+                        raise SummaryOutputTruncatedError("自定义 API 输出达到服务端或模型的 token 上限，结果被截断。")
                     raise SummaryOutputTruncatedError("自定义 API 输出达到 token 上限，结果被截断；请提高输出上限。")
                 if self._doubao_output_limit and choice.get("finish_reason") == "length":
-                    old_limit = payload["max_tokens"]
+                    old_limit = payload.get("max_tokens")
+                    if old_limit is None:
+                        raise SummaryOutputTruncatedError("模型输出达到服务端或模型的 token 上限，结果被截断；保留当前进度。")
                     new_limit = min(self._doubao_output_limit, old_limit * 2)
                     if attempt < self.config.retries and new_limit > old_limit:
                         self._doubao_output_events.append({
@@ -1285,11 +1282,153 @@ class SiliconFlowGateway:
         )
 
 
+def _request_reasoning_capability(config, api_base, protocol, model):
+    """Resolve a saved snapshot or a local catalog entry, without network I/O."""
+    from scripts.reasoning_capabilities import (
+        ReasoningCapability, capability_identity, catalog_capability,
+    )
+
+    # A vision/fallback model must never inherit another model's saved controls.
+    if model != config.model:
+        return catalog_capability(api_base, protocol, model)
+    if config.provider == "custom":
+        snapshot = config.reasoning_config
+        if snapshot is None:
+            return None  # Older profiles keep their existing parameter semantics.
+        if not isinstance(snapshot, dict) or snapshot.get("identity") != capability_identity(api_base, protocol, model):
+            raise GeminiSummaryError("思考配置与当前 API 或模型不一致，请重新识别。")
+        try:
+            capability = ReasoningCapability.from_dict(snapshot)
+        except (ValueError, TypeError):
+            raise GeminiSummaryError("思考配置无效，请重新识别当前模型的能力。") from None
+        if ((protocol == "gemini" and capability.kind in {"effort", "deepseek", "toggle"})
+                or (protocol == "openai" and capability.kind == "gemini")
+                or (capability.parameter and
+                    (capability.parameter.startswith("generationConfig.") != (protocol == "gemini")))):
+            raise GeminiSummaryError("思考参数格式不适用于当前接口协议。")
+        return capability
+    # Built-in fallback configurations can inherit unrelated fields through
+    # dataclasses.replace(); only the actual built-in endpoint/model is relevant.
+    return catalog_capability(api_base, protocol, model)
+
+
+def _capability_level(config, capability):
+    level = config.thinking_level
+    if level in capability.levels:
+        if capability.kind == "budget" and level.isdecimal():
+            budget = int(level)
+            if ((capability.budget_min is not None and budget < capability.budget_min)
+                    or (capability.budget_max is not None and budget > capability.budget_max)):
+                raise GeminiSummaryError("所选思考预算超出当前模型公开的范围，请重新选择。")
+        return level
+    if config.provider != "custom":
+        # Compatibility for the old built-in environment setting, which exposed
+        # four generic levels even when a provider offered only two native ones.
+        aliases = {"minimal": "low", "medium": "high",
+                   "xhigh": "max" if "max" in capability.levels else "high"}
+        alias = aliases.get(level)
+        if alias in capability.levels:
+            return alias
+        if capability.kind == "toggle" and level in {"minimal", "low", "medium", "high", "xhigh"}:
+            if "enabled" in capability.levels:
+                return "enabled"
+        if capability.kind == "budget" and level in {"minimal", "low", "medium", "high", "xhigh"}:
+            budgets = [value for value in capability.levels if value.isdecimal()]
+            if budgets:
+                target = min(4096, max(128, (config.max_output_tokens or DEFAULT_MAX_OUTPUT_TOKENS) // 3))
+                return min(budgets, key=lambda value: abs(int(value) - target))
+    raise GeminiSummaryError("所选思考档位不受当前模型支持，请重新选择。")
+
+
+def _http_reasoning_parameters(config, api_base, request_model):
+    # Auto means the service's own default, including for built-in providers.
+    if config.thinking_level == "auto":
+        return {}
+    capability = _request_reasoning_capability(config, api_base, "openai", request_model)
+    if capability is not None and capability.kind != "unknown":
+        if capability.kind == "none" and config.provider != "custom":
+            return {}
+        level = _capability_level(config, capability)
+        if capability.kind == "effort":
+            if capability.parameter == "reasoning.effort":
+                return {"reasoning": {"effort": level}}
+            return {"reasoning_effort": level}
+        if capability.kind == "deepseek":
+            if level == "none":
+                return {"thinking": {"type": "disabled"}}
+            return {"thinking": {"type": "enabled"}, "reasoning_effort": level}
+        if capability.kind == "budget":
+            if capability.parameter == "thinking_budget":
+                return {"thinking_budget": 0 if level == "none" else int(level)}
+            if capability.parameter == "thinking.budget_tokens":
+                if level == "none":
+                    return {"thinking": {"type": "disabled"}}
+                return {"thinking": {"type": "enabled", "budget_tokens": int(level)}}
+            if level == "none":
+                return {"enable_thinking": False}
+            return {"enable_thinking": True, "thinking_budget": int(level)}
+        if capability.kind == "toggle":
+            if capability.parameter == "thinking.type":
+                return {"thinking": {"type": "enabled" if level == "enabled" else "disabled"}}
+            return {"enable_thinking": level == "enabled"}
+        raise GeminiSummaryError("当前模型不提供可设置的思考档位。")
+    if request_model != config.model:
+        return {}
+    if config.provider == "custom":
+        if config.reasoning_config is not None:
+            raise GeminiSummaryError("当前模型的思考能力尚未识别，请使用自动或手动配置。")
+        return {"reasoning_effort": config.thinking_level}
+    if config.provider == "deepseek":
+        if config.thinking_level == "none":
+            return {"thinking": {"type": "disabled"}}
+        return {"thinking": {"type": "enabled"},
+                "reasoning_effort": "low" if config.thinking_level in {"minimal", "low"} else "high"}
+    if config.provider == "siliconflow" and "qwen3.5" in request_model.lower():
+        if config.thinking_level == "none":
+            return {"enable_thinking": False}
+        return {"enable_thinking": True,
+                "thinking_budget": min(4096, max(128, (config.max_output_tokens or DEFAULT_MAX_OUTPUT_TOKENS) // 3))}
+    return {}
+
+
+def _gemini_reasoning_parameters(config):
+    if config.thinking_level == "auto":
+        return {}
+    api_base = config.api_base if config.provider == "custom" else "https://generativelanguage.googleapis.com"
+    capability = _request_reasoning_capability(config, api_base, "gemini", config.model)
+    if capability is not None and capability.kind != "unknown":
+        if capability.kind == "none" and config.provider != "custom":
+            return {}
+        level = _capability_level(config, capability)
+        if capability.kind == "budget" or (capability.kind == "gemini" and level == "none"):
+            budget = 0 if level == "none" else int(level)
+            if config.max_output_tokens is not None and budget >= config.max_output_tokens:
+                raise GeminiSummaryError("Gemini 思考预算须小于输出上限，为回答保留空间。")
+            return {"thinking_budget": budget}
+        if capability.kind == "gemini":
+            return {"thinking_level": level}
+        raise GeminiSummaryError("当前模型不提供可设置的 Gemini 思考档位。")
+    if config.provider == "custom" and config.reasoning_config is not None:
+        raise GeminiSummaryError("当前模型的思考能力尚未识别，请使用自动或手动配置。")
+    if config.model.startswith(("gemini-3", "gemini-4")) or config.provider == "custom":
+        return {"thinking_level": (
+            "low" if config.model.removeprefix("models/") == DEFAULT_MODEL and config.thinking_level == "minimal"
+            else config.thinking_level
+        )}
+    return {}
+
+
 def create_gateway(
     config: SummaryConfig,
     api_key: str | None = None,
     cancel_event: threading.Event | None = None,
 ) -> SummaryGateway:
+    if config.provider == "custom" and config.thinking_level != "auto" and config.reasoning_config:
+        snapshot = config.reasoning_config
+        if isinstance(snapshot, dict) and snapshot.get("scope") and not snapshot.get("override", False):
+            from scripts.reasoning_capabilities import capability_identity
+            if snapshot["scope"] != capability_identity(config.api_base, config.api_protocol, config.model, api_key or ""):
+                raise GeminiSummaryError("API KEY 已更改，请重新识别思考档位，或选择自动。")
     if config.provider in {"siliconflow", "deepseek"} or (config.provider == "custom" and config.api_protocol == "openai"):
         return SiliconFlowGateway(config, api_key=api_key, cancel_event=cancel_event)
     return GeminiGateway(config, api_key=api_key, cancel_event=cancel_event)
@@ -1303,6 +1442,7 @@ def custom_summary_config(values, base_config=None):
         api_base=settings["url"], api_name=settings["name"],
         api_protocol=settings["protocol"], json_mode=settings["json_mode"],
         thinking_level=settings["thinking_level"],
+        reasoning_config=settings.get("reasoning_config"),
         max_output_tokens=settings["max_output_tokens"],
         request_timeout_seconds=settings["request_timeout_seconds"],
     )
@@ -1310,7 +1450,16 @@ def custom_summary_config(values, base_config=None):
 
 def test_api_connection(config, api_key):
     """Send a small generation request through the same gateway as summaries."""
-    probe = replace(config, retries=1, max_output_tokens=min(config.max_output_tokens, 1024))
+    probe_tokens = 1024 if config.max_output_tokens is None else min(config.max_output_tokens, 1024)
+    if config.provider == "custom" and config.api_protocol == "gemini" and config.reasoning_config:
+        # Gemini shares its output allowance with thinking. SiliconFlow's
+        # separately counted budget deliberately does not increase this probe.
+        thinking = _gemini_reasoning_parameters(config)
+        if thinking.get("thinking_budget", 0) > 0:
+            probe_tokens = max(probe_tokens, thinking["thinking_budget"] + 128)
+            if config.max_output_tokens is not None:
+                probe_tokens = min(config.max_output_tokens, probe_tokens)
+    probe = replace(config, retries=1, max_output_tokens=probe_tokens)
     gateway = None
     try:
         gateway = create_gateway(probe, api_key=api_key)

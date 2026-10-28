@@ -1,5 +1,7 @@
 """Custom summary endpoint settings; API keys are kept out of runtime configs."""
+import re
 from urllib.parse import urlsplit, urlunsplit
+import math
 
 
 def middle_ellipsis(text, width, measure):
@@ -39,19 +41,65 @@ def normalize_custom_api(values):
     if not name or len(name) > 60 or any(ord(c) < 32 for c in name):
         raise ValueError("名称须为 1–60 个可见字符。")
     thinking = str(values.get("thinking_level") or "auto").strip()
-    levels = {"auto", "none", "minimal", "low", "medium", "high", "xhigh"}
-    if thinking not in levels or (protocol == "gemini" and thinking not in {"auto", "low", "medium", "high"}):
-        raise ValueError("所选思考强度不适用于当前协议。")
+    reasoning_config = None
+    if values.get("reasoning_config") is not None:
+        from scripts.reasoning_capabilities import ReasoningCapability, capability_identity
+        snapshot = values["reasoning_config"]
+        if not isinstance(snapshot, dict):
+            raise ValueError("思考设置的能力信息无效，请重新识别。")
+        capability = ReasoningCapability.from_dict(snapshot)
+        identity = capability_identity(url, protocol, model)
+        if snapshot.get("identity") != identity:
+            raise ValueError("API 地址、协议或模型已更改，请重新识别思考设置。")
+        if ((protocol == "gemini" and capability.kind in {"effort", "deepseek", "toggle"})
+                or (protocol == "openai" and capability.kind == "gemini")
+                or (capability.parameter and
+                    (capability.parameter.startswith("generationConfig.") != (protocol == "gemini")))):
+            raise ValueError("思考参数格式不适用于当前接口协议。")
+        if thinking != "auto" and thinking not in capability.levels:
+            raise ValueError("所选思考强度不在当前模型支持的档位中。")
+        if "override" in snapshot and not isinstance(snapshot["override"], bool):
+            raise ValueError("思考设置的覆盖标记无效。")
+        reasoning_config = {**capability.to_dict(), "identity": identity,
+                            "override": snapshot.get("override", False)}
+        if "observed_at" in snapshot:
+            timestamp = snapshot["observed_at"]
+            if type(timestamp) not in {int, float} or not math.isfinite(timestamp) or timestamp < 0:
+                raise ValueError("思考设置的识别时间无效，请重新识别。")
+            reasoning_config["observed_at"] = timestamp
+        if "scope" in snapshot:
+            scope = snapshot["scope"]
+            if not isinstance(scope, str) or not re.fullmatch(r"[0-9a-f]{64}", scope):
+                raise ValueError("思考设置的密钥作用域无效，请重新识别。")
+            reasoning_config["scope"] = scope
+    else:
+        # Saved profiles predating capability discovery retain their wire values.
+        levels = {"auto", "none", "minimal", "low", "medium", "high", "xhigh"}
+        if thinking not in levels or (protocol == "gemini" and thinking not in {"auto", "low", "medium", "high"}):
+            raise ValueError("所选思考强度不适用于当前协议。")
     json_mode = str(values.get("json_mode") or "json_object")
     if json_mode not in {"json_object", "json_schema", "prompt"}:
         raise ValueError("请选择有效的 JSON 输出方式。")
+    token_value = values.get("max_output_tokens", 16384)
+    unlimited = token_value is None or (
+        isinstance(token_value, str) and token_value.strip().lower() in {"无限制", "unlimited", "none", "∞"}
+    )
     try:
-        tokens = int(values.get("max_output_tokens", 16384))
+        if not unlimited and (isinstance(token_value, bool) or not re.fullmatch(r"[0-9]+", str(token_value).strip())):
+            raise ValueError
+        tokens = None if unlimited else int(token_value)
         timeout = int(values.get("request_timeout_seconds", 180))
     except (ValueError, TypeError):
-        raise ValueError("输出上限和超时须为整数。") from None
-    if not 128 <= tokens <= 1_000_000 or not 5 <= timeout <= 600:
-        raise ValueError("输出上限须为 128–1000000；超时须为 5–600 秒。")
-    return dict(name=name, url=url, model=model, protocol=protocol,
-                thinking_level=thinking, json_mode=json_mode,
-                max_output_tokens=tokens, request_timeout_seconds=timeout)
+        raise ValueError("输出上限须为整数或“无限制”；超时须为整数。") from None
+    if (tokens is not None and not 128 <= tokens <= 1_000_000) or not 5 <= timeout <= 600:
+        raise ValueError("输出上限须为 128–1000000 或“无限制”；超时须为 5–600 秒。")
+    if (reasoning_config is not None and protocol == "gemini"
+            and reasoning_config["kind"] == "budget" and thinking.isdecimal()
+            and tokens is not None and int(thinking) >= tokens):
+        raise ValueError("Gemini 思考预算须小于输出上限，为回答保留空间。")
+    normalized = dict(name=name, url=url, model=model, protocol=protocol,
+                      thinking_level=thinking, json_mode=json_mode,
+                      max_output_tokens=tokens, request_timeout_seconds=timeout)
+    if reasoning_config is not None:
+        normalized["reasoning_config"] = reasoning_config
+    return normalized
