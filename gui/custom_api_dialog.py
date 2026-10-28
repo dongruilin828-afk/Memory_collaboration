@@ -188,7 +188,8 @@ class _FormCard(tk.Canvas):
 
 
 class CustomAPIEditor(tk.Frame):
-    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None):
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None,
+                 priority=False, priority_locked=False):
         super().__init__(parent)
         self.configure(bg=COLOR_BG_APP)
         self._on_close = on_close
@@ -224,7 +225,7 @@ class CustomAPIEditor(tk.Frame):
             defaults["max_output_tokens"] = "无限制"
         self.variables = {key: tk.StringVar(self, value=str(value)) for key, value in defaults.items()}
         self.key_var = tk.StringVar(self, value=api_key)
-        self.priority_var = tk.BooleanVar(self, value=False)
+        self.priority_var = tk.BooleanVar(self, value=priority)
         self._protocol_display = tk.StringVar(self)
         self.configure(bg=COLOR_CARD)
         self._configure_dropdown_style()
@@ -412,6 +413,8 @@ class CustomAPIEditor(tk.Frame):
         preference = tk.Frame(credentials, bg=COLOR_CARD)
         preference.pack(fill=tk.X, pady=(8, 0))
         self.priority_switch = _PrioritySwitch(preference, self.priority_var)
+        if priority_locked:
+            self.priority_switch.configure(state="disabled", cursor="arrow")
         self.priority_switch.pack(side=tk.RIGHT, padx=(16, 0))
         preference_copy = tk.Frame(preference, bg=COLOR_CARD)
         preference_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -419,7 +422,9 @@ class CustomAPIEditor(tk.Frame):
                                   fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w", cursor="hand2")
         priority_label.pack(fill=tk.X)
         priority_label.bind("<Button-1>", lambda _e: self.priority_switch.invoke())
-        wrapped_label(preference_copy, "启用后，优先调用此服务。", pady=(4, 0))
+        wrapped_label(preference_copy,
+                      "仅有此 API，当前自动优先使用。" if priority_locked else
+                      "优先状态与调用顺序同步；启用后移至首位。", pady=(4, 0))
 
         advanced_card = _FormCard(form)
         advanced_card.pack(fill=tk.X, pady=(0, 2))
@@ -924,7 +929,8 @@ class CustomAPIEditor(tk.Frame):
 class CustomAPIDialog(tk.Toplevel):
     """Resizable modal window around the shared, scrollable API editor."""
 
-    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None):
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None, *, capability_cache_path=None,
+                 priority=False, priority_locked=False):
         super().__init__(parent)
         self.withdraw()
         self._parent = parent.winfo_toplevel()
@@ -953,7 +959,8 @@ class CustomAPIDialog(tk.Toplevel):
         self.geometry(f"{width}x{height}+{x}+{y}")
 
         self.editor = CustomAPIEditor(self, values, api_key, post_ui, on_save, on_close=self.close,
-                                      capability_cache_path=capability_cache_path)
+                                      capability_cache_path=capability_cache_path,
+                                      priority=priority, priority_locked=priority_locked)
         self.editor.pack(fill=tk.BOTH, expand=True)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind("<Escape>", self.editor._on_escape)

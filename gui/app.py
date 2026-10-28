@@ -567,12 +567,14 @@ class AIMemoryGUI:
                             if not font_spec:
                                 raise tk.TclError
                             font = tkfont.Font(master=widget, font=font_spec)
-                            widget._responsive_font = font
-                            widget._responsive_base_font_size = abs(
-                                int(font.actual("size"))
-                            )
+                            base_font_size = abs(int(font.actual("size")))
+                            # Custom controls may expose a font for measurement
+                            # without accepting configure(font=...). Only keep
+                            # the resize state after configuration succeeds.
                             widget.configure(font=font)
-                            widget._responsive_font_size = widget._responsive_base_font_size
+                            widget._responsive_font = font
+                            widget._responsive_base_font_size = base_font_size
+                            widget._responsive_font_size = base_font_size
                         minimum = getattr(widget, "_responsive_min_font_size", 7)
                         maximum = getattr(widget, "_responsive_max_font_size", 22)
                         font_size = max(
@@ -3195,6 +3197,7 @@ class AIMemoryGUI:
             _cancel_api_reorder_animation()
             adding = profile_id is None
             profile_id = profile_id or "custom_" + uuid.uuid4().hex
+            was_priority = not adding and bool(ordered_providers) and ordered_providers[0] == profile_id
 
             def saved(values, key, priority):
                 self.credential_store.save_custom_api(values, key, profile_id)
@@ -3210,6 +3213,9 @@ class AIMemoryGUI:
                 if priority:
                     ordered_providers.remove(profile_id)
                     ordered_providers.insert(0, profile_id)
+                elif was_priority and len(ordered_providers) > 1:
+                    ordered_providers.remove(profile_id)
+                    ordered_providers.append(profile_id)
                 self.credential_store.save_provider_order(ordered_providers)
                 _layout_api_rows(animate=True)
                 self._apply_responsive_scale(force=True)
@@ -3224,6 +3230,8 @@ class AIMemoryGUI:
                 api_key_vars[profile_id].get() if not adding else "",
                 self._post_ui, saved, on_close=closed,
                 capability_cache_path=self.app_settings.log_dir / "reasoning_capabilities.json",
+                priority=was_priority,
+                priority_locked=was_priority and len(ordered_providers) == 1,
             )
             dialog.api_profile_id = profile_id
             page.custom_api_dialog = dialog
