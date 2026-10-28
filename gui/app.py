@@ -805,9 +805,89 @@ class AIMemoryGUI:
         # 配置拖拽到整个 Omnibox
         self._configure_file_drop()
 
+        self.batch_capture_button = tk.Button(
+            center, text="批量抓取多个链接", command=self._show_batch_capture_dialog,
+            font=(FONT_FAMILY, 11), bg=COLOR_BG_APP, fg=COLOR_ACCENT_BLUE,
+            activebackground=COLOR_BG_APP, relief=tk.FLAT, cursor="hand2", pady=8,
+        )
+        self.batch_capture_button.pack(pady=(8, 0))
+
         # 底部呼吸留白
         spacer = tk.Frame(center, bg=COLOR_BG_APP, height=80)
         spacer.pack(fill=tk.BOTH, expand=True)
+
+    def _show_batch_capture_dialog(self):
+        if self.is_running:
+            messagebox.showinfo("任务正在运行", "请等待当前任务完成或停止后再开始批量抓取。", parent=self.root)
+            return
+        previous = getattr(self, "_batch_capture_dialog", None)
+        if previous is not None and previous.winfo_exists():
+            previous.lift()
+            return
+        from gui.batch_capture_dialog import BatchCaptureDialog
+        self._batch_capture_dialog = BatchCaptureDialog(
+            self.root, on_start=self._start_batch_capture,
+            on_stop=lambda: self._generation_cancel_event.set(),
+            initial_text=self.capsule_entry.get_text().strip(),
+        )
+
+    def _start_batch_capture(self, links, dialog):
+        if self.is_running:
+            return False
+        from datetime import datetime
+        from uuid import uuid4
+        from gui.batch_capture import capture_links
+
+        current = self.app_settings
+        settings = AppSettings(Path(current.runtime_data_dir), current.default_results_dir)
+        parent = filedialog.askdirectory(
+            parent=dialog, title="选择批量结果保存位置",
+            initialdir=str(settings.default_results_dir or Path.home()),
+        )
+        if not parent:
+            return False
+        output = Path(parent) / f"批量抓取_{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:6]}"
+        self._generation_cancel_event = cancel_event = threading.Event()
+        self.is_running = True
+        self._set_inputs_locked(True)
+        self._update_generate_button_state()
+
+        def progress(index, total, message):
+            self._post_ui(lambda text=f"[{index}/{total}] {message}": dialog.show_progress(text))
+
+        def completed(record):
+            if record["status"] != "completed":
+                return
+            elapsed = record["elapsed_seconds"]
+            history = dict(
+                title=f"批量抓取 {record['index']:03d} · {record['platform']}",
+                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), succeeded=True,
+                program_seconds=elapsed, fetch_seconds=elapsed, generation_seconds=0.0,
+                wait_seconds=0.0, total_seconds=elapsed, file_count=len(record["saved_files"]),
+                saved_files=record["saved_files"], output_dir=record["output_dir"],
+            )
+            self._post_ui(lambda: self._add_history_record(history))
+
+        def run():
+            try:
+                records = asyncio.run(capture_links(
+                    links, output, browser_profile_root=settings.browser_profile_dir,
+                    cancel_event=cancel_event, progress=progress, on_result=completed,
+                ))
+                success = sum(record["status"] == "completed" for record in records)
+                warnings = sum(bool(record["warnings"]) for record in records)
+                failed = sum(record["status"] == "failed" for record in records)
+                result = f"完成 {success}/{len(records)} 项，失败 {failed} 项，含警告 {warnings} 项。结果：{output}"
+            except asyncio.CancelledError:
+                result = f"已停止。已完成结果与各项状态保存在：{output}"
+            except Exception as error:
+                reason = (str(error).splitlines() or [type(error).__name__])[0]
+                result = f"批量抓取失败：{reason}。详情和结果目录：{output}"
+            self._post_ui(self._on_task_finished)
+            self._post_ui(lambda: dialog.finish(result))
+
+        threading.Thread(target=run, daemon=True).start()
+        return True
 
     def _on_omnibox_send(self, _event=None):
         """Omnibox 发送按钮：有链接或文件时进入生成配置页。"""

@@ -19,6 +19,7 @@ import shutil
 import sys
 import time
 from collections import Counter
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
@@ -4070,6 +4071,7 @@ async def _save_doubao_ai_documents(
     logger: Optional[Callable[[str], None]] = None,
     entries: Optional[list[tuple[str, str, str]]] = None,
     _card_retry: bool = False,
+    reuse_page: bool = False,
 ) -> tuple[dict[str, str], int]:
     """打开豆包 AI 在线文档卡片，将可见正文保存为本地 Markdown。"""
     titles = _extract_doubao_ai_document_titles(html, page.url)
@@ -4085,6 +4087,16 @@ async def _save_doubao_ai_documents(
     resolved: dict[str, str] = {}
     failures = 0
     documents_dir = Path(documents_dir)
+    source_url = page.url
+
+    async def release_document(document_page):
+        if document_page is page and reuse_page:
+            if page.url != source_url:
+                await page.goto(source_url, wait_until="domcontentloaded", timeout=30000)
+                await _page_has_conversation_content(page, source_url)
+        elif document_page is not None and not document_page.is_closed():
+            await document_page.close()
+
     for title, direct_document_url, message_id in entries:
         document_page = None
         inline_document_opened = False
@@ -4096,7 +4108,7 @@ async def _save_doubao_ai_documents(
                     resolved[f"doubao-ai-doc-message:{message_id}"] = resolved[direct_document_url]
                 continue
             if direct_document_url and not _card_retry:
-                document_page = await page.context.new_page()
+                document_page = page if reuse_page else await page.context.new_page()
                 try:
                     await document_page.goto(
                         direct_document_url,
@@ -4165,14 +4177,23 @@ async def _save_doubao_ai_documents(
                     if not document_url:
                         failures += 1
                         continue
-                    document_page = await page.context.new_page()
+                    document_page = page if reuse_page else await page.context.new_page()
                     await document_page.goto(
                         document_url, wait_until="domcontentloaded", timeout=10000
                     )
                 else:
-                    async with page.expect_popup(timeout=10000) as popup_info:
+                    if reuse_page:
+                        # Keep the batch's two-tab limit, including online documents.
+                        await page.evaluate("""() => {
+                            window.open = url => { location.assign(url); return null; };
+                        }""")
+                        await card.evaluate("el => el.querySelectorAll('a[target]').forEach(a => a.target = '_self')")
+                        document_page = page
                         await card.click(force=True, timeout=5000)
-                    document_page = await popup_info.value
+                    else:
+                        async with page.expect_popup(timeout=10000) as popup_info:
+                            await card.click(force=True, timeout=5000)
+                        document_page = await popup_info.value
                     await document_page.wait_for_url(
                         re.compile(r"^https://(?:www\.)?doubao\.com/docx/"),
                         timeout=10000,
@@ -4198,18 +4219,19 @@ async def _save_doubao_ai_documents(
             payload = b'' if direct_navigation_failed else await _download_doubao_ai_document_markdown(document_page)
             if (
                 not payload and direct_document_url and not _card_retry and message_id
-                and urlparse(str(page.url or '')).hostname in DOUBAO_HOSTS
-                and urlparse(str(page.url or '')).path.startswith('/chat/')
+                and urlparse(str(source_url if reuse_page else page.url or '')).hostname in DOUBAO_HOSTS
+                and urlparse(str(source_url if reuse_page else page.url or '')).path.startswith('/chat/')
             ):
                 # 已知地址不可导出时也要试原卡片；资源路径必须保持一致。
                 if document_page is not None:
-                    await document_page.close()
+                    await release_document(document_page)
                     document_page = None
                 if logger:
                     logger('在线文档地址未能完整导出，正在从对应原会话卡片重试...')
                 fallback, _ = await _save_doubao_ai_documents(
                     page, '', documents_dir, document_reference_prefix, [], logger,
                     entries=[(title, direct_document_url, message_id)], _card_retry=True,
+                    reuse_page=reuse_page,
                 )
                 local = fallback.get(f'doubao-ai-doc-message:{message_id}')
                 if local:
@@ -4259,8 +4281,7 @@ async def _save_doubao_ai_documents(
         finally:
             if document_page is not None:
                 try:
-                    if not document_page.is_closed():
-                        await document_page.close()
+                    await release_document(document_page)
                 except Exception:
                     pass
             if inline_document_opened:
@@ -5172,8 +5193,38 @@ async def fetch_chat_pipeline(
     image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
     browser_profile_root: Optional[Path] = None,
     debug_html_file: Optional[Path] = None,
+    *,
+    shared_page: Any = None,
 ) -> FetchResult:
-    """异步抓取并提取网页中的对话和图片。"""
+    """抓取单条链接；批量调用可借用专属页面，浏览器仍由批次拥有。"""
+    if shared_page is not None and need_login:
+        raise ValueError("共享标签页暂时仅支持复用登录状态。")
+
+    async def open_context(*args, **options):
+        if shared_page is not None:
+            return shared_page.context, "shared"
+        return await launch_browser_context(*args, **options)
+
+    async def close_context(context, warnings, logger=None):
+        if shared_page is None:
+            await _close_browser_context_safely(context, warnings, logger)
+
+    async def capture_page(context, *, new=False):
+        if shared_page is not None:
+            return shared_page
+        return (await context.new_page() if new or not context.pages
+                else context.pages[0])
+
+    async def set_window_state(page, state):
+        if shared_page is None:
+            await _set_browser_window_state(page, state)
+
+    def listen(page, callback):
+        if shared_page is not None:
+            # Recovery reuses this page rather than recreating the browser.
+            page.remove_listener("response", callback)
+        page.on("response", callback)
+
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
     user_wait_seconds = 0.0
@@ -5228,7 +5279,8 @@ async def fetch_chat_pipeline(
     )
     allow_interactive_login = need_login
     chatgpt_anonymous_probe = (
-        requested_host in {"chatgpt.com", "chat.openai.com"}
+        shared_page is None
+        and requested_host in {"chatgpt.com", "chat.openai.com"}
         and requested_path.startswith("/share/")
         and not need_login
     )
@@ -5240,7 +5292,9 @@ async def fetch_chat_pipeline(
     }
 
     if logger:
-        if need_login:
+        if shared_page is not None:
+            logger("正在复用共享浏览器标签页和已保存的登录状态...")
+        elif need_login:
             logger("正在启动浏览器供您登录或读取已保存的登录状态...")
         elif requires_content_probe:
             logger("正在后台检查 AI 对话内容...")
@@ -5248,8 +5302,8 @@ async def fetch_chat_pipeline(
             logger("正在启动无头浏览器加载分享页...")
 
     try:
-        async with async_playwright() as playwright:
-            context, _browser_channel = await launch_browser_context(
+        async with (async_playwright() if shared_page is None else nullcontext(None)) as playwright:
+            context, _browser_channel = await open_context(
                 playwright,
                 headless=headless,
                 viewport=viewport_config,
@@ -5263,7 +5317,7 @@ async def fetch_chat_pipeline(
                     else browser_profile_root
                 ),
             )
-            page = context.pages[0] if context.pages else await context.new_page()
+            page = await capture_page(context)
             anonymous_origin = (
                 "https://www.doubao.com"
                 if doubao_public_thread
@@ -5271,7 +5325,7 @@ async def fetch_chat_pipeline(
                 if chatgpt_anonymous_probe
                 else None
             )
-            if anonymous_origin:
+            if anonymous_origin and shared_page is None:
                 session = await context.new_cdp_session(page)
                 await session.send("Storage.clearDataForOrigin", {
                     "origin": anonymous_origin,
@@ -5280,7 +5334,7 @@ async def fetch_chat_pipeline(
                 await session.detach()
                 await context.clear_cookies()
             if need_login:
-                await _set_browser_window_state(page, "maximized")
+                await set_window_state(page, "maximized")
             response_document_candidates: list[DocumentCandidate] = []
             response_doubao_ai_documents: list[tuple[str, str, str]] = []
             response_doubao_document_groups: dict[str, list[DocumentCandidate]] = {}
@@ -5403,7 +5457,7 @@ async def fetch_chat_pipeline(
                     response_tasks.add(task)
                     task.add_done_callback(response_tasks.discard)
 
-            page.on("response", capture_response_assets)
+            listen(page, capture_response_assets)
 
             try:
                 if logger:
@@ -5428,25 +5482,29 @@ async def fetch_chat_pipeline(
                         if need_login and requested_host in {
                             "chatgpt.com", "chat.openai.com"
                         }:
-                            await _set_browser_window_state(page, "minimized")
+                            await set_window_state(page, "minimized")
                         if logger:
                             logger(
                                 "已读取 Codex 对话内容。"
                                 if codex_request
-                                else "当前页面无需登录，已直接读取对话内容。"
+                                    else "已复用登录状态，读取到对话内容。"
+                                    if shared_page is not None
+                                    else "当前页面无需登录，已直接读取对话内容。"
                             )
                     else:
+                        if shared_page is not None:
+                            raise RuntimeError("当前登录状态无法读取此链接；请先使用单链接授权登录后重试批量抓取。")
                         if not need_login:
                             if logger:
                                 logger(
                                     "该平台无法在无界面模式读取会话，"
                                     "正在最小化浏览器中继续尝试..."
                                 )
-                            await _close_browser_context_safely(
+                            await close_context(
                                 context, fetch_warnings, logger
                             )
                             context, _browser_channel = (
-                                await launch_browser_context(
+                                await open_context(
                                     playwright,
                                     headless=False,
                                     viewport=None,
@@ -5465,13 +5523,9 @@ async def fetch_chat_pipeline(
                                     ),
                                 )
                             )
-                            page = (
-                                context.pages[0]
-                                if context.pages
-                                else await context.new_page()
-                            )
-                            await _set_browser_window_state(page, "minimized")
-                            page.on("response", capture_response_assets)
+                            page = await capture_page(context)
+                            await set_window_state(page, "minimized")
+                            listen(page, capture_response_assets)
                             await goto_with_retry_gui(page, url, logger=logger)
                             await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
@@ -5515,7 +5569,7 @@ async def fetch_chat_pipeline(
                                         )
                                     allow_interactive_login = True
                                 need_login = True
-                                await _set_browser_window_state(page, "maximized")
+                                await set_window_state(page, "maximized")
                         elif not need_login:
                             if not allow_interactive_login:
                                 if (
@@ -5527,7 +5581,7 @@ async def fetch_chat_pipeline(
                                     )
                                 allow_interactive_login = True
                             need_login = True
-                            await _set_browser_window_state(page, "maximized")
+                            await set_window_state(page, "maximized")
                         if not content_ready and allow_interactive_login:
                             if logger:
                                 logger(
@@ -5570,7 +5624,7 @@ async def fetch_chat_pipeline(
                             if requested_host in {
                                 "chatgpt.com", "chat.openai.com"
                             }:
-                                await _set_browser_window_state(
+                                await set_window_state(
                                     page, "minimized"
                                 )
                             if logger:
@@ -5718,10 +5772,10 @@ async def fetch_chat_pipeline(
                         and login_confirmation_callback()
                     ):
                         allow_interactive_login = True
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright,
                             headless=False,
                             viewport=None,
@@ -5730,9 +5784,9 @@ async def fetch_chat_pipeline(
                             logger=logger,
                             profile_root=browser_profile_root,
                         )
-                        page = context.pages[0] if context.pages else await context.new_page()
-                        await _set_browser_window_state(page, "maximized")
-                        page.on("response", capture_response_assets)
+                        page = await capture_page(context)
+                        await set_window_state(page, "maximized")
+                        listen(page, capture_response_assets)
                         await goto_with_retry_gui(page, kimi_private_url, logger=logger)
                         if login_required_callback is not None:
                             if login_ready_event is not None:
@@ -5913,10 +5967,10 @@ async def fetch_chat_pipeline(
                             "已确认登录，正在打开浏览器；登录后请点击"
                             "【登录完毕】..."
                         )
-                    await _close_browser_context_safely(
+                    await close_context(
                         context, fetch_warnings, logger
                     )
-                    context, _browser_channel = await launch_browser_context(
+                    context, _browser_channel = await open_context(
                         playwright,
                         headless=False,
                         viewport=None,
@@ -5925,13 +5979,9 @@ async def fetch_chat_pipeline(
                         logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = (
-                        context.pages[0]
-                        if context.pages
-                        else await context.new_page()
-                    )
-                    await _set_browser_window_state(page, "maximized")
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context)
+                    await set_window_state(page, "maximized")
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
                     chatgpt_logged_in = (
                         current_host in {"chatgpt.com", "chat.openai.com"}
@@ -5968,7 +6018,7 @@ async def fetch_chat_pipeline(
                         image_warnings,
                         failure_collector=image_failures,
                     )
-                    await _set_browser_window_state(page, "minimized")
+                    await set_window_state(page, "minimized")
                 fetch_warnings.extend(image_warnings)
                 if logger:
                     usable_sources = _ordered_image_sources(image_candidates)
@@ -6032,10 +6082,10 @@ async def fetch_chat_pipeline(
                         and login_confirmation_callback()
                     ):
                         allow_interactive_login = True
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright,
                             headless=False,
                             viewport=None,
@@ -6044,13 +6094,9 @@ async def fetch_chat_pipeline(
                             logger=logger,
                             profile_root=browser_profile_root,
                         )
-                        page = (
-                            context.pages[0]
-                            if context.pages
-                            else await context.new_page()
-                        )
-                        await _set_browser_window_state(page, "maximized")
-                        page.on("response", capture_response_assets)
+                        page = await capture_page(context)
+                        await set_window_state(page, "maximized")
+                        listen(page, capture_response_assets)
                         await goto_with_retry_gui(
                             page, gemini_private_url, logger=logger
                         )
@@ -6200,14 +6246,14 @@ async def fetch_chat_pipeline(
                         page, html, resolved_documents_dir,
                         document_reference_prefix, fetch_warnings,
                     )
-                    await _close_browser_context_safely(context, fetch_warnings, logger)
-                    context, _browser_channel = await launch_browser_context(
+                    await close_context(context, fetch_warnings, logger)
+                    context, _browser_channel = await open_context(
                         playwright, headless=headless, viewport=viewport_config,
                         no_viewport=need_login, logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = await context.new_page()
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context, new=True)
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
                     await _page_has_conversation_content(page, url)
                     if (
@@ -6217,14 +6263,14 @@ async def fetch_chat_pipeline(
                         and login_confirmation_callback is not None
                         and login_confirmation_callback()
                     ):
-                        await _close_browser_context_safely(context, fetch_warnings, logger)
-                        context, _browser_channel = await launch_browser_context(
+                        await close_context(context, fetch_warnings, logger)
+                        context, _browser_channel = await open_context(
                             playwright, headless=False, viewport=None,
                             no_viewport=True, logger=logger, profile_root=browser_profile_root,
                         )
-                        page = await context.new_page()
+                        page = await capture_page(context, new=True)
                         await goto_with_retry_gui(page, url, logger=logger)
-                        await _set_browser_window_state(page, "maximized")
+                        await set_window_state(page, "maximized")
                         login_ready_event.clear()
                         login_required_callback()
                         login_wait_started = time.perf_counter()
@@ -6286,17 +6332,17 @@ async def fetch_chat_pipeline(
                             document_reference_prefix, fetch_warnings,
                         )
                     response_document_candidates.clear()
-                    await _close_browser_context_safely(
+                    await close_context(
                         context, fetch_warnings, logger
                     )
-                    context, _browser_channel = await launch_browser_context(
+                    context, _browser_channel = await open_context(
                         playwright, headless=False, viewport=None,
                         no_viewport=True, logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = context.pages[0] if context.pages else await context.new_page()
-                    await _set_browser_window_state(page, "maximized")
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context)
+                    await set_window_state(page, "maximized")
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, retry_url, logger=logger)
                     ready = await _page_has_conversation_content(page, retry_url)
                     if not ready and (
@@ -6456,15 +6502,15 @@ async def fetch_chat_pipeline(
                         # 单独复用项目登录态，不能从匿名编辑器读取局部预览。
                         if logger:
                             logger("豆包在线文档需要账号导出，正在检查已保存的登录状态...")
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright, headless=headless,
                             viewport=viewport_config, no_viewport=need_login,
                             logger=logger, profile_root=browser_profile_root,
                         )
-                        page = await context.new_page()
+                        page = await capture_page(context, new=True)
                         slide_conversation = next((e['conversation_id'] for e in doubao_slides
                                                    if re.fullmatch(r'\d+',e['conversation_id'])), '')
                         document_entry = next(iter(doubao_online_resources.values()),
@@ -6483,24 +6529,24 @@ async def fetch_chat_pipeline(
                             and login_confirmation_callback is not None
                             and login_confirmation_callback()
                         ):
-                            await _close_browser_context_safely(
+                            await close_context(
                                 context, fetch_warnings, logger
                             )
-                            context, _browser_channel = await launch_browser_context(
+                            context, _browser_channel = await open_context(
                                 playwright, headless=False, viewport=None,
                                 no_viewport=True, logger=logger,
                                 profile_root=browser_profile_root,
                             )
-                            page = await context.new_page()
+                            page = await capture_page(context, new=True)
                             await goto_with_retry_gui(page, document_entry, logger=logger)
-                            await _set_browser_window_state(page, "maximized")
+                            await set_window_state(page, "maximized")
                             login_ready_event.clear()
                             login_required_callback()
                             login_wait_started = time.perf_counter()
                             await login_ready_event.wait()
                             user_wait_seconds += time.perf_counter() - login_wait_started
                             await goto_with_retry_gui(page, document_entry, logger=logger)
-                        page.on("response", capture_response_assets)
+                        listen(page, capture_response_assets)
                     ai_document_map, doubao_ai_document_count = (
                         await _save_doubao_ai_documents(
                             page,
@@ -6510,6 +6556,7 @@ async def fetch_chat_pipeline(
                             fetch_warnings,
                             logger,
                             entries=doubao_ai_document_entries,
+                            reuse_page=shared_page is not None,
                         )
                     )
                     document_map.update(ai_document_map)
@@ -6735,7 +6782,12 @@ async def fetch_chat_pipeline(
                 return completed_result
 
             finally:
-                await _close_browser_context_safely(
+                if shared_page is not None:
+                    page.remove_listener("response", capture_response_assets)
+                    for task in response_tasks:
+                        task.cancel()
+                    await asyncio.gather(*response_tasks, return_exceptions=True)
+                await close_context(
                     context, fetch_warnings, logger
                 )
     except Exception as e:
