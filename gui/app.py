@@ -2700,7 +2700,6 @@ class AIMemoryGUI:
         page_host.pack(fill=tk.BOTH, expand=True)
         api_page = tk.Frame(page_host, bg=COLOR_CARD, padx=SETTINGS_PAGE_PADX, pady=12)
         data_page = tk.Frame(page_host, bg=COLOR_CARD, padx=SETTINGS_PAGE_PADX, pady=12)
-        editor_host = tk.Frame(page_host, bg=COLOR_CARD)
         api_page.pack(fill=tk.BOTH, expand=True)
         active_settings_page = {"key": "api"}
 
@@ -3121,10 +3120,13 @@ class AIMemoryGUI:
             threading.Thread(target=run, daemon=True).start()
 
         def _edit_custom_api(profile_id=None):
-            from gui.custom_api_dialog import CustomAPIEditor
-            current_editor = getattr(page, "custom_api_editor", None)
-            if current_editor is not None and current_editor.winfo_exists():
-                return current_editor
+            from gui.custom_api_dialog import CustomAPIDialog
+            current_dialog = getattr(page, "custom_api_dialog", None)
+            if current_dialog is not None and current_dialog.winfo_exists():
+                current_dialog.deiconify()
+                current_dialog.lift()
+                current_dialog.editor.entries["name"].focus_set()
+                return current_dialog
             _cancel_api_reorder_animation()
             adding = profile_id is None
             profile_id = profile_id or "custom_" + uuid.uuid4().hex
@@ -3149,29 +3151,17 @@ class AIMemoryGUI:
                 show_notice("已安全保存自定义 API", 3000)
 
             def closed():
-                editor_host.place_forget()
+                page.custom_api_dialog = None
                 page.custom_api_editor = None
-                self._schedule_scrollregion()
 
-            editor = CustomAPIEditor(
-                editor_host, dict(custom_api_settings.get(profile_id, {})),
+            dialog = CustomAPIDialog(
+                self.root, dict(custom_api_settings.get(profile_id, {})),
                 api_key_vars[profile_id].get() if not adding else "",
                 self._post_ui, saved, on_close=closed,
             )
-            data_page.pack_forget()
-            api_page.pack(fill=tk.BOTH, expand=True)
-            active_settings_page["key"] = "api"
-            tabs.select("api")
-            # Keep the list's geometry stable while the editor covers its area.
-            editor_host.place(x=0, y=0, relwidth=1, relheight=1)
-            editor_host.lift()
-            editor.pack(fill=tk.BOTH, expand=True)
-            page.custom_api_editor = editor
-            self.root.after_idle(
-                lambda: editor.entries["name"].focus_set() if editor.winfo_exists() else None,
-            )
-            self._schedule_scrollregion()
-            return editor
+            page.custom_api_dialog = dialog
+            page.custom_api_editor = dialog.editor
+            return dialog
 
         page.edit_custom_api = _edit_custom_api
         page.custom_api_settings = custom_api_settings
@@ -3345,9 +3335,9 @@ class AIMemoryGUI:
             pages = {"api": api_page, "data": data_page}
             if page_key not in pages:
                 return
-            editor = getattr(page, "custom_api_editor", None)
-            if editor is not None and editor.winfo_exists():
-                editor.close()
+            dialog = getattr(page, "custom_api_dialog", None)
+            if dialog is not None and dialog.winfo_exists():
+                dialog.close()
             if page_key != active_settings_page["key"]:
                 if active_settings_page["key"] == "api":
                     _cancel_api_reorder_animation()

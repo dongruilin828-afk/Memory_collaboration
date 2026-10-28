@@ -3,16 +3,153 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 import threading
+from PIL import Image, ImageDraw, ImageTk
 
 from gui.theme import (
     COLOR_BG_APP, COLOR_CARD, COLOR_BORDER, COLOR_BORDER_FOCUS,
-    COLOR_GENERATION_ACCENT, COLOR_GENERATION_ACCENT_BG,
+    COLOR_GENERATION_ACCENT, COLOR_BORDER_SUBTLE,
     COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED, COLOR_DANGER, COLOR_SUCCESS,
     FONT_BODY, FONT_BODY_BOLD, FONT_H2, FONT_SMALL, _round_rectangle,
 )
 from gui.widgets import FlatButton, MinimalScrollbar
+from gui.dropdown import RoundedCombobox
+from gui.ui_dispatch import bind_visible_modal
 from scripts.api_config import normalize_custom_api, middle_ellipsis
 from scripts.gemini_summarizer import custom_summary_config, test_api_connection
+
+
+class _InputSurface(tk.Canvas):
+    """Antialiased rounded frame around a native editable control."""
+
+    def __init__(self, parent):
+        super().__init__(parent, bg=COLOR_CARD, highlightthickness=0,
+                         bd=0, width=1, height=44, takefocus=False)
+        self.control = None
+        self._focused = False
+        self._hover = False
+        self._window = None
+        self._background = self.create_image(0, 0, anchor="nw")
+        self.bind("<Configure>", self._resize)
+        self.bind("<Enter>", lambda _e: self._set_state(hover=True))
+        self.bind("<Leave>", lambda _e: self._set_state(hover=False))
+        self.bind("<Button-1>", self._focus_control)
+
+    def attach(self, control):
+        self.control = control
+        if isinstance(control, RoundedCombobox):
+            control.popup_anchor = self
+            control.bind("<<DropdownOpened>>", lambda _e: self.redraw(), add="+")
+            control.bind("<<DropdownClosed>>", lambda _e: self.redraw(), add="+")
+        self._window = self.create_window(14, 22, anchor="w", window=control)
+        control.bind("<Configure>", self._fit_height, add="+")
+        control.bind("<FocusIn>", lambda _e: self._set_state(focused=True), add="+")
+        control.bind("<FocusOut>", lambda _e: self._set_state(focused=False), add="+")
+        control.bind("<Enter>", lambda _e: self._set_state(hover=True), add="+")
+        control.bind("<Leave>", lambda _e: self._set_state(hover=False), add="+")
+        self._fit_height()
+
+    def _focus_control(self, _event=None):
+        if self.control is not None:
+            self.control.focus_set()
+            if isinstance(self.control, RoundedCombobox):
+                self.control.open_dropdown()
+
+    def _fit_height(self, _event=None):
+        height = max(44, self.control.winfo_reqheight() + 22)
+        if int(self.cget("height")) != height:
+            self.configure(height=height)
+
+    def _set_state(self, *, focused=None, hover=None):
+        previous = self._focused, self._hover
+        if focused is not None:
+            self._focused = focused
+        if hover is not None:
+            self._hover = hover
+        if previous != (self._focused, self._hover):
+            self.redraw()
+
+    def _resize(self, event):
+        if self._window is not None:
+            self.coords(self._window, 14, event.height / 2)
+            self.itemconfigure(self._window, width=max(1, event.width - 28))
+        self.redraw()
+
+    def redraw(self):
+        width, height = self.winfo_width(), self.winfo_height()
+        if width < 5 or height < 5:
+            return
+        disabled = self.control is not None and str(self.control.cget("state")) == "disabled"
+        opened = isinstance(self.control, RoundedCombobox) and self.control.popup is not None
+        focused = (self._focused or opened) and not disabled
+        scale = 3
+        bitmap = Image.new("RGB", (width * scale, height * scale), COLOR_CARD)
+        draw = ImageDraw.Draw(bitmap)
+        if focused:
+            draw.rounded_rectangle((0, 0, width * scale - 1, height * scale - 1),
+                                   radius=13 * scale, fill="#EDE9FE")
+        border = COLOR_BORDER_FOCUS if focused else ("#B8C2D3" if self._hover and not disabled else COLOR_BORDER)
+        draw.rounded_rectangle((2 * scale, 2 * scale, (width - 2) * scale, (height - 2) * scale),
+                               radius=10 * scale, fill="#F1F5F9" if disabled else COLOR_BG_APP,
+                               outline=border, width=scale)
+        self._image = ImageTk.PhotoImage(bitmap.resize((width, height), Image.Resampling.LANCZOS), master=self)
+        self.itemconfigure(self._background, image=self._image)
+
+
+class _PrioritySwitch(tk.Checkbutton):
+    """Native checkbutton semantics with a smooth pill and a visible focus ring."""
+
+    def __init__(self, parent, variable):
+        super().__init__(parent, text="优先使用此 API", variable=variable, indicatoron=False,
+                         bg=COLOR_CARD, activebackground=COLOR_CARD, selectcolor=COLOR_CARD,
+                         relief=tk.FLAT, offrelief=tk.FLAT, overrelief=tk.FLAT,
+                         bd=0, highlightthickness=0, padx=0, pady=0, takefocus=True, cursor="hand2")
+        self.variable = variable
+        self._focused = False
+        self._hover = False
+        self._track_height = max(24, tkfont.Font(master=self, font=FONT_BODY).metrics("linespace") + 2)
+        self._trace = variable.trace_add("write", lambda *_args: self._redraw())
+        self.bind("<FocusIn>", lambda _e: self._set_state(focused=True))
+        self.bind("<FocusOut>", lambda _e: self._set_state(focused=False))
+        self.bind("<Enter>", lambda _e: self._set_state(hover=True))
+        self.bind("<Leave>", lambda _e: self._set_state(hover=False))
+        self.bind("<Return>", self._activate)
+        self.bind("<Destroy>", self._dispose, add="+")
+        self._redraw()
+
+    def _activate(self, _event=None):
+        self.invoke()
+        return "break"
+
+    def _set_state(self, *, focused=None, hover=None):
+        if focused is not None:
+            self._focused = focused
+        if hover is not None:
+            self._hover = hover
+        self._redraw()
+
+    def _redraw(self):
+        height = self._track_height
+        width = round(height * 1.8)
+        scale = 3
+        bitmap = Image.new("RGB", ((width + 8) * scale, (height + 8) * scale), COLOR_CARD)
+        draw = ImageDraw.Draw(bitmap)
+        if self._focused:
+            draw.rounded_rectangle((0, 0, (width + 8) * scale - 1, (height + 8) * scale - 1),
+                                   radius=(height / 2 + 4) * scale, fill="#EDE9FE")
+        enabled = self.variable.get()
+        color = ("#5B42D6" if self._hover else COLOR_GENERATION_ACCENT) if enabled else ("#B7C2D3" if self._hover else "#CBD5E1")
+        draw.rounded_rectangle((4 * scale, 4 * scale, (width + 4) * scale, (height + 4) * scale),
+                               radius=height * scale / 2, fill=color)
+        left = width - height + 7 if enabled else 7
+        draw.ellipse((left * scale, 7 * scale, (left + height - 6) * scale, (height + 1) * scale),
+                     fill=COLOR_CARD)
+        size = (width + 8, height + 8)
+        self._image = ImageTk.PhotoImage(bitmap.resize(size, Image.Resampling.LANCZOS), master=self)
+        self.configure(image=self._image)
+
+    def _dispose(self, event):
+        if event.widget is self:
+            self.variable.trace_remove("write", self._trace)
 
 
 class _FormCard(tk.Canvas):
@@ -21,21 +158,21 @@ class _FormCard(tk.Canvas):
     def __init__(self, parent):
         super().__init__(parent, bg=COLOR_BG_APP, highlightthickness=0, width=1, height=32)
         self.body = tk.Frame(self, bg=COLOR_CARD)
-        self._window = self.create_window(16, 12, anchor="nw", window=self.body)
+        self._window = self.create_window(20, 16, anchor="nw", window=self.body)
         self.bind("<Configure>", self._resize)
         self.body.bind("<Configure>", self._fit_height)
 
     def _fit_height(self, _event=None):
-        height = self.body.winfo_reqheight() + 24
+        height = self.body.winfo_reqheight() + 32
         if height != int(self.cget("height")):
             self.configure(height=height)
 
     def _resize(self, event):
-        self.itemconfigure(self._window, width=max(1, event.width - 32))
+        self.itemconfigure(self._window, width=max(1, event.width - 40))
         self.delete("card")
         if event.width > 4:
             _round_rectangle(self, 1, 1, event.width - 1, event.height - 1, r=12,
-                             fill=COLOR_CARD, outline=COLOR_BORDER, tags="card")
+                             fill=COLOR_CARD, outline=COLOR_BORDER_SUBTLE, tags="card")
             self.tag_lower("card")
 
 
@@ -62,18 +199,22 @@ class CustomAPIEditor(tk.Frame):
         self.configure(bg=COLOR_CARD)
         self._configure_dropdown_style()
         header = tk.Frame(self, bg=COLOR_CARD)
-        header.pack(fill=tk.X, padx=18, pady=(12, 12))
-        tk.Label(header, text="自定义 API", font=FONT_H2,
-                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD).pack(side=tk.LEFT)
-        tk.Label(header, text="本机保存", font=FONT_SMALL,
-                 fg=COLOR_GENERATION_ACCENT, bg=COLOR_GENERATION_ACCENT_BG,
-                 padx=9, pady=4).pack(side=tk.RIGHT)
+        header.pack(fill=tk.X, padx=24, pady=(20, 18))
+        title_block = tk.Frame(header, bg=COLOR_CARD)
+        title_block.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(title_block, text="编辑自定义 API" if values else "添加自定义 API", font=FONT_H2,
+                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w").pack(fill=tk.X)
+        subtitle = tk.Label(title_block, text="连接你的模型服务，按需调整生成参数。", font=FONT_SMALL,
+                            fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w", justify=tk.LEFT, width=1)
+        subtitle.pack(fill=tk.X, pady=(6, 0))
+        subtitle.bind("<Configure>", lambda e: subtitle.configure(wraplength=max(1, e.width)))
+        tk.Frame(self, bg=COLOR_BORDER_SUBTLE, height=1).pack(fill=tk.X)
 
         footer = tk.Frame(self, bg=COLOR_CARD)
         footer.pack(side=tk.BOTTOM, fill=tk.X)
         tk.Frame(footer, bg=COLOR_BORDER, height=1).pack(fill=tk.X)
         actions = tk.Frame(footer, bg=COLOR_CARD)
-        actions.pack(side=tk.BOTTOM, fill=tk.X, padx=18, pady=(6, 14))
+        actions.pack(side=tk.BOTTOM, fill=tk.X, padx=24, pady=(14, 16))
         self.save_button = FlatButton(actions, text="保存配置", command=self.save,
                                       width=120, height=40, variant="accent", bg_parent=COLOR_CARD)
         self.save_button.pack(side=tk.RIGHT)
@@ -107,11 +248,12 @@ class CustomAPIEditor(tk.Frame):
         canvas.configure(yscrollcommand=scroll.set_range)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 3))
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        form = tk.Frame(canvas, bg=COLOR_BG_APP, padx=12, pady=12)
+        form = tk.Frame(canvas, bg=COLOR_BG_APP, padx=18, pady=18)
         item = canvas.create_window((0, 0), window=form, anchor="nw")
         canvas.bind("<Configure>", lambda e: canvas.itemconfigure(item, width=e.width))
         form.bind("<Configure>", self._schedule_scrollregion)
         self.entries = {}
+        self.input_surfaces = {}
 
         def wrapped_label(parent, text, *, color=COLOR_TEXT_MUTED, pady=(0, 8)):
             label = tk.Label(parent, text=text, font=FONT_SMALL, bg=COLOR_CARD,
@@ -125,31 +267,28 @@ class CustomAPIEditor(tk.Frame):
             container.pack(fill=tk.X, pady=(0, 12))
             shell = container.body
             tk.Label(shell, text=title, font=FONT_BODY_BOLD, bg=COLOR_CARD,
-                     fg=COLOR_TEXT_PRIMARY, anchor="w").pack(fill=tk.X, pady=(0, 10))
+                     fg=COLOR_TEXT_PRIMARY, anchor="w").pack(fill=tk.X, pady=(0, 16))
             return shell
 
         def field(parent, label, key, choices=None, hint=None):
             group = tk.Frame(parent, bg=COLOR_CARD)
             tk.Label(group, text=label, font=FONT_BODY, bg=COLOR_CARD,
-                     fg=COLOR_TEXT_PRIMARY, anchor="w").pack(fill=tk.X, pady=(0, 4))
+                     fg=COLOR_TEXT_PRIMARY, anchor="w").pack(fill=tk.X, pady=(0, 6))
+            surface = _InputSurface(group)
+            surface.pack(fill=tk.X)
             if choices:
                 variable = self._protocol_display if key == "protocol" else self.variables[key]
-                widget = ttk.Combobox(group, textvariable=variable, values=choices,
+                widget = RoundedCombobox(surface, textvariable=variable, values=choices,
                                       state="readonly", font=FONT_BODY, width=1,
                                       style="CustomAPI.TCombobox")
-                widget.pack(fill=tk.X)
             else:
-                edge = tk.Frame(group, bg=COLOR_BG_APP, padx=10, pady=6,
-                                highlightthickness=1, highlightbackground=COLOR_BORDER,
-                                highlightcolor=COLOR_BORDER_FOCUS)
-                edge.pack(fill=tk.X)
-                widget = tk.Entry(edge, textvariable=self.variables[key], font=FONT_BODY,
+                widget = tk.Entry(surface, textvariable=self.variables[key], font=FONT_BODY,
                                   bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
                                   insertbackground=COLOR_GENERATION_ACCENT,
+                                  selectbackground="#EDE9FE", selectforeground=COLOR_TEXT_PRIMARY,
                                   relief=tk.FLAT, bd=0, highlightthickness=0, width=1)
-                widget.pack(fill=tk.X)
-                widget.bind("<FocusIn>", lambda _e: edge.configure(highlightbackground=COLOR_BORDER_FOCUS))
-                widget.bind("<FocusOut>", lambda _e: edge.configure(highlightbackground=COLOR_BORDER))
+            surface.attach(widget)
+            self.input_surfaces[key] = surface
             if hint:
                 wrapped_label(group, hint, pady=(5, 0))
             self.entries[key] = widget
@@ -184,7 +323,8 @@ class CustomAPIEditor(tk.Frame):
         self.protocol_hint = wrapped_label(connection, "", pady=(0, 10))
         field(connection, "模型 ID", "model").pack(fill=tk.X, pady=(0, 10))
 
-        key_group = tk.Frame(connection, bg=COLOR_CARD)
+        credentials = card("密钥与调用偏好")
+        key_group = tk.Frame(credentials, bg=COLOR_CARD)
         key_group.pack(fill=tk.X, pady=(0, 10))
         key_heading = tk.Frame(key_group, bg=COLOR_CARD)
         key_heading.pack(fill=tk.X, pady=(0, 4))
@@ -195,22 +335,25 @@ class CustomAPIEditor(tk.Frame):
                                     bg=COLOR_CARD, activebackground=COLOR_CARD, relief=tk.FLAT,
                                     bd=0, padx=4, pady=0, cursor="hand2", command=self._toggle_key)
         self.key_toggle.pack(side=tk.RIGHT)
-        key_edge = tk.Frame(key_group, bg=COLOR_BG_APP, padx=10, pady=6,
-                            highlightthickness=1, highlightbackground=COLOR_BORDER,
-                            highlightcolor=COLOR_BORDER_FOCUS)
+        key_edge = _InputSurface(key_group)
         key_edge.pack(fill=tk.X)
         self.key_entry = tk.Entry(key_edge, textvariable=self.key_var, show="*", font=FONT_BODY,
                                   bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY, relief=tk.FLAT, bd=0,
+                                  selectbackground="#EDE9FE", selectforeground=COLOR_TEXT_PRIMARY,
                                   highlightthickness=0, insertbackground=COLOR_GENERATION_ACCENT, width=1)
-        self.key_entry.pack(fill=tk.X)
-        self.key_entry.bind("<FocusIn>", lambda _e: key_edge.configure(highlightbackground=COLOR_BORDER_FOCUS))
-        self.key_entry.bind("<FocusOut>", lambda _e: key_edge.configure(highlightbackground=COLOR_BORDER))
-        tk.Frame(connection, height=1, bg=COLOR_BORDER).pack(fill=tk.X, pady=(0, 10))
-        tk.Checkbutton(connection, text="优先使用此 API", variable=self.priority_var,
-                       font=FONT_BODY, bg=COLOR_CARD, activebackground=COLOR_CARD,
-                       fg=COLOR_TEXT_PRIMARY, selectcolor=COLOR_CARD, relief=tk.FLAT,
-                       highlightthickness=0, anchor="w", padx=0).pack(anchor="w")
-        wrapped_label(connection, "启用后，此 API 会排在调用顺序的首位。", pady=(2, 0))
+        key_edge.attach(self.key_entry)
+        self.input_surfaces["api_key"] = key_edge
+        preference = tk.Frame(credentials, bg=COLOR_CARD)
+        preference.pack(fill=tk.X, pady=(8, 0))
+        self.priority_switch = _PrioritySwitch(preference, self.priority_var)
+        self.priority_switch.pack(side=tk.RIGHT, padx=(16, 0))
+        preference_copy = tk.Frame(preference, bg=COLOR_CARD)
+        preference_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        priority_label = tk.Label(preference_copy, text="优先使用此 API", font=FONT_BODY,
+                                  fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w", cursor="hand2")
+        priority_label.pack(fill=tk.X)
+        priority_label.bind("<Button-1>", lambda _e: self.priority_switch.invoke())
+        wrapped_label(preference_copy, "启用后，优先调用此服务。", pady=(4, 0))
 
         advanced_card = _FormCard(form)
         advanced_card.pack(fill=tk.X, pady=(0, 2))
@@ -222,6 +365,7 @@ class CustomAPIEditor(tk.Frame):
         self.advanced_button = FlatButton(advanced_header, text="展开", command=self._toggle_advanced,
                                           variant="secondary", width=64, height=32, bg_parent=COLOR_CARD)
         self.advanced_button.pack(side=tk.RIGHT)
+        wrapped_label(advanced, "思考强度、输出格式与请求限制", pady=(6, 0))
         self.advanced_body = tk.Frame(advanced, bg=COLOR_CARD)
         self._advanced_open = False
         wrapped_label(self.advanced_body, "按服务商要求调整；不确定时可保留默认值。", pady=(12, 14))
@@ -233,9 +377,11 @@ class CustomAPIEditor(tk.Frame):
              lambda host: field(host, "请求超时（秒）", "request_timeout_seconds"))
         protocol.bind("<<ComboboxSelected>>", self._select_protocol)
         self._protocol_changed()
+        for button in (self.save_button, self.test_button, self.cancel_button, self.advanced_button):
+            button.set_responsive_scale(1.0)
 
         def bind_interactions(widget):
-            widget.bind("<Escape>", lambda _e: self.close())
+            widget.bind("<Escape>", self._on_escape, add="+")
             widget.bind("<MouseWheel>", self._on_mousewheel)
             widget.bind("<Button-4>", lambda _e: self._scroll_pixels(-48))
             widget.bind("<Button-5>", lambda _e: self._scroll_pixels(48))
@@ -251,26 +397,38 @@ class CustomAPIEditor(tk.Frame):
 
     def _configure_dropdown_style(self):
         style = ttk.Style(self)
-        # Clone only these elements so the app's other controls keep their theme.
-        for element in ("field", "downarrow"):
-            name = "CustomAPI.Combobox." + element
-            if name not in style.element_names():
-                style.element_create(name, "from", "clam", "Combobox." + element)
+        # Keep images alive for the interpreter, including when an editor is reopened.
+        arrow_name = "CustomAPI.Combobox.menu.downarrow"
+        if arrow_name not in style.element_names():
+            arrows = []
+            for background, color, opened in ((COLOR_BG_APP, COLOR_TEXT_MUTED, False),
+                                               ("#F1F5F9", "#94A3B8", False),
+                                               (COLOR_BG_APP, COLOR_GENERATION_ACCENT, True)):
+                bitmap = Image.new("RGB", (54, 54), background)
+                points = [(15, 30), (27, 18), (39, 30)] if opened else [(15, 21), (27, 33), (39, 21)]
+                ImageDraw.Draw(bitmap).line(points,
+                                            fill=color, width=5, joint="curve")
+                arrows.append(ImageTk.PhotoImage(bitmap.resize((18, 18), Image.Resampling.LANCZOS), master=self))
+            self._root()._custom_api_dropdown_images = arrows
+            style.element_create(arrow_name, "image", arrows[0], ("disabled", arrows[1]),
+                                 ("pressed", arrows[2]), sticky="")
         style.layout("CustomAPI.TCombobox", [
-            ("CustomAPI.Combobox.field", {"sticky": "nswe", "children": [
-                ("CustomAPI.Combobox.downarrow", {"side": "right", "sticky": "ns"}),
-                ("Combobox.padding", {"expand": "1", "sticky": "nswe", "children": [
-                    ("Combobox.textarea", {"sticky": "nswe"}),
-                ]}),
+            ("Combobox.padding", {"sticky": "nswe", "children": [
+                (arrow_name, {"side": "right", "sticky": "ns"}),
+                ("Combobox.textarea", {"sticky": "nswe"}),
             ]}),
         ])
-        style.configure("CustomAPI.TCombobox", padding=(10, 6), arrowsize=16,
+        style.configure("CustomAPI.TCombobox", padding=0, arrowsize=14, borderwidth=0, relief="flat",
                         fieldbackground=COLOR_BG_APP, background=COLOR_BG_APP,
                         foreground=COLOR_TEXT_PRIMARY, arrowcolor=COLOR_TEXT_MUTED,
                         bordercolor=COLOR_BORDER, lightcolor=COLOR_BORDER, darkcolor=COLOR_BORDER,
                         selectbackground=COLOR_BG_APP, selectforeground=COLOR_TEXT_PRIMARY)
         style.map("CustomAPI.TCombobox",
+                  foreground=[("disabled", COLOR_TEXT_MUTED), ("!disabled", COLOR_TEXT_PRIMARY)],
                   fieldbackground=[("disabled", "#F1F5F9"), ("readonly", COLOR_BG_APP)],
+                  selectforeground=[("disabled", COLOR_TEXT_MUTED), ("!disabled", COLOR_TEXT_PRIMARY)],
+                  selectbackground=[("!disabled", COLOR_BG_APP)],
+                  focusfill=[("readonly", "focus", COLOR_BG_APP)],
                   bordercolor=[("focus", COLOR_BORDER_FOCUS)])
 
     def _toggle_key(self):
@@ -315,6 +473,9 @@ class CustomAPIEditor(tk.Frame):
     def _scroll_pixels(self, delta):
         if not delta:
             return "break"
+        for entry in self.entries.values():
+            if isinstance(entry, RoundedCombobox):
+                entry.close_dropdown()
         bounds = self.scroll_canvas.bbox("all")
         if not bounds or self._scroll_limit(bounds) == 0:
             return "break"
@@ -366,6 +527,10 @@ class CustomAPIEditor(tk.Frame):
         if self._on_close:
             self._on_close()
 
+    def _on_escape(self, _event=None):
+        self.close()
+        return "break"
+
     def _protocol_changed(self):
         native = self.variables["protocol"].get() == "gemini"
         self._protocol_display.set("Gemini 原生" if native else "OpenAI 兼容")
@@ -378,6 +543,7 @@ class CustomAPIEditor(tk.Frame):
         if self.variables["thinking_level"].get() not in choices:
             self.variables["thinking_level"].set("auto")
         self.entries["json_mode"].configure(state="disabled" if native else "readonly")
+        self.input_surfaces["json_mode"].redraw()
 
     def _select_protocol(self, _event=None):
         self.variables["protocol"].set(
@@ -434,3 +600,67 @@ class CustomAPIEditor(tk.Frame):
                 text, success = str(error), False
             self._post_ui(lambda: finish(text, success))
         threading.Thread(target=run, daemon=True).start()
+
+
+class CustomAPIDialog(tk.Toplevel):
+    """Resizable modal window around the shared, scrollable API editor."""
+
+    def __init__(self, parent, values, api_key, post_ui, on_save, on_close=None):
+        super().__init__(parent)
+        self.withdraw()
+        self._parent = parent.winfo_toplevel()
+        self._on_close = on_close
+        self._closed = False
+        self._show_after_id = None
+        self.title("编辑自定义 API" if values else "添加自定义 API")
+        self.configure(bg=COLOR_CARD)
+        self.transient(self._parent)
+        self.resizable(True, True)
+        # Match the parent when it is intentionally transparent (e.g. UI tests).
+        self.attributes("-alpha", self._parent.attributes("-alpha"))
+
+        scale = float(self.tk.call("tk", "scaling")) / (96 / 72)
+        available_width = max(1, self.winfo_screenwidth() - 48)
+        available_height = max(1, self.winfo_screenheight() - 96)
+        # Form spacing is in pixels; scale the text allowance rather than all whitespace.
+        width = min(available_width, round(620 + 120 * scale))
+        height = min(available_height, round(650 + 130 * scale))
+        self.minsize(min(width, round(460 + 60 * scale)), min(height, round(360 + 80 * scale)))
+        self.maxsize(available_width, available_height)
+        x = self._parent.winfo_rootx() + (self._parent.winfo_width() - width) // 2
+        y = self._parent.winfo_rooty() + (self._parent.winfo_height() - height) // 2
+        x = max(16, min(x, self.winfo_screenwidth() - width - 16))
+        y = max(16, min(y, self.winfo_screenheight() - height - 64))
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.editor = CustomAPIEditor(self, values, api_key, post_ui, on_save, on_close=self.close)
+        self.editor.pack(fill=tk.BOTH, expand=True)
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        self.bind("<Escape>", self.editor._on_escape)
+        self.bind("<Destroy>", self._on_destroy, add="+")
+        bind_visible_modal(self)
+        self._show_after_id = self.after_idle(self._show)
+
+    def _show(self):
+        self._show_after_id = None
+        if not self._closed:
+            self.deiconify()
+            self.lift()
+            self.editor.entries["name"].focus_set()
+
+    def close(self):
+        if self._closed:
+            return
+        if self.grab_current() is self:
+            self.grab_release()
+        self.destroy()
+
+    def _on_destroy(self, event):
+        if event.widget is not self or self._closed:
+            return
+        self._closed = True
+        if self._show_after_id is not None:
+            self.after_cancel(self._show_after_id)
+            self._show_after_id = None
+        if self._on_close:
+            self._on_close()
