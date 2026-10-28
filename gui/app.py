@@ -1053,6 +1053,7 @@ class AIMemoryGUI:
         self._generation_run_panel = run_panel
         run_row = tk.Frame(run_panel, bg=COLOR_GENERATION_ACCENT_BG)
         run_row.pack(fill=tk.X)
+        run_row.columnconfigure(1, weight=1)
         self._generation_run_row = run_row
         run_icon = tk.Canvas(
             run_row, width=20, height=20, bg=COLOR_GENERATION_ACCENT_BG,
@@ -1065,22 +1066,41 @@ class AIMemoryGUI:
         run_icon.create_oval(
             7, 7, 13, 13, fill=COLOR_GENERATION_ACCENT, outline="",
         )
-        run_icon.pack(side=tk.LEFT, padx=(0, 10))
+        run_icon.grid(row=0, column=0, padx=(0, 10))
         status_copy = tk.Frame(run_row, bg=COLOR_GENERATION_ACCENT_BG)
-        status_copy.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        status_copy.grid(row=0, column=1, sticky="ew")
         self._generation_status_copy = status_copy
         self.status_var = tk.StringVar(value="所有配置已完成")
         self.status_label = tk.Label(
-            status_copy, textvariable=self.status_var,
+            status_copy, width=1,
             font=FONT_SMALL_BOLD, fg=COLOR_TEXT_PRIMARY,
             bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
         )
         self.status_label.pack(fill=tk.X)
+        self._generation_status_tooltip = HoverTooltip(self.status_label, self.status_var.get())
+
+        def fit_status(_event=None):
+            from scripts.api_config import middle_ellipsis
+            message = self.status_var.get()
+            self._generation_status_tooltip._text = message
+            # Keep logs intact while the single-line display stays inside the
+            # flexible text column. A long message must not resize the action.
+            display = " ".join(message.splitlines())
+            font = tkfont.Font(font=self.status_label.cget("font"))
+            inset = sum(int(self.status_label.cget(option)) for option in ("padx", "borderwidth", "highlightthickness"))
+            self.status_label.configure(text=middle_ellipsis(
+                display, max(0, self.status_label.winfo_width() - 2 * inset), font.measure))
+
+        status_trace = self.status_var.trace_add("write", lambda *_args: fit_status())
+        self.status_label.bind("<Configure>", fit_status)
+        self.status_label.bind(
+            "<Destroy>", lambda _event: self.status_var.trace_remove("write", status_trace), add="+")
+        fit_status()
         self.percent_var = tk.StringVar(value="")
         tk.Label(
             status_copy, textvariable=self.percent_var,
             font=FONT_TINY, fg=COLOR_TEXT_MUTED,
-            bg=COLOR_GENERATION_ACCENT_BG, anchor="w",
+            bg=COLOR_GENERATION_ACCENT_BG, anchor="w", width=1,
         ).pack(fill=tk.X, pady=(3, 0))
         self.btn_generate = FlatButton(
             run_row, text=GENERATE_BUTTON_LABEL,
@@ -1088,7 +1108,7 @@ class AIMemoryGUI:
             variant="accent", width=174, height=44,
             bg_parent=COLOR_GENERATION_ACCENT_BG,
         )
-        self.btn_generate.pack(side=tk.RIGHT, padx=(12, 0))
+        self.btn_generate.grid(row=0, column=2, padx=(12, 0), sticky="e")
         self.progress_bar = FlatProgressBar(
             run_panel, height=5,
             bg_parent=COLOR_GENERATION_ACCENT_BG,

@@ -7,13 +7,24 @@ import math
 def middle_ellipsis(text, width, measure):
     if measure(text) <= width:
         return text
-    for count in range(len(text) - 1, 0, -1):
+    if measure("…") > width:
+        return ""
+
+    def shorten(count):
         head = (count + 1) // 2
         tail = count // 2
-        shortened = text[:head] + "…" + (text[-tail:] if tail else "")
-        if measure(shortened) <= width:
-            return shortened
-    return "…"
+        return text[:head] + "…" + (text[-tail:] if tail else "")
+
+    # Progress logs can be much longer than API names. Avoid measuring almost
+    # the entire message once per removed character on the UI thread.
+    lower, upper = 0, len(text) - 1
+    while lower < upper:
+        count = (lower + upper + 1) // 2
+        if measure(shorten(count)) <= width:
+            lower = count
+        else:
+            upper = count - 1
+    return shorten(lower)
 
 
 def normalize_custom_api(values):
