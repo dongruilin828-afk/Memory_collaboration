@@ -4,6 +4,7 @@ import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
+from tkinter import ttk
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,7 +12,8 @@ from unittest.mock import patch
 
 from gui.app import AIMemoryGUI
 from gui.credential_store import WindowsCredentialStore
-from gui.custom_api_dialog import CustomAPIEditor
+from gui.custom_api_dialog import CustomAPIDialog, CustomAPIEditor
+from gui.theme import COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED, COLOR_BG_APP
 from tests import test_custom_api as api_tests
 from tests import test_gui_api_keys as old_tests
 from tests import test_gui_layout as layouts
@@ -87,6 +89,30 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertEqual(self.saved[0][0]["url"], "https://my.test/v1")
         self.assertEqual(self.saved[0][1:], ("placeholder-key", True))
 
+    def test_unlimited_output_button_saves_reopens_and_allows_numeric_edit(self):
+        editor = CustomAPIEditor(self.root, api_tests.settings(), "", self.callbacks.put,
+                                 lambda *args: self.saved.append(args))
+        editor.pack(fill=tk.BOTH, expand=True)
+        editor.advanced_button.invoke()
+        self.root.update()
+        editor.unlimited_output_button.invoke()
+        self.assertEqual(editor.variables["max_output_tokens"].get(), "无限制")
+        self.assertEqual(str(editor.entries["max_output_tokens"].cget("state")), "normal")
+        editor.save()
+        saved = self.saved[0][0]
+        self.assertIsNone(saved["max_output_tokens"])
+        reopened = CustomAPIEditor(self.root, saved, "", self.callbacks.put,
+                                   lambda *args: self.saved.append(args))
+        reopened.pack(fill=tk.BOTH, expand=True)
+        reopened.advanced_button.invoke()
+        self.root.update()
+        self.assertEqual(reopened.variables["max_output_tokens"].get(), "无限制")
+        entry = reopened.entries["max_output_tokens"]
+        entry.delete(0, tk.END)
+        entry.insert(0, "8192")
+        reopened.save()
+        self.assertEqual(self.saved[-1][0]["max_output_tokens"], 8192)
+
     def test_pending_test_ignores_duplicate_and_does_not_validate_edited_draft(self):
         dialog = self.dialog()
         started, release = threading.Event(), threading.Event()
@@ -135,6 +161,89 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertEqual(dialog.key_entry.cget("show"), "*")
         dialog.save()
         self.assertEqual(self.saved[0][0]["max_output_tokens"], 8192)
+
+    def test_readonly_dropdown_text_stays_visible_when_focused(self):
+        dialog = self.dialog()
+        dialog.advanced_button.invoke()
+        self.root.update()
+        style = ttk.Style(self.root)
+        for name in ("protocol", "json_mode"):
+            combo = dialog.entries[name]
+            original = combo.get()
+            for state in (("readonly",), ("readonly", "focus"), ("readonly", "focus", "pressed")):
+                with self.subTest(field=name, state=state):
+                    foreground = style.lookup(combo.cget("style"), "foreground", state)
+                    background = style.lookup(combo.cget("style"), "fieldbackground", state)
+                    self.assertEqual(self.root.winfo_rgb(foreground), self.root.winfo_rgb(COLOR_TEXT_PRIMARY))
+                    self.assertNotEqual(self.root.winfo_rgb(foreground), self.root.winfo_rgb(background))
+                    self.assertEqual(combo.get(), original)
+            self.assertEqual(
+                style.lookup(combo.cget("style"), "selectforeground", ("readonly", "focus")),
+                COLOR_TEXT_PRIMARY,
+            )
+        dialog._protocol_display.set("Gemini 原生")
+        dialog.entries["protocol"].event_generate("<<ComboboxSelected>>")
+        self.assertEqual(dialog.variables["protocol"].get(), "gemini")
+        self.assertEqual(dialog.entries["protocol"].get(), "Gemini 原生")
+        self.assertEqual(str(dialog.entries["json_mode"].cget("state")), "disabled")
+        self.assertEqual(style.lookup("CustomAPI.TCombobox", "foreground", ("disabled",)), COLOR_TEXT_MUTED)
+        self.assertEqual(style.lookup("CustomAPI.TCombobox", "focusfill", ("readonly", "focus")), COLOR_BG_APP)
+
+    def test_priority_switch_keyboard_state_and_trace_cleanup(self):
+        dialog = self.dialog()
+        self.root.update()
+        switch = dialog.priority_switch
+        switch.focus_force()
+        self.root.update()
+        self.assertTrue(switch._focused)
+        switch.event_generate("<KeyPress-space>")
+        switch.event_generate("<KeyRelease-space>")
+        self.root.update()
+        self.assertTrue(dialog.priority_var.get())
+        switch.event_generate("<Return>")
+        self.assertFalse(dialog.priority_var.get())
+        previous_image = str(switch.cget("image"))
+        dialog.priority_var.set(True)
+        self.assertNotEqual(str(switch.cget("image")), previous_image)
+        variable = dialog.priority_var
+        trace = switch._trace
+        dialog.destroy()
+        self.assertFalse(any(info[1] == trace for info in variable.trace_info()))
+        variable.set(False)
+
+    def test_rounded_input_padding_opens_dropdown(self):
+        dialog = self.dialog()
+        self.root.geometry("740x820")
+        self.root.update()
+        surface = dialog.input_surfaces["protocol"]
+        combo = dialog.entries["protocol"]
+        try:
+            surface.event_generate("<Button-1>", x=5, y=20)
+            self.root.update()
+            self.assertIsNotNone(combo.popup)
+            self.assertTrue(combo.popup.winfo_ismapped())
+            self.assertEqual(combo.popup.selected_index, combo.current())
+        finally:
+            combo.close_dropdown()
+        surface._set_state(focused=True)
+        self.assertTrue(surface._focused)
+        surface._set_state(focused=False)
+        self.assertEqual(dialog.key_entry.cget("selectbackground"), dialog.entries["name"].cget("selectbackground"))
+
+    def test_reasoning_slider_choice_is_saved(self):
+        dialog = self.dialog()
+        dialog.variables["url"].set("https://api.deepseek.com")
+        dialog.variables["model"].set("deepseek-flash")
+        dialog.advanced_button.invoke()
+        self.root.update()
+        slider = dialog.entries["thinking_level"]
+        slider.focus_force()
+        self.root.update()
+        slider.event_generate("<End>")
+        self.assertEqual(dialog.variables["thinking_level"].get(), "max")
+        dialog.save()
+        self.assertEqual(self.saved[0][0]["thinking_level"], "max")
+        self.assertEqual(self.saved[0][0]["reasoning_config"]["kind"], "deepseek")
 
     def test_wheel_over_labels_and_combobox_smoothly_scrolls_only_the_form(self):
         self.root.geometry("650x480")
@@ -194,18 +303,27 @@ class CustomAPIUITests(unittest.TestCase):
         page = app.page_frames[3]
         self.assertNotIn("custom", page.api_key_vars)
         windows_before = set(self.root.winfo_children())
-        draft = page.edit_custom_api()
-        self.root.update_idletasks()
-        self.assertIs(draft.winfo_toplevel(), self.root)
-        self.assertEqual(set(self.root.winfo_children()), windows_before)
+        draft_window = page.edit_custom_api()
+        draft = draft_window.editor
+        self.root.update()
+        self.assertIsInstance(draft_window, tk.Toplevel)
+        self.assertIs(draft.winfo_toplevel(), draft_window)
+        self.assertEqual(str(draft_window.transient()), str(self.root))
+        self.assertEqual(set(self.root.winfo_children()), windows_before | {draft_window})
         self.assertTrue(draft.winfo_ismapped())
+        self.assertIs(page.custom_api_dialog, draft_window)
+        self.assertIs(page.custom_api_editor, draft)
+        self.assertIs(page.edit_custom_api(), draft_window)
+        self.assertIs(self.root.grab_current(), draft_window)
         draft.variables["name"].set("discarded draft")
         draft.cancel_button._command()
         self.root.update_idletasks()
         self.assertIsNone(page.custom_api_editor)
+        self.assertIsNone(page.custom_api_dialog)
+        self.assertIsNone(self.root.grab_current())
         self.assertEqual(store.load_custom_apis(), {})
         self.assertTrue(page.custom_api_button.winfo_ismapped())
-        dialog = page.edit_custom_api()
+        dialog = page.edit_custom_api().editor
         for name, value in api_tests.settings().items():
             dialog.variables[name].set(value)
         dialog.key_var.set("new-placeholder-key")
@@ -233,7 +351,7 @@ class CustomAPIUITests(unittest.TestCase):
         self.assertEqual(edited.variables["name"].get(), "我的接口")
         edited.variables["name"].set("renamed")
         edited.save()
-        second = page.edit_custom_api()
+        second = page.edit_custom_api().editor
         for name, value in api_tests.settings().items():
             second.variables[name].set(value)
         second.key_var.set("second-key")
@@ -253,6 +371,111 @@ class CustomAPIUITests(unittest.TestCase):
         with patch.object(store, "save_api_keys") as save:
             app.page_frames[3].api_save_button._command()
         save.assert_not_called()
+
+    def test_popup_titlebar_close_and_hide_release_grab_and_allow_reopen(self):
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        settings_store = layouts._SettingsStore()
+        self.addCleanup(settings_store.scratch.cleanup)
+        with patch("gui.app.WindowsCredentialStore", return_value=store), \
+                patch("gui.app.WindowsAppSettingsStore", return_value=settings_store):
+            app = AIMemoryGUI(self.root)
+        app._show_page(3)
+        self.root.update()
+        page = app.page_frames[3]
+        first = page.edit_custom_api()
+        self.root.update()
+        self.assertIs(self.root.grab_current(), first)
+        first.withdraw()
+        self.root.update()
+        self.assertIsNone(self.root.grab_current())
+        first.deiconify()
+        self.root.update()
+        self.assertIs(self.root.grab_current(), first)
+        self.root.tk.call(first.protocol("WM_DELETE_WINDOW"))
+        self.root.update()
+        self.assertFalse(first.winfo_exists())
+        self.assertIsNone(page.custom_api_dialog)
+        self.assertIsNone(page.custom_api_editor)
+        self.assertIsNone(self.root.grab_current())
+        second = page.edit_custom_api()
+        self.root.update()
+        self.assertIsNot(second, first)
+        self.assertIs(self.root.grab_current(), second)
+        second.editor.cancel_button.invoke()
+        self.root.update()
+        self.assertFalse(second.winfo_exists())
+        self.assertIsNone(page.custom_api_dialog)
+        self.assertIsNone(self.root.grab_current())
+
+    def test_popup_close_ignores_pending_connection_result(self):
+        closed = []
+        popup = CustomAPIDialog(
+            self.root, api_tests.settings(), "placeholder-key", self.callbacks.put,
+            lambda *args: self.saved.append(args), on_close=lambda: closed.append(True),
+        )
+        self.root.update()
+        with patch("gui.custom_api_dialog.test_api_connection", return_value="连接成功"):
+            popup.editor.test()
+            callback = self.callbacks.get(timeout=3)
+        popup.close()
+        callback()
+        self.assertEqual(closed, [True])
+        self.assertEqual(self.saved, [])
+        self.assertFalse(popup.winfo_exists())
+        self.assertIsNone(self.root.grab_current())
+
+    def test_popup_inputs_accept_keys_immediately_after_dismissing_protocol_menu(self):
+        dialog = CustomAPIDialog(self.root, {}, "", self.callbacks.put, lambda *_args: None)
+        self.root.update()
+        dialog.focus_force()  # Activate once; never repair focus after closing a menu.
+        self.root.update()
+        editor = dialog.editor
+        combo = editor.entries["protocol"]
+        for name in ("name", "url", "model", "api_key"):
+            for padded in (False, True):
+                with self.subTest(field=name, padded=padded):
+                    entry = editor.key_entry if name == "api_key" else editor.entries[name]
+                    combo.open_dropdown()
+                    self.root.update()
+                    popup = combo.popup
+                    self.assertIsNotNone(popup)
+                    target = editor.input_surfaces[name] if padded else entry
+                    # Transparent test windows cannot participate in native hit
+                    # testing. Keyboard focus and typed input are still real Tk.
+                    with patch.object(popup, "winfo_containing", return_value=target):
+                        popup._outside_click(SimpleNamespace(
+                            x_root=entry.winfo_rootx() + 3, y_root=entry.winfo_rooty() + 3))
+                    self.root.update()
+                    self.assertIs(self.root.focus_displayof(), entry)
+                    before = entry.get()
+                    self.root.focus_displayof().event_generate("<KeyPress-a>")
+                    self.root.update()
+                    self.assertEqual(len(entry.get()), len(before) + 1)
+                    self.assertIs(self.root.grab_current(), dialog)
+
+    def test_reasoning_dropdown_close_keeps_settings_entry_editable(self):
+        dialog = CustomAPIDialog(self.root, {"url": "https://unknown.test/v1", "model": "unknown"},
+                                 "", self.callbacks.put, lambda *_args: None)
+        self.root.update()
+        dialog.focus_force()
+        dialog.editor._open_reasoning_settings()
+        self.root.update()
+        settings = dialog.editor._reasoning_settings
+        combo = settings.template
+        combo.open_dropdown()
+        self.root.update()
+        combo.popup.choose(0)
+        self.root.update()
+        entry = settings.levels_entry
+        entry.event_generate("<ButtonPress-1>", x=4, y=4)
+        entry.event_generate("<ButtonRelease-1>", x=4, y=4)
+        self.root.update()
+        self.assertIs(self.root.focus_displayof(), entry)
+        before = entry.get()
+        self.root.focus_displayof().event_generate("<KeyPress-b>")
+        self.root.update()
+        self.assertEqual(len(entry.get()), len(before) + 1)
+        self.assertIs(self.root.grab_current(), settings)
 
     def test_settings_row_rejects_stale_success_after_key_edit(self):
         store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
@@ -305,6 +528,40 @@ class CustomAPIUITests(unittest.TestCase):
 
 
 class CustomAPIGeometryTests(unittest.TestCase):
+    def test_reasoning_slider_keeps_field_and_grid_size_for_all_values(self):
+        for scaling in (1, 4 / 3, 2, 8 / 3):
+            root = tk.Tk()
+            root.attributes("-alpha", 0.0)
+            root.tk.call("tk", "scaling", scaling)
+            try:
+                dialog = CustomAPIEditor(root, {"url": "https://api.deepseek.com", "model": "deepseek-flash"},
+                                         "", lambda _cb: None, lambda *_args: None)
+                dialog.pack(fill=tk.BOTH, expand=True)
+                dialog.advanced_button.invoke()
+                for width in (520, 740):
+                    with self.subTest(scaling=scaling, width=width):
+                        root.geometry(f"{width}x780")
+                        root.update()
+                        keys = ("thinking_level", "json_mode", "max_output_tokens", "request_timeout_seconds")
+                        def snapshot():
+                            fields = []
+                            for key in keys:
+                                surface = dialog.input_surfaces[key]
+                                fields.append((surface.winfo_rootx(), surface.winfo_rooty(),
+                                               surface.winfo_width(), surface.winfo_height()))
+                            return fields, dialog.advanced_body.winfo_reqheight()
+                        original = snapshot()
+                        self.assertEqual(original[0][0][2:], original[0][1][2:])
+                        thinking_heading = dialog.input_surfaces["thinking_level"].master.winfo_children()[0]
+                        json_heading = dialog.input_surfaces["json_mode"].master.winfo_children()[0]
+                        self.assertEqual(thinking_heading.winfo_height(), json_heading.winfo_height())
+                        for value in dialog.entries["thinking_level"].cget("values"):
+                            dialog.variables["thinking_level"].set(value)
+                            root.update()
+                            self.assertEqual(snapshot(), original)
+            finally:
+                root.destroy()
+
     def test_fixed_controls_and_entry_fit_at_minimum_width_across_dpi(self):
         for scaling in (1.0, 4 / 3, 5 / 3, 2.0, 8 / 3):
             with self.subTest(tk_scaling=scaling):
@@ -322,9 +579,19 @@ class CustomAPIGeometryTests(unittest.TestCase):
                     settle = layouts.GUIResponsiveGeometryTests()._settle_resize
                     settle(root, app)
                     page = app.page_frames[3]
-                    dialog = page.edit_custom_api()
+                    popup = page.edit_custom_api()
+                    dialog = popup.editor
                     settle(root, app)
-                    self.assertIs(dialog.winfo_toplevel(), root)
+                    self.assertIsInstance(popup, tk.Toplevel)
+                    self.assertIs(dialog.winfo_toplevel(), popup)
+                    self.assertEqual(str(popup.transient()), str(root))
+                    self.assertGreaterEqual(popup.winfo_rootx(), 0)
+                    self.assertGreaterEqual(popup.winfo_rooty(), 0)
+                    self.assertLessEqual(popup.winfo_rootx() + popup.winfo_width(), root.winfo_screenwidth())
+                    self.assertLessEqual(popup.winfo_rooty() + popup.winfo_height(), root.winfo_screenheight())
+                    minimum_width, minimum_height = popup.minsize()
+                    popup.geometry(f"{minimum_width}x{minimum_height}")
+                    layouts.GUIResponsiveGeometryTests._flush(root, 120)
                     for button in (dialog.cancel_button, dialog.test_button, dialog.save_button):
                         self.assertGreaterEqual(button.winfo_x(), 0)
                         self.assertLessEqual(
@@ -332,6 +599,11 @@ class CustomAPIGeometryTests(unittest.TestCase):
                         )
                     dialog.advanced_button.invoke()
                     settle(root, app)
+                    unlimited = dialog.unlimited_output_button
+                    token_label = unlimited.master.winfo_children()[0]
+                    self.assertGreaterEqual(token_label.winfo_width(), token_label.winfo_reqwidth())
+                    self.assertGreaterEqual(unlimited.winfo_width(), unlimited.winfo_reqwidth())
+                    self.assertGreaterEqual(unlimited.winfo_x(), token_label.winfo_x() + token_label.winfo_width())
                     canvas = dialog.scroll_canvas
                     for entry in (*dialog.entries.values(), dialog.key_entry):
                         self.assertGreaterEqual(entry.winfo_rootx(), canvas.winfo_rootx())

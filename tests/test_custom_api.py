@@ -24,6 +24,27 @@ def settings():
 
 
 class CustomAPISettingsTests(unittest.TestCase):
+    def test_unlimited_output_normalizes_and_survives_credential_storage_and_routing(self):
+        for value in (None, "无限制", " unlimited ", "None", "∞"):
+            with self.subTest(value=value):
+                values = normalize_custom_api({**settings(), "max_output_tokens": value})
+                self.assertIsNone(values["max_output_tokens"])
+                self.assertIsNone(normalize_custom_api(values)["max_output_tokens"])
+        store = WindowsCredentialStore(old_tests.FakeCredentialBackend())
+        store.save_custom_api({**settings(), "max_output_tokens": "无限制"}, "placeholder-key")
+        self.assertIsNone(store.load_custom_api()["max_output_tokens"])
+        attempts = gui_summary_attempt_configs(summary.SummaryConfig(),
+            {"custom": "placeholder-key", "gemini": "builtin-placeholder"}, store.load_custom_apis())
+        self.assertIsNone(attempts[0].max_output_tokens)
+        self.assertEqual(attempts[1].max_output_tokens, summary.DEFAULT_MAX_OUTPUT_TOKENS)
+
+    def test_unlimited_output_does_not_turn_invalid_values_into_uncapped_requests(self):
+        for value in ("", " ", 0, -1, True, False, "infinity", 128.5, "128.5", 1000001):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                normalize_custom_api({**settings(), "max_output_tokens": value})
+        self.assertEqual(normalize_custom_api(settings())["max_output_tokens"], 16384)
+        self.assertEqual(normalize_custom_api({**settings(), "max_output_tokens": "8192"})["max_output_tokens"], 8192)
+
     def test_kimi_official_api_omits_temperature_in_generation_and_connection(self):
         for url in ("https://api.moonshot.cn/v1",
                     "https://api.moonshot.ai/v1/chat/completions",
