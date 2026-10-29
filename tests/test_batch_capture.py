@@ -59,6 +59,74 @@ async def playwright():
 
 
 class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_selected_two_and_three_worker_batches_keep_independent_limits_and_metadata(self):
+        contexts = []
+        active, peaks, entered, barriers = {}, {}, {}, {}
+
+        async def launch(*_args, **_options):
+            context = Context()
+            contexts.append(context)
+            active[context] = peaks[context] = entered[context] = 0
+            barriers[context] = asyncio.Event()
+            return context, "chromium"
+
+        async def fetch(url, **options):
+            context = options["shared_page"].context
+            active[context] += 1
+            peaks[context] = max(peaks[context], active[context])
+            entered[context] += 1
+            if entered[context] == context.peak:
+                barriers[context].set()
+            await asyncio.wait_for(barriers[context].wait(), 2)
+            await asyncio.sleep(0.01)
+            active[context] -= 1
+            return FetchResult(html="", image_map={}, document_map={},
+                               messages=[dict(role="User", content=url)])
+
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.async_playwright", playwright), patch(
+            "gui.batch_capture.launch_browser_context", launch
+        ), patch("gui.batch_capture.fetch_chat_pipeline", fetch):
+            root = Path(temporary)
+            batches = await asyncio.gather(*(
+                capture_links(LINKS, root / str(limit), concurrency=limit) for limit in (2, 3)
+            ))
+            self.assertEqual([context.peak for context in contexts], [2, 3])
+            self.assertEqual([peaks[context] for context in contexts], [2, 3])
+            for limit, records in zip((2, 3), batches):
+                self.assertEqual([item["url"] for item in records], LINKS)
+                self.assertTrue(all(item["status"] == "completed" for item in records))
+                for filename in ("input.json", "manifest.json"):
+                    self.assertEqual(json.loads((root / str(limit) / filename).read_text(encoding="utf-8"))["concurrency"], limit)
+            self.assertTrue(all(context.closed for context in contexts))
+
+    async def test_default_concurrency_is_snapshotted_before_browser_launch(self):
+        from gui import batch_capture
+        context = Context()
+
+        async def launch(*_args, **_options):
+            batch_capture.MAX_CAPTURE_TABS = 3
+            return context, "chromium"
+
+        async def fetch(url, **_options):
+            return FetchResult(html="", image_map={}, document_map={}, messages=[dict(role="User", content=url)])
+
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.MAX_CAPTURE_TABS", 2), patch(
+            "gui.batch_capture.async_playwright", playwright
+        ), patch("gui.batch_capture.launch_browser_context", launch), patch("gui.batch_capture.fetch_chat_pipeline", fetch):
+            root = Path(temporary) / "results"
+            await capture_links(LINKS, root)
+            self.assertEqual(context.peak, 2)
+            for filename in ("input.json", "manifest.json"):
+                self.assertEqual(json.loads((root / filename).read_text(encoding="utf-8"))["concurrency"], 2)
+
+    async def test_invalid_concurrency_is_rejected_without_creating_output_or_browser(self):
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.launch_browser_context", AsyncMock()) as launch:
+            for value in (0, 4, True, "2", 2.5):
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    await capture_links(LINKS, Path(temporary) / "results", concurrency=value)
+                self.assertFalse((Path(temporary) / "results").exists())
+            launch.assert_not_awaited()
+
     async def test_batch_image_auth_marks_same_origin_but_not_cdn_or_challenge(self):
         from gui.service import _download_image_candidates
         for origin, challenge, expected in (

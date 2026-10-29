@@ -84,6 +84,7 @@ async def capture_links(
     links: Sequence[str],
     output_dir: Path,
     *,
+    concurrency: int | None = None,
     browser_profile_root: Path = BROWSER_USER_DATA_DIR,
     cancel_event=None,
     progress: Callable[[int, int, str], None] = lambda *_: None,
@@ -97,6 +98,10 @@ async def capture_links(
     Native login windows may temporarily add pages during human authorization.
     """
     links = validate_capture_links(links)
+    # Snapshot per batch: changing a later batch's choice cannot resize this one.
+    concurrency = MAX_CAPTURE_TABS if concurrency is None else concurrency
+    if type(concurrency) is not int or not 1 <= concurrency <= 3:
+        raise ValueError("抓取并发数必须是 1～3 的整数。")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     if any(output_dir.iterdir()):
@@ -111,7 +116,7 @@ async def capture_links(
                             status="queued", error=None, warnings=[], saved_files=[]))
     _write_json(output_dir / "input.json", {
         "links": links, "sha256": hashlib.sha256("\n".join(links).encode("utf-8")).hexdigest(),
-        "concurrency": MAX_CAPTURE_TABS, "mode": "raw", "authentication": "reuse",
+        "concurrency": concurrency, "mode": "raw", "authentication": "reuse",
     })
     batch_warnings = []
     batch_error = None
@@ -119,7 +124,7 @@ async def capture_links(
 
     def save_manifest():
         _write_json(output_dir / "manifest.json", {
-            "concurrency": MAX_CAPTURE_TABS, "elapsed_seconds": round(time.perf_counter() - started, 3),
+            "concurrency": concurrency, "elapsed_seconds": round(time.perf_counter() - started, 3),
             "warnings": batch_warnings, "error": batch_error, "items": records,
         })
 
@@ -154,7 +159,7 @@ async def capture_links(
                 # worker pages alive until the entire batch finishes.
                 from gui.batch_login import BatchLoginCoordinator
                 pages = list(context.pages)
-                count = min(MAX_CAPTURE_TABS, len(links))
+                count = min(concurrency, len(links))
                 while len(pages) < count:
                     pages.append(await context.new_page())
                 for page in pages[count:]:

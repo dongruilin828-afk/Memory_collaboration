@@ -97,6 +97,9 @@ class BatchDialogTests(unittest.TestCase):
                     self.assertIn("不支持文件", dialog.status.cget("text"))
                     dialog.links.delete("1.0", "end")
                     dialog.links.insert("1.0", "https://chat.deepseek.com/share/first\nhttps://chatgpt.com/share/second")
+                    self.assertEqual(dialog.concurrency_var.get(), 3)
+                    dialog.concurrency_buttons[0].invoke()
+                    self.assertEqual(dialog.concurrency_var.get(), 2)
                     dialog.deiconify()
                     width, height = dialog.minsize()
                     dialog.geometry(f"{width}x{height}")
@@ -106,10 +109,24 @@ class BatchDialogTests(unittest.TestCase):
                                          dialog.winfo_rootx() + dialog.winfo_width())
                     self.assertLessEqual(dialog.close_button.winfo_rooty() + dialog.close_button.winfo_height(),
                                          dialog.winfo_rooty() + dialog.winfo_height())
+                    for button in dialog.concurrency_buttons:
+                        self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
+                        self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
+                        self.assertLessEqual(button.winfo_rootx() + button.winfo_width(),
+                                             dialog.winfo_rootx() + dialog.winfo_width())
                     dialog.start_or_stop()
                     self.assertTrue(dialog.running)
                     self.assertEqual(dialog.links.cget("state"), "disabled")
                     self.assertEqual(len(start.call_args.args[0]), 2)
+                    self.assertEqual(start.call_args.kwargs["concurrency"], 2)
+                    self.assertTrue(all(button.cget("state") == "disabled" for button in dialog.concurrency_buttons))
+                    dialog.concurrency_buttons[1].invoke()
+                    self.assertEqual(dialog.concurrency_var.get(), 2)
+                    dialog.finish("已完成")
+                    self.assertTrue(all(button.cget("state") == "normal" for button in dialog.concurrency_buttons))
+                    dialog.concurrency_buttons[1].invoke()
+                    dialog.start_or_stop()
+                    self.assertEqual(start.call_args.kwargs["concurrency"], 3)
                     dialog.close()
                     stop.assert_called_once()
                     dialog.finish("已停止")
@@ -135,6 +152,7 @@ class BatchDialogTests(unittest.TestCase):
                 self.assertEqual(links, ["https://chat.deepseek.com/share/test"])
                 self.assertEqual(options["browser_profile_root"], settings.browser_profile_dir)
                 self.assertIs(options["cancel_event"], app._generation_cancel_event)
+                self.assertEqual(options["concurrency"], 2)
                 options["progress"](1, 1, "抓取完成")
                 record = dict(index=1, status="completed", platform="DeepSeek", warnings=[],
                               elapsed_seconds=1.25, saved_files=[str(output/"001/export.md")], output_dir=str(output/"001"))
@@ -142,7 +160,7 @@ class BatchDialogTests(unittest.TestCase):
                 return [record]
 
             with patch("gui.app.filedialog.askdirectory", return_value=temporary), patch("gui.batch_capture.capture_links", capture):
-                self.assertTrue(app._start_batch_capture(["https://chat.deepseek.com/share/test"], dialog))
+                self.assertTrue(app._start_batch_capture(["https://chat.deepseek.com/share/test"], dialog, concurrency=2))
                 self.assertTrue(finished.wait(5))
             app._on_task_finished.assert_called_once()
             app._add_history_record.assert_called_once()

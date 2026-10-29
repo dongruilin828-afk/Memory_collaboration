@@ -20,9 +20,24 @@ class BatchCaptureDialog(tk.Toplevel):
         body = tk.Frame(self, bg=COLOR_BG_APP, padx=24, pady=20)
         body.pack(fill=tk.BOTH, expand=True)
         tk.Label(body, text="批量抓取链接", font=FONT_H2, fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP).pack(anchor="w")
-        self.hint = tk.Label(body, text="每行一个链接 · 最多三个标签页同时抓取 · 复用登录状态 · 仅导出原始对话及附件",
+        self.hint = tk.Label(body, text="每行一个链接 · 复用登录状态 · 仅导出原始对话及附件",
                              font=FONT_BODY, fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, anchor="w", justify="left")
         self.hint.pack(fill=tk.X, pady=(8, 12))
+        concurrency_row = tk.Frame(body, bg=COLOR_BG_APP)
+        concurrency_row.pack(fill=tk.X, pady=(0, 12))
+        tk.Label(concurrency_row, text="并发数量", font=FONT_BODY,
+                 fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP).pack(side=tk.LEFT, padx=(0, 12))
+        self.concurrency_var = tk.IntVar(master=self, value=3)
+        self.concurrency_buttons = []
+        for count in (2, 3):
+            button = tk.Radiobutton(
+                concurrency_row, text=f"{count} 并发", value=count, variable=self.concurrency_var,
+                font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
+                activebackground=COLOR_BG_APP, selectcolor=COLOR_CARD,
+                highlightthickness=0, padx=8, pady=4,
+            )
+            button.pack(side=tk.LEFT, padx=(0, 8))
+            self.concurrency_buttons.append(button)
         entry_row = tk.Frame(body, bg=COLOR_CARD)
         entry_row.pack(fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(entry_row, orient=tk.VERTICAL)
@@ -32,7 +47,7 @@ class BatchCaptureDialog(tk.Toplevel):
         self.links.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.configure(command=self.links.yview)
         self.links.insert("1.0", initial_text)
-        self.status = tk.Label(body, text="如需登录，将打开浏览器并提示授权；登录窗口不计入三个抓取标签页。", font=FONT_BODY,
+        self.status = tk.Label(body, text="如需登录，将打开浏览器并提示授权；登录窗口不计入抓取标签页数量。", font=FONT_BODY,
                                fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP, anchor="w", justify="left")
         self.status.pack(fill=tk.X, pady=(12, 8))
         buttons = tk.Frame(body, bg=COLOR_BG_APP)
@@ -45,7 +60,8 @@ class BatchCaptureDialog(tk.Toplevel):
         body.bind("<Configure>", lambda event: [label.configure(wraplength=max(1, event.width - 48))
                                                 for label in (self.hint, self.status)])
         self.update_idletasks()
-        self.minsize(max(520, buttons.winfo_reqwidth() + 48), self.winfo_reqheight())
+        self.minsize(max(520, buttons.winfo_reqwidth() + 48, concurrency_row.winfo_reqwidth() + 48),
+                     self.winfo_reqheight())
         self.protocol("WM_DELETE_WINDOW", self.close)
         bind_visible_modal(self)
         self.grab_set()
@@ -62,9 +78,11 @@ class BatchCaptureDialog(tk.Toplevel):
         except ValueError as error:
             self.status.configure(text=str(error), fg=COLOR_DANGER)
             return
-        if self.on_start(links, self):
+        if self.on_start(links, self, concurrency=self.concurrency_var.get()):
             self.running = True
             self.links.configure(state="disabled")
+            for button in self.concurrency_buttons:
+                button.configure(state="disabled")
             self.start_button.configure(text="停止抓取")
             self.status.configure(text="正在启动共享浏览器…", fg=COLOR_TEXT_MUTED)
 
@@ -109,6 +127,8 @@ class BatchCaptureDialog(tk.Toplevel):
     def finish(self, text):
         self.running = False
         self.links.configure(state="normal")
+        for button in self.concurrency_buttons:
+            button.configure(state="normal")
         self.start_button.configure(state="normal", text="开始批量抓取")
         self.status.configure(text=text)
         if self.close_when_done:

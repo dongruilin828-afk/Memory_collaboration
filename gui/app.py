@@ -831,7 +831,7 @@ class AIMemoryGUI:
             initial_text=self.capsule_entry.get_text().strip(),
         )
 
-    def _start_batch_capture(self, links, dialog):
+    def _start_batch_capture(self, links, dialog, *, concurrency=3):
         if self.is_running:
             return False
         from datetime import datetime
@@ -873,6 +873,7 @@ class AIMemoryGUI:
             try:
                 records = asyncio.run(capture_links(
                     links, output, browser_profile_root=settings.browser_profile_dir,
+                    concurrency=concurrency,
                     cancel_event=cancel_event, progress=progress, on_result=completed,
                     authorize_login=lambda page, url: self._await_batch_login(dialog, url),
                 ))
