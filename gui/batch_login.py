@@ -6,13 +6,14 @@ import asyncio
 from urllib.parse import urlparse
 
 from gui.service import _set_browser_window_state
+from scripts.browser_activity import active_rendering
 
 
 class BatchLoginCoordinator:
-    def __init__(self, pages, callback):
+    def __init__(self, pages, callback, *, render_lock=None):
         self.pages = tuple(pages)
         self.callback = callback
-        self._lock = asyncio.Lock()
+        self._lock = render_lock if render_lock is not None else asyncio.Lock()
         self._epochs = {}
 
     async def authorize(self, page, url, ready, *, force=False):
@@ -26,7 +27,7 @@ class BatchLoginCoordinator:
             raise ValueError("不是本批次的工作标签页。")
         origin = urlparse(url).netloc.lower()
         epoch = self._epochs.get(origin, 0)
-        async with self._lock:
+        async with active_rendering(page, self._lock):
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             if (not force or self._epochs.get(origin, 0) != epoch) and await ready():
                 return True

@@ -160,9 +160,11 @@ async def capture_links(
                 for page in pages[count:]:
                     await page.close()
                 pages = pages[:count]
+                render_lock = asyncio.Lock()
                 for page in pages:
+                    page._aimemory_render_lock = render_lock
                     await page.add_init_script(f"({_SAME_TAB_SCRIPT})()")
-                login = BatchLoginCoordinator(pages, authorize_login)
+                login = BatchLoginCoordinator(pages, authorize_login, render_lock=render_lock)
                 pending = iter(records)
 
                 async def worker(page):

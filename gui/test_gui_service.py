@@ -307,7 +307,8 @@ class GUIServiceTests(unittest.TestCase):
                 source = 'https://contribution.usercontent.google.com/download?filename=recording%20test.mp4'
                 video = SimpleNamespace(wait_for=AsyncMock(), evaluate=AsyncMock(return_value=source))
                 close = SimpleNamespace(count=AsyncMock(return_value=0))
-                dialog = SimpleNamespace(locator=MagicMock(return_value=SimpleNamespace(first=close)))
+                dialog = SimpleNamespace(is_visible=AsyncMock(return_value=False),
+                                         locator=MagicMock(return_value=SimpleNamespace(first=close)))
                 page = SimpleNamespace(
                     locator=MagicMock(side_effect=lambda selector: {
                         'user-query-file-preview': cards,

@@ -225,9 +225,13 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("批次清理", records[0]["warnings"][0])
 
     async def test_borrowed_page_reuses_auth_without_creating_or_closing_browser(self):
+        external_listener = lambda response: None
+        listeners = {external_listener}
         page = SimpleNamespace(
             context=SimpleNamespace(clear_cookies=AsyncMock()),
-            on=Mock(), remove_listener=Mock(), wait_for_timeout=AsyncMock(),
+            on=Mock(side_effect=lambda event, callback: listeners.add(callback)),
+            remove_listener=Mock(side_effect=lambda event, callback: listeners.remove(callback)),
+            wait_for_timeout=AsyncMock(),
         )
         url = "https://chatgpt.com/c/11111111-1111-1111-1111-111111111111"
         captured = dict(html="<p>actual</p>", messages=[dict(role="User", content="actual")],
@@ -247,7 +251,8 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
         close.assert_not_called()
         page.context.clear_cookies.assert_not_awaited()
         self.assertEqual(page.on.call_count, 1)
-        self.assertEqual(page.remove_listener.call_count, 2)
+        self.assertEqual(page.remove_listener.call_count, 1)
+        self.assertEqual(listeners, {external_listener})
 
     async def test_expired_login_is_a_link_failure_without_interactive_login(self):
         page = SimpleNamespace(context=object(), on=Mock(), remove_listener=Mock(), wait_for_timeout=AsyncMock())

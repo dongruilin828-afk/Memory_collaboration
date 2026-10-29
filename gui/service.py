@@ -34,7 +34,8 @@ from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
 from gui.credential_store import normalize_provider_order, is_custom_provider
-from scripts.providers import chatgpt_source
+from scripts.providers import chatgpt_source, gemini_assets
+from scripts.browser_activity import active_rendering
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
     BROWSER_USER_DATA_DIR,
@@ -1884,6 +1885,11 @@ async def _download_image_candidates(
     semaphore = asyncio.Semaphore(limit)
     screenshot_lock = asyncio.Lock()
 
+    def rendering():
+        return (active_rendering(page)
+                if urlparse(str(getattr(page, "url", ""))).hostname in GEMINI_HOSTS
+                else nullcontext())
+
     async def download(
         src: str,
     ) -> tuple[str, Optional[bytes], Optional[str]]:
@@ -1899,7 +1905,7 @@ async def _download_image_candidates(
         failure_reason: Optional[str] = None
         parsed_source = urlparse(src)
         if prefer_original and parsed_source.netloc.lower() == "lh3.googleusercontent.com" and parsed_source.path.startswith("/gg/"):
-            async with screenshot_lock:
+            async with screenshot_lock, rendering():
                 wrapper = None
                 try:
                     wrapper_id = await page.evaluate(
@@ -1940,7 +1946,7 @@ async def _download_image_candidates(
             parsed_source.netloc.lower() == "lh3.googleusercontent.com"
             and parsed_source.path.startswith("/gg/")
         ):
-            async with screenshot_lock:
+            async with screenshot_lock, rendering():
                 images = page.locator("img")
                 for index in range(await images.count()):
                     image = images.nth(index)
@@ -2074,7 +2080,7 @@ async def _download_image_candidates(
             except Exception as fallback_error:
                 failure_reason = type(fallback_error).__name__
             continue
-        async with screenshot_lock:
+        async with screenshot_lock, rendering():
             try:
                 is_gemini_upload = parsed_source.netloc.lower() == "lh3.googleusercontent.com"
                 images = page.locator("img")
@@ -2117,20 +2123,15 @@ async def _download_image_candidates(
                                     width: ${img.naturalWidth}px;
                                     height: ${img.naturalHeight}px;
                                     background: #000;`;
-                                const clone = img.cloneNode(false);
+                                const clone = new Image();
                                 clone.src = img.currentSrc || img.src;
                                 clone.loading = 'eager';
-                                clone.removeAttribute('class');
-                                clone.removeAttribute('srcset');
-                                clone.removeAttribute('sizes');
                                 clone.style.cssText = `
                                     display: block; width: 100%; height: 100%;
                                     max-width: none; max-height: none;
                                     object-fit: fill; border-radius: 0;
                                     clip-path: none; transform: none;
                                     filter: none; opacity: 1;`;
-                                wrapper.appendChild(clone);
-                                document.body.appendChild(wrapper);
                                 try {
                                     await Promise.race([
                                         clone.decode(),
@@ -2138,6 +2139,15 @@ async def _download_image_candidates(
                                             () => reject(new Error('image decode timeout')), 10000
                                         ))
                                     ]);
+                                    // Copy decoded pixels, not the site's image
+                                    // component or its deferred compositor layer.
+                                    const surface = document.createElement('canvas');
+                                    surface.width = clone.naturalWidth;
+                                    surface.height = clone.naturalHeight;
+                                    surface.style.cssText = clone.style.cssText;
+                                    surface.getContext('2d').drawImage(clone, 0, 0);
+                                    wrapper.appendChild(surface);
+                                    document.body.appendChild(wrapper);
                                     await new Promise(resolve => requestAnimationFrame(
                                         () => requestAnimationFrame(resolve)
                                     ));
@@ -4409,12 +4419,55 @@ async def _grok_document_card_download(
         await page.keyboard.press("Escape")
 
 
+async def _gemini_original_document_download(page, url, filename, timeout):
+    """Use Chromium's original download channel without opening the preview."""
+    async with asyncio.timeout(min(timeout, 20000) / 1000):
+        async with page.expect_download(timeout=min(timeout, 10000)) as info:
+            await page.evaluate("url => location.assign(url)", url)
+        download = await info.value
+        if download.suggested_filename != filename:
+            raise ValueError("Gemini 原文件下载名称与已核验附件不符")
+        path = Path(await download.path())
+        is_video = Path(filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+        maximum = GUI_VIDEO_MAX_BYTES if is_video else GUI_DOCUMENT_MAX_BYTES
+        if not 0 < path.stat().st_size <= maximum:
+            raise ValueError("Gemini 原文件大小无效或超出限制")
+        body = path.read_bytes()
+        if is_video and not (
+            body[4:8] in {b"ftyp", b"moov", b"mdat", b"wide"}
+            or body.startswith(b"\x1a\x45\xdf\xa3")
+            or body.startswith(b"RIFF") and body[8:12] == b"AVI "
+        ):
+            raise ValueError("Gemini 原文件未返回有效视频内容")
+        return body, {
+            "content-disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+        }
+
+
 async def _gemini_document_card_download(
     page: Any,
     candidate: DocumentCandidate,
     timeout: int,
 ) -> tuple[bytes, dict[str, str]]:
     """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
+    index = vars(page).get("_aimemory_gemini_documents")
+    if index is not None:
+        await index.drain()
+        filename = candidate.filename
+        original = index.lookup(candidate.reference, candidate.url, filename)
+        if (not original and Path(filename).stem == "上传视频"
+                and Path(filename).suffix.lower() in gemini.VIDEO_EXTENSIONS):
+            video = index.lookup_video(candidate.reference, candidate.url)
+            if video:
+                filename, original = video
+        if original:
+            try:
+                async with active_rendering(page):
+                    return await _gemini_original_document_download(
+                        page, original, filename, timeout)
+            except Exception:
+                # Expired/missing metadata must retain the real native download.
+                pass
     # 复制会话可能混合原始附件与后来上传的文件，逐个回到候选绑定的会话。
     if getattr(page, "url", candidate.url).split("?")[0] != candidate.url.split("?")[0]:
         parsed = urlparse(candidate.url)
@@ -4422,6 +4475,11 @@ async def _gemini_document_card_download(
             raise ValueError("Gemini 附件来源必须是账号内会话")
         await goto_with_retry_gui(page, candidate.url, attempts=1)
         await collect_virtualized_html(page)
+    async with active_rendering(page):
+        return await _gemini_download_open_card(page, candidate, timeout)
+
+
+async def _gemini_download_open_card(page, candidate, timeout):
     cards = page.locator("user-query-file-preview")
     is_video = Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
     metadata = re.match(
@@ -4449,7 +4507,9 @@ async def _gemini_document_card_download(
         raise FileNotFoundError(candidate.filename)
     if not await button.is_enabled():
         raise PermissionError(candidate.filename)
-    await button.click(timeout=timeout)
+    # Identity/enabled checks stay above; force skips background frame-stability
+    # waits while preserving the trusted input needed by native downloads.
+    await button.click(force=True, timeout=timeout)
     try:
         if is_video:
             video = page.locator('[role="dialog"] video').first
@@ -4509,8 +4569,13 @@ async def _gemini_document_card_download(
             await page.wait_for_timeout(3000)
         download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
         await download_button.wait_for(state="visible", timeout=timeout)
+        ready_until = time.perf_counter() + timeout / 1000
+        while not await download_button.is_enabled():
+            if time.perf_counter() >= ready_until:
+                raise TimeoutError("Gemini 下载按钮尚未就绪")
+            await page.wait_for_timeout(100)
         async with page.expect_download(timeout=timeout) as download_info:
-            await download_button.click()
+            await download_button.click(force=True, timeout=timeout)
         download = await download_info.value
         path = await download.path()
         body = Path(path).read_bytes()
@@ -4522,8 +4587,8 @@ async def _gemini_document_card_download(
     finally:
         dialog = page.locator('[role="dialog"]').first
         close_button = dialog.locator('[aria-label="关闭"]').first
-        if await close_button.count():
-            await close_button.click()
+        if await dialog.is_visible() and await close_button.count():
+            await close_button.click(force=True, timeout=timeout)
             await dialog.wait_for(state="hidden", timeout=timeout)
         else:
             await page.keyboard.press("Escape")
@@ -5239,11 +5304,14 @@ async def fetch_chat_pipeline(
         if shared_page is None:
             await _set_browser_window_state(page, state)
 
+    listening_callbacks = set()
+
     def listen(page, callback):
-        if shared_page is not None:
+        if shared_page is not None and callback in listening_callbacks:
             # Recovery reuses this page rather than recreating the browser.
             page.remove_listener("response", callback)
         page.on("response", callback)
+        listening_callbacks.add(callback)
 
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
@@ -5375,6 +5443,13 @@ async def fetch_chat_pipeline(
             response_doubao_document_groups: dict[str, list[DocumentCandidate]] = {}
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
+            gemini_documents = (
+                gemini_assets.DocumentIndex()
+                if shared_page is not None and requested_host in GEMINI_HOSTS else None
+            )
+            if gemini_documents is not None:
+                page._aimemory_gemini_documents = gemini_documents
+                await gemini_documents.start(page)
             captured_document_responses: dict[
                 str, tuple[bytes, dict[str, str]]
             ] = {}
@@ -5429,10 +5504,27 @@ async def fetch_chat_pipeline(
                     response_image_references,
                 )
 
+            async def capture_gemini_documents(response: Any) -> None:
+                try:
+                    text = await response.text()
+                    if len(text) <= 32 * 1024 * 1024:
+                        gemini_documents.ingest(text)
+                except Exception:
+                    # History schema/network changes fall back to native cards.
+                    pass
+
             def capture_response_assets(response: Any) -> None:
                 task = None
                 response_url = urlparse(response.url)
                 if (
+                    gemini_documents is not None
+                    and response.status == 200
+                    and response_url.hostname == "gemini.google.com"
+                    and response_url.path.endswith("/data/batchexecute")
+                    and "hNvQHb" in parse_qs(response_url.query).get("rpcids", [""])[0].split(",")
+                ):
+                    task = asyncio.create_task(capture_gemini_documents(response))
+                elif (
                     doubao_public_thread
                     and response.status == 200
                     and response_url.hostname in DOUBAO_HOSTS
@@ -6870,6 +6962,10 @@ async def fetch_chat_pipeline(
                     for task in response_tasks:
                         task.cancel()
                     await asyncio.gather(*response_tasks, return_exceptions=True)
+                    if vars(page).get("_aimemory_gemini_documents") is gemini_documents:
+                        vars(page).pop("_aimemory_gemini_documents", None)
+                    if gemini_documents is not None:
+                        await gemini_documents.close()
                 await close_context(
                     context, fetch_warnings, logger
                 )
