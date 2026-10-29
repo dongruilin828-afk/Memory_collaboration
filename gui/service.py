@@ -19,6 +19,7 @@ import shutil
 import sys
 import time
 from collections import Counter
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Collection, Mapping, Optional
@@ -33,7 +34,8 @@ from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
 from gui.credential_store import normalize_provider_order, is_custom_provider
-from scripts.providers import chatgpt_source
+from scripts.providers import chatgpt_source, gemini_assets
+from scripts.browser_activity import active_rendering
 from scripts.markdown_exporter import display_and_export
 from scripts.project_paths import (
     BROWSER_USER_DATA_DIR,
@@ -1852,6 +1854,7 @@ async def _download_image_candidates(
     authentication_required: Optional[list[bool]] = None,
     prefer_original: bool = False,
     failure_collector: Optional[dict[str, str]] = None,
+    detect_login: bool = False,
 ) -> dict[str, str]:
     """复用已有文件并受限并发下载唯一真实图片，稳定保持 DOM 顺序。"""
     images_dir = Path(images_dir)
@@ -1868,8 +1871,24 @@ async def _download_image_candidates(
             )
 
     limit = max(1, min(int(concurrency), 8))
+
+    def requires_login(response, target):
+        if not detect_login or authentication_required is None:
+            return False
+        origin, resource = urlparse(str(page.url)), urlparse(target)
+        if (getattr(response, 'status', None) in {401, 403}
+                and (origin.scheme, origin.netloc.lower()) == (resource.scheme, resource.netloc.lower())
+                and dict(getattr(response, 'headers', {}) or {}).get('cf-mitigated') != 'challenge'):
+            authentication_required[:] = [True]
+            return True
+        return False
     semaphore = asyncio.Semaphore(limit)
     screenshot_lock = asyncio.Lock()
+
+    def rendering():
+        return (active_rendering(page)
+                if urlparse(str(getattr(page, "url", ""))).hostname in GEMINI_HOSTS
+                else nullcontext())
 
     async def download(
         src: str,
@@ -1886,7 +1905,7 @@ async def _download_image_candidates(
         failure_reason: Optional[str] = None
         parsed_source = urlparse(src)
         if prefer_original and parsed_source.netloc.lower() == "lh3.googleusercontent.com" and parsed_source.path.startswith("/gg/"):
-            async with screenshot_lock:
+            async with screenshot_lock, rendering():
                 wrapper = None
                 try:
                     wrapper_id = await page.evaluate(
@@ -1927,7 +1946,7 @@ async def _download_image_candidates(
             parsed_source.netloc.lower() == "lh3.googleusercontent.com"
             and parsed_source.path.startswith("/gg/")
         ):
-            async with screenshot_lock:
+            async with screenshot_lock, rendering():
                 images = page.locator("img")
                 for index in range(await images.count()):
                     image = images.nth(index)
@@ -1957,6 +1976,8 @@ async def _download_image_candidates(
                     response = await _authenticated_page_get(
                         page, src, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                     )
+                    if requires_login(response, src):
+                        return src, None, f"http_{response.status}"
                     if response.ok:
                         headers = dict(getattr(response, "headers", {}) or {})
                         content_type = headers.get("content-type", "").split(
@@ -1987,11 +2008,14 @@ async def _download_image_candidates(
                             response = await _authenticated_page_get(
                                 page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                             )
+                            if requires_login(response, download_url):
+                                return src, None, f"http_{response.status}"
                             if not response.ok:
                                 status = getattr(response, "status", None)
                                 if (
                                     status in {401, 403}
                                     and authentication_required is not None
+                                    and not detect_login
                                 ):
                                     authentication_required[:] = [True]
                                     return src, None, f"http_{status}"
@@ -2012,6 +2036,8 @@ async def _download_image_candidates(
                                 response = await _authenticated_page_get(
                                     page, download_url, GUI_IMAGE_DOWNLOAD_TIMEOUT_MS
                                 )
+                                if requires_login(response, download_url):
+                                    return src, None, f"http_{response.status}"
                                 if not response.ok:
                                     status = getattr(response, "status", None)
                                     failure_reason = (
@@ -2054,7 +2080,7 @@ async def _download_image_candidates(
             except Exception as fallback_error:
                 failure_reason = type(fallback_error).__name__
             continue
-        async with screenshot_lock:
+        async with screenshot_lock, rendering():
             try:
                 is_gemini_upload = parsed_source.netloc.lower() == "lh3.googleusercontent.com"
                 images = page.locator("img")
@@ -2097,20 +2123,15 @@ async def _download_image_candidates(
                                     width: ${img.naturalWidth}px;
                                     height: ${img.naturalHeight}px;
                                     background: #000;`;
-                                const clone = img.cloneNode(false);
+                                const clone = new Image();
                                 clone.src = img.currentSrc || img.src;
                                 clone.loading = 'eager';
-                                clone.removeAttribute('class');
-                                clone.removeAttribute('srcset');
-                                clone.removeAttribute('sizes');
                                 clone.style.cssText = `
                                     display: block; width: 100%; height: 100%;
                                     max-width: none; max-height: none;
                                     object-fit: fill; border-radius: 0;
                                     clip-path: none; transform: none;
                                     filter: none; opacity: 1;`;
-                                wrapper.appendChild(clone);
-                                document.body.appendChild(wrapper);
                                 try {
                                     await Promise.race([
                                         clone.decode(),
@@ -2118,6 +2139,15 @@ async def _download_image_candidates(
                                             () => reject(new Error('image decode timeout')), 10000
                                         ))
                                     ]);
+                                    // Copy decoded pixels, not the site's image
+                                    // component or its deferred compositor layer.
+                                    const surface = document.createElement('canvas');
+                                    surface.width = clone.naturalWidth;
+                                    surface.height = clone.naturalHeight;
+                                    surface.style.cssText = clone.style.cssText;
+                                    surface.getContext('2d').drawImage(clone, 0, 0);
+                                    wrapper.appendChild(surface);
+                                    document.body.appendChild(wrapper);
                                     await new Promise(resolve => requestAnimationFrame(
                                         () => requestAnimationFrame(resolve)
                                     ));
@@ -4070,6 +4100,7 @@ async def _save_doubao_ai_documents(
     logger: Optional[Callable[[str], None]] = None,
     entries: Optional[list[tuple[str, str, str]]] = None,
     _card_retry: bool = False,
+    reuse_page: bool = False,
 ) -> tuple[dict[str, str], int]:
     """打开豆包 AI 在线文档卡片，将可见正文保存为本地 Markdown。"""
     titles = _extract_doubao_ai_document_titles(html, page.url)
@@ -4085,6 +4116,16 @@ async def _save_doubao_ai_documents(
     resolved: dict[str, str] = {}
     failures = 0
     documents_dir = Path(documents_dir)
+    source_url = page.url
+
+    async def release_document(document_page):
+        if document_page is page and reuse_page:
+            if page.url != source_url:
+                await page.goto(source_url, wait_until="domcontentloaded", timeout=30000)
+                await _page_has_conversation_content(page, source_url)
+        elif document_page is not None and not document_page.is_closed():
+            await document_page.close()
+
     for title, direct_document_url, message_id in entries:
         document_page = None
         inline_document_opened = False
@@ -4096,7 +4137,7 @@ async def _save_doubao_ai_documents(
                     resolved[f"doubao-ai-doc-message:{message_id}"] = resolved[direct_document_url]
                 continue
             if direct_document_url and not _card_retry:
-                document_page = await page.context.new_page()
+                document_page = page if reuse_page else await page.context.new_page()
                 try:
                     await document_page.goto(
                         direct_document_url,
@@ -4165,14 +4206,23 @@ async def _save_doubao_ai_documents(
                     if not document_url:
                         failures += 1
                         continue
-                    document_page = await page.context.new_page()
+                    document_page = page if reuse_page else await page.context.new_page()
                     await document_page.goto(
                         document_url, wait_until="domcontentloaded", timeout=10000
                     )
                 else:
-                    async with page.expect_popup(timeout=10000) as popup_info:
+                    if reuse_page:
+                        # Keep the batch's two-tab limit, including online documents.
+                        await page.evaluate("""() => {
+                            window.open = url => { location.assign(url); return null; };
+                        }""")
+                        await card.evaluate("el => el.querySelectorAll('a[target]').forEach(a => a.target = '_self')")
+                        document_page = page
                         await card.click(force=True, timeout=5000)
-                    document_page = await popup_info.value
+                    else:
+                        async with page.expect_popup(timeout=10000) as popup_info:
+                            await card.click(force=True, timeout=5000)
+                        document_page = await popup_info.value
                     await document_page.wait_for_url(
                         re.compile(r"^https://(?:www\.)?doubao\.com/docx/"),
                         timeout=10000,
@@ -4198,18 +4248,19 @@ async def _save_doubao_ai_documents(
             payload = b'' if direct_navigation_failed else await _download_doubao_ai_document_markdown(document_page)
             if (
                 not payload and direct_document_url and not _card_retry and message_id
-                and urlparse(str(page.url or '')).hostname in DOUBAO_HOSTS
-                and urlparse(str(page.url or '')).path.startswith('/chat/')
+                and urlparse(str(source_url if reuse_page else page.url or '')).hostname in DOUBAO_HOSTS
+                and urlparse(str(source_url if reuse_page else page.url or '')).path.startswith('/chat/')
             ):
                 # 已知地址不可导出时也要试原卡片；资源路径必须保持一致。
                 if document_page is not None:
-                    await document_page.close()
+                    await release_document(document_page)
                     document_page = None
                 if logger:
                     logger('在线文档地址未能完整导出，正在从对应原会话卡片重试...')
                 fallback, _ = await _save_doubao_ai_documents(
                     page, '', documents_dir, document_reference_prefix, [], logger,
                     entries=[(title, direct_document_url, message_id)], _card_retry=True,
+                    reuse_page=reuse_page,
                 )
                 local = fallback.get(f'doubao-ai-doc-message:{message_id}')
                 if local:
@@ -4259,8 +4310,7 @@ async def _save_doubao_ai_documents(
         finally:
             if document_page is not None:
                 try:
-                    if not document_page.is_closed():
-                        await document_page.close()
+                    await release_document(document_page)
                 except Exception:
                     pass
             if inline_document_opened:
@@ -4369,12 +4419,55 @@ async def _grok_document_card_download(
         await page.keyboard.press("Escape")
 
 
+async def _gemini_original_document_download(page, url, filename, timeout):
+    """Use Chromium's original download channel without opening the preview."""
+    async with asyncio.timeout(min(timeout, 20000) / 1000):
+        async with page.expect_download(timeout=min(timeout, 10000)) as info:
+            await page.evaluate("url => location.assign(url)", url)
+        download = await info.value
+        if download.suggested_filename != filename:
+            raise ValueError("Gemini 原文件下载名称与已核验附件不符")
+        path = Path(await download.path())
+        is_video = Path(filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
+        maximum = GUI_VIDEO_MAX_BYTES if is_video else GUI_DOCUMENT_MAX_BYTES
+        if not 0 < path.stat().st_size <= maximum:
+            raise ValueError("Gemini 原文件大小无效或超出限制")
+        body = path.read_bytes()
+        if is_video and not (
+            body[4:8] in {b"ftyp", b"moov", b"mdat", b"wide"}
+            or body.startswith(b"\x1a\x45\xdf\xa3")
+            or body.startswith(b"RIFF") and body[8:12] == b"AVI "
+        ):
+            raise ValueError("Gemini 原文件未返回有效视频内容")
+        return body, {
+            "content-disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+        }
+
+
 async def _gemini_document_card_download(
     page: Any,
     candidate: DocumentCandidate,
     timeout: int,
 ) -> tuple[bytes, dict[str, str]]:
     """点击 Gemini 文件卡片并通过查看器的原生下载按钮取回文件。"""
+    index = vars(page).get("_aimemory_gemini_documents")
+    if index is not None:
+        await index.drain()
+        filename = candidate.filename
+        original = index.lookup(candidate.reference, candidate.url, filename)
+        if (not original and Path(filename).stem == "上传视频"
+                and Path(filename).suffix.lower() in gemini.VIDEO_EXTENSIONS):
+            video = index.lookup_video(candidate.reference, candidate.url)
+            if video:
+                filename, original = video
+        if original:
+            try:
+                async with active_rendering(page):
+                    return await _gemini_original_document_download(
+                        page, original, filename, timeout)
+            except Exception:
+                # Expired/missing metadata must retain the real native download.
+                pass
     # 复制会话可能混合原始附件与后来上传的文件，逐个回到候选绑定的会话。
     if getattr(page, "url", candidate.url).split("?")[0] != candidate.url.split("?")[0]:
         parsed = urlparse(candidate.url)
@@ -4382,6 +4475,11 @@ async def _gemini_document_card_download(
             raise ValueError("Gemini 附件来源必须是账号内会话")
         await goto_with_retry_gui(page, candidate.url, attempts=1)
         await collect_virtualized_html(page)
+    async with active_rendering(page):
+        return await _gemini_download_open_card(page, candidate, timeout)
+
+
+async def _gemini_download_open_card(page, candidate, timeout):
     cards = page.locator("user-query-file-preview")
     is_video = Path(candidate.filename).suffix.lower() in gemini.VIDEO_EXTENSIONS
     metadata = re.match(
@@ -4409,7 +4507,9 @@ async def _gemini_document_card_download(
         raise FileNotFoundError(candidate.filename)
     if not await button.is_enabled():
         raise PermissionError(candidate.filename)
-    await button.click(timeout=timeout)
+    # Identity/enabled checks stay above; force skips background frame-stability
+    # waits while preserving the trusted input needed by native downloads.
+    await button.click(force=True, timeout=timeout)
     try:
         if is_video:
             video = page.locator('[role="dialog"] video').first
@@ -4469,8 +4569,13 @@ async def _gemini_document_card_download(
             await page.wait_for_timeout(3000)
         download_button = page.locator('[role="dialog"] [aria-label="下载"]').first
         await download_button.wait_for(state="visible", timeout=timeout)
+        ready_until = time.perf_counter() + timeout / 1000
+        while not await download_button.is_enabled():
+            if time.perf_counter() >= ready_until:
+                raise TimeoutError("Gemini 下载按钮尚未就绪")
+            await page.wait_for_timeout(100)
         async with page.expect_download(timeout=timeout) as download_info:
-            await download_button.click()
+            await download_button.click(force=True, timeout=timeout)
         download = await download_info.value
         path = await download.path()
         body = Path(path).read_bytes()
@@ -4482,8 +4587,8 @@ async def _gemini_document_card_download(
     finally:
         dialog = page.locator('[role="dialog"]').first
         close_button = dialog.locator('[aria-label="关闭"]').first
-        if await close_button.count():
-            await close_button.click()
+        if await dialog.is_visible() and await close_button.count():
+            await close_button.click(force=True, timeout=timeout)
             await dialog.wait_for(state="hidden", timeout=timeout)
         else:
             await page.keyboard.press("Escape")
@@ -5172,11 +5277,60 @@ async def fetch_chat_pipeline(
     image_download_concurrency: int = GUI_IMAGE_DOWNLOAD_CONCURRENCY,
     browser_profile_root: Optional[Path] = None,
     debug_html_file: Optional[Path] = None,
+    *,
+    shared_page: Any = None,
+    authorize_login: Optional[Callable[..., Any]] = None,
 ) -> FetchResult:
-    """异步抓取并提取网页中的对话和图片。"""
+    """抓取单条链接；批量调用可借用专属页面，浏览器仍由批次拥有。"""
+    if shared_page is not None and need_login:
+        raise ValueError("共享标签页暂时仅支持复用登录状态。")
+
+    async def open_context(*args, **options):
+        if shared_page is not None:
+            return shared_page.context, "shared"
+        return await launch_browser_context(*args, **options)
+
+    async def close_context(context, warnings, logger=None):
+        if shared_page is None:
+            await _close_browser_context_safely(context, warnings, logger)
+
+    async def capture_page(context, *, new=False):
+        if shared_page is not None:
+            return shared_page
+        return (await context.new_page() if new or not context.pages
+                else context.pages[0])
+
+    async def set_window_state(page, state):
+        if shared_page is None:
+            await _set_browser_window_state(page, state)
+
+    listening_callbacks = set()
+
+    def listen(page, callback):
+        if shared_page is not None and callback in listening_callbacks:
+            # Recovery reuses this page rather than recreating the browser.
+            page.remove_listener("response", callback)
+        page.on("response", callback)
+        listening_callbacks.add(callback)
+
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
     user_wait_seconds = 0.0
+
+    async def authorize_shared(target, ready=None, *, force=False):
+        nonlocal user_wait_seconds
+        if shared_page is None or authorize_login is None:
+            return False
+        started = time.perf_counter()
+        try:
+            check = ready or (lambda: _page_has_conversation_content(shared_page, target))
+            confirmed = await authorize_login(shared_page, target, check, force=force)
+            if not confirmed:
+                raise RuntimeError("登录授权未完成或目标链接不可访问，已停止此项抓取。")
+            return True
+        finally:
+            user_wait_seconds += time.perf_counter() - started
+
     if image_output_dir is None:
         resolved_images_dir = Path(IMAGES_DIR).resolve()
         image_reference_prefix = "./images"
@@ -5228,7 +5382,8 @@ async def fetch_chat_pipeline(
     )
     allow_interactive_login = need_login
     chatgpt_anonymous_probe = (
-        requested_host in {"chatgpt.com", "chat.openai.com"}
+        shared_page is None
+        and requested_host in {"chatgpt.com", "chat.openai.com"}
         and requested_path.startswith("/share/")
         and not need_login
     )
@@ -5240,7 +5395,9 @@ async def fetch_chat_pipeline(
     }
 
     if logger:
-        if need_login:
+        if shared_page is not None:
+            logger("正在复用共享浏览器标签页和已保存的登录状态...")
+        elif need_login:
             logger("正在启动浏览器供您登录或读取已保存的登录状态...")
         elif requires_content_probe:
             logger("正在后台检查 AI 对话内容...")
@@ -5248,8 +5405,8 @@ async def fetch_chat_pipeline(
             logger("正在启动无头浏览器加载分享页...")
 
     try:
-        async with async_playwright() as playwright:
-            context, _browser_channel = await launch_browser_context(
+        async with (async_playwright() if shared_page is None else nullcontext(None)) as playwright:
+            context, _browser_channel = await open_context(
                 playwright,
                 headless=headless,
                 viewport=viewport_config,
@@ -5263,7 +5420,7 @@ async def fetch_chat_pipeline(
                     else browser_profile_root
                 ),
             )
-            page = context.pages[0] if context.pages else await context.new_page()
+            page = await capture_page(context)
             anonymous_origin = (
                 "https://www.doubao.com"
                 if doubao_public_thread
@@ -5271,7 +5428,7 @@ async def fetch_chat_pipeline(
                 if chatgpt_anonymous_probe
                 else None
             )
-            if anonymous_origin:
+            if anonymous_origin and shared_page is None:
                 session = await context.new_cdp_session(page)
                 await session.send("Storage.clearDataForOrigin", {
                     "origin": anonymous_origin,
@@ -5280,12 +5437,19 @@ async def fetch_chat_pipeline(
                 await session.detach()
                 await context.clear_cookies()
             if need_login:
-                await _set_browser_window_state(page, "maximized")
+                await set_window_state(page, "maximized")
             response_document_candidates: list[DocumentCandidate] = []
             response_doubao_ai_documents: list[tuple[str, str, str]] = []
             response_doubao_document_groups: dict[str, list[DocumentCandidate]] = {}
             response_image_references: set[str] = set()
             response_tasks: set[asyncio.Task] = set()
+            gemini_documents = (
+                gemini_assets.DocumentIndex()
+                if shared_page is not None and requested_host in GEMINI_HOSTS else None
+            )
+            if gemini_documents is not None:
+                page._aimemory_gemini_documents = gemini_documents
+                await gemini_documents.start(page)
             captured_document_responses: dict[
                 str, tuple[bytes, dict[str, str]]
             ] = {}
@@ -5340,10 +5504,27 @@ async def fetch_chat_pipeline(
                     response_image_references,
                 )
 
+            async def capture_gemini_documents(response: Any) -> None:
+                try:
+                    text = await response.text()
+                    if len(text) <= 32 * 1024 * 1024:
+                        gemini_documents.ingest(text)
+                except Exception:
+                    # History schema/network changes fall back to native cards.
+                    pass
+
             def capture_response_assets(response: Any) -> None:
                 task = None
                 response_url = urlparse(response.url)
                 if (
+                    gemini_documents is not None
+                    and response.status == 200
+                    and response_url.hostname == "gemini.google.com"
+                    and response_url.path.endswith("/data/batchexecute")
+                    and "hNvQHb" in parse_qs(response_url.query).get("rpcids", [""])[0].split(",")
+                ):
+                    task = asyncio.create_task(capture_gemini_documents(response))
+                elif (
                     doubao_public_thread
                     and response.status == 200
                     and response_url.hostname in DOUBAO_HOSTS
@@ -5403,7 +5584,7 @@ async def fetch_chat_pipeline(
                     response_tasks.add(task)
                     task.add_done_callback(response_tasks.discard)
 
-            page.on("response", capture_response_assets)
+            listen(page, capture_response_assets)
 
             try:
                 if logger:
@@ -5415,6 +5596,8 @@ async def fetch_chat_pipeline(
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
                     content_ready = await requested_content_ready()
+                    if not content_ready and shared_page is not None and authorize_login is not None:
+                        content_ready = await authorize_shared(url, requested_content_ready)
                     if (
                         content_ready
                         and requested_host in {"chatgpt.com", "chat.openai.com"}
@@ -5428,25 +5611,29 @@ async def fetch_chat_pipeline(
                         if need_login and requested_host in {
                             "chatgpt.com", "chat.openai.com"
                         }:
-                            await _set_browser_window_state(page, "minimized")
+                            await set_window_state(page, "minimized")
                         if logger:
                             logger(
                                 "已读取 Codex 对话内容。"
                                 if codex_request
-                                else "当前页面无需登录，已直接读取对话内容。"
+                                    else "已复用登录状态，读取到对话内容。"
+                                    if shared_page is not None
+                                    else "当前页面无需登录，已直接读取对话内容。"
                             )
                     else:
+                        if shared_page is not None:
+                            raise RuntimeError("当前登录状态无法读取此链接；请先使用单链接授权登录后重试批量抓取。")
                         if not need_login:
                             if logger:
                                 logger(
                                     "该平台无法在无界面模式读取会话，"
                                     "正在最小化浏览器中继续尝试..."
                                 )
-                            await _close_browser_context_safely(
+                            await close_context(
                                 context, fetch_warnings, logger
                             )
                             context, _browser_channel = (
-                                await launch_browser_context(
+                                await open_context(
                                     playwright,
                                     headless=False,
                                     viewport=None,
@@ -5465,13 +5652,9 @@ async def fetch_chat_pipeline(
                                     ),
                                 )
                             )
-                            page = (
-                                context.pages[0]
-                                if context.pages
-                                else await context.new_page()
-                            )
-                            await _set_browser_window_state(page, "minimized")
-                            page.on("response", capture_response_assets)
+                            page = await capture_page(context)
+                            await set_window_state(page, "minimized")
+                            listen(page, capture_response_assets)
                             await goto_with_retry_gui(page, url, logger=logger)
                             await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
@@ -5515,7 +5698,7 @@ async def fetch_chat_pipeline(
                                         )
                                     allow_interactive_login = True
                                 need_login = True
-                                await _set_browser_window_state(page, "maximized")
+                                await set_window_state(page, "maximized")
                         elif not need_login:
                             if not allow_interactive_login:
                                 if (
@@ -5527,7 +5710,7 @@ async def fetch_chat_pipeline(
                                     )
                                 allow_interactive_login = True
                             need_login = True
-                            await _set_browser_window_state(page, "maximized")
+                            await set_window_state(page, "maximized")
                         if not content_ready and allow_interactive_login:
                             if logger:
                                 logger(
@@ -5570,7 +5753,7 @@ async def fetch_chat_pipeline(
                             if requested_host in {
                                 "chatgpt.com", "chat.openai.com"
                             }:
-                                await _set_browser_window_state(
+                                await set_window_state(
                                     page, "minimized"
                                 )
                             if logger:
@@ -5590,12 +5773,23 @@ async def fetch_chat_pipeline(
                     # requested branch. Unrelated DOM/cache entries cannot win
                     # by being longer or having the same number of messages.
                     payload = verified_chatgpt_payload or await chatgpt_source.read_conversation(page, url)
+                    asset_authorization = []
                     captured = await capture_conversation(
                         page, url, payload,
                         images_dir=resolved_images_dir, image_prefix=image_reference_prefix,
                         documents_dir=resolved_documents_dir, document_prefix=document_reference_prefix,
                         logger=logger,
+                        **({"authorization_required": asset_authorization}
+                           if shared_page is not None and authorize_login is not None else {}),
                     )
+                    if asset_authorization and await authorize_shared(
+                        url, lambda: _chatgpt_session_is_authenticated(page, url), force=True,
+                    ):
+                        payload = await chatgpt_source.read_conversation(page, url)
+                        captured = await capture_conversation(
+                            page, url, payload, images_dir=resolved_images_dir, image_prefix=image_reference_prefix,
+                            documents_dir=resolved_documents_dir, document_prefix=document_reference_prefix, logger=logger,
+                        )
                     fetch_warnings.extend(captured["warnings"])
                     captured["warnings"] = fetch_warnings
                     completed_result = FetchResult(**captured, user_wait_seconds=user_wait_seconds)
@@ -5712,16 +5906,18 @@ async def fetch_chat_pipeline(
                     kimi_ready = await _page_has_conversation_content(
                         page, kimi_private_url
                     )
+                    if not kimi_ready and shared_page is not None and authorize_login is not None:
+                        kimi_ready = await authorize_shared(kimi_private_url)
                     if (
                         not kimi_ready
                         and login_confirmation_callback is not None
                         and login_confirmation_callback()
                     ):
                         allow_interactive_login = True
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright,
                             headless=False,
                             viewport=None,
@@ -5730,9 +5926,9 @@ async def fetch_chat_pipeline(
                             logger=logger,
                             profile_root=browser_profile_root,
                         )
-                        page = context.pages[0] if context.pages else await context.new_page()
-                        await _set_browser_window_state(page, "maximized")
-                        page.on("response", capture_response_assets)
+                        page = await capture_page(context)
+                        await set_window_state(page, "maximized")
+                        listen(page, capture_response_assets)
                         await goto_with_retry_gui(page, kimi_private_url, logger=logger)
                         if login_required_callback is not None:
                             if login_ready_event is not None:
@@ -5882,7 +6078,15 @@ async def fetch_chat_pipeline(
                     image_warnings,
                     image_authentication_required,
                     failure_collector=image_failures,
+                    detect_login=shared_page is not None and authorize_login is not None,
                 )
+                if image_authentication_required and await authorize_shared(url, force=True):
+                    image_warnings.clear()
+                    image_failures.clear()
+                    image_map = await _download_image_candidates(
+                        page, image_candidates, resolved_images_dir, image_reference_prefix,
+                        image_download_concurrency, image_warnings, failure_collector=image_failures,
+                    )
                 if current_host in DOUBAO_HOSTS:
                     doubao.alias_generated_images(image_map, doubao_image_aliases)
                     fallback_sources = [source for source in doubao_image_aliases
@@ -5913,10 +6117,10 @@ async def fetch_chat_pipeline(
                             "已确认登录，正在打开浏览器；登录后请点击"
                             "【登录完毕】..."
                         )
-                    await _close_browser_context_safely(
+                    await close_context(
                         context, fetch_warnings, logger
                     )
-                    context, _browser_channel = await launch_browser_context(
+                    context, _browser_channel = await open_context(
                         playwright,
                         headless=False,
                         viewport=None,
@@ -5925,13 +6129,9 @@ async def fetch_chat_pipeline(
                         logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = (
-                        context.pages[0]
-                        if context.pages
-                        else await context.new_page()
-                    )
-                    await _set_browser_window_state(page, "maximized")
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context)
+                    await set_window_state(page, "maximized")
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
                     chatgpt_logged_in = (
                         current_host in {"chatgpt.com", "chat.openai.com"}
@@ -5968,7 +6168,7 @@ async def fetch_chat_pipeline(
                         image_warnings,
                         failure_collector=image_failures,
                     )
-                    await _set_browser_window_state(page, "minimized")
+                    await set_window_state(page, "minimized")
                 fetch_warnings.extend(image_warnings)
                 if logger:
                     usable_sources = _ordered_image_sources(image_candidates)
@@ -6026,16 +6226,18 @@ async def fetch_chat_pipeline(
                     gemini_ready = await _page_has_conversation_content(
                         page, gemini_private_url
                     )
+                    if not gemini_ready and shared_page is not None and authorize_login is not None:
+                        gemini_ready = await authorize_shared(gemini_private_url)
                     if (
                         not gemini_ready
                         and login_confirmation_callback is not None
                         and login_confirmation_callback()
                     ):
                         allow_interactive_login = True
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright,
                             headless=False,
                             viewport=None,
@@ -6044,13 +6246,9 @@ async def fetch_chat_pipeline(
                             logger=logger,
                             profile_root=browser_profile_root,
                         )
-                        page = (
-                            context.pages[0]
-                            if context.pages
-                            else await context.new_page()
-                        )
-                        await _set_browser_window_state(page, "maximized")
-                        page.on("response", capture_response_assets)
+                        page = await capture_page(context)
+                        await set_window_state(page, "maximized")
+                        listen(page, capture_response_assets)
                         await goto_with_retry_gui(
                             page, gemini_private_url, logger=logger
                         )
@@ -6170,6 +6368,14 @@ async def fetch_chat_pipeline(
                     failure_collector=document_failures,
                     authentication_required=document_authentication_required,
                 )
+                if document_authentication_required and await authorize_shared(url, force=True):
+                    document_warnings.clear()
+                    document_failures.clear()
+                    document_map = await _download_document_candidates(
+                        page, document_candidates, resolved_documents_dir, document_reference_prefix,
+                        document_download_concurrency, document_warnings, conversation_url=url,
+                        captured_documents=captured_document_responses, failure_collector=document_failures,
+                    )
                 missing_doubao_attachments = (
                     _doubao_unavailable_attachment_names(html, document_map)
                     if current_host in DOUBAO_HOSTS else []
@@ -6200,16 +6406,19 @@ async def fetch_chat_pipeline(
                         page, html, resolved_documents_dir,
                         document_reference_prefix, fetch_warnings,
                     )
-                    await _close_browser_context_safely(context, fetch_warnings, logger)
-                    context, _browser_channel = await launch_browser_context(
+                    await close_context(context, fetch_warnings, logger)
+                    context, _browser_channel = await open_context(
                         playwright, headless=headless, viewport=viewport_config,
                         no_viewport=need_login, logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = await context.new_page()
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context, new=True)
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, url, logger=logger)
                     await _page_has_conversation_content(page, url)
+                    if (shared_page is not None and authorize_login is not None
+                            and await page.get_by_role("button", name="登录", exact=True).first.is_visible()):
+                        await authorize_shared(url, force=True)
                     if (
                         await page.get_by_role("button", name="登录", exact=True).first.is_visible()
                         and login_ready_event is not None
@@ -6217,14 +6426,14 @@ async def fetch_chat_pipeline(
                         and login_confirmation_callback is not None
                         and login_confirmation_callback()
                     ):
-                        await _close_browser_context_safely(context, fetch_warnings, logger)
-                        context, _browser_channel = await launch_browser_context(
+                        await close_context(context, fetch_warnings, logger)
+                        context, _browser_channel = await open_context(
                             playwright, headless=False, viewport=None,
                             no_viewport=True, logger=logger, profile_root=browser_profile_root,
                         )
-                        page = await context.new_page()
+                        page = await capture_page(context, new=True)
                         await goto_with_retry_gui(page, url, logger=logger)
-                        await _set_browser_window_state(page, "maximized")
+                        await set_window_state(page, "maximized")
                         login_ready_event.clear()
                         login_required_callback()
                         login_wait_started = time.perf_counter()
@@ -6286,19 +6495,21 @@ async def fetch_chat_pipeline(
                             document_reference_prefix, fetch_warnings,
                         )
                     response_document_candidates.clear()
-                    await _close_browser_context_safely(
+                    await close_context(
                         context, fetch_warnings, logger
                     )
-                    context, _browser_channel = await launch_browser_context(
+                    context, _browser_channel = await open_context(
                         playwright, headless=False, viewport=None,
                         no_viewport=True, logger=logger,
                         profile_root=browser_profile_root,
                     )
-                    page = context.pages[0] if context.pages else await context.new_page()
-                    await _set_browser_window_state(page, "maximized")
-                    page.on("response", capture_response_assets)
+                    page = await capture_page(context)
+                    await set_window_state(page, "maximized")
+                    listen(page, capture_response_assets)
                     await goto_with_retry_gui(page, retry_url, logger=logger)
                     ready = await _page_has_conversation_content(page, retry_url)
+                    if not ready and shared_page is not None and authorize_login is not None:
+                        ready = await authorize_shared(retry_url)
                     if not ready and (
                         login_confirmation_callback is None
                         or login_confirmation_callback()
@@ -6456,15 +6667,15 @@ async def fetch_chat_pipeline(
                         # 单独复用项目登录态，不能从匿名编辑器读取局部预览。
                         if logger:
                             logger("豆包在线文档需要账号导出，正在检查已保存的登录状态...")
-                        await _close_browser_context_safely(
+                        await close_context(
                             context, fetch_warnings, logger
                         )
-                        context, _browser_channel = await launch_browser_context(
+                        context, _browser_channel = await open_context(
                             playwright, headless=headless,
                             viewport=viewport_config, no_viewport=need_login,
                             logger=logger, profile_root=browser_profile_root,
                         )
-                        page = await context.new_page()
+                        page = await capture_page(context, new=True)
                         slide_conversation = next((e['conversation_id'] for e in doubao_slides
                                                    if re.fullmatch(r'\d+',e['conversation_id'])), '')
                         document_entry = next(iter(doubao_online_resources.values()),
@@ -6476,6 +6687,16 @@ async def fetch_chat_pipeline(
                             ).first.wait_for(state="visible", timeout=10000)
                         except Exception:
                             pass
+                        if (shared_page is not None and authorize_login is not None
+                                and await page.get_by_role("button", name="登录", exact=True).first.is_visible()):
+                            async def document_ready():
+                                if urlparse(page.url).path != urlparse(document_entry).path:
+                                    return False
+                                if urlparse(document_entry).path.startswith("/docx/"):
+                                    return (await page.get_by_role("button", name="下载", exact=True).first.is_visible()
+                                            and not await page.get_by_role("button", name="登录", exact=True).first.is_visible())
+                                return await _page_has_conversation_content(page, document_entry)
+                            await authorize_shared(document_entry, document_ready, force=True)
                         if (
                             await page.get_by_role("button", name="登录", exact=True).first.is_visible()
                             and login_required_callback is not None
@@ -6483,24 +6704,24 @@ async def fetch_chat_pipeline(
                             and login_confirmation_callback is not None
                             and login_confirmation_callback()
                         ):
-                            await _close_browser_context_safely(
+                            await close_context(
                                 context, fetch_warnings, logger
                             )
-                            context, _browser_channel = await launch_browser_context(
+                            context, _browser_channel = await open_context(
                                 playwright, headless=False, viewport=None,
                                 no_viewport=True, logger=logger,
                                 profile_root=browser_profile_root,
                             )
-                            page = await context.new_page()
+                            page = await capture_page(context, new=True)
                             await goto_with_retry_gui(page, document_entry, logger=logger)
-                            await _set_browser_window_state(page, "maximized")
+                            await set_window_state(page, "maximized")
                             login_ready_event.clear()
                             login_required_callback()
                             login_wait_started = time.perf_counter()
                             await login_ready_event.wait()
                             user_wait_seconds += time.perf_counter() - login_wait_started
                             await goto_with_retry_gui(page, document_entry, logger=logger)
-                        page.on("response", capture_response_assets)
+                        listen(page, capture_response_assets)
                     ai_document_map, doubao_ai_document_count = (
                         await _save_doubao_ai_documents(
                             page,
@@ -6510,6 +6731,7 @@ async def fetch_chat_pipeline(
                             fetch_warnings,
                             logger,
                             entries=doubao_ai_document_entries,
+                            reuse_page=shared_page is not None,
                         )
                     )
                     document_map.update(ai_document_map)
@@ -6735,7 +6957,16 @@ async def fetch_chat_pipeline(
                 return completed_result
 
             finally:
-                await _close_browser_context_safely(
+                if shared_page is not None:
+                    page.remove_listener("response", capture_response_assets)
+                    for task in response_tasks:
+                        task.cancel()
+                    await asyncio.gather(*response_tasks, return_exceptions=True)
+                    if vars(page).get("_aimemory_gemini_documents") is gemini_documents:
+                        vars(page).pop("_aimemory_gemini_documents", None)
+                    if gemini_documents is not None:
+                        await gemini_documents.close()
+                await close_context(
                     context, fetch_warnings, logger
                 )
     except Exception as e:

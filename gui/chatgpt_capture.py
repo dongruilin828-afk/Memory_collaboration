@@ -63,7 +63,8 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                 }
                 phase='metadata';
                 let r=await fetch(target.href,opts());
-                if(!r.ok)return {status:r.status};
+                if(!r.ok)return {status:r.status,auth_required:backend && [401,403].includes(r.status)
+                    && r.headers.get('cf-mitigated')!=='challenge'};
                 if((r.headers.get('content-type')||'').includes('application/json')){
                     const data=await r.json();
                     const link=data.download_url||data.downloadUrl||data.url||data.data?.download_url||data.data?.url;
@@ -79,7 +80,8 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
                     }
                     phase='download';
                     r=await fetch(download.href,options);
-                    if(!r.ok)return {status:r.status};
+                    if(!r.ok)return {status:r.status,auth_required:download.origin===location.origin
+                        && [401,403].includes(r.status) && r.headers.get('cf-mitigated')!=='challenge'};
                 }
                 if(Number(r.headers.get('content-length')||0)>maxBytes)return {error:'size_limit'};
                 phase='body';
@@ -129,7 +131,9 @@ async def read_asset(page, asset: Asset) -> tuple[bytes, str]:
             break
         if attempt < 2:
             await page.wait_for_timeout(1500)
-    raise SourceError(f"原文件未能下载（{result.get('error') or 'HTTP ' + str(result.get('status', 0))}）。")
+    error = SourceError(f"原文件未能下载（{result.get('error') or 'HTTP ' + str(result.get('status', 0))}）。")
+    error.auth_required = result.get("auth_required") is True
+    raise error
 
 
 def save_asset(body: bytes, asset: Asset, directory: Path, prefix: str,
@@ -164,7 +168,7 @@ def _is_deferred_widget(message: Message) -> bool:
     return kinds & {"map", "client_defined_widget", "dil", "image_group"} == {"client_defined_widget"}
 
 
-async def rendered_messages(page, url: str, messages: list[Message]) -> dict[str, str]:
+async def rendered_messages(page, url: str, messages: list[Message], *, warning_collector=None) -> dict[str, str]:
     """Collect only requested rich-message IDs; reject unrelated or empty DOM."""
     # A user turn and its answer can share an exchange ID. Only message/node
     # identities may authorize a DOM fragment to replace the answer's source.
@@ -247,7 +251,9 @@ async def rendered_messages(page, url: str, messages: list[Message]) -> dict[str
         except Exception:
             pass
     missing = [m.id for m in messages if m.rich and not ready(m)]
-    raise SourceError(f"有 {len(missing)} 条交互回复尚未完整渲染，已停止导出以避免遗漏。请稍后重试。")
+    if warning_collector is not None:
+        warning_collector.append(f"有 {len(missing)} 条交互回复尚未完整渲染，已保留当前可读内容并继续导出。")
+    return captured
 
 
 def _citation_key(target: str) -> tuple[str, str, str]:
@@ -257,7 +263,7 @@ def _citation_key(target: str) -> tuple[str, str, str]:
     return url.netloc.lower(), url.path.rstrip("/"), urlencode(query)
 
 
-def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]) -> str:
+def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str], *, warning_collector=None) -> str:
     fragments = list(dict.fromkeys(rendered[i] for i in row.ids if i in rendered))
     parsed = []
     for fragment in fragments:
@@ -297,7 +303,9 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
     if not parsed and _is_deferred_widget(row):
         parsed.append("（交互组件暂未导出）")
     if not parsed:
-        raise SourceError("交互回复未取得可见正文，已停止导出。")
+        parsed.append("（交互回复尚未渲染，暂无可导出的可见正文）")
+        if warning_collector is not None:
+            warning_collector.append("交互回复未取得可见正文，已保留占位和可用附件并继续导出。")
     body = "\n\n".join(parsed)
     # GenUI citation popovers render only a domain and '+N'; their destinations
     # remain in the exact message's resolved components. Preserve these as a
@@ -351,11 +359,13 @@ def rich_markdown(row: Message, rendered: dict[str, str], assets: dict[str, str]
 
 
 async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
-                               documents_dir, document_prefix, logger=None):
+                               documents_dir, document_prefix, logger=None,
+                               authorization_required: list[bool] | None = None):
     rows = source_messages(payload, url)
     if logger:
         logger(f"已核验目标会话 ID，当前分支共 {len(rows)} 条可见消息。")
-    rendered = await rendered_messages(page, url, rows)
+    warnings = []
+    rendered = await rendered_messages(page, url, rows, warning_collector=warnings)
     # Preserve meaningful web/product pictures inside rendered rich replies too;
     # these are separate from user uploads and generated file-service assets.
     for row in rows:
@@ -374,7 +384,7 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
                 seen.add(src)
                 row.assets.append(Asset("web:" + hashlib.sha256(src.encode()).hexdigest(),
                     image.get("alt") or "网页引用图片", "image", src, src))
-    image_map, document_map, warnings, file_cache = {}, {}, [], {}
+    image_map, document_map, file_cache = {}, {}, {}
     for index, row in enumerate(rows, 1):
         kinds = {ref.get("type") for meta in row.metadata for ref in meta.get("content_references") or []}
         for kind, label in (("map", "地图"), ("client_defined_widget", "交互组件")):
@@ -396,13 +406,16 @@ async def capture_conversation(page, url, payload, *, images_dir, image_prefix,
             if asset.source_reference.startswith("sandbox:"):
                 target_map[asset.source_reference] = reference
         except SourceError as error:
+            if authorization_required is not None and getattr(error, "auth_required", False):
+                authorization_required.append(True)
             failures[asset.key] = str(error)
             warnings.append(f"附件 {asset.name}（{asset.key}）未下载：{error}")
         if logger:
             logger(f"原会话附件 {index}/{len(assets)}：{'已保存' if asset.key in references else '未下载，已明确标记'}。")
     result, snapshots = [], []
     for row in rows:
-        body = rich_markdown(row, rendered, references) if row.rich else resolve_citations(row.text, row.metadata, references)
+        body = (rich_markdown(row, rendered, references, warning_collector=warnings) if row.rich
+                else resolve_citations(row.text, row.metadata, references))
         body = prepare_markdown(body, user=row.role == "User")
         attachments = []
         for asset in row.assets:

@@ -183,6 +183,23 @@ class ChatGPTSourceTests(unittest.TestCase):
 
 
 class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_missing_widget_still_exports_other_messages_and_real_attachments(self):
+        data = payload(node('u', 'user', 'question', attachments=[{'id':'file_a','name':'original.md'}]),
+            node('a', 'assistant', 'internal widget implementation', 'u', content_references=[{'type':'dil'}]),
+            node('u2', 'user', 'next question', 'a'), node('a2', 'assistant', 'ordinary answer', 'u2'))
+        with tempfile.TemporaryDirectory() as temporary, patch('gui.chatgpt_capture.rendered_messages', AsyncMock(return_value={})), patch(
+            'gui.chatgpt_capture.read_asset', AsyncMock(return_value=(b'original file', 'text/markdown'))
+        ):
+            folder=Path(temporary)
+            result=await capture_conversation(None, URL, data, images_dir=folder/'images', image_prefix='./images',
+                documents_dir=folder/'documents', document_prefix='./documents')
+            self.assertEqual(len(result['messages']),4)
+            self.assertIn('暂无可导出的可见正文',result['messages'][1]['content'])
+            self.assertEqual(result['messages'][-1]['content'],'ordinary answer')
+            self.assertNotIn('internal widget implementation',result['html'])
+            self.assertEqual((folder/'documents/original.md').read_bytes(),b'original file')
+            self.assertTrue(any('继续导出' in warning for warning in result['warnings']))
+
     async def test_short_widget_placeholder_does_not_block_verified_conversation(self):
         placeholder = "正在生成 无人机飞越群山湖泊"
         for kinds, identifier, visible, succeeds in (
@@ -218,8 +235,11 @@ class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
                     self.assertNotIn("widget implementation", result["html"])
                     self.assertTrue(any("交互组件导出未完成" in w for w in result["warnings"]))
                 else:
-                    with self.assertRaises(SourceError):
-                        await capture_conversation(page, URL, data, **options)
+                    result = await capture_conversation(page, URL, data, **options)
+                    self.assertEqual([m['role'] for m in result['messages']], ['User', 'AI'])
+                    self.assertTrue(any('继续导出' in w for w in result['warnings']))
+                    self.assertNotIn('widget implementation', result['html'])
+                    self.assertNotIn('hidden label', result['html'])
 
     async def test_windows_source_newlines_survive_snapshot_and_markdown_file_roundtrip(self):
         from gui.service import generate_raw_markdown
@@ -260,8 +280,10 @@ class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
                     result = await rendered_messages(page, URL, rows)
                     self.assertIn("answer", result)
                 else:
-                    with self.assertRaises(SourceError):
-                        await rendered_messages(page, URL, rows)
+                    warnings = []
+                    result = await rendered_messages(page, URL, rows, warning_collector=warnings)
+                    self.assertEqual(result, {})
+                    self.assertTrue(any('尚未完整渲染' in w for w in warnings))
                 self.assertTrue(any(call.args == ('(e,reverse)=>e.scrollTop=reverse?-e.scrollHeight:0', True)
                                     for call in scroll.evaluate.await_args_list))
 
@@ -388,6 +410,18 @@ class ChatGPTCaptureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("附件未下载", result["messages"][0]["content"])
         self.assertEqual(len(result["warnings"]), 1)
         self.assertFalse(result["document_map"])
+
+    async def test_asset_auth_failure_is_propagated_without_changing_capture_shape(self):
+        data = payload(node("u", "user", "Q", attachments=[{"id": "file_zip", "name": "archive.zip"}]))
+        error = SourceError("HTTP 401")
+        error.auth_required = True
+        authorization = []
+        with tempfile.TemporaryDirectory() as temp, patch("gui.chatgpt_capture.read_asset", side_effect=error):
+            result = await capture_conversation(None, URL, data, images_dir=Path(temp), image_prefix="./images",
+                documents_dir=Path(temp), document_prefix="./docs", authorization_required=authorization)
+        self.assertEqual(authorization, [True])
+        self.assertNotIn('authorization_required', result)
+        self.assertTrue(result['warnings'])
 
 
 if __name__ == "__main__":

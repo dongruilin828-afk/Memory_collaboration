@@ -2,6 +2,7 @@
 import io
 import unittest
 import zipfile
+from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 from playwright.async_api import async_playwright
@@ -122,6 +123,28 @@ class ChatGPTDownloadBrowserTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaisesRegex(SourceError, 'DOCX'):
                     await self.download('document', 'original.docx')
                 self.assertEqual(len(self.download_headers), 3)
+
+    async def test_auth_markers_exclude_cdn_denials_and_challenge_pages(self):
+        for phase, origin, status, challenge, expected in (
+            ('metadata', APP, 401, False, True),
+            ('metadata', APP, 403, True, False),
+            ('download', APP, 403, False, True),
+            ('download', CDN, 403, False, False),
+        ):
+            with self.subTest(phase=phase, origin=origin, challenge=challenge):
+                async def deny(route):
+                    await route.fulfill(status=status, body='denied', headers={
+                        'access-control-allow-origin': '*',
+                        **({'cf-mitigated': 'challenge'} if challenge else {}),
+                    })
+                self.origin = origin
+                target = APP + '/backend-api/files/download/file_fixture' if phase == 'metadata' else origin + '/signed/file'
+                await self.page.route(target, deny)
+                with patch.object(self.page, 'wait_for_timeout', new=AsyncMock()):
+                    with self.assertRaises(SourceError) as caught:
+                        await self.download('document', 'original.md')
+                self.assertEqual(caught.exception.auth_required, expected)
+                await self.page.unroute(target, deny)
 
 
 if __name__ == '__main__':

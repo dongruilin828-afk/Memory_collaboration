@@ -36,6 +36,7 @@ from urllib.parse import unquote, urlparse
 
 import markdownify
 from bs4 import Comment, NavigableString, Tag
+from scripts.browser_activity import active_rendering
 
 
 DISPLAY_NAME = "Gemini"
@@ -122,6 +123,12 @@ async def collect_html(page):
     if not count:
         return None
 
+    async with active_rendering(page):
+        return await _collect_loaded_html(page, turns)
+
+
+async def _collect_loaded_html(page, turns):
+
     # 两轮扫描：首轮滚入会挂载更早的懒加载消息，第二轮稳定顺序与数量。
     for _ in range(2):
         try:
@@ -130,8 +137,18 @@ async def collect_html(page):
             current = 0
         for index in range(current):
             try:
-                await turns.nth(index).scroll_into_view_if_needed(timeout=2500)
-                await page.wait_for_timeout(120)
+                # Playwright's stability check waits for animation frames,
+                # which background tabs may not produce. Keep native scrolling
+                # and the lazy-load wait; skip duplicate response wrappers.
+                moved = await turns.nth(index).evaluate("""node => {
+                    if (node.tagName.toLowerCase() !== 'user-query'
+                            && node.querySelector('message-content, model-response')) return false;
+                    if (!node.getClientRects().length) return false;
+                    node.scrollIntoView({block: 'center', behavior: 'instant'});
+                    return true;
+                }""", timeout=2500)
+                if moved:
+                    await page.wait_for_timeout(120)
             except Exception:
                 continue
         await page.wait_for_timeout(600)
