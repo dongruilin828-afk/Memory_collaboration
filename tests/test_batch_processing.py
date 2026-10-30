@@ -31,7 +31,10 @@ class BatchPlanTests(unittest.TestCase):
         value = batch.BatchPlan("links", (batch.ItemPlan("http://chatgpt.com/c/one", ("detailed", "raw")),), 1).validate()
         self.assertEqual(value.items[0].source, "https://chatgpt.com/c/one")
         self.assertEqual(value.items[0].modes, ("raw", "detailed"))
-        for concurrency in (0, 4, True, "2"):
+        for concurrency in (1, 4, 10):
+            with self.subTest(concurrency=concurrency):
+                self.assertEqual(plan(concurrency=concurrency).validate().concurrency, concurrency)
+        for concurrency in (0, 11, True, "2", 2.5):
             with self.subTest(concurrency=concurrency), self.assertRaises(ValueError):
                 plan(concurrency=concurrency).validate()
         for modes in ((), ("unknown",)):
@@ -92,7 +95,30 @@ class BatchQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.snapshot()[0]["failed"], 0)
         self.assertEqual(len(self.histories), 10)
         with self.assertRaises(ValueError):
-            plan(concurrency=10).validate()
+            plan(concurrency=11).validate()
+
+    def test_link_batch_runs_ten_summaries_without_adding_an_eleventh_worker(self):
+        gate = threading.Barrier(10, timeout=4)
+        active = peak = 0
+        lock = threading.Lock()
+        def generate(_current, item):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                if item["index"] <= 10:
+                    gate.wait()
+                return []
+            finally:
+                with lock:
+                    active -= 1
+        with patch.object(batch, "capture_links", self.capture), patch.object(self.queue, "_generate", generate):
+            self.add(plan(count=11, modes=("normal", "simple", "detailed"), concurrency=10), api_keys={"gemini": "key"})
+            self.wait_for(lambda: not self.queue.has_work)
+        self.assertEqual(peak, 10)
+        self.assertEqual(self.queue.snapshot()[0]["failed"], 0)
+        self.assertEqual(self.queue.snapshot()[0]["done"], 11)
 
     def test_reordering_running_summary_batch_drains_current_items_then_resumes(self):
         source = self.root / "work.txt"

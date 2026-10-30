@@ -1,4 +1,4 @@
-"""Three-worker authenticated capture queue; parsing stays in service.py."""
+"""Bounded authenticated capture queue; parsing stays in service.py."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright
 
+from gui.batch_login import BatchLoginCoordinator, LOGIN_VIEWPORT
 from gui.service import (
     _close_browser_context_safely,
     fetch_chat_pipeline,
@@ -25,7 +26,8 @@ from scripts.project_paths import BROWSER_USER_DATA_DIR
 from scripts.providers import provider_for_url
 
 
-MAX_CAPTURE_TABS = 3
+DEFAULT_CAPTURE_CONCURRENCY = 3
+MAX_CAPTURE_TABS = 10
 
 # Site download buttons can call window.open or use target=_blank. In batch
 # pages only, keep these navigations in their owner tab (downloads stay downloads).
@@ -129,7 +131,7 @@ async def capture_links(
     resume: bool = False,
     claim_item: Callable[[int], bool] | None = None,
 ) -> list[dict]:
-    """Save links independently in one context with at most three capture pages.
+    """Save links independently in one context with bounded capture pages.
 
     The output directory must be empty. This entry point never calls a summary API
     or copies credentials. The GUI can await human login; CLI failures stay per link.
@@ -142,9 +144,9 @@ async def capture_links(
         raise ValueError("原始对话输出选择须与链接逐项对应。")
     raw_outputs = tuple(save_raw) if save_raw is not None else (True,) * len(links)
     # Snapshot per batch: changing a later batch's choice cannot resize this one.
-    concurrency = MAX_CAPTURE_TABS if concurrency is None else concurrency
-    if type(concurrency) is not int or not 1 <= concurrency <= 3:
-        raise ValueError("抓取并发数必须是 1～3 的整数。")
+    concurrency = DEFAULT_CAPTURE_CONCURRENCY if concurrency is None else concurrency
+    if type(concurrency) is not int or not 1 <= concurrency <= MAX_CAPTURE_TABS:
+        raise ValueError(f"抓取并发数必须是 1～{MAX_CAPTURE_TABS} 的整数。")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     previous = None
@@ -220,13 +222,12 @@ async def capture_links(
                 progress(0, len(links), "正在启动共享浏览器，复用已保存的登录状态…")
                 proxy = system_proxy_options()
                 context, _channel = await launch_browser_context(
-                    playwright, headless=False, viewport={"width": 1920, "height": 10800},
+                    playwright, headless=False, viewport=LOGIN_VIEWPORT,
                     no_viewport=False, start_minimized=True, profile_root=Path(browser_profile_root),
                     **({"proxy": proxy} if proxy else {}),
                 )
                 # Headed Chromium can exit when its last tab closes. Keep fixed
                 # worker pages alive until the entire batch finishes.
-                from gui.batch_login import BatchLoginCoordinator
                 pages = list(context.pages)
                 pending_records = [record for record in records if record["status"] == "queued"]
                 count = min(concurrency, len(pending_records))
@@ -237,6 +238,9 @@ async def capture_links(
                 pages = pages[:count]
                 render_lock = asyncio.Lock()
                 for page in pages:
+                    # Only capture workers need the tall viewport; OAuth windows
+                    # inherit the context's normal human-sized viewport.
+                    await page.set_viewport_size({"width": 1920, "height": 10800})
                     page._aimemory_render_lock = render_lock
                     await page.add_init_script(f"({_SAME_TAB_SCRIPT})()")
                 login = BatchLoginCoordinator(pages, authorize_login, render_lock=render_lock)

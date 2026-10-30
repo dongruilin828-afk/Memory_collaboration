@@ -50,6 +50,10 @@ class Page:
     def __init__(self, context):
         self.context = context
         self.closed = False
+        self.viewport_size = {'width': 1200, 'height': 800}
+
+    async def set_viewport_size(self, viewport):
+        self.viewport_size = dict(viewport)
 
     async def goto(self, url, **kwargs):
         self.url = url
@@ -86,6 +90,23 @@ async def playwright():
 
 
 class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_capture_viewport_does_not_become_login_popup_default(self):
+        context = Context()
+        launch = AsyncMock(return_value=(context, 'chromium'))
+
+        async def fetch(url, **options):
+            self.assertEqual(options['shared_page'].viewport_size, {'width': 1920, 'height': 10800})
+            return FetchResult(html='', image_map={}, messages=[dict(role='User', content=url)])
+
+        with tempfile.TemporaryDirectory() as temporary, patch(
+            'gui.batch_capture.async_playwright', playwright
+        ), patch('gui.batch_capture.launch_browser_context', launch), patch(
+            'gui.batch_capture.fetch_chat_pipeline', fetch
+        ):
+            records = await capture_links(LINKS[:1], Path(temporary) / 'results')
+        self.assertEqual(records[0]['status'], 'completed')
+        self.assertEqual(launch.call_args.kwargs['viewport'], {'width': 1200, 'height': 800})
+
     async def test_per_item_raw_output_does_not_change_captured_messages_or_assets(self):
         context = Context()
         async def fetch(url, **options):
@@ -107,9 +128,11 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(json.loads((target / "result.json").read_text(encoding="utf-8"))["messages"][0]["content"], LINKS[index])
             self.assertEqual(json.loads((root / "input.json").read_text(encoding="utf-8"))["raw_outputs"], [False, True])
 
-    async def test_selected_two_and_three_worker_batches_keep_independent_limits_and_metadata(self):
+    async def test_selected_worker_batches_keep_independent_limits_and_metadata(self):
         contexts = []
         active, peaks, entered, barriers = {}, {}, {}, {}
+        limits = (2, 3, 10)
+        links = [f"https://chatgpt.com/c/item-{index}" for index in range(11)]
 
         async def launch(*_args, **_options):
             context = Context()
@@ -136,12 +159,12 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
         ), patch("gui.batch_capture.fetch_chat_pipeline", fetch):
             root = Path(temporary)
             batches = await asyncio.gather(*(
-                capture_links(LINKS, root / str(limit), concurrency=limit) for limit in (2, 3)
+                capture_links(links, root / str(limit), concurrency=limit) for limit in limits
             ))
-            self.assertEqual([context.peak for context in contexts], [2, 3])
-            self.assertEqual([peaks[context] for context in contexts], [2, 3])
-            for limit, records in zip((2, 3), batches):
-                self.assertEqual([item["url"] for item in records], LINKS)
+            self.assertEqual([context.peak for context in contexts], list(limits))
+            self.assertEqual([peaks[context] for context in contexts], list(limits))
+            for limit, records in zip(limits, batches):
+                self.assertEqual([item["url"] for item in records], links)
                 self.assertTrue(all(item["status"] == "completed" for item in records))
                 for filename in ("input.json", "manifest.json"):
                     self.assertEqual(json.loads((root / str(limit) / filename).read_text(encoding="utf-8"))["concurrency"], limit)
@@ -152,13 +175,13 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
         context = Context()
 
         async def launch(*_args, **_options):
-            batch_capture.MAX_CAPTURE_TABS = 3
+            batch_capture.DEFAULT_CAPTURE_CONCURRENCY = 3
             return context, "chromium"
 
         async def fetch(url, **_options):
             return FetchResult(html="", image_map={}, document_map={}, messages=[dict(role="User", content=url)])
 
-        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.MAX_CAPTURE_TABS", 2), patch(
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.DEFAULT_CAPTURE_CONCURRENCY", 2), patch(
             "gui.batch_capture.async_playwright", playwright
         ), patch("gui.batch_capture.launch_browser_context", launch), patch("gui.batch_capture.fetch_chat_pipeline", fetch):
             root = Path(temporary) / "results"
@@ -169,7 +192,7 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_concurrency_is_rejected_without_creating_output_or_browser(self):
         with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.launch_browser_context", AsyncMock()) as launch:
-            for value in (0, 4, True, "2", 2.5):
+            for value in (0, 11, True, "2", 2.5):
                 with self.subTest(value=value), self.assertRaises(ValueError):
                     await capture_links(LINKS, Path(temporary) / "results", concurrency=value)
                 self.assertFalse((Path(temporary) / "results").exists())
@@ -500,12 +523,19 @@ class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
 @unittest.skipUnless(os.getenv("AI_MEMORY_BROWSER_SMOKE") == "1", "opt-in real Chromium check")
 class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_three_tab_pipeline_reuses_cookie_and_keeps_four_conversations_separate(self):
+        await self._run_tab_pipeline()
+
+    async def test_real_ten_tab_pipeline_reuses_cookie_and_keeps_eleven_conversations_separate(self):
+        await self._run_tab_pipeline(concurrency=10)
+
+    async def _run_tab_pipeline(self, concurrency=None):
         from gui.service import launch_browser_context
         from urllib.parse import urlparse
 
-        ids = [f"11111111-1111-1111-1111-{index:012d}" for index in range(1, 5)]
+        limit = 3 if concurrency is None else concurrency
+        ids = [f"11111111-1111-1111-1111-{index:012d}" for index in range(1, limit + 2)]
         links = [f"https://chatgpt.com/c/{identifier}" for identifier in ids]
-        first_three = asyncio.Event()
+        first_wave = asyncio.Event()
         requested = []
         observed = {"launches": 0, "peak": 0, "downloads": 0}
 
@@ -523,9 +553,9 @@ class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("batch_fixture=logged-in", request.headers.get("cookie", ""))
                 self.assertEqual(request.headers.get("authorization"), "Bearer fixture-token")
                 requested.append(identifier)
-                if len(requested) >= 3:
-                    first_three.set()
-                await asyncio.wait_for(first_three.wait(), 5)
+                if len(requested) >= limit:
+                    first_wave.set()
+                await asyncio.wait_for(first_wave.wait(), 15)
                 await request_route.fulfill(json={"conversation_id": identifier, "current_node": "answer",
                     "mapping": {key: {"id": key, "parent": parent, "message": {
                         "id": key, "author": {"role": role}, "recipient": "all", "metadata": {},
@@ -568,9 +598,10 @@ class BatchBrowserTests(unittest.IsolatedAsyncioTestCase):
             "gui.batch_capture.fetch_chat_pipeline", fetch_with_download
         ):
             records = await asyncio.wait_for(capture_links(links, Path(temporary)/"results",
-                                                          browser_profile_root=Path(temporary)/"profile"), 45)
-            self.assertEqual(observed, {"launches": 1, "peak": 3, "downloads": 4})
-            self.assertTrue(first_three.is_set(), "three conversations must be in flight together")
+                                                          concurrency=concurrency,
+                                                          browser_profile_root=Path(temporary)/"profile"), 90)
+            self.assertEqual(observed, {"launches": 1, "peak": limit, "downloads": len(links)})
+            self.assertTrue(first_wave.is_set(), "selected number of conversations must be in flight together")
             for identifier, record in zip(ids, records):
                 self.assertEqual(record["status"], "completed", record)
                 self.assertEqual(record["messages"], 2)

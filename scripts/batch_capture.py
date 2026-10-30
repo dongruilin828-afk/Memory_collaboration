@@ -1,4 +1,4 @@
-"""Capture links with one logged-in browser and at most three capture tabs."""
+"""Capture links with one logged-in browser and a bounded capture queue."""
 
 import argparse
 import asyncio

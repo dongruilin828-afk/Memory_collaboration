@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from gui.batch_capture import validate_capture_links
+from gui.batch_capture import DEFAULT_CAPTURE_CONCURRENCY, MAX_CAPTURE_TABS, validate_capture_links
 from gui.theme import COLOR_BG_APP, COLOR_CARD, COLOR_TEXT_PRIMARY, COLOR_TEXT_MUTED, COLOR_DANGER, COLOR_ACCENT_BLUE, FONT_BODY, FONT_H2
 from gui.ui_dispatch import bind_visible_modal
 
@@ -27,17 +27,12 @@ class BatchCaptureDialog(tk.Toplevel):
         concurrency_row.pack(fill=tk.X, pady=(0, 12))
         tk.Label(concurrency_row, text="并发数量", font=FONT_BODY,
                  fg=COLOR_TEXT_PRIMARY, bg=COLOR_BG_APP).pack(side=tk.LEFT, padx=(0, 12))
-        self.concurrency_var = tk.IntVar(master=self, value=3)
-        self.concurrency_buttons = []
-        for count in (2, 3):
-            button = tk.Radiobutton(
-                concurrency_row, text=f"{count} 并发", value=count, variable=self.concurrency_var,
-                font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
-                activebackground=COLOR_BG_APP, selectcolor=COLOR_CARD,
-                highlightthickness=0, padx=8, pady=4,
-            )
-            button.pack(side=tk.LEFT, padx=(0, 8))
-            self.concurrency_buttons.append(button)
+        self.concurrency_var = tk.IntVar(master=self, value=DEFAULT_CAPTURE_CONCURRENCY)
+        self.concurrency_box = tk.Spinbox(
+            concurrency_row, from_=1, to=MAX_CAPTURE_TABS, textvariable=self.concurrency_var,
+            width=5, wrap=False, font=FONT_BODY,
+        )
+        self.concurrency_box.pack(side=tk.LEFT)
         entry_row = tk.Frame(body, bg=COLOR_CARD)
         entry_row.pack(fill=tk.BOTH, expand=True)
         scrollbar = ttk.Scrollbar(entry_row, orient=tk.VERTICAL)
@@ -74,15 +69,20 @@ class BatchCaptureDialog(tk.Toplevel):
             self.start_button.configure(state="disabled", text="正在停止…")
             return
         try:
+            concurrency = int(self.concurrency_box.get())
+        except ValueError:
+            concurrency = 0
+        try:
             links = validate_capture_links(self.links.get("1.0", "end" ).splitlines())
+            if not 1 <= concurrency <= MAX_CAPTURE_TABS:
+                raise ValueError(f"抓取并发数必须是 1～{MAX_CAPTURE_TABS} 的整数。")
         except ValueError as error:
             self.status.configure(text=str(error), fg=COLOR_DANGER)
             return
-        if self.on_start(links, self, concurrency=self.concurrency_var.get()):
+        if self.on_start(links, self, concurrency=concurrency):
             self.running = True
             self.links.configure(state="disabled")
-            for button in self.concurrency_buttons:
-                button.configure(state="disabled")
+            self.concurrency_box.configure(state="disabled")
             self.start_button.configure(text="停止抓取")
             self.status.configure(text="正在启动共享浏览器…", fg=COLOR_TEXT_MUTED)
 
@@ -95,8 +95,7 @@ class BatchCaptureDialog(tk.Toplevel):
     def finish(self, text):
         self.running = False
         self.links.configure(state="normal")
-        for button in self.concurrency_buttons:
-            button.configure(state="normal")
+        self.concurrency_box.configure(state="normal")
         self.start_button.configure(state="normal", text="开始批量抓取")
         self.status.configure(text=text)
         if self.close_when_done:

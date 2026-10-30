@@ -46,8 +46,14 @@ class Page:
         self.allowed = False
         self.init_allowed = False
         self.closed = False
+        self.viewport_size = {'width': 1920, 'height': 10800}
+        self.viewports = []
         self.handlers = {}
         self.bring_to_front = AsyncMock()
+
+    async def set_viewport_size(self, viewport):
+        self.viewport_size = dict(viewport)
+        self.viewports.append(dict(viewport))
 
     async def goto(self, url, **_options):
         self.url = url
@@ -76,6 +82,55 @@ class Page:
 class BatchLoginTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.enterContext(patch('gui.batch_login._set_browser_window_state', new_callable=AsyncMock))
+
+    async def test_human_viewport_restores_after_accept_skip_error_or_cancel(self):
+        for outcome in ('accept', 'skip', 'error', 'cancel'):
+            with self.subTest(outcome=outcome):
+                context = Context(2)
+                owner, other = context.pages
+                original = dict(owner.viewport_size)
+                entered = asyncio.Event()
+
+                async def login(page, _url):
+                    self.assertEqual(page.viewport_size, {'width': 1200, 'height': 800})
+                    self.assertEqual(other.viewport_size, original)
+                    entered.set()
+                    if outcome == 'cancel':
+                        await asyncio.Event().wait()
+                    if outcome == 'error':
+                        raise RuntimeError('login fixture failed')
+                    return outcome == 'accept'
+
+                coordinator = BatchLoginCoordinator(context.pages, login)
+                task = asyncio.create_task(coordinator.authorize(
+                    owner, 'https://chatgpt.com/c/exact', AsyncMock(side_effect=[False, True])))
+                if outcome == 'cancel':
+                    # Surface callback assertion failures without hanging the test.
+                    waiting = asyncio.create_task(entered.wait())
+                    await asyncio.wait({task, waiting}, return_when=asyncio.FIRST_COMPLETED)
+                    waiting.cancel()
+                    await asyncio.gather(waiting, return_exceptions=True)
+                    if not task.done():
+                        task.cancel()
+                if outcome in ('error', 'cancel'):
+                    with self.assertRaises(RuntimeError if outcome == 'error' else asyncio.CancelledError):
+                        await task
+                else:
+                    self.assertEqual(await task, outcome == 'accept')
+                self.assertEqual(owner.viewport_size, original)
+                self.assertEqual(owner.viewports[-1], original)
+                self.assertEqual(other.viewports, [])
+                self.assertFalse(coordinator._lock.locked())
+
+    async def test_native_window_viewport_does_not_enable_emulation_for_login(self):
+        context = Context(1)
+        owner = context.pages[0]
+        owner.viewport_size = None
+        coordinator = BatchLoginCoordinator([owner], AsyncMock(return_value=True))
+        self.assertTrue(await coordinator.authorize(
+            owner, 'https://chatgpt.com/c/exact', AsyncMock(side_effect=[False, True])))
+        self.assertIsNone(owner.viewport_size)
+        self.assertEqual(owner.viewports, [])
 
     async def test_same_origin_waiters_recheck_and_do_not_steal_worker_page(self):
         context = Context(3)
@@ -204,27 +259,39 @@ class BatchOAuthBrowserTests(unittest.IsolatedAsyncioTestCase):
                   window.opener.postMessage('done','*');window.close()">complete</button>'''
             elif path == '/login-auto':
                 body = '<script>window.open("/oauth", "_blank")</script>'
+            body = '<style>body{margin:0;min-height:100vh;display:grid;place-items:center}</style>' + body
             await request_route.fulfill(content_type='text/html', body=body,
                                         headers={'cross-origin-opener-policy': 'same-origin'})
 
         with tempfile.TemporaryDirectory() as temporary, patch('gui.batch_login._set_browser_window_state', new_callable=AsyncMock):
             async with async_playwright() as playwright:
                 context, _ = await launch_browser_context(playwright, headless=False,
-                    viewport={'width': 900, 'height': 600}, no_viewport=False,
+                    viewport={'width': 1200, 'height': 800}, no_viewport=False,
                     start_minimized=True, profile_root=Path(temporary)/'profile')
                 try:
                     await context.route('**/*', route)
                     owner = context.pages[0]
                     other = await context.new_page()
+                    capture_viewport = {'width': 1920, 'height': 10800}
+                    await owner.set_viewport_size(capture_viewport)
+                    await other.set_viewport_size(capture_viewport)
                     await other.goto('https://other.test/work')
                     await owner.add_init_script(f'({_SAME_TAB_SCRIPT})()')
                     prompts = []
                     async def callback(page, _url):
                         prompts.append(page)
+                        self.assertEqual(page.viewport_size, {'width': 1200, 'height': 800})
+                        self.assertEqual(other.viewport_size, capture_viewport)
+                        button = await page.locator('#login').bounding_box()
+                        self.assertGreaterEqual(button['y'], 0)
+                        self.assertLess(button['y'] + button['height'], 800)
                         async with page.expect_popup(timeout=5000) as opening:
                             await page.goto('https://owner.test/login-auto')
                         child = await opening.value
                         await child.wait_for_load_state('domcontentloaded')
+                        self.assertEqual(child.viewport_size, {'width': 1200, 'height': 800})
+                        button = await child.locator('#complete').bounding_box()
+                        self.assertLess(button['y'] + button['height'], 800)
                         await child.locator('#complete').click()
                         await page.wait_for_function("document.cookie.includes('fixture=logged-in')")
                         return True
@@ -234,6 +301,7 @@ class BatchOAuthBrowserTests(unittest.IsolatedAsyncioTestCase):
                     url = 'https://owner.test/c/exact-target'
                     self.assertTrue(await coordinator.authorize(owner, url, ready))
                     self.assertEqual(owner.url, url)
+                    self.assertEqual(owner.viewport_size, capture_viewport)
                     self.assertFalse(await owner.evaluate('!!window.__aimemoryAllowLoginPopup'))
                     self.assertEqual(other.url, 'https://other.test/work')
                     self.assertEqual(context.pages, [owner, other])

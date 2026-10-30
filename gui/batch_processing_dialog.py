@@ -5,7 +5,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, ttk
 
-from gui.batch_capture import validate_capture_links
+from gui.batch_capture import DEFAULT_CAPTURE_CONCURRENCY, MAX_CAPTURE_TABS, validate_capture_links
 from gui.batch_processing import BatchPlan, ItemPlan, MODES, MODE_LABELS
 from gui.theme import (COLOR_BG_APP, COLOR_CARD, COLOR_BORDER, COLOR_TEXT_PRIMARY,
                        COLOR_TEXT_MUTED, COLOR_GENERATION_ACCENT as COLOR_ACCENT, COLOR_DANGER, FONT_BODY,
@@ -61,7 +61,7 @@ class BatchProcessingDialog(tk.Toplevel):
         self.on_close = on_close
         self._submitted = False
         self.kind = tk.StringVar(self, value=plan.kind if plan else "links")
-        self._concurrency_choices = {"links": "3", "files": "自动"}
+        self._concurrency_choices = {"links": str(DEFAULT_CAPTURE_CONCURRENCY), "files": "自动"}
         if plan:
             self._concurrency_choices[plan.kind] = "自动" if plan.concurrency is None else str(plan.concurrency)
         self.drafts = {"links": [], "files": []}
@@ -73,7 +73,7 @@ class BatchProcessingDialog(tk.Toplevel):
             for key in self.drafts:
                 self.drafts[key] = [dict(source=item["source"], modes=set(item["modes"])) for item in draft.get(key, [])]
         if str(self._concurrency_choices["links"]).strip() == "自动":
-            self._concurrency_choices["links"] = "3"
+            self._concurrency_choices["links"] = str(DEFAULT_CAPTURE_CONCURRENCY)
         self._controls_kind = self.kind.get()
         self.concurrency = tk.StringVar(self, value=self._concurrency_choices[self.kind.get()])
         self.rows = []
@@ -185,11 +185,11 @@ class BatchProcessingDialog(tk.Toplevel):
                  bg=COLOR_BG_APP).pack(side=tk.LEFT, padx=(0, 10))
         initial_concurrency = self.concurrency.get()
         self.concurrency_box = tk.Spinbox(self.settings, textvariable=self.concurrency,
-            values=("1", "2", "3") if self.kind.get() == "links" else ("自动", *[str(i) for i in range(1, 11)]), width=5, wrap=False, font=self._font,
+            values=tuple(str(i) for i in range(1, MAX_CAPTURE_TABS + 1)) if self.kind.get() == "links" else ("自动", *[str(i) for i in range(1, 11)]), width=5, wrap=False, font=self._font,
             relief=tk.SOLID, bd=1, highlightthickness=0)
         self.concurrency_box.pack(side=tk.LEFT)
         self.concurrency.set(initial_concurrency)
-        HoverTooltip(self.concurrency_box, "链接：1～3并发。文件自动按已选API数量和文件数安排，最多10并发。也可手动输入数量。")
+        HoverTooltip(self.concurrency_box, f"链接：1～{MAX_CAPTURE_TABS}并发，默认{DEFAULT_CAPTURE_CONCURRENCY}。文件自动按已选API数量和文件数安排，最多10并发。也可手动输入数量。")
         self.notice.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
         body.bind("<Configure>", lambda event: self.notice.configure(wraplength=max(1, event.width - 44)))
         self._render()
@@ -396,7 +396,7 @@ class BatchProcessingDialog(tk.Toplevel):
         if kind != self._controls_kind:
             self._concurrency_choices[self._controls_kind] = self.concurrency.get()
             self._controls_kind = kind
-            self.concurrency_box.configure(values=("1", "2", "3") if kind == "links" else ("自动", *[str(i) for i in range(1, 11)]))
+            self.concurrency_box.configure(values=tuple(str(i) for i in range(1, MAX_CAPTURE_TABS + 1)) if kind == "links" else ("自动", *[str(i) for i in range(1, 11)]))
             self.concurrency.set(self._concurrency_choices[kind])
         self.notebook.select(0 if kind == "links" else 1)
         drafts = self.drafts[kind]
@@ -587,10 +587,10 @@ class BatchProcessingDialog(tk.Toplevel):
         value = self.concurrency.get().strip()
         try:
             concurrency = None if value == "自动" else int(value)
-            if self.kind.get() == "links" and concurrency not in (1, 2, 3):
+            if self.kind.get() == "links" and concurrency not in range(1, MAX_CAPTURE_TABS + 1):
                 raise ValueError()
         except ValueError:
-            raise ValueError("对话链接并发数量须为 1～3。" if self.kind.get() == "links" else "请输入有效的并发数量，或选择自动。") from None
+            raise ValueError(f"对话链接并发数量须为 1～{MAX_CAPTURE_TABS}。" if self.kind.get() == "links" else "请输入有效的并发数量，或选择自动。") from None
         providers = tuple(key for key, var in self.provider_vars.items() if var.get()) if self.kind.get() == "files" and self.provider_vars else None
         return BatchPlan(self.kind.get(), tuple(ItemPlan(row["source"], tuple(mode for mode in MODES if mode in row["modes"]))
                                                for row in self.drafts[self.kind.get()]), concurrency, providers).validate()

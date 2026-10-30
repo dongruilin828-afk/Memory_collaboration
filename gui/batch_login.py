@@ -9,6 +9,9 @@ from gui.service import _set_browser_window_state
 from scripts.browser_activity import active_rendering
 
 
+LOGIN_VIEWPORT = {"width": 1200, "height": 800}
+
+
 class BatchLoginCoordinator:
     def __init__(self, pages, callback, *, render_lock=None):
         self.pages = tuple(pages)
@@ -38,12 +41,16 @@ class BatchLoginCoordinator:
             opened = set()
             session = None
             script_id = None
+            original_viewport = page.viewport_size
 
             def new_page(child):
                 opened.add(child)
 
             context.on("page", new_page)
             try:
+                # A 10800px capture viewport centers login forms off-screen.
+                if original_viewport is not None:
+                    await page.set_viewport_size(LOGIN_VIEWPORT)
                 # Install before document scripts, including automatic OAuth
                 # redirects; CDP permits removing it after this authorization.
                 session = await context.new_cdp_session(page)
@@ -71,8 +78,12 @@ class BatchLoginCoordinator:
                                 await asyncio.gather(*(child.close() for child in children))
                         finally:
                             context.remove_listener("page", new_page)
-                            if session is not None:
-                                await session.detach()
+                            try:
+                                if session is not None:
+                                    await session.detach()
+                            finally:
+                                if original_viewport is not None and not page.is_closed():
+                                    await page.set_viewport_size(original_viewport)
 
                 cleaning = asyncio.create_task(asyncio.wait_for(cleanup(), timeout=15))
                 cancelled = False

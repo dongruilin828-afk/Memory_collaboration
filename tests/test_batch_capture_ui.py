@@ -98,7 +98,7 @@ class BatchDialogTests(unittest.TestCase):
                     dialog.links.delete("1.0", "end")
                     dialog.links.insert("1.0", "https://chat.deepseek.com/share/first\nhttps://chatgpt.com/share/second")
                     self.assertEqual(dialog.concurrency_var.get(), 3)
-                    dialog.concurrency_buttons[0].invoke()
+                    dialog.concurrency_box.invoke("buttondown")
                     self.assertEqual(dialog.concurrency_var.get(), 2)
                     dialog.deiconify()
                     width, height = dialog.minsize()
@@ -109,28 +109,45 @@ class BatchDialogTests(unittest.TestCase):
                                          dialog.winfo_rootx() + dialog.winfo_width())
                     self.assertLessEqual(dialog.close_button.winfo_rooty() + dialog.close_button.winfo_height(),
                                          dialog.winfo_rooty() + dialog.winfo_height())
-                    for button in dialog.concurrency_buttons:
-                        self.assertGreaterEqual(button.winfo_width(), button.winfo_reqwidth())
-                        self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
-                        self.assertLessEqual(button.winfo_rootx() + button.winfo_width(),
-                                             dialog.winfo_rootx() + dialog.winfo_width())
+                    self.assertGreaterEqual(dialog.concurrency_box.winfo_width(), dialog.concurrency_box.winfo_reqwidth())
+                    self.assertLessEqual(dialog.concurrency_box.winfo_rootx() + dialog.concurrency_box.winfo_width(),
+                                         dialog.winfo_rootx() + dialog.winfo_width())
                     dialog.start_or_stop()
                     self.assertTrue(dialog.running)
                     self.assertEqual(dialog.links.cget("state"), "disabled")
                     self.assertEqual(len(start.call_args.args[0]), 2)
                     self.assertEqual(start.call_args.kwargs["concurrency"], 2)
-                    self.assertTrue(all(button.cget("state") == "disabled" for button in dialog.concurrency_buttons))
-                    dialog.concurrency_buttons[1].invoke()
+                    self.assertEqual(dialog.concurrency_box.cget("state"), "disabled")
+                    dialog.concurrency_box.invoke("buttonup")
                     self.assertEqual(dialog.concurrency_var.get(), 2)
                     dialog.finish("已完成")
-                    self.assertTrue(all(button.cget("state") == "normal" for button in dialog.concurrency_buttons))
-                    dialog.concurrency_buttons[1].invoke()
+                    self.assertEqual(dialog.concurrency_box.cget("state"), "normal")
+                    dialog.concurrency_var.set(9)
+                    dialog.concurrency_box.invoke("buttonup")
                     dialog.start_or_stop()
-                    self.assertEqual(start.call_args.kwargs["concurrency"], 3)
+                    self.assertEqual(start.call_args.kwargs["concurrency"], 10)
                     dialog.close()
                     stop.assert_called_once()
                     dialog.finish("已停止")
                     self.assertFalse(dialog.winfo_exists())
+        finally:
+            root.destroy()
+
+    def test_capture_dialog_rejects_out_of_range_and_noninteger_limits(self):
+        root = tk.Tk()
+        root.attributes("-alpha", 0)
+        try:
+            start = Mock(return_value=True)
+            dialog = BatchCaptureDialog(root, on_start=start, on_stop=Mock(), initial_text="https://chatgpt.com/c/ten")
+            dialog.attributes("-alpha", 0)
+            for value in ("0", "11", "2.5", ""):
+                dialog.concurrency_box.delete(0, "end")
+                dialog.concurrency_box.insert(0, value)
+                dialog.start_or_stop()
+                self.assertIn("1～10", dialog.status.cget("text"))
+                self.assertFalse(dialog.running)
+            start.assert_not_called()
+            dialog.destroy()
         finally:
             root.destroy()
 

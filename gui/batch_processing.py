@@ -13,7 +13,7 @@ import time
 from urllib.parse import urlparse
 import uuid
 
-from gui.batch_capture import capture_links, validate_capture_links, _write_json
+from gui.batch_capture import DEFAULT_CAPTURE_CONCURRENCY, MAX_CAPTURE_TABS, capture_links, validate_capture_links, _write_json
 from gui.service import generate_output_bundle
 from gui.theme import DIRECT_SUMMARY_FILE_TYPES, DIRECT_SUMMARY_MAX_BYTES
 
@@ -59,7 +59,7 @@ class BatchPlan:
     def validate(self):
         if self.kind not in {"links", "files"}:
             raise ValueError("请选择对话链接或已有文件。")
-        cap = 3 if self.kind == "links" else 10
+        cap = MAX_CAPTURE_TABS if self.kind == "links" else 10
         if self.concurrency is not None and (type(self.concurrency) is not int or not 1 <= self.concurrency <= cap):
             raise ValueError(f"并发数量须为自动或 1～{cap}。")
         if self.api_providers is not None and (not self.api_providers or any(not isinstance(value, str) or not value for value in self.api_providers)):
@@ -133,7 +133,7 @@ class BatchProcessingQueue:
     def _limit(batch):
         if batch.plan.concurrency is not None:
             return batch.plan.concurrency
-        return min(len(batch.items), 3 if batch.plan.kind == "links" else min(10, max(1, len(batch.api_keys))))
+        return min(len(batch.items), DEFAULT_CAPTURE_CONCURRENCY if batch.plan.kind == "links" else min(10, max(1, len(batch.api_keys))))
 
     def _draining(self):
         return {(batch.id, item["index"]) for batch in self.batches for item in batch.items
