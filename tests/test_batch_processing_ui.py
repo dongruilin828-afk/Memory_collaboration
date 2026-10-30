@@ -78,7 +78,7 @@ class BatchEditorTests(_TkTests):
             path = Path(temporary) / "test.txt"
             path.write_text("正文", encoding="utf-8")
             dialog = self.dialog(providers=[("gemini", "Google Gemini"), ("deepseek", "DeepSeek")])
-            self.assertEqual(dialog.concurrency.get(), "自动")
+            self.assertEqual(dialog.concurrency.get(), "3")
             dialog.notebook.select(1)
             self.root.update()
             self.assertEqual(dialog.kind.get(), "files")
@@ -93,7 +93,14 @@ class BatchEditorTests(_TkTests):
             self.assertEqual(dialog.get_plan().api_providers, ("deepseek",))
             dialog.notebook.select(0)
             self.root.update()
-            self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ("自动", "1", "2", "3"))
+            self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ("1", "2", "3"))
+            dialog.concurrency.set("1")
+            dialog.concurrency_box.invoke("buttondown")
+            self.assertEqual(dialog.concurrency.get(), "1")
+            dialog.concurrency.set("自动")
+            with self.assertRaisesRegex(ValueError, "并发"):
+                dialog.get_plan()
+            dialog.concurrency.set("3")
             dialog.notebook.select(1)
             self.root.update()
             self.assertEqual(dialog.concurrency.get(), "10")
@@ -104,6 +111,13 @@ class BatchEditorTests(_TkTests):
             dialog.api_menu.invoke(1)
             with self.assertRaisesRegex(ValueError, "API"):
                 dialog.get_plan()
+            state = dialog.draft_state()
+            state["concurrency_by_kind"]["links"] = "自动"
+            dialog.destroy()
+            dialog = self.dialog(draft=state)
+            dialog.notebook.select(0)
+            self.root.update()
+            self.assertEqual(dialog.concurrency.get(), "3")
 
     def test_disabled_add_button_is_legible_and_footer_controls_stay_centered(self):
         for scaling in (1, 4 / 3, 2, 8 / 3):
@@ -267,7 +281,7 @@ class BatchEditorTests(_TkTests):
     def test_identify_edit_reorder_modes_delete_and_append(self):
         dialog = self.dialog(initial_text="https://chatgpt.com/c/one\nhttps://gemini.google.com/app/two")
         self.assertEqual(dialog.kind.get(), "links")
-        self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ('自动', '1', '2', '3'))
+        self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ('1', '2', '3'))
         self.assertTrue(dialog.identify())
         self.assertEqual(len(dialog.rows), 2)
         dialog.rows[0]["variable"].set("https://chat.deepseek.com/share/edited")
