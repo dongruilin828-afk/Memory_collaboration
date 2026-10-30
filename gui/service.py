@@ -778,6 +778,7 @@ async def launch_browser_context(
     start_minimized: bool = False,
     logger: Optional[Callable[[str], None]] = None,
     profile_root: Optional[Path] = None,
+    proxy: Optional[dict[str, str]] = None,
 ) -> tuple[Any, str]:
     """启动当前变体的浏览器；轻量版按 Edge、Chrome 顺序回退。"""
     channels = browser_channel_candidates()
@@ -800,6 +801,8 @@ async def launch_browser_context(
                 ),
             ],
         }
+        if proxy is not None:
+            launch_options["proxy"] = proxy
         for attempt in range(2):
             try:
                 context = await playwright.chromium.launch_persistent_context(

@@ -65,6 +65,8 @@ summary_results/
 # GUI 个人历史记录及原子写入临时文件仅保留在各自电脑
 task_history.json
 .task_history.json.*.tmp
+batch_draft.json
+.batch_draft.json.*.tmp
 
 # 构建、依赖与开发工具缓存
 /build/
