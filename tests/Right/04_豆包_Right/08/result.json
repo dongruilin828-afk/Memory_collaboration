@@ -1,0 +1,173 @@
+{
+  "image_map": {
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/c5652a0bceb94cc68e31c406ee5ee458preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=KWmw03a%2FvyuZgm5Br7XFvEwPQ9w%3D": "./images/img_1_c1bcc74c.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/023ca0eee5be49479cd8d93f0244ff88preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=plpXaiHsmhbhXsN5PnlqXTq5jxY%3D": "./images/img_2_4077cf5a.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1a95c678d7754508af86b96fa1f7f2cbpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=ooQaFFpoz4c7Un4apAgI24RK3PI%3D": "./images/img_3_abd8e83d.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/c136c91709334e76a56f30e69ea45c81preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878099&x-signature=T060p3BXEVuvE0LqeNDAjA%2BImFI%3D": "./images/img_4_765341ac.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/3d4ab1c4cbd94ad69452da31ea36482fpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878143&x-signature=AcU0n3P6No%2FqbqA9NTWRcaOBBl0%3D": "./images/img_5_5c6e8fcb.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/135da3b84e534f59b9c0e3ebc6491aa8preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878144&x-signature=4q7lgW87tnaxU5BiG03WZqZY%2FSI%3D": "./images/img_6_c2a0ce0c.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/991bdcf365384dcdab0e760896eced1epreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878147&x-signature=XoaSJYL6Lv1TifXNyooqP%2B%2FGhBI%3D": "./images/img_7_207ed377.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/bf1324d1b3af4c51a77a8c3ac86fa222preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878167&x-signature=OBfAgOAY%2BA3ayfGGSBiuICkDe7c%3D": "./images/img_8_59d6d2d6.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/6c41a555d8c34dd0a00fae5f0a38269apreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878169&x-signature=KthOaqNEB3twdpWD7sCIr7vew7U%3D": "./images/img_9_ce060ca8.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8497ef4b9fe456691c65293e77a9821preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878171&x-signature=T8QbgEZmxxj52hZiTf69gZVUnA0%3D": "./images/img_10_a3d8b849.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/75d5c8fe9d7f4671b0d9bdcbfccdf2cdpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878169&x-signature=8uZcmdJI7KPa709UI5afvd8Huh8%3D": "./images/img_11_6b6b851b.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/920a3e4ae8bc4b79bc0488656be5bec9preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=6u3oSSoAPkRsV4d1vbQjGS%2F5QB0%3D": "./images/img_12_01e853df.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/f232d8ab2651484d9f2e54cd9bf0eeadpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878253&x-signature=n18HDD7gxajSaQddpH%2B%2FtSYTHlA%3D": "./images/img_13_8966aa60.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8388e17654943beb6284fa936ae901cpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=6dVCYkUMcooiWQ2JdgYYoAV9tjY%3D": "./images/img_14_cc679b0a.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/0e78070da8454b46bfc8212ffc295d63preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=2bV%2F09SSYBbUglEgV8KmVLocIxc%3D": "./images/img_15_1460339d.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/30419e97cd7044dc8502ba2bbf262063preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=PM0zZkCqxh1V7SEWUkmzNFI1rwU%3D": "./images/img_16_00407d99.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/96ce76193ed24e4c8f1208b6caefb29epreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=i6UebW3O2Nnb46fBtaCOJcCDxsM%3D": "./images/img_17_2722b770.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/e6146ba5c080470b86374c816d237995preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=ptgjUpjeAIzxgSXbGD0d2FrAOwY%3D": "./images/img_18_f8e9eaea.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/88f83abbdd4648399a40065e28480d0apreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=O%2B7uIa18foh852oRY5xfqnU3Dtk%3D": "./images/img_19_e5e623ff.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/cc9c81fb1403482893b0df240756d83dpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=0okuTrb1eLlwPs8QsR0CISHlMrw%3D": "./images/img_20_e0e2756b.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/89526bf57fd7481487db975856c91670preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=b9e3AM9NMDHvL994hoHBF9kAa3s%3D": "./images/img_21_a3a0f4dc.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/20a5a590aa49473fb59f5a395fad0e07preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=6CHwS65Pl0t5vDmatQ7LKxatuFI%3D": "./images/img_22_d08c79b6.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/2172afdb20cb42e1a847c22433bce90cpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=8s2ma5oLBAqxtLuJ7w%2BLi%2B3EYZ8%3D": "./images/img_23_317b0634.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1ecb54ab54b44b5a85ccb6cffa394eefpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=OAzyeT4Rhv2pBX4YjnNZGYOMNMQ%3D": "./images/img_24_09e585cb.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/33b66fb976a144009c340b592b47df9bpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=WklnN%2BwRwHocdwqYgW6a4VFlCzg%3D": "./images/img_25_19dc9972.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8013c4445774fe891fd37654c61963dpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=jMys0t5gdDyTb45UaYf6C1FwBDw%3D": "./images/img_26_905cdc22.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/0d04439cc3ca4cb6bee0ff8cd9d8e03apreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=gtajU%2BsHl6xDMGevQfav1bdGxzo%3D": "./images/img_27_e932a280.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/7fdcd95c08fe4f33824c499a6948d62dpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=b3EnGdVujyRSwcZ4aJOme3BcF8c%3D": "./images/img_28_2a481e1e.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/4495c2281afc4af2b3340690ddecaf7fpreview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=CKsljcGpEguWTHQERTLF%2FSHAlyE%3D": "./images/img_29_8263bb4d.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/91ac61b7318940f0870276f353dac926preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=cyJl%2BCE5bdFpED8TlC0SnLt6fNk%3D": "./images/img_30_759c66b1.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/3914f54becc4443687064a5246e2d6b8preview.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=cr3d%2F61L5eveGsbE5viQcsUuuc8%3D": "./images/img_31_397bb930.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/c5652a0bceb94cc68e31c406ee5ee458preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=gTuGCnL4Y9URejvnnj9NuSlofwc%3D": "./images/img_1_c1bcc74c.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/023ca0eee5be49479cd8d93f0244ff88preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=m66sXmTwrOGJ4L0kko67%2BgAszpw%3D": "./images/img_2_4077cf5a.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1a95c678d7754508af86b96fa1f7f2cbpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878100&x-signature=H1RwK5wkUsEf%2FREFvBJrZSC9d0Y%3D": "./images/img_3_abd8e83d.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/c136c91709334e76a56f30e69ea45c81preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=202510151647544995F6D97FA118C684F5&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878099&x-signature=Ia2Ho80lli5tkcR9OHBzYYbLTJw%3D": "./images/img_4_765341ac.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/3d4ab1c4cbd94ad69452da31ea36482fpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878143&x-signature=sygP%2BBhqnJN8a1sqb5O6vAx4yG4%3D": "./images/img_5_5c6e8fcb.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/135da3b84e534f59b9c0e3ebc6491aa8preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878144&x-signature=xkD3BVUcuBVc9Lh8q7twV7pH%2BOc%3D": "./images/img_6_c2a0ce0c.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/991bdcf365384dcdab0e760896eced1epreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6.png?rcl=20251015164843240FAEBF5C63FAE50088&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878147&x-signature=Rem2qGa%2FaK4P6HpGd1ZR3e7vSo4%3D": "./images/img_7_207ed377.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/bf1324d1b3af4c51a77a8c3ac86fa222preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878167&x-signature=SDjt2TD%2FTSk%2B5posar4UPmk1NNA%3D": "./images/img_8_59d6d2d6.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/6c41a555d8c34dd0a00fae5f0a38269apreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878169&x-signature=aso04uYHluTl3nMM8JOWMVqYmLk%3D": "./images/img_9_ce060ca8.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8497ef4b9fe456691c65293e77a9821preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878171&x-signature=Lbqw%2FHFf2ZV45LcL1b%2BS899Tr8s%3D": "./images/img_10_a3d8b849.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/75d5c8fe9d7f4671b0d9bdcbfccdf2cdpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=2025101516490720DFB34205718CEDDD4F&rk3s=8e244e95&rrcfp=827586d3&x-expires=2075878169&x-signature=BZk8wkv84er2wDbr%2FuQLZ8opOk4%3D": "./images/img_11_6b6b851b.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/920a3e4ae8bc4b79bc0488656be5bec9preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=mQujs39REFpf%2FdxdzE9W9Dx8zZw%3D": "./images/img_12_01e853df.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/f232d8ab2651484d9f2e54cd9bf0eeadpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878253&x-signature=y4FOAFeJj652kaY7g%2Fm9AS2MwIY%3D": "./images/img_13_8966aa60.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8388e17654943beb6284fa936ae901cpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=lZSQZqM7YaDTXCR1zW1HNS7GP5Q%3D": "./images/img_14_cc679b0a.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/0e78070da8454b46bfc8212ffc295d63preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165026A00480EA81B11FD09F89&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878252&x-signature=FsHuhp7YG9YzsH4Hip1jt4ArxFs%3D": "./images/img_15_1460339d.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/30419e97cd7044dc8502ba2bbf262063preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=1Ov6YJ%2FmZ5odqE6FEULYhNbfXys%3D": "./images/img_16_00407d99.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/96ce76193ed24e4c8f1208b6caefb29epreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=MYD5%2FD124XvFhz2vgffwf3ObXAI%3D": "./images/img_17_2722b770.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/e6146ba5c080470b86374c816d237995preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=uGrUk%2F5zAJ0baf4gXwtloM2x%2B8E%3D": "./images/img_18_f8e9eaea.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/88f83abbdd4648399a40065e28480d0apreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165152D247555C8DFFF5DC77BB&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878332&x-signature=Q76HuYBao%2F4jzXmzPYBFfvg1Vmo%3D": "./images/img_19_e5e623ff.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/cc9c81fb1403482893b0df240756d83dpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=lzhimSFQ0FnjVtz65S%2BMzwjnkTo%3D": "./images/img_20_e0e2756b.png",
+    "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/89526bf57fd7481487db975856c91670preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=Jo4yvu4Hy2%2FS%2F%2BP%2FpD2iI%2BwAKx4%3D": "./images/img_21_a3a0f4dc.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/20a5a590aa49473fb59f5a395fad0e07preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=OxtR%2BfxSDAprrtKnDF8jAh4Edqc%3D": "./images/img_22_d08c79b6.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/2172afdb20cb42e1a847c22433bce90cpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165252EC88CEBC5FCD741FC897&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878392&x-signature=vE2VlBa63%2Fsuj%2FPfcmLgjd7guqs%3D": "./images/img_23_317b0634.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1ecb54ab54b44b5a85ccb6cffa394eefpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=oJg9eUGCPO5HwOthLr7bHoWyBUs%3D": "./images/img_24_09e585cb.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/33b66fb976a144009c340b592b47df9bpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=RMZv1JWKcwNsAJmLNYligg7i%2BzY%3D": "./images/img_25_19dc9972.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/d8013c4445774fe891fd37654c61963dpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=Dx%2F18Xvgcv70LfvGOg70fqza83c%3D": "./images/img_26_905cdc22.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/0d04439cc3ca4cb6bee0ff8cd9d8e03apreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=20251015165400DD9ED4978433F0D21530&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878460&x-signature=%2BjqU94dWaK1iScaeyatk%2BDupCZs%3D": "./images/img_27_e932a280.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/7fdcd95c08fe4f33824c499a6948d62dpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=nP8k9pGqC23zr9roP51YWLTxm6Q%3D": "./images/img_28_2a481e1e.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/4495c2281afc4af2b3340690ddecaf7fpreview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=GD1FfEHGf5TbOuS0d%2BJ1MTnSg4Q%3D": "./images/img_29_8263bb4d.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/91ac61b7318940f0870276f353dac926preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=GWBLkmjOfV9s95uxYNtCd%2BdmXhg%3D": "./images/img_30_759c66b1.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/3914f54becc4443687064a5246e2d6b8preview.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5.png?rcl=202510151655345245C20ECD5326CAD116&rk3s=8e244e95&rrcfp=ddbb2dc7&x-expires=2075878555&x-signature=XzoBvwOQVvVRh165P%2BOjTNaQFXE%3D": "./images/img_31_397bb930.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "● Suppose you are working as a core member for the FDU Choir Society, and\nyou are managing the tasks of recruiting student members this semester.\n● Draw a flow chart and publish it through Wechat, which informs new\nstudents of the recruitment process.\n● Key steps include:\n● Fill out enrollment form → Add our wechat work account → Participate in an\ninterview → Prepare for  the interview (add some specific sample\nquestions) → Pick out a position → Join our activities and events! → Meet\nnew friends!\n生成流程图，流程图中的用词全来自以上英文，全部使用英文"
+    },
+    {
+      "role": "AI",
+      "content": "我将为你生成一张符合要求的英文流程图，用于微信发布，展示 FDU Choir Society 的招新流程。\n\n![](./images/img_1_c1bcc74c.png)\n\n![](./images/img_2_4077cf5a.png)\n\n![](./images/img_3_abd8e83d.png)\n\n![](./images/img_4_765341ac.png)"
+    },
+    {
+      "role": "User",
+      "content": "去掉图中的16：9"
+    },
+    {
+      "role": "AI",
+      "content": "我将去除流程图中的 16:9 比例标识。\n\n![](./images/img_5_5c6e8fcb.png)\n\n![](./images/img_6_c2a0ce0c.png)\n\n![](./images/img_7_207ed377.png)\n\n🖼️ **[图片]**（网页中的原图片已失效或未能加载）"
+    },
+    {
+      "role": "User",
+      "content": "将比例改为9：16"
+    },
+    {
+      "role": "AI",
+      "content": "我现在要将这些流程图的比例调整为 9:16。\n\n![](./images/img_8_59d6d2d6.png)\n\n![](./images/img_9_ce060ca8.png)\n\n![](./images/img_10_a3d8b849.png)\n\n![](./images/img_11_6b6b851b.png)"
+    },
+    {
+      "role": "User",
+      "content": "重新生成"
+    },
+    {
+      "role": "AI",
+      "content": "我将重新生成符合 9:16 比例的英文流程图，确保步骤和用词准确。\n\n![](./images/img_12_01e853df.png)\n\n![](./images/img_13_8966aa60.png)\n\n![](./images/img_14_cc679b0a.png)\n\n![](./images/img_15_1460339d.png)"
+    },
+    {
+      "role": "User",
+      "content": "重新生成"
+    },
+    {
+      "role": "AI",
+      "content": "我将重新生成 4 张 9:16 比例的英文流程图，确保内容符合 FDU Choir Society 招新流程。\n\n![](./images/img_16_00407d99.png)\n\n![](./images/img_17_2722b770.png)\n\n![](./images/img_18_f8e9eaea.png)\n\n![](./images/img_19_e5e623ff.png)"
+    },
+    {
+      "role": "User",
+      "content": "重新生成"
+    },
+    {
+      "role": "AI",
+      "content": "我将重新生成 4 张 9:16 比例的英文流程图，保持 FDU Choir Society 招新流程步骤不变。\n\n![](./images/img_20_e0e2756b.png)\n\n![](./images/img_21_a3a0f4dc.png)\n\n![](./images/img_22_d08c79b6.png)\n\n![](./images/img_23_317b0634.png)"
+    },
+    {
+      "role": "User",
+      "content": "重新生成"
+    },
+    {
+      "role": "AI",
+      "content": "我将重新生成 4 张 9:16 比例的英文流程图，延续 FDU Choir Society 招新流程的内容框架。\n\n![](./images/img_24_09e585cb.png)\n\n![](./images/img_25_19dc9972.png)\n\n![](./images/img_26_905cdc22.png)\n\n![](./images/img_27_e932a280.png)"
+    },
+    {
+      "role": "User",
+      "content": "重新生成"
+    },
+    {
+      "role": "AI",
+      "content": "我将重新生成 4 张 9:16 比例的英文流程图，保持 FDU Choir Society 招新流程步骤不变。\n\n![](./images/img_28_2a481e1e.png)\n\n![](./images/img_29_8263bb4d.png)\n\n![](./images/img_30_759c66b1.png)\n\n![](./images/img_31_397bb930.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [
+    "1 张图片已失效或未能下载，已在正文标明；请核对缺失图片。"
+  ],
+  "user_wait_seconds": 0.0,
+  "url": "https://www.doubao.com/chat/24652676153980162?channel=xiazais",
+  "elapsed": 50.31419730000198,
+  "files": {
+    "images/img_10_a3d8b849.png": "b397d6dc29d3b64d8b9ecb9fcce31b60f69a984ef8e304eb5d6ba3914ef7c1ff",
+    "images/img_11_6b6b851b.png": "81bd5de9233c6434a6854f9c983369483e2d5ac5fdb26db7c101497c45ad6abf",
+    "images/img_12_01e853df.png": "778d04942ec0dc2bf57972fdf5f5189b6bcb749b85d2ca6e1031457365a3a3ba",
+    "images/img_13_8966aa60.png": "84f56faabe2be14c44fced798063b3d2b1e7f731fe60f146e6e3500b800141d4",
+    "images/img_14_cc679b0a.png": "7113f22f78137ac313535ace294fa2f5cb2d04bb38c97023d3bc0bcfbf2d7a0d",
+    "images/img_15_1460339d.png": "a9b3a52ac792f172888032ac3b2731371c40f29be167b3a239d51fce1c3595b6",
+    "images/img_16_00407d99.png": "7b49663e7753a08d3ee2f559d5bc6db240070b149c1f88991e579c04a98e2f52",
+    "images/img_17_2722b770.png": "0cb4db2b8af091da0c02eb0c870cb3b5d19d502762763e4c02f1ef02056bd0dc",
+    "images/img_18_f8e9eaea.png": "91cd94eeecaf96fb2efdf22b896b193ce126c5a0a21a8fc543c6310ce55a822c",
+    "images/img_19_e5e623ff.png": "61f1f00b7e4d962b679b2244292d10a76e807b28a6ff9fea79b6666c7ebc311b",
+    "images/img_1_c1bcc74c.png": "0944f3fa1cb1daa2cfdafccacb706790b06c5b4b4b2c7e40c2e2bc78e83c3f91",
+    "images/img_20_e0e2756b.png": "fab109899f71fe8294ec4f803e24164cda5741f6d42120081cd3ee24a156217c",
+    "images/img_21_a3a0f4dc.png": "11adf5005aac83f711bd5f60c93db80e16fc74a730e775c514b8962be93a904b",
+    "images/img_22_d08c79b6.png": "a6c0a91664b763f89d343359ed6f138c2864991856977f3bab0f91ed27c1197c",
+    "images/img_23_317b0634.png": "f6f6f70ea9bafedff727e5ef34f0fb1226c2ce021ee222884a01316eda69d0f6",
+    "images/img_24_09e585cb.png": "1031bfaaafd7ed5269dd5d9c065a74ca51d72d8b9268b806aa74b3e3326f8564",
+    "images/img_25_19dc9972.png": "8a8c77fec0e8ccaaaa72745ee6091c33ea7a34499c6cbf4fe5ac66888d011e46",
+    "images/img_26_905cdc22.png": "4d594f9a5f3a480bd038ccf33e49000e074347acd54b06b5d9edc1ba5549531a",
+    "images/img_27_e932a280.png": "59f80875bfe33010589815567d69ff08b2cabf6efd7fd1314f1dc8fc26625946",
+    "images/img_28_2a481e1e.png": "2beb0ea593a79f1da50c406b2fd1a40981ce6be2707b3238dc52a47453251c74",
+    "images/img_29_8263bb4d.png": "97b485a9690d20b480cc5c55669e32f4a0013120dbb0e4fa15ad1e5c3d589eb3",
+    "images/img_2_4077cf5a.png": "0fc1b881413dce65c73bb7311aeeeea2503f1b6d933914376d44856ffcdd18a3",
+    "images/img_30_759c66b1.png": "050b7f6571d986fb6d08e7be67be28913ad9ebb2d08e7aeabbb75cb92f471c06",
+    "images/img_31_397bb930.png": "272aca03ecf16426cea7aeea2a8d59ddaa0a0f5aac77b0a82832951c52e0a236",
+    "images/img_3_abd8e83d.png": "5e4df31f24fb2af38e3577fea89116e7d9680a4395f77a51f41de1b939f4a2b8",
+    "images/img_4_765341ac.png": "48e72128b0aef99314f1b7bdd491a326f8bd6e11a735aa9ccb3d0e0a9395a12f",
+    "images/img_5_5c6e8fcb.png": "7a4af160529ef73c006fe1371bb30ff824d62332e301110d4a16e81aad279e98",
+    "images/img_6_c2a0ce0c.png": "1bfccf1e51865faae549fd083a9c62dfdd38fa9e38f66c6198ff9fdc5a126a8b",
+    "images/img_7_207ed377.png": "e6af9a05d3469791603eb1e2e213303cd0a3fa2afac21f14aca759351ad9c990",
+    "images/img_8_59d6d2d6.png": "655762291093a799708d211c5c6feca5c603bbe2ac86693f1cf0b14c62abfd2a",
+    "images/img_9_ce060ca8.png": "8c644db7a1347fe2ff0882d7013c714f17af4abaa28c37e6aa84f2c4a6ca1199"
+  }
+}

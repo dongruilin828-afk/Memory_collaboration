@@ -1,0 +1,33 @@
+{
+  "image_map": {
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/8a0870c6eb5c4b0cb12925bc73639003.jpeg~tplv-a9rns2rl98-cgen_lwm3.png?lk3s=8e244e95&rcl=20260925162614D6E8023013F66098C17E&rrcfp=755f3169&x-expires=2105684798&x-signature=hTtMtcO5JXlLf7AwYcSIzexPkiQ%3D": "./images/img_1_b9363c32.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/8a0870c6eb5c4b0cb12925bc73639003.jpeg~tplv-a9rns2rl98-cthumb_lwm3.png?lk3s=8e244e95&rcl=20260925162614D6E8023013F66098C17E&rrcfp=755f3169&x-expires=2105684798&x-signature=DWugs5Py4lqNeMaD29KrzsuiwXU%3D": "./images/img_1_b9363c32.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "生成一张图片给我"
+    },
+    {
+      "role": "AI",
+      "content": "当然可以。你想要什么类型的图片？比如：\n\n1. 风景 / 城市 / 自然\n2. 动漫人物 / 插画角色\n3. 写实美女 / 帅哥肖像\n4. 产品海报 / 封面图\n5. 可爱萌宠 / 动物\n6. 赛博朋克 / 科幻 / 国风等特定风格\n\n你直接回一个方向，我就为你生成一张。"
+    },
+    {
+      "role": "User",
+      "content": "1"
+    },
+    {
+      "role": "AI",
+      "content": "我将为你生成一张自然风景图，采用写实摄影质感，突出山川、湖泊与清晨雾气的宁静氛围。\n\n![](./images/img_1_b9363c32.png)\n\n已为你生成一张写实自然风景图，画面包含山脉、湖泊、晨雾和清晨阳光，适合作为横版壁纸或背景图使用。"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://www.doubao.com/chat/38444006943321346?channel=xiazais",
+  "elapsed": 31.399181899963878,
+  "files": {
+    "images/img_1_b9363c32.png": "9d9327ea81c82d4be73cba92f56f6ab48250fd981d952dbf4fc22d16e69f579d"
+  }
+}

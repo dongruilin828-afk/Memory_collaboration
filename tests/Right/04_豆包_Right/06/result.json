@@ -1,0 +1,54 @@
+{
+  "image_map": {
+    "https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/069450ce3be74a2aa09b88d2feb2bf91.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=TtYmo2VCCpkzg3jPqpQTJbAxOwc%3D": "./images/img_1_0d7d9941.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/ea537b13c2634e4db774cc9fe5ac118b.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=TD4xwsIsYsdY%2BF7YYvi5lri1LMw%3D": "./images/img_2_9c636f44.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/bd80639dcc50416aa03eeb9426165a73.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=MMZThjkkr%2FirTE%2ByQaOH%2BfFJUhs%3D": "./images/img_3_52b84e9f.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/b7153472306d44a290e41754f5679658.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_6b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326275&x-signature=%2F9O2L4QlfBhhnmZNwLHVHVZ7W0w%3D": "./images/img_4_c555125b.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/a82331bc1f1d485b8bf436ce801a5e43.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326313&x-signature=AlpZT9FzqkY%2BVCEPJNlx4Q4UloA%3D": "./images/img_5_feb69860.png",
+    "https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/980b7cd113574a3b92ef9610a06e1461.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326314&x-signature=JL9Ed5BWIrbYEzZ1FO8JAd99vmc%3D": "./images/img_6_5e3e1ecb.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/b9e48a26df474990b5b75923e9511d28.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326315&x-signature=XoaFEHhOqHs%2FOpXLlpPI%2F6X%2Bv%2Fc%3D": "./images/img_7_d7eb2ed9.png",
+    "https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1e8f04b1d50a43dc95bec84e00185ee9.jpeg~tplv-a9rns2rl98-image_pre_watermark_1_5b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326315&x-signature=ZHGpFwe9oIQkjs4qBjMiCd7Rva8%3D": "./images/img_8_5dcf4c72.png",
+    "https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/069450ce3be74a2aa09b88d2feb2bf91.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6_b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=1y%2FUsVPpb4K6QNUqlpqVvpXKge0%3D": "./images/img_1_0d7d9941.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/ea537b13c2634e4db774cc9fe5ac118b.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6_b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=uhCuaJta0rkfFd70izRzWob0HdA%3D": "./images/img_2_9c636f44.png",
+    "https://p6-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/bd80639dcc50416aa03eeb9426165a73.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6_b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326276&x-signature=AGBHDZnOJO33T0gqVtp81TmlMIY%3D": "./images/img_3_52b84e9f.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/b7153472306d44a290e41754f5679658.jpeg~tplv-a9rns2rl98-downsize_watermark_1_6_b.png?lk3s=8e244e95&rcl=20260331221058AFB56745BF773C5BF950&rrcfp=ddbb2dc7&x-expires=2090326275&x-signature=tqalhxeIQfkm7oLKpGnOyjk99j0%3D": "./images/img_4_c555125b.png",
+    "https://p11-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/a82331bc1f1d485b8bf436ce801a5e43.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5_b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326313&x-signature=zj%2B2LVlzv%2ByPsSE2FPsu7QrJAL4%3D": "./images/img_5_feb69860.png",
+    "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/980b7cd113574a3b92ef9610a06e1461.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5_b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326314&x-signature=oCRw5cLk6fMExW1zocAXw5f34TU%3D": "./images/img_6_5e3e1ecb.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/b9e48a26df474990b5b75923e9511d28.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5_b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326315&x-signature=s1tjZCRXUCNklt6gey4PN4qBTQM%3D": "./images/img_7_d7eb2ed9.png",
+    "https://p26-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/1e8f04b1d50a43dc95bec84e00185ee9.jpeg~tplv-a9rns2rl98-downsize_watermark_1_5_b.png?lk3s=8e244e95&rcl=202603312211401F4A1B173A2DD3A7FC4F&rrcfp=ddbb2dc7&x-expires=2090326315&x-signature=NXHeM%2B0Iz7skO%2FDnoCyek013FEE%3D": "./images/img_8_5dcf4c72.png"
+  },
+  "messages": [
+    {
+      "role": "User",
+      "content": "帮我生成图片：帮我生成 peek 材料一下内容的配图，去掉水印：应用案例二：腰椎椎间融合术\nNOROTTE 等研究者开展了一项关于聚醚醚酮 - 羟基磷灰石椎间融合器治疗 L5-S1 退行性腰椎间盘病变的临床研究。研究结果如下：\n融合率：术后 12-24 个月随访显示，椎间融合率高达 95.4%[19]。\n安全性：所有患者术后均无明显并发症，未见植入物移位或断裂。\n临床疗效：患者腰痛和下肢放射痛症状显著改善，满意度高。\n该研究表明，PEEK - 羟基磷灰石复合材料融合器在腰椎退行性疾病治疗中具有良好的安全性和有效性。"
+    },
+    {
+      "role": "AI",
+      "content": "我会为你生成这篇腰椎椎间融合术相关内容的配图。\n\n![](./images/img_1_0d7d9941.png)\n\n![](./images/img_2_9c636f44.png)\n\n![](./images/img_3_52b84e9f.png)\n\n![](./images/img_4_c555125b.png)"
+    },
+    {
+      "role": "User",
+      "content": "帮我生成图片：去掉 ai 生成的水印"
+    },
+    {
+      "role": "AI",
+      "content": "我会为你去掉图片上的 AI 生成水印。\n\n以下是为你生成的图片：\n\n![](./images/img_5_feb69860.png)\n\n![](./images/img_6_5e3e1ecb.png)\n\n![](./images/img_7_d7eb2ed9.png)\n\n![](./images/img_8_5dcf4c72.png)"
+    }
+  ],
+  "document_map": {},
+  "error": null,
+  "warnings": [],
+  "user_wait_seconds": 0.0,
+  "url": "https://www.doubao.com/chat/38419451729967618?channel=xiazais",
+  "elapsed": 41.42402269993909,
+  "files": {
+    "images/img_1_0d7d9941.png": "a613ef8f31e303885c98f59c159dd1c28fd84451c8bf6b021b495f04f80096b6",
+    "images/img_2_9c636f44.png": "5c9dec7fb42bdd30a998c7edb680dbd4eb02820dee2ccbab0b097d58e83fac1c",
+    "images/img_3_52b84e9f.png": "73dab6b4b8b44a1e770dee8aaa6ad52e5787e00b58ac595576987d41be773960",
+    "images/img_4_c555125b.png": "a585fbf679e1e0c03f1af1b10c3f469959199e1b6035d466460468a702ab5ef9",
+    "images/img_5_feb69860.png": "1be06cea7f75a737c1d5fd8bcc659ef95d2a81adcfc6946b8e9ea2b58cfa1f9e",
+    "images/img_6_5e3e1ecb.png": "be297d1bcbb1117ccecc03dc847b03fdb5a06268b61bde3d48c29cc37cf546cc",
+    "images/img_7_d7eb2ed9.png": "f82a5dd00b8dd57bd4257d52e75064caeadeb96edeb16d67fd8d327670a99f01",
+    "images/img_8_5dcf4c72.png": "00dd40fa5cdbf38258d388c5c570dffb2bbd64936f89aaaa99de5c153a0d6a74"
+  }
+}
