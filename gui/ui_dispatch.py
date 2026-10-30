@@ -5,6 +5,20 @@ from __future__ import annotations
 import queue
 import threading
 import tkinter as tk
+from tkinter import ttk
+
+
+def clear_background_focus(event):
+    if isinstance(event.widget, (tk.Frame, tk.Label, tk.Canvas, ttk.Frame, ttk.Label)):
+        if event.widget.bind("<Button-1>"):
+            return
+        window = event.widget.winfo_toplevel()
+        focused = window.focus_get()
+        if isinstance(focused, (tk.Entry, ttk.Entry, ttk.Combobox)):
+            focused.selection_clear()
+        elif isinstance(focused, tk.Text):
+            focused.tag_remove("sel", "1.0", "end")
+        window.focus_set()
 
 
 def bind_visible_modal(dialog):

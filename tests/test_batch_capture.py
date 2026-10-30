@@ -11,12 +11,39 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from gui.batch_capture import capture_links, validate_capture_links
+from gui.batch_capture import capture_links, validate_capture_links, system_proxy_options
 from gui.service import FetchResult, fetch_chat_pipeline
 from scripts.providers.chatgpt_source import SourceError
 
 
 LINKS = [f"https://chat.deepseek.com/share/{index}" for index in range(4)]
+
+
+@unittest.skipUnless(os.name == "nt", "Windows system proxy")
+class SystemProxyTests(unittest.TestCase):
+    def options(self, values):
+        import winreg
+        def query(_key, name):
+            if name not in values:
+                raise FileNotFoundError(name)
+            return values[name], 1
+        with patch.object(winreg, "OpenKey"), patch.object(winreg, "QueryValueEx", query):
+            return system_proxy_options()
+
+    def test_disabled_missing_or_invalid_proxy_keeps_default_launch(self):
+        for values in ({}, {"ProxyEnable": 0, "ProxyServer": "127.0.0.1:7890"},
+                       {"ProxyEnable": 1, "ProxyServer": "http://name:bad"},
+                       {"ProxyEnable": 1, "ProxyServer": "http://secret:password@proxy:7890"}):
+            with self.subTest(values=values):
+                self.assertIsNone(self.options(values))
+
+    def test_enabled_proxy_and_bypass_are_forwarded_without_changing_windows(self):
+        options = self.options({"ProxyEnable": 1, "ProxyServer": "http=127.0.0.1:7890;https=127.0.0.1:7891",
+                                "ProxyOverride": "<local>;*.internal.test"})
+        self.assertEqual(options["server"], "http://127.0.0.1:7891")
+        self.assertIn("127.0.0.1", options["bypass"])
+        self.assertIn("*.internal.test", options["bypass"])
+        self.assertEqual(self.options({"ProxyEnable": 1, "ProxyServer": "socks=127.0.0.1:1080"})["server"], "socks5://127.0.0.1:1080")
 
 
 class Page:
@@ -59,6 +86,27 @@ async def playwright():
 
 
 class BatchCaptureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_per_item_raw_output_does_not_change_captured_messages_or_assets(self):
+        context = Context()
+        async def fetch(url, **options):
+            output = options["document_output_dir"]
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "file.txt").write_text(url, encoding="utf-8")
+            return FetchResult(html="<p>body</p>", image_map={}, document_map={"id": "./documents/file.txt"},
+                               messages=[dict(role="User", content=url)])
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.async_playwright", playwright), \
+                patch("gui.batch_capture.launch_browser_context", AsyncMock(return_value=(context, "chromium"))), \
+                patch("gui.batch_capture.fetch_chat_pipeline", fetch):
+            root = Path(temporary) / "results"
+            records = await capture_links(LINKS[:2], root, save_raw=[False, True])
+            self.assertTrue(all(record["status"] == "completed" for record in records))
+            self.assertEqual([len(record["saved_files"]) for record in records], [0, 1])
+            for index, record in enumerate(records):
+                target = Path(record["output_dir"])
+                self.assertEqual((target / "documents/file.txt").read_text(encoding="utf-8"), LINKS[index])
+                self.assertEqual(json.loads((target / "result.json").read_text(encoding="utf-8"))["messages"][0]["content"], LINKS[index])
+            self.assertEqual(json.loads((root / "input.json").read_text(encoding="utf-8"))["raw_outputs"], [False, True])
+
     async def test_selected_two_and_three_worker_batches_keep_independent_limits_and_metadata(self):
         contexts = []
         active, peaks, entered, barriers = {}, {}, {}, {}

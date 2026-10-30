@@ -90,39 +90,7 @@ class BatchCaptureDialog(tk.Toplevel):
         self.status.configure(text=text, fg=COLOR_TEXT_MUTED)
 
     def request_login(self, url, on_done):
-        login = tk.Toplevel(self)
-        login.title("批量抓取：需要登录授权")
-        login.configure(bg=COLOR_BG_APP)
-        login.transient(self)
-        bind_visible_modal(login)
-        content = tk.Frame(login, bg=COLOR_BG_APP, padx=24, pady=20)
-        content.pack(fill=tk.BOTH, expand=True)
-        text = tk.Label(content, text=(
-            "浏览器已定位到需要授权的页面。\n请在浏览器中登录或切换账号，完成后继续抓取。\n"
-            "请勿关闭共享浏览器；也可以跳过此项或停止整个批次。\n\n" + url
-        ), font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY, justify="left", anchor="w", wraplength=560)
-        text.pack(fill=tk.X, pady=(0, 16))
-        buttons = tk.Frame(content, bg=COLOR_BG_APP)
-        buttons.pack(fill=tk.X)
-
-        def finish(accepted):
-            on_done(accepted)
-            login.destroy()
-            if self.winfo_exists() and self.winfo_viewable():
-                self.grab_set()
-
-        tk.Button(buttons, text="已完成授权，继续", font=FONT_BODY,
-                  command=lambda: finish(True), padx=12, pady=8).pack(side=tk.RIGHT)
-        tk.Button(buttons, text="跳过此项", font=FONT_BODY,
-                  command=lambda: finish(False), padx=12, pady=8).pack(side=tk.RIGHT, padx=8)
-        tk.Button(buttons, text="停止全部", font=FONT_BODY, command=self.on_stop,
-                  padx=12, pady=8).pack(side=tk.LEFT)
-        login.protocol("WM_DELETE_WINDOW", lambda: finish(False))
-        content.bind("<Configure>", lambda event: text.configure(wraplength=max(1, event.width - 48)))
-        login.update_idletasks()
-        login.minsize(max(560, buttons.winfo_reqwidth() + 48), login.winfo_reqheight())
-        login.grab_set()
-        return login
+        return request_batch_login(self, url, on_done, self.on_stop)
 
     def finish(self, text):
         self.running = False
@@ -146,3 +114,41 @@ class BatchCaptureDialog(tk.Toplevel):
     def _destroyed(self, event):
         if event.widget is self and self.running:
             self.on_stop()
+
+
+def request_batch_login(parent, url, on_done, on_stop, *, stop_label="停止全部"):
+    previous_grab = parent.grab_current()
+    login = tk.Toplevel(parent)
+    login.title("批量处理：需要登录授权")
+    login.configure(bg=COLOR_BG_APP)
+    login.transient(parent)
+    bind_visible_modal(login)
+    content = tk.Frame(login, bg=COLOR_BG_APP, padx=24, pady=20)
+    content.pack(fill=tk.BOTH, expand=True)
+    text = tk.Label(content, text=(
+        "浏览器已定位到需要授权的页面。\n请在浏览器中登录或切换账号，完成后继续抓取。\n"
+        "请勿关闭共享浏览器；也可以跳过此项或停止此批次。\n\n" + url
+    ), font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
+       justify="left", anchor="w", wraplength=560)
+    text.pack(fill=tk.X, pady=(0, 16))
+    buttons = tk.Frame(content, bg=COLOR_BG_APP)
+    buttons.pack(fill=tk.X)
+
+    def finish(accepted):
+        on_done(accepted)
+        login.destroy()
+        if previous_grab is not None and previous_grab.winfo_exists() and previous_grab.winfo_viewable():
+            previous_grab.grab_set()
+
+    tk.Button(buttons, text="已完成授权，继续", font=FONT_BODY,
+              command=lambda: finish(True), padx=12, pady=8).pack(side=tk.RIGHT)
+    tk.Button(buttons, text="跳过此项", font=FONT_BODY,
+              command=lambda: finish(False), padx=12, pady=8).pack(side=tk.RIGHT, padx=8)
+    tk.Button(buttons, text=stop_label, font=FONT_BODY, command=on_stop,
+              padx=12, pady=8).pack(side=tk.LEFT)
+    login.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+    content.bind("<Configure>", lambda event: text.configure(wraplength=max(1, event.width - 48)))
+    login.update_idletasks()
+    login.minsize(max(560, buttons.winfo_reqwidth() + 48), login.winfo_reqheight())
+    login.grab_set()
+    return login

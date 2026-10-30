@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import math
 import os
 import subprocess
@@ -109,7 +110,7 @@ from gui.theme import (
     _navigation_icon_path,
     _round_rectangle,
 )
-from gui.ui_dispatch import UIDispatcher, bind_visible_modal
+from gui.ui_dispatch import UIDispatcher, bind_visible_modal, clear_background_focus
 from gui.widgets import (
     FlatButton,
     FlatEntryBox,
@@ -253,6 +254,10 @@ class AIMemoryGUI:
         root.iconphoto(True, self._window_icon)
 
         self.is_running = False
+        self._batch_browser_lock = threading.Lock()
+        self._batch_queue = None
+        self._batch_prompt_active = False
+        self._closing_application = False
         self._generation_cancel_event = threading.Event()
         self._generation_completed = False
         self._generation_progress_reset = False
@@ -265,6 +270,8 @@ class AIMemoryGUI:
             self.app_settings = self.settings_store.load()
         except (SettingsStoreError, Exception):
             self.app_settings = default_app_settings()
+        self._batch_editor_draft = self._load_batch_draft()
+        self._batch_edit_drafts = {}
 
         self.history_store = HistoryStore(self.app_settings.history_file)
         try:
@@ -281,6 +288,9 @@ class AIMemoryGUI:
         self._update_generate_button_state()
         self._ui_dispatcher = UIDispatcher(root)
         self._post_ui = self._ui_dispatcher.post
+        root.protocol("WM_DELETE_WINDOW", self._close_application)
+        root.bind("<Destroy>", self._batch_root_destroyed, add="+")
+        root.bind("<Button-1>", clear_background_focus, add="+")
 
     # ---------------- UI 构建 ----------------
 
@@ -479,7 +489,9 @@ class AIMemoryGUI:
                             + 1 + SETTINGS_PAGE_PADX)) if api_rows else 0
         if api_rows and not settings_page._drag_state["active"]:
             settings_page._layout_api_rows()
-        required_content_width = max(self._generation_section.winfo_reqwidth() + 104, api_width)
+        queue_panel = getattr(self, "_batch_queue_panel", None)
+        queue_width = (queue_panel.minimum_width + 104 if queue_panel is not None and queue_panel.views else 0)
+        required_content_width = max(self._generation_section.winfo_reqwidth() + 104, api_width, queue_width)
         self._content_max_width = max(1280, required_content_width)
         chrome_width = self.custom_scrollbar.winfo_reqwidth() + 4
         min_width = max(
@@ -672,9 +684,11 @@ class AIMemoryGUI:
 
         # ===== 品牌视觉中枢（居中，上方弹性留白） =====
         spacer_top = tk.Frame(center, bg=COLOR_BG_APP)
+        self._home_spacer_top = spacer_top
         spacer_top.pack(fill=tk.BOTH, expand=True)
 
         welcome = tk.Frame(center, bg=COLOR_BG_APP)
+        self._home_welcome = welcome
         welcome.pack(pady=(0, 8))
         StackedLayersIcon(
             welcome, width=64, height=64, bg=COLOR_BG_APP,
@@ -808,15 +822,289 @@ class AIMemoryGUI:
         self._configure_file_drop()
 
         self.batch_capture_button = tk.Button(
-            center, text="批量抓取多个链接", command=self._show_batch_capture_dialog,
+            center, text="批量处理", command=self._show_batch_processing_dialog,
             font=(FONT_FAMILY, 11), bg=COLOR_BG_APP, fg=COLOR_ACCENT_BLUE,
             activebackground=COLOR_BG_APP, relief=tk.FLAT, cursor="hand2", pady=8,
         )
         self.batch_capture_button.pack(pady=(8, 0))
 
+        from gui.batch_queue_panel import BatchQueuePanel
+        self._batch_queue_slot = tk.Frame(center, bg=COLOR_BG_APP)
+        self._batch_queue_panel = BatchQueuePanel(
+            self._batch_queue_slot, on_edit=self._edit_batch, on_remove=self._remove_batch,
+            on_move=lambda source, target: self._get_batch_queue().move(source, target),
+            on_open=self._open_in_explorer, on_layout=self._schedule_responsive_minimums,
+            on_add=self._show_batch_processing_dialog,
+        )
+
         # 底部呼吸留白
         spacer = tk.Frame(center, bg=COLOR_BG_APP, height=80)
+        self._home_spacer_bottom = spacer
         spacer.pack(fill=tk.BOTH, expand=True)
+
+    def _get_batch_queue(self):
+        if self._batch_queue is None:
+            from gui.batch_processing import BatchProcessingQueue
+            self._batch_queue = BatchProcessingQueue(
+                browser_lock=self._batch_browser_lock,
+                on_change=lambda views: self._post_ui(lambda: self._refresh_batch_queue(views)),
+                on_item_done=self._batch_item_done,
+                authorize_login=self._authorize_batch_login,
+                select_topics=self._select_batch_topics,
+            )
+        return self._batch_queue
+
+    def _refresh_batch_queue(self, views):
+        self._batch_queue_panel.set_batches(views)
+        if views:
+            self.batch_capture_button.pack_forget()
+            self._batch_queue_slot.pack(fill=tk.X, padx=52, pady=(12, 0), after=self._omnibox)
+            self._batch_queue_panel.pack(fill=tk.BOTH, expand=True)
+            self._home_spacer_top.pack_forget()
+            self._home_spacer_bottom.pack_forget()
+        else:
+            self._batch_queue_panel.pack_forget()
+            self._batch_queue_slot.pack_forget()
+            self.batch_capture_button.pack(pady=(8, 0), after=self._omnibox)
+            self._home_spacer_top.pack(fill=tk.BOTH, expand=True, before=self._home_welcome)
+            self._home_spacer_bottom.pack(fill=tk.BOTH, expand=True, after=self.batch_capture_button)
+            if self._current_page == 0:
+                self.bg_canvas.yview_moveto(0)
+        self._schedule_scrollregion()
+
+    def _load_batch_draft(self):
+        try:
+            path = self.app_settings.runtime_data_dir / "batch_draft.json"
+            if path.stat().st_size > 10 * 1024 * 1024:
+                return None
+            draft = json.loads(path.read_text(encoding="utf-8"))["draft"]
+            if draft is None:
+                return None
+            if draft["kind"] not in {"links", "files"}:
+                return None
+            choices = draft.get("concurrency_by_kind", {draft["kind"]: draft.get("concurrency", "自动")})
+            if not isinstance(choices, dict) or any(key not in {"links", "files"} or not isinstance(value, (str, int)) for key, value in choices.items()):
+                return None
+            if draft.get("api_providers") is not None and (not isinstance(draft["api_providers"], list)
+                    or any(not isinstance(value, str) for value in draft["api_providers"])):
+                return None
+            for key in ("links", "files"):
+                for row in draft[key]:
+                    if not isinstance(row["source"], str) or not isinstance(row["modes"], list) or not set(row["modes"]) <= {"raw", "normal", "simple", "detailed"}:
+                        return None
+            if not all(isinstance(draft.get(key, ""), str) for key in ("input", "append")):
+                return None
+            return draft
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def _save_batch_draft(self, draft):
+        from gui.batch_capture import _write_json
+        self._batch_editor_draft = draft
+        try:
+            _write_json(self.app_settings.runtime_data_dir / "batch_draft.json", {"version": 1, "draft": draft})
+        except OSError:
+            self.status_var.set("批次草稿已暂存；无法写入运行数据目录，退出程序后将丢失。")
+
+    def _show_batch_processing_dialog(self):
+        if getattr(self, "_closing_application", False):
+            return
+        from gui.batch_processing_dialog import BatchProcessingDialog
+        previous = getattr(self, "_batch_processing_dialog", None)
+        if previous is not None and previous.winfo_exists():
+            previous.deiconify()
+            previous.lift()
+            return
+        self._batch_processing_dialog = BatchProcessingDialog(
+            self.root, on_submit=self._submit_batch,
+            initial_text=self.capsule_entry.get_text().strip(),
+            draft=self._batch_editor_draft, on_close=self._save_batch_draft,
+            providers=self._batch_api_choices(),
+        )
+
+    def _batch_api_choices(self):
+        try:
+            keys = self.credential_store.load_api_keys()
+            profiles = getattr(self.credential_store, "load_custom_apis", lambda: {})()
+        except CredentialStoreError as error:
+            self.status_var.set(str(error))
+            return ()
+        names = {"gemini": "Google Gemini", "siliconflow": "SiliconFlow", "deepseek": "DeepSeek"}
+        names.update({key: value.get("name", "自定义 API") for key, value in profiles.items()})
+        return [(key, names.get(key, key)) for key, value in keys.items() if value]
+
+    def _submit_batch(self, plan, dialog, batch_id=None):
+        needs_summary = any(mode != "raw" for item in plan.items for mode in item.modes)
+        keys, custom = {}, None
+        if needs_summary:
+            try:
+                keys = dict(self.credential_store.load_api_keys())
+                if any(is_custom_provider(key) for key in keys):
+                    custom = self.credential_store.load_custom_apis()
+            except CredentialStoreError as error:
+                raise ValueError(str(error)) from None
+            if not keys:
+                raise ValueError("请先关闭弹窗，在设置中添加总结 API。")
+        queue = self._get_batch_queue()
+        if batch_id is not None:
+            queue.edit(batch_id, plan, api_keys=keys, custom_api=custom)
+            return True
+        settings = self.app_settings
+        parent = settings.default_results_dir or filedialog.askdirectory(
+            parent=dialog, title="选择批次结果保存位置", initialdir=str(Path.home()),
+        )
+        if not parent:
+            return False
+        queue.add(plan, output_parent=parent, runtime_dir=settings.runtime_data_dir,
+                  api_keys=keys, custom_api=custom)
+        return True
+
+    def _edit_batch(self, batch_id):
+        from gui.batch_processing import BatchPlan, ItemPlan
+        from gui.batch_processing_dialog import BatchProcessingDialog
+        previous = getattr(self, "_batch_processing_dialog", None)
+        if previous is not None and previous.winfo_exists():
+            if getattr(previous, "batch_id", None) == batch_id:
+                previous.deiconify()
+                previous.lift()
+                return
+            previous.close()
+        queue = self._get_batch_queue()
+        if not queue.hold(batch_id):
+            return
+        view = next(view for view in queue.snapshot() if view["id"] == batch_id)
+        plan = BatchPlan(view["kind"], tuple(ItemPlan(item["source"], tuple(item["modes"]))
+                                             for item in view["items"]), view.get("requested_concurrency", view["concurrency"]), view.get("api_providers"))
+        try:
+            dialog = BatchProcessingDialog(self.root, plan=plan,
+                on_submit=lambda value, window: self._submit_batch(value, window, batch_id),
+                draft=self._batch_edit_drafts.get(batch_id),
+                providers=self._batch_api_choices(),
+                on_close=lambda draft: self._batch_edit_drafts.__setitem__(batch_id, draft))
+        except Exception:
+            queue.resume(batch_id)
+            raise
+        dialog.batch_id = batch_id
+        dialog.bind("<Destroy>", lambda event: queue.resume(batch_id) if event.widget is dialog else None, add="+")
+        self._batch_processing_dialog = dialog
+
+    def _remove_batch(self, batch_id):
+        queue = self._get_batch_queue()
+        view = next((view for view in queue.snapshot() if view["id"] == batch_id), None)
+        if view is None:
+            return
+        if view["started"] and view["status"] not in {"completed", "failed", "cancelled"}:
+            if messagebox.askyesno("停止批次", "停止此批次？已生成的结果会保留。", parent=self.root):
+                queue.cancel(batch_id)
+        else:
+            queue.remove(batch_id)
+
+    def _batch_item_done(self, batch, item):
+        from datetime import datetime
+        elapsed, wait = item["elapsed_seconds"], item["wait_seconds"]
+        history = dict(
+            title=f"批量处理 {item['index']:03d} · " + (
+                Path(item["source"]).name if batch["kind"] == "files" else urlparse(item["source"]).hostname or "链接"),
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), succeeded=item["status"] == "completed",
+            program_seconds=max(0, elapsed - wait), fetch_seconds=max(0, item["fetch_seconds"] - item["capture_wait_seconds"]),
+            generation_seconds=item["generation_seconds"], wait_seconds=wait, total_seconds=elapsed,
+            file_count=len(item["saved_files"]), saved_files=item["saved_files"], output_dir=item["output_dir"],
+            error=item.get("error"), warnings=item.get("warnings", []),
+        )
+        self._post_ui(lambda: self._add_history_record(history))
+
+    def _wait_batch_prompt(self, factory, cancel_event, abort=None, default=None):
+        answered = threading.Event()
+        state = {"value": default, "dialog": None, "owns_slot": False, "error": None}
+
+        def stopped():
+            return cancel_event.is_set() or (abort is not None and abort.is_set()) or self._ui_dispatcher.closed.is_set()
+
+        def done(value):
+            state["value"] = value
+            answered.set()
+
+        def show():
+            if stopped() or answered.is_set():
+                answered.set()
+                return
+            if self._batch_prompt_active or self.root.grab_current() is not None:
+                self._post_ui(show, visible=True)
+                return
+            self._batch_prompt_active = state["owns_slot"] = True
+            try:
+                state["dialog"] = factory(done)
+            except Exception as error:
+                state["error"] = error
+                answered.set()
+                self._batch_prompt_active = False
+
+        def close():
+            dialog = state["dialog"]
+            if dialog is not None and dialog.winfo_exists():
+                dialog.destroy()
+            if state["owns_slot"]:
+                self._batch_prompt_active = False
+
+        self._post_ui(show, visible=True)
+        try:
+            while not answered.wait(.1):
+                if stopped():
+                    raise asyncio.CancelledError()
+            if stopped():
+                raise asyncio.CancelledError()
+            if state["error"] is not None:
+                raise RuntimeError("无法显示任务所需的确认窗口。") from state["error"]
+            return state["value"]
+        finally:
+            self._post_ui(close)
+
+    async def _authorize_batch_login(self, batch_id, _page, url, cancel_event):
+        from gui.batch_capture_dialog import request_batch_login
+        abort = threading.Event()
+        try:
+            return await asyncio.to_thread(self._wait_batch_prompt,
+                lambda done: request_batch_login(self.root, url, done,
+                    lambda: self._get_batch_queue().cancel(batch_id), stop_label="停止此批次"),
+                cancel_event, abort, False)
+        finally:
+            abort.set()
+
+    def _select_batch_topics(self, _batch_id, index, result, cancel_event):
+        from scripts.gemini_summarizer import available_summary_topics
+        available = available_summary_topics(result)
+        if not available:
+            return ()
+        def show(done):
+            dialog = self._show_summary_topic_dialog(available, done)
+            dialog.title(f"第 {index} 项 · 选择重点主题")
+            return dialog
+        return self._wait_batch_prompt(show, cancel_event, default=())
+
+    def _batch_root_destroyed(self, event):
+        if event.widget is self.root and self._batch_queue is not None:
+            self._batch_queue.close()
+
+    def _close_application(self):
+        editor = getattr(self, "_batch_processing_dialog", None)
+        if editor is not None and editor.winfo_exists():
+            editor.close()
+        if self._closing_application:
+            return
+        queue = self._batch_queue
+        if self.is_running or (queue is not None and queue.has_work):
+            if not messagebox.askyesno("关闭程序", "停止正在处理的任务并关闭？已生成的结果会保留。", parent=self.root):
+                return
+        self._closing_application = True
+        self._generation_cancel_event.set()
+        if queue is not None:
+            queue.close()
+        def finish():
+            if self.is_running or (queue is not None and any(thread.is_alive() for thread in queue.threads)):
+                self.root.after(100, finish)
+            else:
+                self.root.destroy()
+        finish()
 
     def _show_batch_capture_dialog(self):
         if self.is_running:
@@ -1881,6 +2169,8 @@ class AIMemoryGUI:
         return await task
 
     def _on_start_generate(self):
+        if getattr(self, "_closing_application", False):
+            return
         if getattr(self, "is_running", False):
             self._on_stop_generate()
             return
@@ -1975,6 +2265,8 @@ class AIMemoryGUI:
         thread.start()
 
     def _on_direct_summary(self):
+        if getattr(self, "_closing_application", False):
+            return
         if getattr(self, "is_running", False):
             return
         source_path = getattr(self, "selected_summary_file", None)
@@ -2177,6 +2469,9 @@ class AIMemoryGUI:
     def _show_login_dialog(
         self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event,
     ):
+        if getattr(self, "_batch_prompt_active", False) or getattr(self.root, "grab_current", lambda: None)() is not None:
+            self._post_generation_ui(lambda: self._show_login_dialog(loop, login_event), visible=True)
+            return
         dialog = tk.Toplevel(self.root)
         dialog.title("授权登录确认")
         dialog.geometry("480x230")
@@ -2404,6 +2699,7 @@ class AIMemoryGUI:
         dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
         dialog.bind("<Escape>", lambda _e: finish(False))
         dialog.bind("<Return>", lambda _e: finish(True))
+        return dialog
 
     # ---------------- 主题选择调度 ----------------
 
@@ -2436,6 +2732,9 @@ class AIMemoryGUI:
 
         def show_dialog():
             try:
+                if getattr(self, "_batch_prompt_active", False) or getattr(self.root, "grab_current", lambda: None)() is not None:
+                    self._post_generation_ui(show_dialog, visible=True)
+                    return
                 self._show_summary_topic_dialog(available, on_selected)
             except Exception:
                 on_selected(())
@@ -2559,7 +2858,7 @@ class AIMemoryGUI:
                     result_dir,
                     asset_owner,
                 )
-                fetch_coro = (
+                fetch_factory = lambda: (
                     fetch_chat_pipeline(
                         url=url,
                         need_login=need_login,
@@ -2585,7 +2884,7 @@ class AIMemoryGUI:
                         debug_html_file=app_settings.debug_html_file,
                     )
                 )
-                fetch_res = loop.run_until_complete(self._fetch_with_cancellation(fetch_coro))
+                fetch_res = self._run_browser_fetch(loop, fetch_factory)
                 self._check_generation_cancelled()
                 fetch_seconds = time.perf_counter() - fetch_started
                 login_wait_seconds = max(0.0, fetch_res.user_wait_seconds)
@@ -2782,6 +3081,20 @@ class AIMemoryGUI:
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
             self._post_ui(self._on_task_finished)
+
+    def _run_browser_fetch(self, loop, factory):
+        lock = getattr(self, "_batch_browser_lock", None)
+        acquired = False
+        try:
+            if lock is not None:
+                while not lock.acquire(timeout=.1):
+                    self._check_generation_cancelled()
+                acquired = True
+            self._check_generation_cancelled()
+            return loop.run_until_complete(self._fetch_with_cancellation(factory()))
+        finally:
+            if acquired:
+                lock.release()
 
     def _on_task_finished(self):
         self.is_running = False

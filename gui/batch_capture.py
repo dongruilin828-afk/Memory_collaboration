@@ -80,6 +80,41 @@ def _file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+def system_proxy_options():
+    """Batch Chromium must explicitly reuse the enabled Windows manual proxy."""
+    if os.name != "nt":
+        return None
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Internet Settings") as key:
+            if not winreg.QueryValueEx(key, "ProxyEnable")[0]:
+                return None
+            value = str(winreg.QueryValueEx(key, "ProxyServer")[0]).strip()
+            try:
+                bypass = str(winreg.QueryValueEx(key, "ProxyOverride")[0])
+            except FileNotFoundError:
+                bypass = ""
+    except OSError:
+        return None
+    if "=" in value:
+        servers = dict(part.strip().split("=", 1) for part in value.split(";") if "=" in part)
+        value = servers.get("https") or servers.get("http") or ""
+        if not value and servers.get("socks"):
+            value = "socks5://" + servers["socks"]
+    if not value:
+        return None
+    server = value if "://" in value else "http://" + value
+    try:
+        parsed = urlparse(server)
+        if parsed.scheme not in {"http", "https", "socks4", "socks5"} or not parsed.hostname or not parsed.port or parsed.username or parsed.password:
+            return None
+    except ValueError:
+        return None
+    return {"server": server, "bypass": ",".join(filter(None,
+            ["localhost", "127.0.0.1", "[::1]", *bypass.split(";")]))}
+
+
 async def capture_links(
     links: Sequence[str],
     output_dir: Path,
@@ -90,6 +125,9 @@ async def capture_links(
     progress: Callable[[int, int, str], None] = lambda *_: None,
     on_result: Callable[[dict], None] = lambda _: None,
     authorize_login=None,
+    save_raw: Sequence[bool] | None = None,
+    resume: bool = False,
+    claim_item: Callable[[int], bool] | None = None,
 ) -> list[dict]:
     """Save links independently in one context with at most three capture pages.
 
@@ -98,33 +136,60 @@ async def capture_links(
     Native login windows may temporarily add pages during human authorization.
     """
     links = validate_capture_links(links)
+    if save_raw is not None and (
+        len(save_raw) != len(links) or any(type(value) is not bool for value in save_raw)
+    ):
+        raise ValueError("原始对话输出选择须与链接逐项对应。")
+    raw_outputs = tuple(save_raw) if save_raw is not None else (True,) * len(links)
     # Snapshot per batch: changing a later batch's choice cannot resize this one.
     concurrency = MAX_CAPTURE_TABS if concurrency is None else concurrency
     if type(concurrency) is not int or not 1 <= concurrency <= 3:
         raise ValueError("抓取并发数必须是 1～3 的整数。")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    previous = None
     if any(output_dir.iterdir()):
-        raise ValueError("批量结果目录必须为空，避免覆盖以前的抓取。")
+        if not resume:
+            raise ValueError("批量结果目录必须为空，避免覆盖以前的抓取。")
+        try:
+            saved_input = json.loads((output_dir / "input.json").read_text(encoding="utf-8"))
+            previous = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            if (saved_input["links"] != links or saved_input["concurrency"] != concurrency
+                    or saved_input.get("raw_outputs", [True] * len(links)) != list(raw_outputs)
+                    or len(previous["items"]) != len(links)):
+                raise ValueError()
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ValueError("已保存的批次进度与当前输入不符，无法继续。") from None
     started = time.perf_counter()
     records = []
     for index, link in enumerate(links, 1):
         platform = provider_for_url(link).DISPLAY_NAME
         target = output_dir / f"{index:03d}_{platform}"
-        target.mkdir()
+        target.mkdir(exist_ok=resume)
         records.append(dict(index=index, url=link, platform=platform, output_dir=str(target),
                             status="queued", error=None, warnings=[], saved_files=[]))
+        if previous is not None:
+            old = previous["items"][index - 1]
+            if (old.get("index") != index or old.get("url") != link
+                    or Path(old.get("output_dir", "")).resolve() != target
+                    or old.get("status") not in {"queued", "completed", "failed", "cancelled"}):
+                raise ValueError("已保存的条目进度不匹配，无法继续。")
+            records[-1] = old
     _write_json(output_dir / "input.json", {
         "links": links, "sha256": hashlib.sha256("\n".join(links).encode("utf-8")).hexdigest(),
         "concurrency": concurrency, "mode": "raw", "authentication": "reuse",
+        **({"raw_outputs": list(raw_outputs)} if save_raw is not None else {}),
     })
     batch_warnings = []
     batch_error = None
     cancelled = False
+    paused = False
+    prior_elapsed = float(previous.get("elapsed_seconds", 0)) if previous else 0
 
     def save_manifest():
         _write_json(output_dir / "manifest.json", {
-            "concurrency": concurrency, "elapsed_seconds": round(time.perf_counter() - started, 3),
+            "concurrency": concurrency, "elapsed_seconds": round(prior_elapsed + time.perf_counter() - started, 3),
+            "paused": paused,
             "warnings": batch_warnings, "error": batch_error, "items": records,
         })
 
@@ -132,6 +197,8 @@ async def capture_links(
         return cancel_event is not None and cancel_event.is_set()
 
     save_manifest()
+    if all(record["status"] != "queued" for record in records):
+        return records
     workers = []
     monitor = None
     context = None
@@ -151,15 +218,18 @@ async def capture_links(
         async with async_playwright() as playwright:
             try:
                 progress(0, len(links), "正在启动共享浏览器，复用已保存的登录状态…")
+                proxy = system_proxy_options()
                 context, _channel = await launch_browser_context(
                     playwright, headless=False, viewport={"width": 1920, "height": 10800},
                     no_viewport=False, start_minimized=True, profile_root=Path(browser_profile_root),
+                    **({"proxy": proxy} if proxy else {}),
                 )
                 # Headed Chromium can exit when its last tab closes. Keep fixed
                 # worker pages alive until the entire batch finishes.
                 from gui.batch_login import BatchLoginCoordinator
                 pages = list(context.pages)
-                count = min(concurrency, len(links))
+                pending_records = [record for record in records if record["status"] == "queued"]
+                count = min(concurrency, len(pending_records))
                 while len(pages) < count:
                     pages.append(await context.new_page())
                 for page in pages[count:]:
@@ -170,12 +240,16 @@ async def capture_links(
                     page._aimemory_render_lock = render_lock
                     await page.add_init_script(f"({_SAME_TAB_SCRIPT})()")
                 login = BatchLoginCoordinator(pages, authorize_login, render_lock=render_lock)
-                pending = iter(records)
+                pending = iter(pending_records)
 
                 async def worker(page):
+                    nonlocal paused
                     for record in pending:
                         if stopped():
                             raise asyncio.CancelledError()
+                        if claim_item is not None and not claim_item(record["index"]):
+                            paused = True
+                            break
                         target = Path(record["output_dir"])
                         record["status"] = "running"
                         item_started = time.perf_counter()
@@ -211,8 +285,11 @@ async def capture_links(
                                     record["status"] = "failed"
                                     record["error"] = result.error or "未能提取到有效对话内容。"
                                 else:
-                                    export = generate_raw_markdown(result.messages, target / "export.md")
-                                    record.update(status="completed", saved_files=[str(export.resolve())])
+                                    saved = []
+                                    if raw_outputs[record["index"] - 1]:
+                                        export = generate_raw_markdown(result.messages, target / "export.md")
+                                        saved.append(str(export.resolve()))
+                                    record.update(status="completed", saved_files=saved)
                             except asyncio.CancelledError:
                                 record["status"] = "cancelled"
                                 raise
@@ -255,6 +332,8 @@ async def capture_links(
             await asyncio.gather(monitor, return_exceptions=True)
         for record in records:
             if record["status"] in {"queued", "running"}:
+                if paused and record["status"] == "queued" and not (stopped() or cancelled or batch_error):
+                    continue
                 record["status"] = "cancelled" if stopped() or cancelled else "failed"
                 record["error"] = "用户停止批量抓取。" if stopped() or cancelled else batch_error
             if record["status"] == "completed":
