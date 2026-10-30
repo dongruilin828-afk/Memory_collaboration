@@ -828,7 +828,6 @@ class AIMemoryGUI:
 
         from gui.batch_queue_panel import BatchQueuePanel
         self._batch_queue_slot = tk.Frame(center, bg=COLOR_BG_APP)
-        self._batch_queue_slot.pack(fill=tk.X, padx=52, pady=(12, 0))
         self._batch_queue_panel = BatchQueuePanel(
             self._batch_queue_slot, on_edit=self._edit_batch, on_remove=self._remove_batch,
             on_move=lambda source, target: self._get_batch_queue().move(source, target),
@@ -857,14 +856,18 @@ class AIMemoryGUI:
         self._batch_queue_panel.set_batches(views)
         if views:
             self.batch_capture_button.pack_forget()
+            self._batch_queue_slot.pack(fill=tk.X, padx=52, pady=(12, 0), after=self._omnibox)
             self._batch_queue_panel.pack(fill=tk.BOTH, expand=True)
             self._home_spacer_top.pack_forget()
             self._home_spacer_bottom.pack_forget()
         else:
             self._batch_queue_panel.pack_forget()
-            self.batch_capture_button.pack(pady=(8, 0), before=self._batch_queue_slot)
+            self._batch_queue_slot.pack_forget()
+            self.batch_capture_button.pack(pady=(8, 0), after=self._omnibox)
             self._home_spacer_top.pack(fill=tk.BOTH, expand=True, before=self._home_welcome)
-            self._home_spacer_bottom.pack(fill=tk.BOTH, expand=True)
+            self._home_spacer_bottom.pack(fill=tk.BOTH, expand=True, after=self.batch_capture_button)
+            if self._current_page == 0:
+                self.bg_canvas.yview_moveto(0)
         self._schedule_scrollregion()
 
     def _load_batch_draft(self):
@@ -875,7 +878,13 @@ class AIMemoryGUI:
             draft = json.loads(path.read_text(encoding="utf-8"))["draft"]
             if draft is None:
                 return None
-            if draft["kind"] not in {"links", "files"} or type(draft["concurrency"]) is not int or draft["concurrency"] not in (1, 2, 3):
+            if draft["kind"] not in {"links", "files"}:
+                return None
+            choices = draft.get("concurrency_by_kind", {draft["kind"]: draft.get("concurrency", "自动")})
+            if not isinstance(choices, dict) or any(key not in {"links", "files"} or not isinstance(value, (str, int)) for key, value in choices.items()):
+                return None
+            if draft.get("api_providers") is not None and (not isinstance(draft["api_providers"], list)
+                    or any(not isinstance(value, str) for value in draft["api_providers"])):
                 return None
             for key in ("links", "files"):
                 for row in draft[key]:
@@ -908,7 +917,19 @@ class AIMemoryGUI:
             self.root, on_submit=self._submit_batch,
             initial_text=self.capsule_entry.get_text().strip(),
             draft=self._batch_editor_draft, on_close=self._save_batch_draft,
+            providers=self._batch_api_choices(),
         )
+
+    def _batch_api_choices(self):
+        try:
+            keys = self.credential_store.load_api_keys()
+            profiles = getattr(self.credential_store, "load_custom_apis", lambda: {})()
+        except CredentialStoreError as error:
+            self.status_var.set(str(error))
+            return ()
+        names = {"gemini": "Google Gemini", "siliconflow": "SiliconFlow", "deepseek": "DeepSeek"}
+        names.update({key: value.get("name", "自定义 API") for key, value in profiles.items()})
+        return [(key, names.get(key, key)) for key, value in keys.items() if value]
 
     def _submit_batch(self, plan, dialog, batch_id=None):
         needs_summary = any(mode != "raw" for item in plan.items for mode in item.modes)
@@ -951,11 +972,12 @@ class AIMemoryGUI:
             return
         view = next(view for view in queue.snapshot() if view["id"] == batch_id)
         plan = BatchPlan(view["kind"], tuple(ItemPlan(item["source"], tuple(item["modes"]))
-                                             for item in view["items"]), view["concurrency"])
+                                             for item in view["items"]), view.get("requested_concurrency", view["concurrency"]), view.get("api_providers"))
         try:
             dialog = BatchProcessingDialog(self.root, plan=plan,
                 on_submit=lambda value, window: self._submit_batch(value, window, batch_id),
                 draft=self._batch_edit_drafts.get(batch_id),
+                providers=self._batch_api_choices(),
                 on_close=lambda draft: self._batch_edit_drafts.__setitem__(batch_id, draft))
         except Exception:
             queue.resume(batch_id)

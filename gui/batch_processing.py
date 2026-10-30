@@ -53,13 +53,17 @@ class ItemPlan:
 class BatchPlan:
     kind: str
     items: tuple[ItemPlan, ...]
-    concurrency: int = 3
+    concurrency: int | None = None
+    api_providers: tuple[str, ...] | None = None
 
     def validate(self):
         if self.kind not in {"links", "files"}:
             raise ValueError("请选择对话链接或已有文件。")
-        if type(self.concurrency) is not int or not 1 <= self.concurrency <= 3:
-            raise ValueError("并发数量须为 1～3。")
+        cap = 3 if self.kind == "links" else 10
+        if self.concurrency is not None and (type(self.concurrency) is not int or not 1 <= self.concurrency <= cap):
+            raise ValueError(f"并发数量须为自动或 1～{cap}。")
+        if self.api_providers is not None and (not self.api_providers or any(not isinstance(value, str) or not value for value in self.api_providers)):
+            raise ValueError("请至少选择一个允许使用的 API。")
         if not self.items:
             raise ValueError("请至少添加一项。")
         sources = (validate_capture_links([item.source for item in self.items])
@@ -77,7 +81,8 @@ class BatchPlan:
                 if not 0 < path.stat().st_size <= DIRECT_SUMMARY_MAX_BYTES:
                     raise ValueError(f"第 {index} 项为空或超过 10 MiB 限制。")
             normalized.append(ItemPlan(source, tuple(mode for mode in MODES if mode in item.modes)))
-        return BatchPlan(self.kind, tuple(normalized), self.concurrency)
+        return BatchPlan(self.kind, tuple(normalized), self.concurrency,
+                         tuple(dict.fromkeys(self.api_providers)) if self.api_providers is not None else None)
 
 
 @dataclass
@@ -93,6 +98,7 @@ class _Batch:
     editing: bool = False
     capture_started: bool = False
     capture_done: bool = False
+    capture_active: bool = False
     summaries: int = 0
     items: list = field(default_factory=list)
     reported: set = field(default_factory=set, repr=False)
@@ -111,6 +117,47 @@ class BatchProcessingQueue:
         self.threads = []
         self.capture_busy = False
         self._last_progress = 0.0
+        self._ordered = False
+        self._drain_items = set()
+
+    @staticmethod
+    def _api_snapshot(plan, api_keys):
+        keys = dict(api_keys or {})
+        if plan.api_providers is not None:
+            if any(provider not in keys or not keys[provider] for provider in plan.api_providers):
+                raise ValueError("所选 API 已不可用，请重新选择。")
+            keys = {provider: keys[provider] for provider in plan.api_providers}
+        return keys
+
+    @staticmethod
+    def _limit(batch):
+        if batch.plan.concurrency is not None:
+            return batch.plan.concurrency
+        return min(len(batch.items), 3 if batch.plan.kind == "links" else min(10, max(1, len(batch.api_keys))))
+
+    def _draining(self):
+        return {(batch.id, item["index"]) for batch in self.batches for item in batch.items
+                if (batch.id, item["index"]) in self._drain_items and item["status"] not in TERMINAL}
+
+    def _priority(self):
+        return next((batch for batch in self.batches if not batch.cancel.is_set() and not batch.editing
+                     and (batch.capture_active or any(item["status"] not in TERMINAL for item in batch.items))), None)
+
+    def _can_start(self, batch):
+        return (not self.closed and not batch.cancel.is_set() and not batch.editing
+                and (not self._ordered or (not self._draining() and self._priority() is batch)))
+
+    def _next_capture(self):
+        return next((batch for batch in self.batches if batch.plan.kind == "links"
+                     and not batch.capture_done and not batch.capture_active and self._can_start(batch)), None)
+
+    def _claim_capture(self, batch, index):
+        with self.condition:
+            if not self._can_start(batch):
+                return False
+            batch.items[index - 1].update(status="capturing", message="正在抓取")
+            self.condition.notify_all()
+            return True
 
     @staticmethod
     def _items(plan):
@@ -123,6 +170,7 @@ class BatchProcessingQueue:
 
     def add(self, plan, *, output_parent, runtime_dir, api_keys=None, custom_api=None):
         plan = plan.validate()
+        api_keys = self._api_snapshot(plan, api_keys)
         if any(mode != "raw" for item in plan.items for mode in item.modes) and not api_keys:
             raise ValueError("请先在设置中添加总结 API。")
         batch_id = uuid.uuid4().hex
@@ -133,9 +181,12 @@ class BatchProcessingQueue:
         with self.condition:
             if self.closed:
                 raise ValueError("程序正在关闭，不能添加批次。")
+            if not self.has_work:
+                self._ordered = False
+                self._drain_items.clear()
             self.batches.append(batch)
             if not self.threads:
-                for target in (self._capture_worker, self._summary_worker, self._summary_worker, self._summary_worker):
+                for target in (self._capture_worker, *([self._summary_worker] * 10)):
                     thread = threading.Thread(target=target, daemon=True, name="batch-processing")
                     self.threads.append(thread)
                     thread.start()
@@ -148,6 +199,7 @@ class BatchProcessingQueue:
 
     def edit(self, batch_id, plan, *, api_keys=None, custom_api=None):
         plan = plan.validate()
+        api_keys = self._api_snapshot(plan, api_keys)
         if any(mode != "raw" for item in plan.items for mode in item.modes) and not api_keys:
             raise ValueError("请先在设置中添加总结 API。")
         with self.condition:
@@ -162,11 +214,16 @@ class BatchProcessingQueue:
     def move(self, batch_id, before_id):
         with self.condition:
             batch, before = self._find(batch_id), self._find(before_id)
-            if batch is None or batch.started or batch.cancel.is_set() or before is None:
+            if (batch is None or batch.cancel.is_set() or before is None
+                    or self._view(batch)["status"] in TERMINAL or self._view(before)["status"] in TERMINAL):
                 return False
             if batch is not before:
+                position = self.batches.index(before)
                 self.batches.remove(batch)
-                self.batches.insert(self.batches.index(before), batch)
+                self.batches.insert(position, batch)
+                self._ordered = True
+                self._drain_items = {(current.id, item["index"]) for current in self.batches for item in current.items
+                                     if item["status"] in {"capturing", "summarizing"}}
                 self.condition.notify_all()
         self._publish()
         return True
@@ -239,10 +296,16 @@ class BatchProcessingQueue:
     def _view(self, batch):
         statuses = [item["status"] for item in batch.items]
         done = sum(status in TERMINAL for status in statuses)
-        finishing = batch.capture_started and not batch.capture_done and done == len(statuses)
+        finishing = batch.capture_active and done == len(statuses)
         status = ("running" if batch.started else "queued") if done < len(statuses) or finishing else (
             "failed" if "failed" in statuses else "cancelled" if "cancelled" in statuses else "completed")
-        return dict(id=batch.id, kind=batch.plan.kind, concurrency=batch.plan.concurrency,
+        if status == "running" and not finishing and self._ordered and self._priority() is not batch and not any(
+                item["status"] in {"capturing", "summarizing"} for item in batch.items):
+            status = "paused"
+        return dict(id=batch.id, kind=batch.plan.kind, concurrency=self._limit(batch),
+                    requested_concurrency=batch.plan.concurrency, api_providers=batch.plan.api_providers,
+                    pausing=bool(batch.started and status not in TERMINAL and self._ordered
+                                 and self._draining() and self._priority() is not batch),
                     output_dir=str(batch.output_dir), started=batch.started, editing=batch.editing, status=status,
                     finishing=finishing,
                     done=done, total=len(statuses), failed=statuses.count("failed"),
@@ -283,8 +346,7 @@ class BatchProcessingQueue:
     def _capture_worker(self):
         while True:
             with self.condition:
-                self.condition.wait_for(lambda: self.closed or any(
-                    b.plan.kind == "links" and not b.capture_started and not b.editing and not b.cancel.is_set() for b in self.batches))
+                self.condition.wait_for(lambda: self.closed or self._next_capture() is not None)
                 if self.closed:
                     return
             if not self.browser_lock.acquire(timeout=.1):
@@ -292,15 +354,16 @@ class BatchProcessingQueue:
             batch = None
             try:
                 with self.condition:
-                    batch = next((b for b in self.batches if b.plan.kind == "links"
-                                  and not b.capture_started and not b.editing and not b.cancel.is_set()), None)
+                    batch = self._next_capture()
                     if batch is None or self.closed:
                         continue
-                    batch.started = batch.capture_started = self.capture_busy = True
+                    resuming = batch.capture_started
+                    batch.started = batch.capture_started = batch.capture_active = self.capture_busy = True
                 self._publish()
                 records = asyncio.run(capture_links(
                     [item.source for item in batch.plan.items], batch.output_dir,
-                    concurrency=batch.plan.concurrency, browser_profile_root=batch.runtime_dir / ".browser_user_data",
+                    concurrency=self._limit(batch), browser_profile_root=batch.runtime_dir / ".browser_user_data",
+                    resume=resuming, claim_item=lambda index: self._claim_capture(batch, index),
                     cancel_event=batch.cancel,
                     save_raw=["raw" in item.modes for item in batch.plan.items],
                     progress=lambda index, _total, message: self._capture_progress(batch, index, message),
@@ -320,7 +383,8 @@ class BatchProcessingQueue:
                 with self.condition:
                     self.capture_busy = False
                     if batch is not None:
-                        batch.capture_done = True
+                        batch.capture_active = False
+                        batch.capture_done = not any(item["status"] in {"queued", "capturing"} for item in batch.items)
                     self.condition.notify_all()
                 self.browser_lock.release()
                 if batch is not None:
@@ -369,10 +433,16 @@ class BatchProcessingQueue:
         # extra API calls on top of a user's 1/2-worker selection.
         active = next((batch for batch in self.batches if batch.summaries), None)
         for batch in ([active] if active is not None else self.batches):
-            if batch.cancel.is_set() or batch.editing or batch.summaries >= batch.plan.concurrency:
+            if batch.cancel.is_set() or batch.editing or batch.summaries >= self._limit(batch):
                 continue
             for item in batch.items:
                 if item["status"] == "ready" or (batch.plan.kind == "files" and item["status"] == "queued"):
+                    if self._ordered:
+                        draining = self._draining()
+                        if draining and (batch.id, item["index"]) not in draining:
+                            continue
+                        if not draining and not self._can_start(batch):
+                            continue
                     return batch, item
         return None
 
@@ -444,9 +514,14 @@ class BatchProcessingQueue:
                 stream.write(message + "\n")
                 stream.flush()
                 self._update(batch, item, message=str(message))
+            keys = batch.api_keys
+            if batch.plan.kind == "files" and keys:
+                providers = list(keys)
+                offset = (item["index"] - 1) % len(providers)
+                keys = {key: keys[key] for key in providers[offset:] + providers[:offset]}
             bundle = generate_output_bundle(
                 messages, modes, batch.output_dir, output_filename=target.name + ".md",
-                project_dir=batch.runtime_dir, api_keys=batch.api_keys,
+                project_dir=batch.runtime_dir, api_keys=keys,
                 custom_api=batch.custom_api or None, result_cache_dir=batch.runtime_dir / "summary_results",
                 source_platform=platform, source_name=source_name, source_dir=source_dir,
                 topic_selector=select_topics

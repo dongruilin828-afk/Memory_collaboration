@@ -50,6 +50,190 @@ class BatchPlanTests(unittest.TestCase):
 
 
 class BatchQueueTests(unittest.TestCase):
+    def test_file_auto_limit_and_selected_api_rotation(self):
+        source = self.root / "auto.txt"
+        source.write_text("正文", encoding="utf-8")
+        value = batch.BatchPlan("files", tuple(batch.ItemPlan(str(source), ("simple",)) for _ in range(6)),
+                                None, ("gemini", "deepseek"))
+        active = peak = 0
+        lock = threading.Lock()
+        def generate(*args, **kwargs):
+            nonlocal active, peak
+            index = int(kwargs["output_filename"].split("_")[0])
+            self.assertEqual(set(kwargs["api_keys"]), {"gemini", "deepseek"})
+            self.assertEqual(next(iter(kwargs["api_keys"])), ("gemini", "deepseek")[(index-1) % 2])
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                time.sleep(.04)
+                return self.summary(*args, **kwargs)
+            finally:
+                with lock:
+                    active -= 1
+        with patch.object(batch, "generate_output_bundle", generate):
+            self.add(value, api_keys={"gemini": "a", "deepseek": "b", "siliconflow": "excluded"})
+            self.wait_for(lambda: not self.queue.has_work)
+        self.assertEqual(peak, 2)
+        self.assertEqual(self.queue.snapshot()[0]["requested_concurrency"], None)
+        self.assertEqual(self.queue.snapshot()[0]["done"], 6)
+
+    def test_manual_file_limit_can_reach_ten(self):
+        source = self.root / "ten.txt"
+        source.write_text("正文", encoding="utf-8")
+        value = batch.BatchPlan("files", tuple(batch.ItemPlan(str(source), ("simple",)) for _ in range(10)), 10)
+        gate = threading.Barrier(10, timeout=4)
+        def generate(*args, **kwargs):
+            gate.wait()
+            return self.summary(*args, **kwargs)
+        with patch.object(batch, "generate_output_bundle", generate):
+            self.add(value, api_keys={"gemini": "key"})
+            self.wait_for(lambda: not self.queue.has_work)
+        self.assertEqual(self.queue.snapshot()[0]["failed"], 0)
+        self.assertEqual(len(self.histories), 10)
+        with self.assertRaises(ValueError):
+            plan(concurrency=10).validate()
+
+    def test_reordering_running_summary_batch_drains_current_items_then_resumes(self):
+        source = self.root / "work.txt"
+        source.write_text("正文", encoding="utf-8")
+        first_two = threading.Event()
+        release = [threading.Event(), threading.Event(), threading.Event()]
+        for event in release:
+            self.addCleanup(event.set)
+        calls, ids = [], {}
+        lock = threading.Lock()
+        def generate(current, item):
+            with lock:
+                calls.append((current.id, item["index"]))
+                if len(calls) == 2:
+                    first_two.set()
+            if current.plan.concurrency == 2 and item["index"] <= 2:
+                self.assertTrue(release[item["index"] - 1].wait(4))
+            elif current.plan.concurrency == 1:
+                ids["second_entered"] = True
+                self.assertTrue(release[2].wait(4))
+            return []
+        with patch.object(self.queue, "_generate", generate):
+            first = self.add(batch.BatchPlan("files", tuple(batch.ItemPlan(str(source), ("simple",)) for _ in range(4)), 2), api_keys={"gemini": "key"})
+            self.assertTrue(first_two.wait(3))
+            second = self.add(batch.BatchPlan("files", (batch.ItemPlan(str(source), ("simple",)),), 1), api_keys={"gemini": "key"})
+            self.assertTrue(self.queue.move(first, second))
+            release[0].set()
+            time.sleep(.05)
+            self.assertNotIn("second_entered", ids)
+            release[1].set()
+            self.wait_for(lambda: ids.get("second_entered"))
+            self.assertEqual(sum(key == first for key, _ in calls), 2)
+            self.assertEqual(next(view for view in self.queue.snapshot() if view["id"] == first)["status"], "paused")
+            release[2].set()
+            self.wait_for(lambda: not self.queue.has_work)
+        self.assertEqual(sorted(index for key, index in calls if key == first), [1, 2, 3, 4])
+        self.assertEqual(len(self.histories), 5)
+
+    def test_link_preemption_resumes_existing_outputs_without_recapture(self):
+        from gui import batch_capture as capture_module
+        from gui.service import FetchResult
+        from tests.test_batch_capture import Context, playwright
+        first_two, second_entered = threading.Event(), threading.Event()
+        release_first, release_second = threading.Event(), threading.Event()
+        self.addCleanup(release_first.set)
+        self.addCleanup(release_second.set)
+        calls, contexts = [], []
+        async def launch(*args, **kwargs):
+            context = Context()
+            contexts.append(context)
+            return context, "chromium"
+        async def fetch(url, **kwargs):
+            calls.append(url)
+            if url.endswith(("a0", "a1")):
+                if len(calls) == 2:
+                    first_two.set()
+                await asyncio.to_thread(release_first.wait, 4)
+            elif url.endswith("second"):
+                second_entered.set()
+                await asyncio.to_thread(release_second.wait, 4)
+            return FetchResult(html="body", messages=[dict(role="User", content=url)], image_map={}, document_map={})
+        links = tuple(batch.ItemPlan(f"https://chatgpt.com/c/a{i}", ("raw",)) for i in range(5))
+        with patch.object(capture_module, "async_playwright", playwright), \
+             patch.object(capture_module, "launch_browser_context", launch), \
+             patch.object(capture_module, "fetch_chat_pipeline", fetch):
+            first = self.add(batch.BatchPlan("links", links, 2))
+            self.assertTrue(first_two.wait(3))
+            second = self.add(batch.BatchPlan("links", (batch.ItemPlan("https://chatgpt.com/c/second", ("raw",)),), 1))
+            self.assertTrue(self.queue.move(second, first))
+            self.assertFalse(second_entered.is_set())
+            release_first.set()
+            self.assertTrue(second_entered.wait(3))
+            paused = next(view for view in self.queue.snapshot() if view["id"] == first)
+            self.assertEqual(paused["status"], "paused")
+            self.assertEqual(paused["done"], 2)
+            manifest = json.loads((Path(paused["output_dir"]) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertTrue(manifest["paused"])
+            original = Path(paused["items"][0]["saved_files"][0]).read_bytes()
+            release_second.set()
+            self.wait_for(lambda: not self.queue.has_work)
+        self.assertEqual(len(calls), 6)
+        self.assertEqual(len(set(calls)), 6)
+        self.assertEqual(len(contexts), 3)
+        self.assertTrue(all(context.closed for context in contexts))
+        final = next(view for view in self.queue.snapshot() if view["id"] == first)
+        self.assertEqual(final["done"], 5)
+        self.assertEqual(Path(final["items"][0]["saved_files"][0]).read_bytes(), original)
+
+    def test_priority_handoff_does_not_disable_overlap_for_later_independent_batches(self):
+        self.queue.browser_lock.acquire()
+        entered, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        def generate(current, item):
+            entered.set()
+            self.assertTrue(release.wait(4))
+            return []
+        with patch.object(batch, "capture_links", self.capture), patch.object(self.queue, "_generate", generate):
+            first, second = self.add(plan(count=1)), self.add(plan(count=1))
+            self.assertTrue(self.queue.move(first, second))
+            self.queue.browser_lock.release()
+            self.wait_for(lambda: not self.queue.has_work)
+            path = self.root / "next-wave.txt"
+            path.write_text("正文", encoding="utf-8")
+            file_id = self.add(batch.BatchPlan("files", (batch.ItemPlan(str(path), ("simple",)),), 1), api_keys={"gemini": "key"})
+            self.assertTrue(entered.wait(3))
+            link_id = self.add(plan(count=1))
+            self.wait_for(lambda: next(view for view in self.queue.snapshot() if view["id"] == link_id)["status"] == "completed")
+            self.assertEqual(next(view for view in self.queue.snapshot() if view["id"] == file_id)["status"], "running")
+            release.set()
+            self.wait_for(lambda: not self.queue.has_work)
+
+    def test_handoff_leaves_waiting_summaries_queued_instead_of_draining_the_entire_backlog(self):
+        entered, urgent_entered = threading.Event(), threading.Event()
+        release, urgent_release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        self.addCleanup(urgent_release.set)
+        def generate(current, item):
+            if current.plan.kind == "links" and item["index"] == 1:
+                entered.set()
+                self.assertTrue(release.wait(4))
+            if current.plan.kind == "files":
+                urgent_entered.set()
+                self.assertTrue(urgent_release.wait(4))
+            return []
+        with patch.object(batch, "capture_links", self.capture), patch.object(self.queue, "_generate", generate):
+            first = self.add(plan(count=3, modes=("simple",), concurrency=1), api_keys={"gemini": "key"})
+            self.assertTrue(entered.wait(3))
+            self.wait_for(lambda: not self.queue.capture_busy)
+            path = self.root / "urgent.txt"
+            path.write_text("正文", encoding="utf-8")
+            urgent = self.add(batch.BatchPlan("files", (batch.ItemPlan(str(path), ("simple",)),), 1), api_keys={"gemini": "key"})
+            self.assertTrue(self.queue.move(urgent, first))
+            release.set()
+            self.assertTrue(urgent_entered.wait(3))
+            original = next(view for view in self.queue.snapshot() if view["id"] == first)
+            self.assertEqual(original["done"], 1)
+            self.assertEqual([item["status"] for item in original["items"]], ["completed", "ready", "ready"])
+            self.assertEqual(original["status"], "paused")
+            urgent_release.set()
+            self.wait_for(lambda: not self.queue.has_work)
+
     def setUp(self):
         self.scratch = tempfile.TemporaryDirectory()
         self.root = Path(self.scratch.name)

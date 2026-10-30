@@ -126,6 +126,8 @@ async def capture_links(
     on_result: Callable[[dict], None] = lambda _: None,
     authorize_login=None,
     save_raw: Sequence[bool] | None = None,
+    resume: bool = False,
+    claim_item: Callable[[int], bool] | None = None,
 ) -> list[dict]:
     """Save links independently in one context with at most three capture pages.
 
@@ -145,16 +147,34 @@ async def capture_links(
         raise ValueError("抓取并发数必须是 1～3 的整数。")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    previous = None
     if any(output_dir.iterdir()):
-        raise ValueError("批量结果目录必须为空，避免覆盖以前的抓取。")
+        if not resume:
+            raise ValueError("批量结果目录必须为空，避免覆盖以前的抓取。")
+        try:
+            saved_input = json.loads((output_dir / "input.json").read_text(encoding="utf-8"))
+            previous = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            if (saved_input["links"] != links or saved_input["concurrency"] != concurrency
+                    or saved_input.get("raw_outputs", [True] * len(links)) != list(raw_outputs)
+                    or len(previous["items"]) != len(links)):
+                raise ValueError()
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ValueError("已保存的批次进度与当前输入不符，无法继续。") from None
     started = time.perf_counter()
     records = []
     for index, link in enumerate(links, 1):
         platform = provider_for_url(link).DISPLAY_NAME
         target = output_dir / f"{index:03d}_{platform}"
-        target.mkdir()
+        target.mkdir(exist_ok=resume)
         records.append(dict(index=index, url=link, platform=platform, output_dir=str(target),
                             status="queued", error=None, warnings=[], saved_files=[]))
+        if previous is not None:
+            old = previous["items"][index - 1]
+            if (old.get("index") != index or old.get("url") != link
+                    or Path(old.get("output_dir", "")).resolve() != target
+                    or old.get("status") not in {"queued", "completed", "failed", "cancelled"}):
+                raise ValueError("已保存的条目进度不匹配，无法继续。")
+            records[-1] = old
     _write_json(output_dir / "input.json", {
         "links": links, "sha256": hashlib.sha256("\n".join(links).encode("utf-8")).hexdigest(),
         "concurrency": concurrency, "mode": "raw", "authentication": "reuse",
@@ -163,10 +183,13 @@ async def capture_links(
     batch_warnings = []
     batch_error = None
     cancelled = False
+    paused = False
+    prior_elapsed = float(previous.get("elapsed_seconds", 0)) if previous else 0
 
     def save_manifest():
         _write_json(output_dir / "manifest.json", {
-            "concurrency": concurrency, "elapsed_seconds": round(time.perf_counter() - started, 3),
+            "concurrency": concurrency, "elapsed_seconds": round(prior_elapsed + time.perf_counter() - started, 3),
+            "paused": paused,
             "warnings": batch_warnings, "error": batch_error, "items": records,
         })
 
@@ -174,6 +197,8 @@ async def capture_links(
         return cancel_event is not None and cancel_event.is_set()
 
     save_manifest()
+    if all(record["status"] != "queued" for record in records):
+        return records
     workers = []
     monitor = None
     context = None
@@ -203,7 +228,8 @@ async def capture_links(
                 # worker pages alive until the entire batch finishes.
                 from gui.batch_login import BatchLoginCoordinator
                 pages = list(context.pages)
-                count = min(concurrency, len(links))
+                pending_records = [record for record in records if record["status"] == "queued"]
+                count = min(concurrency, len(pending_records))
                 while len(pages) < count:
                     pages.append(await context.new_page())
                 for page in pages[count:]:
@@ -214,12 +240,16 @@ async def capture_links(
                     page._aimemory_render_lock = render_lock
                     await page.add_init_script(f"({_SAME_TAB_SCRIPT})()")
                 login = BatchLoginCoordinator(pages, authorize_login, render_lock=render_lock)
-                pending = iter(records)
+                pending = iter(pending_records)
 
                 async def worker(page):
+                    nonlocal paused
                     for record in pending:
                         if stopped():
                             raise asyncio.CancelledError()
+                        if claim_item is not None and not claim_item(record["index"]):
+                            paused = True
+                            break
                         target = Path(record["output_dir"])
                         record["status"] = "running"
                         item_started = time.perf_counter()
@@ -302,6 +332,8 @@ async def capture_links(
             await asyncio.gather(monitor, return_exceptions=True)
         for record in records:
             if record["status"] in {"queued", "running"}:
+                if paused and record["status"] == "queued" and not (stopped() or cancelled or batch_error):
+                    continue
                 record["status"] = "cancelled" if stopped() or cancelled else "failed"
                 record["error"] = "用户停止批量抓取。" if stopped() or cancelled else batch_error
             if record["status"] == "completed":

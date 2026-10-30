@@ -14,7 +14,7 @@ from gui.widgets import HoverTooltip, FlatProgressBar
 from scripts.api_config import middle_ellipsis
 
 STATUS_LABELS = {"queued": "排队中", "running": "处理中", "completed": "已完成",
-                 "failed": "有失败项", "cancelled": "已停止"}
+                 "paused": "已暂停", "failed": "有失败项", "cancelled": "已停止"}
 ITEM_LABELS = {**STATUS_LABELS, "failed": "失败", "capturing": "抓取中", "ready": "等待总结", "summarizing": "总结中"}
 
 
@@ -63,13 +63,13 @@ class BatchQueuePanel(tk.Frame):
         self.area.canvas.bind("<Configure>", self._resized, add="+")
 
     def set_batches(self, views):
-        if self._drag and not any(value["id"] == self._drag and not value["started"]
+        if self._drag and not any(value["id"] == self._drag
                                   and value["status"] not in TERMINAL for value in views):
             self._clear_drag()
-        if self._drag_target and not any(value["id"] == self._drag_target and not value["started"]
+        if self._drag_target and not any(value["id"] == self._drag_target
                                         and value["status"] not in TERMINAL for value in views):
             self._drag_target = None
-        self.views = sorted(views, key=lambda value: (2 if value["status"] in TERMINAL else 0 if value["started"] else 1))
+        self.views = sorted(views, key=lambda value: value["status"] in TERMINAL)
         current = {view["id"] for view in self.views}
         for key in list(self.cards):
             if key not in current:
@@ -127,11 +127,12 @@ class BatchQueuePanel(tk.Frame):
         card["view"] = view
         kind = "链接" if view["kind"] == "links" else "文件"
         card["title"].configure(text=f"{position} · {view['total']} 个{kind}")
-        card["status"].configure(text="正在收尾" if view.get("finishing") else "编辑中" if view.get("editing") else STATUS_LABELS[view["status"]],
+        card["status"].configure(text="正在收尾" if view.get("finishing") else "交接中" if view.get("pausing") else "编辑中" if view.get("editing") else STATUS_LABELS[view["status"]],
             fg=COLOR_DANGER if view["failed"] else COLOR_SUCCESS if view["status"] == "completed" else COLOR_ACCENT)
         active = next((item for item in view["items"] if item["status"] in {"capturing", "summarizing"}), None)
         first = view["items"][0]["source"]
-        card["preview_text"] = f"{view['concurrency']} 并发 · " + (f"第 {active['index']} 项 · {active['message']}" if active else
+        limit = f"自动（{view['concurrency']}）" if "requested_concurrency" in view and view["requested_concurrency"] is None else str(view["concurrency"])
+        card["preview_text"] = f"{limit} 并发 · " + (f"第 {active['index']} 项 · {active['message']}" if active else
                                 Path(first).name if view["kind"] == "files" else first)
         card["tooltip"]._text = "\n".join([first] + ([active["message"]] if active else []))
         card["progress"].set_progress(view["done"] / max(1, view["total"]))
@@ -224,7 +225,7 @@ class BatchQueuePanel(tk.Frame):
 
     def _drag_start(self, batch_id, event):
         card = self.cards[batch_id]
-        if card["view"]["started"] or card["view"]["status"] in TERMINAL:
+        if card["view"]["status"] in TERMINAL:
             return
         self._drag = batch_id
         self._drag_target = None
@@ -245,7 +246,7 @@ class BatchQueuePanel(tk.Frame):
                 self._drag_target = None
                 for key, card in self.cards.items():
                     frame = card["frame"]
-                    if key != self._drag and not card["view"]["started"] and card["view"]["status"] not in TERMINAL and (
+                    if key != self._drag and card["view"]["status"] not in TERMINAL and (
                         frame.winfo_rootx() <= event.x_root <= frame.winfo_rootx() + frame.winfo_width() and
                         frame.winfo_rooty() <= event.y_root <= frame.winfo_rooty() + frame.winfo_height()):
                         self._drag_target = key
@@ -275,7 +276,7 @@ class BatchQueuePanel(tk.Frame):
 
     def _pending_card(self, batch_id):
         card = self.cards.get(batch_id)
-        return card is not None and not card["view"]["started"] and card["view"]["status"] not in TERMINAL
+        return card is not None and card["view"]["status"] not in TERMINAL
 
     def _clear_drag(self):
         self._drag = self._drag_target = None

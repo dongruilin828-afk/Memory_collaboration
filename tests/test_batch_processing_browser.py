@@ -17,6 +17,53 @@ from gui.service import launch_browser_context
 
 @unittest.skipUnless(os.environ.get("AI_MEMORY_BROWSER_SMOKE") == "1", "opt-in local Chromium check")
 class BatchProcessingBrowserTests(unittest.TestCase):
+    def test_real_profile_can_pause_switch_batch_and_resume_without_recapturing(self):
+        from gui.batch_capture import capture_links
+        identifiers = [f"33333333-3333-3333-3333-{index:012d}" for index in range(5)]
+        links = [f"https://chatgpt.com/c/{value}" for value in identifiers]
+        calls, launches = [], []
+        async def launch(*args, **options):
+            options.update(headless=True, start_minimized=False, viewport={"width": 900, "height": 600})
+            context, channel = await launch_browser_context(*args, **options)
+            launches.append(context)
+            if len(launches) == 1:
+                await context.add_cookies([dict(name="resume_fixture", value="authenticated", domain="chatgpt.com",
+                                               path="/", secure=True, httpOnly=True, expires=time.time()+3600)])
+            async def route(request_route):
+                request = request_route.request
+                path = urlparse(request.url).path
+                if path == "/api/auth/session":
+                    await request_route.fulfill(json={"accessToken": "fixture"})
+                elif path.startswith("/backend-api/conversation/"):
+                    self.assertIn("resume_fixture=authenticated", request.headers.get("cookie", ""))
+                    identifier = path.rsplit("/", 1)[-1]
+                    calls.append(identifier)
+                    await request_route.fulfill(json={"conversation_id": identifier, "current_node": "answer",
+                        "mapping": {key: {"id": key, "parent": parent, "message": {
+                            "id": key, "author": {"role": role}, "recipient": "all", "metadata": {},
+                            "content": {"content_type": "text", "parts": [identifier]}}}
+                            for key, parent, role in (("question", None, "user"), ("answer", "question", "assistant"))}})
+                else:
+                    await request_route.fulfill(content_type="text/html", body="<p>local resume fixture</p>")
+            await context.route("**/*", route)
+            return context, channel
+        async def run(root):
+            profile = root / "isolated-profile"
+            first = await capture_links(links[:4], root / "first", concurrency=2,
+                                        browser_profile_root=profile, claim_item=lambda index: index <= 2)
+            self.assertEqual([row["status"] for row in first], ["completed", "completed", "queued", "queued"])
+            original = Path(first[0]["saved_files"][0]).read_bytes()
+            second = await capture_links(links[4:], root / "second", concurrency=1, browser_profile_root=profile)
+            self.assertEqual(second[0]["status"], "completed")
+            resumed = await capture_links(links[:4], root / "first", concurrency=2, browser_profile_root=profile, resume=True)
+            self.assertTrue(all(row["status"] == "completed" for row in resumed))
+            self.assertEqual(Path(resumed[0]["saved_files"][0]).read_bytes(), original)
+            await capture_links(links[:4], root / "first", concurrency=2, browser_profile_root=profile, resume=True)
+        with tempfile.TemporaryDirectory() as temporary, patch("gui.batch_capture.launch_browser_context", launch):
+            asyncio.run(run(Path(temporary)))
+        self.assertEqual(len(launches), 3)
+        self.assertEqual(sorted(calls), sorted(identifiers))
+
     def test_real_one_two_three_page_queues_overlap_summary_and_keep_item_identities(self):
         for concurrency in (1, 2, 3):
             with self.subTest(concurrency=concurrency):

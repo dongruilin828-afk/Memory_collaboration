@@ -10,6 +10,8 @@ from tkinter import ttk
 
 def clear_background_focus(event):
     if isinstance(event.widget, (tk.Frame, tk.Label, tk.Canvas, ttk.Frame, ttk.Label)):
+        if event.widget.bind("<Button-1>"):
+            return
         window = event.widget.winfo_toplevel()
         focused = window.focus_get()
         if isinstance(focused, (tk.Entry, ttk.Entry, ttk.Combobox)):

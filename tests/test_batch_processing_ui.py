@@ -42,10 +42,90 @@ class _TkTests(unittest.TestCase):
         return dialog
 
 class BatchEditorTests(_TkTests):
+    def test_submitting_one_tab_preserves_the_other_tab_in_both_directions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "待处理.txt"
+            path.write_text("正文", encoding="utf-8")
+            closed = Mock()
+            dialog = self.dialog(initial_text="https://chatgpt.com/c/keep", on_close=closed)
+            dialog.identify()
+            dialog.kind.set("files")
+            dialog._render()
+            dialog.add_paths([path])
+            dialog.kind.set("links")
+            dialog._render()
+            dialog.on_submit = Mock(return_value=True)
+            dialog.submit()
+            state = closed.call_args.args[0]
+            self.assertEqual(state["links"], [])
+            restored = self.dialog(draft=state)
+            self.assertEqual(restored.get_plan().items[0].source, str(path))
+            restored.destroy()
+
+            dialog = self.dialog(initial_text="https://chatgpt.com/c/not-yet-identified", on_close=closed)
+            dialog.kind.set("files")
+            dialog._render()
+            dialog.add_paths([path])
+            dialog.on_submit = Mock(return_value=True)
+            dialog.submit()
+            restored = self.dialog(draft=closed.call_args.args[0])
+            self.assertEqual(restored.kind.get(), "links")
+            self.assertEqual(restored.links_text.get("1.0", "end-1c"), "https://chatgpt.com/c/not-yet-identified")
+            self.assertTrue(restored.identify())
+
+    def test_native_tabs_auto_spinner_limits_and_api_multiselect(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "test.txt"
+            path.write_text("正文", encoding="utf-8")
+            dialog = self.dialog(providers=[("gemini", "Google Gemini"), ("deepseek", "DeepSeek")])
+            self.assertEqual(dialog.concurrency.get(), "自动")
+            dialog.notebook.select(1)
+            self.root.update()
+            self.assertEqual(dialog.kind.get(), "files")
+            dialog.add_paths([path])
+            dialog.concurrency_box.invoke("buttonup")
+            self.assertEqual(dialog.concurrency.get(), "1")
+            dialog.concurrency_box.invoke("buttondown")
+            self.assertEqual(dialog.concurrency.get(), "自动")
+            dialog.concurrency.set("10")
+            self.assertEqual(dialog.get_plan().concurrency, 10)
+            dialog.api_menu.invoke(0)
+            self.assertEqual(dialog.get_plan().api_providers, ("deepseek",))
+            dialog.notebook.select(0)
+            self.root.update()
+            self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ("自动", "1", "2", "3"))
+            dialog.notebook.select(1)
+            self.root.update()
+            self.assertEqual(dialog.concurrency.get(), "10")
+            dialog.concurrency.set("11")
+            with self.assertRaises(ValueError):
+                dialog.get_plan()
+            dialog.concurrency.set("自动")
+            dialog.api_menu.invoke(1)
+            with self.assertRaisesRegex(ValueError, "API"):
+                dialog.get_plan()
+
+    def test_disabled_add_button_is_legible_and_footer_controls_stay_centered(self):
+        for scaling in (1, 4 / 3, 2, 8 / 3):
+            with self.subTest(scaling=scaling):
+                self.root.tk.call("tk", "scaling", scaling)
+                dialog = self.dialog()
+                dialog.notebook.select(1)
+                self.root.update()
+                dialog.geometry(f"{dialog.minsize()[0]}x{dialog.minsize()[1]}")
+                self.root.update()
+                self.assertEqual(dialog.submit_button.cget("state"), "disabled")
+                self.assertEqual(dialog.submit_button.cget("disabledforeground"), "white")
+                center = dialog.settings.winfo_rootx() + dialog.settings.winfo_width()/2
+                self.assertLessEqual(abs(center - (dialog.footer.winfo_rootx()+dialog.footer.winfo_width()/2)), 2)
+                self.assertGreaterEqual(dialog.submit_button.winfo_width(), dialog.submit_button.winfo_reqwidth())
+                self.assertLessEqual(dialog.settings.winfo_rooty()+dialog.settings.winfo_height(), dialog.winfo_rooty()+dialog.winfo_height())
+                dialog.destroy()
+
     def test_initial_actions_filtering_and_append_cancel_do_not_drop_valid_rows(self):
         dialog = self.dialog(initial_text="说明文字\nhttps://unsupported.test/foo\nhttps://chatgpt.com/c/one")
         self.assertFalse(dialog.heading.winfo_manager())
-        self.assertFalse(dialog.footer.winfo_manager())
+        self.assertFalse(dialog.table_actions.winfo_manager())
         self.assertTrue(dialog.input_close.winfo_ismapped())
         self.assertTrue(dialog.identify())
         self.root.update()
@@ -86,7 +166,7 @@ class BatchEditorTests(_TkTests):
         dialog.close()
         draft = closed.call_args.args[0]
         restored = self.dialog(draft=draft)
-        self.assertEqual(restored.concurrency.get(), 2)
+        self.assertEqual(restored.concurrency.get(), "2")
         self.assertEqual(restored.append_text.get("1.0", "end-1c"), "还没有写完的链接")
         self.assertEqual(restored.get_plan().items[0].modes, ("raw", "normal"))
 
@@ -187,7 +267,7 @@ class BatchEditorTests(_TkTests):
     def test_identify_edit_reorder_modes_delete_and_append(self):
         dialog = self.dialog(initial_text="https://chatgpt.com/c/one\nhttps://gemini.google.com/app/two")
         self.assertEqual(dialog.kind.get(), "links")
-        self.assertEqual(dialog.concurrency_box.cget("values"), ('1', '2', '3'))
+        self.assertEqual(tuple(dialog.tk.splitlist(dialog.concurrency_box.cget("values"))), ('自动', '1', '2', '3'))
         self.assertTrue(dialog.identify())
         self.assertEqual(len(dialog.rows), 2)
         dialog.rows[0]["variable"].set("https://chat.deepseek.com/share/edited")
@@ -263,6 +343,32 @@ class BatchEditorTests(_TkTests):
 
 
 class BatchAppIntegrationTests(_TkTests):
+    def test_clicking_home_placeholder_keeps_keyboard_focus_in_the_input(self):
+        app = self.app()
+        self.root.geometry("1300x900")
+        self.root.focus_force()
+        self.root.update()
+        app.capsule_entry._placeholder_label.event_generate("<Button-1>", x=10, y=10)
+        self.root.update()
+        self.assertIs(self.root.focus_get(), app.capsule_entry.entry)
+        app.capsule_entry.entry.event_generate("<KeyPress>", keysym="a")
+        self.root.update()
+        self.assertEqual(app.capsule_entry.get_text(), "a")
+
+    def test_removing_all_batches_restores_the_initial_home_positions(self):
+        app = self.app()
+        self.root.geometry("1300x1000")
+        layouts.GUIResponsiveGeometryTests()._settle_resize(self.root, app)
+        positions = [widget.winfo_y() for widget in (app._home_welcome, app._omnibox, app.batch_capture_button)]
+        for _ in range(2):
+            app._refresh_batch_queue([batch_view("queued"), batch_view("queued2")])
+            layouts.GUIResponsiveGeometryTests()._settle_resize(self.root, app)
+            self.assertFalse(app.batch_capture_button.winfo_manager())
+            app._refresh_batch_queue([])
+            layouts.GUIResponsiveGeometryTests()._settle_resize(self.root, app)
+            self.assertFalse(app._batch_queue_slot.winfo_manager())
+            self.assertEqual([widget.winfo_y() for widget in (app._home_welcome, app._omnibox, app.batch_capture_button)], positions)
+
     def test_switching_modeless_editors_preserves_draft_and_releases_previous_hold(self):
         app = self.app()
         queue = app._batch_queue = Mock()
@@ -497,7 +603,7 @@ class BatchQueueCardTests(_TkTests):
         self.assertIsNone(board._drag_preview)
         move.assert_called_once_with("two", "one")
 
-    def test_drag_outside_target_or_over_started_batch_does_not_reorder(self):
+    def test_drag_outside_target_or_over_completed_batch_does_not_reorder(self):
         move = Mock()
         board = BatchQueuePanel(self.root, on_edit=Mock(), on_remove=Mock(), on_move=move, on_open=Mock())
         board.pack(fill=tk.BOTH, expand=True)
@@ -516,7 +622,7 @@ class BatchQueueCardTests(_TkTests):
         move.assert_not_called()
         board._drag_start("two", start)
         board._drag_motion(over)
-        board.set_batches([batch_view("one", "running"), batch_view("two")])
+        board.set_batches([batch_view("one", "completed"), batch_view("two")])
         board._drag_end(over)
         move.assert_not_called()
 
@@ -599,7 +705,8 @@ class BatchQueueCardTests(_TkTests):
         move.assert_called_once_with("two", "one")
         board.set_batches([batch_view("one", "running"), batch_view("two")])
         board._drag_start("one", None)
-        self.assertIsNone(board._drag)
+        self.assertEqual(board._drag, "one")
+        board._clear_drag()
 
 
 if __name__ == "__main__":

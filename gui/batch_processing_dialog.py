@@ -52,7 +52,7 @@ def trash_image(master):
 
 
 class BatchProcessingDialog(tk.Toplevel):
-    def __init__(self, parent, *, on_submit, initial_text="", plan=None, draft=None, on_close=None):
+    def __init__(self, parent, *, on_submit, initial_text="", plan=None, draft=None, on_close=None, providers=()):
         super().__init__(parent)
         self.withdraw()
         self.title("编辑批次" if plan else "批量处理")
@@ -61,15 +61,19 @@ class BatchProcessingDialog(tk.Toplevel):
         self.on_close = on_close
         self._submitted = False
         self.kind = tk.StringVar(self, value=plan.kind if plan else "links")
-        self.concurrency = tk.IntVar(self, value=plan.concurrency if plan else 3)
+        self._concurrency_choices = {"links": "自动", "files": "自动"}
+        if plan:
+            self._concurrency_choices[plan.kind] = "自动" if plan.concurrency is None else str(plan.concurrency)
         self.drafts = {"links": [], "files": []}
         if plan:
             self.drafts[plan.kind] = [dict(source=item.source, modes=set(item.modes)) for item in plan.items]
         if draft:
             self.kind.set(draft.get("kind", "links"))
-            self.concurrency.set(draft.get("concurrency", 3))
+            self._concurrency_choices.update(draft.get("concurrency_by_kind", {self.kind.get(): draft.get("concurrency", "自动")}))
             for key in self.drafts:
                 self.drafts[key] = [dict(source=item["source"], modes=set(item["modes"])) for item in draft.get(key, [])]
+        self._controls_kind = self.kind.get()
+        self.concurrency = tk.StringVar(self, value=self._concurrency_choices[self.kind.get()])
         self.rows = []
         self._row_views = {"links": {}, "files": {}}
         self._header_kind = None
@@ -90,27 +94,31 @@ class BatchProcessingDialog(tk.Toplevel):
         toolbar = tk.Frame(body, bg=COLOR_BG_APP)
         self.toolbar = toolbar
         toolbar.pack(fill=tk.X, pady=(0, 14))
-        self.tabs = []
+        style = ttk.Style(self)
+        style.configure("Batch.TNotebook.Tab", font=self._bold_font, padding=(16, 7))
+        self.notebook = ttk.Notebook(toolbar, height=0, style="Batch.TNotebook", takefocus=True)
+        self.notebook.pack(fill=tk.X)
         for key, label in (("links", "对话链接"), ("files", "已有文件")):
-            button = tk.Radiobutton(toolbar, text=label, value=key, variable=self.kind,
-                command=self._render, indicatoron=False, font=self._bold_font,
-                bg=COLOR_CARD, selectcolor=COLOR_ACCENT, fg=COLOR_TEXT_PRIMARY,
-                activebackground=COLOR_CARD, relief=tk.FLAT, padx=18, pady=8,
-                highlightthickness=1, highlightbackground=COLOR_BORDER)
-            button.pack(side=tk.LEFT, padx=(0, 8))
-            self.tabs.append(button)
-        settings = tk.Frame(toolbar, bg=COLOR_BG_APP)
-        settings.pack(side=tk.RIGHT)
-        tk.Label(settings, text="并发数量", font=self._font, fg=COLOR_TEXT_PRIMARY,
-                 bg=COLOR_BG_APP).pack(side=tk.LEFT, padx=(0, 10))
-        self.concurrency_box = ttk.Combobox(settings, textvariable=self.concurrency,
-                                          values=(1, 2, 3), width=3, state="readonly", font=self._font)
-        self.concurrency_box.pack(side=tk.LEFT)
+            self.notebook.add(tk.Frame(self.notebook, height=0), text=label)
+        self.notebook.select(0 if self.kind.get() == "links" else 1)
+        self.notebook.bind("<<NotebookTabChanged>>", self._tab_changed)
         self.file_controls = tk.Frame(body, bg=COLOR_BG_APP)
         self.add_files_button = self._button(self.file_controls, "添加文件", self.choose_files)
         self.add_files_button.pack(side=tk.LEFT, padx=(0, 10))
         self.add_folder_button = self._button(self.file_controls, "添加文件夹", self.choose_folder)
         self.add_folder_button.pack(side=tk.LEFT)
+        selected = draft.get("api_providers") if draft else plan.api_providers if plan else None
+        self.provider_vars = {key: tk.BooleanVar(self, value=selected is None or key in selected) for key, _ in providers}
+        self.api_caption = tk.StringVar(self)
+        self.api_selector = tk.Menubutton(self.file_controls, textvariable=self.api_caption,
+            font=self._font, bg=COLOR_CARD, fg=COLOR_TEXT_PRIMARY, relief=tk.FLAT,
+            padx=12, pady=7, indicatoron=True, cursor="hand2", takefocus=True)
+        self.api_menu = tk.Menu(self.api_selector, tearoff=False, font=self._font)
+        for key, label in providers:
+            self.api_menu.add_checkbutton(label=label, variable=self.provider_vars[key], command=self._update_api_caption)
+        self.api_selector.configure(menu=self.api_menu, state="normal" if providers else "disabled")
+        self.api_selector.pack(side=tk.RIGHT, padx=(16, 0))
+        self._update_api_caption()
 
         self.input_panel = tk.Frame(body, bg=COLOR_CARD, padx=12, pady=12)
         self.links_text = tk.Text(self.input_panel, height=10, width=50, font=self._font,
@@ -118,12 +126,6 @@ class BatchProcessingDialog(tk.Toplevel):
                                   highlightbackground=COLOR_BORDER)
         self.links_text.pack(fill=tk.BOTH, expand=True)
         self.links_text.insert("1.0", draft.get("input", initial_text) if draft else initial_text)
-        self.input_actions = tk.Frame(self.input_panel, bg=COLOR_CARD)
-        self.input_actions.pack(fill=tk.X, pady=(10, 0))
-        self.identify_button = self._button(self.input_actions, "识别", self.identify, accent=True)
-        self.identify_button.pack(side=tk.RIGHT)
-        self.input_close = self._button(self.input_actions, "关闭", self.close)
-        self.input_close.pack(side=tk.RIGHT, padx=(0, 10))
         self.links_text.bind("<Control-Return>", lambda _event: self.identify() or "break")
 
         self.table_header = tk.Frame(body, bg=COLOR_CARD, pady=8)
@@ -153,13 +155,34 @@ class BatchProcessingDialog(tk.Toplevel):
                                fg=COLOR_DANGER, anchor="w", justify="left", width=1)
         self.footer = tk.Frame(body, bg=COLOR_BG_APP)
         self.footer.pack(side=tk.BOTTOM, fill=tk.X, pady=(14, 0))
-        self.submit_button = self._button(self.footer, "保存批次" if plan else "添加批次", self.submit, accent=True)
+        self.footer.columnconfigure(0, weight=1, uniform="sides")
+        self.footer.columnconfigure(2, weight=1, uniform="sides")
+        self.action_host = tk.Frame(self.footer, bg=COLOR_BG_APP)
+        self.action_host.grid(row=0, column=2, sticky="e")
+        self.input_actions = tk.Frame(self.action_host, bg=COLOR_BG_APP)
+        self.identify_button = self._button(self.input_actions, "识别", self.identify, accent=True)
+        self.identify_button.pack(side=tk.RIGHT)
+        self.input_close = self._button(self.input_actions, "关闭", self.close)
+        self.input_close.pack(side=tk.RIGHT, padx=(0, 10))
+        self.table_actions = tk.Frame(self.action_host, bg=COLOR_BG_APP)
+        self.submit_button = self._button(self.table_actions, "保存批次" if plan else "添加批次", self.submit, accent=True)
         self.submit_button.pack(side=tk.RIGHT)
-        self.close_button = self._button(self.footer, "关闭", self.close)
+        self.close_button = self._button(self.table_actions, "关闭", self.close)
         self.close_button.pack(side=tk.RIGHT, padx=(0, 10))
         self.count_label = tk.Label(self.footer, text="", font=self._font,
                                     fg=COLOR_TEXT_MUTED, bg=COLOR_BG_APP)
-        self.count_label.pack(side=tk.LEFT)
+        self.count_label.grid(row=0, column=0, sticky="w")
+        self.settings = tk.Frame(self.footer, bg=COLOR_BG_APP)
+        self.settings.grid(row=0, column=1, padx=12)
+        tk.Label(self.settings, text="并发数量", font=self._font, fg=COLOR_TEXT_PRIMARY,
+                 bg=COLOR_BG_APP).pack(side=tk.LEFT, padx=(0, 10))
+        initial_concurrency = self.concurrency.get()
+        self.concurrency_box = tk.Spinbox(self.settings, textvariable=self.concurrency,
+            values=("自动", *[str(i) for i in range(1, 4 if self.kind.get() == "links" else 11)]), width=5, wrap=False, font=self._font,
+            relief=tk.SOLID, bd=1, highlightthickness=0)
+        self.concurrency_box.pack(side=tk.LEFT)
+        self.concurrency.set(initial_concurrency)
+        HoverTooltip(self.concurrency_box, "自动：链接最多3并发；文件按已选API数量和文件数安排，最多10并发。也可手动输入数量。")
         self.notice.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
         body.bind("<Configure>", lambda event: self.notice.configure(wraplength=max(1, event.width - 44)))
         self._render()
@@ -181,10 +204,21 @@ class BatchProcessingDialog(tk.Toplevel):
         return tk.Button(parent, text=text, command=command, font=self._font,
                          bg=COLOR_ACCENT if accent else COLOR_CARD,
                          fg="white" if accent else COLOR_TEXT_PRIMARY,
+                         disabledforeground="white" if accent else COLOR_TEXT_MUTED,
                          activebackground=COLOR_ACCENT if accent else COLOR_BG_APP,
                          activeforeground="white" if accent else COLOR_TEXT_PRIMARY,
                          relief=tk.FLAT, cursor="hand2", padx=14, pady=7, takefocus=True,
                          highlightthickness=1, highlightbackground=COLOR_BORDER)
+
+    def _tab_changed(self, _event=None):
+        kind = ("links", "files")[self.notebook.index("current")]
+        if kind != self.kind.get():
+            self.kind.set(kind)
+            self._render()
+
+    def _update_api_caption(self):
+        count = sum(variable.get() for variable in self.provider_vars.values())
+        self.api_caption.set(f"允许同时使用的API · 已选 {count}" if self.provider_vars else "允许同时使用的API（未配置）")
 
     def identify(self, append=False):
         text = self.append_text if append else self.links_text
@@ -230,14 +264,28 @@ class BatchProcessingDialog(tk.Toplevel):
         self.plus_button.pack(anchor="w")
 
     def draft_state(self):
+        self._concurrency_choices[self.kind.get()] = self.concurrency.get()
         return dict(kind=self.kind.get(), concurrency=self.concurrency.get(),
+                    concurrency_by_kind=dict(self._concurrency_choices),
+                    api_providers=[key for key, variable in self.provider_vars.items() if variable.get()] if self.provider_vars else None,
                     input=self.links_text.get("1.0", "end-1c"), append=self.append_text.get("1.0", "end-1c"),
                     **{key: [dict(source=row["source"], modes=list(row["modes"])) for row in rows]
                        for key, rows in self.drafts.items()})
 
     def close(self):
         if self.on_close:
-            self.on_close(None if self._submitted else self.draft_state())
+            state = self.draft_state()
+            if self._submitted:
+                submitted = self.kind.get()
+                state[submitted] = []
+                if submitted == "links":
+                    state["input"] = state["append"] = ""
+                other = "files" if submitted == "links" else "links"
+                state["kind"] = other
+                state["concurrency"] = state["concurrency_by_kind"][other]
+                if not state[other] and not (other == "links" and (state["input"].strip() or state["append"].strip())):
+                    state = None
+            self.on_close(state)
         self.destroy()
 
     def _destroyed(self, event):
@@ -338,6 +386,12 @@ class BatchProcessingDialog(tk.Toplevel):
 
     def _render_contents(self):
         kind = self.kind.get()
+        if kind != self._controls_kind:
+            self._concurrency_choices[self._controls_kind] = self.concurrency.get()
+            self._controls_kind = kind
+            self.concurrency_box.configure(values=("自动", *[str(i) for i in range(1, 4 if kind == "links" else 11)]))
+            self.concurrency.set(self._concurrency_choices[kind])
+        self.notebook.select(0 if kind == "links" else 1)
         drafts = self.drafts[kind]
         virtual = len(drafts) > 40
         stage = (kind, bool(drafts), virtual)
@@ -349,15 +403,15 @@ class BatchProcessingDialog(tk.Toplevel):
                     for view in views.values():
                         view["frame"].grid_remove()
                         view["frame"].place_forget()
-            for key, button in zip(("links", "files"), self.tabs):
-                button.configure(fg="white" if key == kind else COLOR_TEXT_PRIMARY)
             if kind == "files":
                 self.file_controls.pack(fill=tk.X, pady=(0, 12))
             if kind == "links" and not drafts:
                 self.input_panel.pack(fill=tk.BOTH, expand=True)
-                self.footer.pack_forget()
+                self.table_actions.pack_forget()
+                self.input_actions.pack()
             else:
-                self.footer.pack(side=tk.BOTTOM, fill=tk.X, pady=(14, 0))
+                self.input_actions.pack_forget()
+                self.table_actions.pack()
                 self.table_header.pack(fill=tk.X, padx=(0, self.area.scrollbar.winfo_reqwidth()))
                 self.area.pack(fill=tk.BOTH, expand=True)
             self.append_panel.pack_forget()
@@ -518,11 +572,19 @@ class BatchProcessingDialog(tk.Toplevel):
             chrome_height += self.table_header.winfo_reqheight()
         minimum_height = max(420, chrome_height + max(80, self._font.metrics("linespace") * 3))
         self.minsize(max(720, sum(widths) + 62, self.footer.winfo_reqwidth() + 44,
+                         2 * max(self.input_actions.winfo_reqwidth(), self.table_actions.winfo_reqwidth()) + self.settings.winfo_reqwidth() + 76,
+                         self.file_controls.winfo_reqwidth() + 44 if kind == "files" else 0,
                          self.toolbar.winfo_reqwidth() + 44), minimum_height)
 
     def get_plan(self):
+        value = self.concurrency.get().strip()
+        try:
+            concurrency = None if value == "自动" else int(value)
+        except ValueError:
+            raise ValueError("请输入有效的并发数量，或选择自动。") from None
+        providers = tuple(key for key, var in self.provider_vars.items() if var.get()) if self.kind.get() == "files" and self.provider_vars else None
         return BatchPlan(self.kind.get(), tuple(ItemPlan(row["source"], tuple(mode for mode in MODES if mode in row["modes"]))
-                                               for row in self.drafts[self.kind.get()]), self.concurrency.get()).validate()
+                                               for row in self.drafts[self.kind.get()]), concurrency, providers).validate()
 
     def submit(self):
         try:
