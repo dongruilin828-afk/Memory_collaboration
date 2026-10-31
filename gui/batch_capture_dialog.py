@@ -125,7 +125,7 @@ def request_batch_login(parent, url, on_done, on_stop, *, stop_label="停止全�
     content = tk.Frame(login, bg=COLOR_BG_APP, padx=24, pady=20)
     content.pack(fill=tk.BOTH, expand=True)
     text = tk.Label(content, text=(
-        "浏览器已定位到需要授权的页面。\n请在浏览器中登录或切换账号，完成后继续抓取。\n"
+        "浏览器已定位到需要授权的页面。\n请登录或切换账号；如有真人验证，请完成验证，确认目标会话已显示后继续。\n"
         "请勿关闭共享浏览器；也可以跳过此项或停止此批次。\n\n" + url
     ), font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
        justify="left", anchor="w", wraplength=560)

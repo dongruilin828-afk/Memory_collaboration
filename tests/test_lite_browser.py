@@ -151,7 +151,6 @@ class LiteBrowserSelectionTests(unittest.IsolatedAsyncioTestCase):
 
         for has_conversation_content, authenticated, allow_login in (
             (True, True, False),
-            (True, True, True),
             (False, True, False),  # authorized API can work while DOM is blocked
             (False, False, False),
             (True, False, False),

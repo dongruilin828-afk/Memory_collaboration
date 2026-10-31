@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 from urllib.parse import urlparse
 
-from gui.service import _set_browser_window_state
+from gui.browser_login import platform_login_key
+
+from gui.service import (
+    GEMINI_HOSTS, _ensure_gemini_conversation_access, _gemini_target_is_current,
+    _gemini_verification_pending, _set_browser_window_state,
+)
 from scripts.browser_activity import active_rendering
 
 
@@ -18,6 +23,7 @@ class BatchLoginCoordinator:
         self.callback = callback
         self._lock = render_lock if render_lock is not None else asyncio.Lock()
         self._epochs = {}
+        self._page_epochs = {}
 
     async def authorize(self, page, url, ready, *, force=False):
         """Confirm the exact target after human login, once per queued origin.
@@ -28,11 +34,18 @@ class BatchLoginCoordinator:
         """
         if page not in self.pages:
             raise ValueError("不是本批次的工作标签页。")
-        origin = urlparse(url).netloc.lower()
+        origin = platform_login_key(url)
         epoch = self._epochs.get(origin, 0)
+        gemini = urlparse(url).hostname in GEMINI_HOSTS
         async with active_rendering(page, self._lock):
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            refreshed_login = self._page_epochs.get((page, origin), 0) < self._epochs.get(origin, 0)
+            # Tabs loaded before another worker logged in still show stale login
+            # UI. Reload those once with the newly shared cookies, even Gemini.
+            if not gemini or refreshed_login or (not _gemini_target_is_current(page, url)
+                              and not await _gemini_verification_pending(page)):
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             if (not force or self._epochs.get(origin, 0) != epoch) and await ready():
+                self._page_epochs[page, origin] = self._epochs.get(origin, 0)
                 return True
             if self.callback is None:
                 return False
@@ -61,7 +74,9 @@ class BatchLoginCoordinator:
                 await page.evaluate("window.__aimemoryAllowLoginPopup = true;")
                 await _set_browser_window_state(page, "maximized")
                 await page.bring_to_front()
-                accepted = await self.callback(page, url)
+                accepted = (await _ensure_gemini_conversation_access(
+                    page, url, lambda: self.callback(page, url), ready=ready,
+                ) if gemini else await self.callback(page, url))
             finally:
                 async def cleanup():
                     try:
@@ -97,8 +112,10 @@ class BatchLoginCoordinator:
                     raise asyncio.CancelledError()
             if not accepted:
                 return False
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            confirmed = bool(await ready())
+            if not gemini:
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            confirmed = accepted if gemini else bool(await ready())
             if confirmed:
                 self._epochs[origin] = self._epochs.get(origin, 0) + 1
+                self._page_epochs[page, origin] = self._epochs[origin]
             return confirmed

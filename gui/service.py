@@ -34,6 +34,7 @@ from bs4 import BeautifulSoup, Tag
 from playwright.async_api import async_playwright
 
 from gui.credential_store import normalize_provider_order, is_custom_provider
+from gui.browser_login import reset_platform_login
 from scripts.providers import chatgpt_source, gemini_assets
 from scripts.browser_activity import active_rendering
 from scripts.markdown_exporter import display_and_export
@@ -589,6 +590,54 @@ async def _drain_response_tasks(tasks: set[asyncio.Task]) -> None:
         await asyncio.gather(*pending, return_exceptions=True)
 
 
+def _gemini_target_is_current(page: Any, target: str) -> bool:
+    current, requested = urlparse(page.url), urlparse(target)
+    if current.hostname not in GEMINI_HOSTS or requested.hostname not in GEMINI_HOSTS:
+        return False
+    if (GEMINI_PRIVATE_CONVERSATION_PATTERN.match(current.path)
+            and GEMINI_PRIVATE_CONVERSATION_PATTERN.match(requested.path)):
+        # /app/<id> may redirect to the same conversation inside /gem/<gem>/<id>.
+        return current.path.rstrip('/').split('/')[-1] == requested.path.rstrip('/').split('/')[-1]
+    return current.path.rstrip('/') == requested.path.rstrip('/')
+
+
+async def _gemini_verification_pending(page: Any) -> bool:
+    current = urlparse(page.url)
+    if current.hostname == 'accounts.google.com' or current.path.startswith('/sorry'):
+        return True
+    challenges = page.locator(
+        "iframe[src*='/recaptcha/'][src*='/bframe'], "
+        "iframe[src*='/recaptcha/'][src*='/anchor']:not([src*='size=invisible']), "
+        "#captcha-form, form[action*='/sorry/']"
+    )
+    for index in range(await challenges.count()):
+        if await challenges.nth(index).is_visible():
+            return True
+    return False
+
+
+async def _ensure_gemini_conversation_access(page, target, confirm, *, ready=None, logger=None):
+    """Keep the human-verified document; re-prompt at most three times."""
+    check = ready or (lambda: _page_has_conversation_content(page, target))
+    for attempt in range(3):
+        if attempt and logger:
+            logger(f"Gemini 目标会话仍未就绪，可能仍需真人验证；请在当前窗口完成验证后继续（{attempt + 1}/3）。")
+        if not await confirm():
+            return False
+        await page.wait_for_timeout(1200)
+        if not await _gemini_verification_pending(page):
+            # A successful CAPTCHA often already restored the exact conversation.
+            # Reloading it here can trigger another challenge.
+            if not _gemini_target_is_current(page, target):
+                await goto_with_retry_gui(page, target, logger=logger)
+            if (not await _gemini_verification_pending(page)
+                    and _gemini_target_is_current(page, target) and await check()):
+                return True
+    if logger:
+        logger("Gemini 经三次确认仍未显示目标会话，保留未完成验证/无访问权限状态。")
+    return False
+
+
 async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
     host = urlparse(page_url).netloc.lower().split(":", 1)[0]
     if host in {"chatgpt.com", "chat.openai.com"}:
@@ -602,6 +651,8 @@ async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
     elif host in {"doubao.com", "www.doubao.com"}:
         selector = "div[class*='message-list-'] [data-message-id]"
     elif host in GEMINI_HOSTS:
+        if await _gemini_verification_pending(page):
+            return False
         selector = "user-query, message-content, model-response"
     elif host in KIMI_HOSTS:
         # 不能用联合选择器：Kimi 首页营销壳含 .message-item，
@@ -643,6 +694,8 @@ async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
         await page.wait_for_selector(
             selector, state="attached", timeout=timeout_ms
         )
+        if host in GEMINI_HOSTS and await _gemini_verification_pending(page):
+            return False
         current = urlparse(getattr(page, "url", page_url))
         current_host = current.netloc.lower().split(":", 1)[0]
         for hosts, pattern in private_checks:
@@ -722,6 +775,28 @@ async def _chatgpt_session_is_authenticated(
         ))
     except Exception:
         return False
+
+
+async def _page_requires_login(page, target):
+    """A failed public-page load alone is not evidence that login is needed."""
+    if requires_authenticated_browser(target):
+        return True
+    current = urlparse(page.url)
+    if (current.hostname in {'accounts.google.com', 'auth.openai.com'}
+            or re.search(r'/(?:login|sign[_-]?in|auth)(?:/|$)', current.path, re.I)):
+        return True
+    if urlparse(target).hostname in GEMINI_HOSTS and await _gemini_verification_pending(page):
+        return True
+    for role in ('button', 'link'):
+        choices = page.get_by_role(role, name=re.compile(r'^(?:登录|登入|登录/注册|Log in|Sign in)$', re.I))
+        for index in range(await choices.count()):
+            if await choices.nth(index).is_visible():
+                return True
+    challenges = page.locator("#challenge-stage, #challenge-form, iframe[src*='challenges.cloudflare.com']")
+    for index in range(await challenges.count()):
+        if await challenges.nth(index).is_visible():
+            return True
+    return False
 
 
 def requires_authenticated_browser(url: str) -> bool:
@@ -5287,6 +5362,7 @@ async def fetch_chat_pipeline(
     """抓取单条链接；批量调用可借用专属页面，浏览器仍由批次拥有。"""
     if shared_page is not None and need_login:
         raise ValueError("共享标签页暂时仅支持复用登录状态。")
+    explicit_login = bool(need_login)
 
     async def open_context(*args, **options):
         if shared_page is not None:
@@ -5319,6 +5395,44 @@ async def fetch_chat_pipeline(
     fetch_warnings: list[str] = []
     completed_result: Optional[FetchResult] = None
     user_wait_seconds = 0.0
+
+    async def request_user_login(_page, _target):
+        nonlocal user_wait_seconds, allow_interactive_login
+        if login_ready_event is None or login_required_callback is None:
+            return False
+        if not allow_interactive_login:
+            if login_confirmation_callback is not None and not login_confirmation_callback():
+                return False
+            allow_interactive_login = True
+        login_ready_event.clear()
+        login_required_callback()
+        started = time.perf_counter()
+        try:
+            await login_ready_event.wait()
+            return True
+        finally:
+            user_wait_seconds += time.perf_counter() - started
+
+    async def authorize_gemini(page, target):
+        return await _ensure_gemini_conversation_access(
+            page, target, lambda: request_user_login(page, target), logger=logger,
+        )
+
+    async def authorize_single(page, target, ready=None, *, force=False):
+        from gui.batch_login import BatchLoginCoordinator
+        coordinator = BatchLoginCoordinator([page], request_user_login)
+        return await coordinator.authorize(
+            page, target, ready or (lambda: _page_has_conversation_content(page, target)), force=force,
+        )
+
+    async def doubao_access_ready(page, target):
+        if urlparse(page.url).path != urlparse(target).path:
+            return False
+        if await page.get_by_role("button", name="登录", exact=True).first.is_visible():
+            return False
+        if urlparse(target).path.startswith('/docx/'):
+            return await page.get_by_role("button", name="下载", exact=True).first.is_visible()
+        return await _page_has_conversation_content(page, target)
 
     async def authorize_shared(target, ready=None, *, force=False):
         nonlocal user_wait_seconds
@@ -5377,6 +5491,7 @@ async def fetch_chat_pipeline(
         or requires_login_probe
         or codex_request
         or requested_host in GROK_HOSTS
+        or requested_host in GEMINI_HOSTS
         or doubao_public_thread
         or (
             requested_host in {"chatgpt.com", "chat.openai.com"}
@@ -5384,12 +5499,6 @@ async def fetch_chat_pipeline(
         )
     )
     allow_interactive_login = need_login
-    chatgpt_anonymous_probe = (
-        shared_page is None
-        and requested_host in {"chatgpt.com", "chat.openai.com"}
-        and requested_path.startswith("/share/")
-        and not need_login
-    )
     headless = not need_login
 
     viewport_config = None if need_login else {
@@ -5401,7 +5510,7 @@ async def fetch_chat_pipeline(
         if shared_page is not None:
             logger("正在复用共享浏览器标签页和已保存的登录状态...")
         elif need_login:
-            logger("正在启动浏览器供您登录或读取已保存的登录状态...")
+            logger("正在打开未登录页面，请重新登录所选 AI 账号...")
         elif requires_content_probe:
             logger("正在后台检查 AI 对话内容...")
         else:
@@ -5416,29 +5525,11 @@ async def fetch_chat_pipeline(
                 no_viewport=need_login,
                 start_minimized=False,
                 logger=logger,
-                profile_root=(
-                    Path(browser_profile_root or BROWSER_USER_DATA_DIR)
-                    / "public"
-                    if doubao_public_thread or chatgpt_anonymous_probe
-                    else browser_profile_root
-                ),
+                profile_root=browser_profile_root,
             )
             page = await capture_page(context)
-            anonymous_origin = (
-                "https://www.doubao.com"
-                if doubao_public_thread
-                else "https://chatgpt.com"
-                if chatgpt_anonymous_probe
-                else None
-            )
-            if anonymous_origin and shared_page is None:
-                session = await context.new_cdp_session(page)
-                await session.send("Storage.clearDataForOrigin", {
-                    "origin": anonymous_origin,
-                    "storageTypes": "all",
-                })
-                await session.detach()
-                await context.clear_cookies()
+            if explicit_login:
+                await reset_platform_login(context, page, url)
             if need_login:
                 await set_window_state(page, "maximized")
             response_document_candidates: list[DocumentCandidate] = []
@@ -5463,14 +5554,16 @@ async def fetch_chat_pipeline(
             chatgpt_assets_rehydrated = False
             pre_rehydrate_chat_html: Optional[str] = None
             verified_chatgpt_payload = None
+            requested_auth_required = False
 
             async def requested_content_ready():
-                nonlocal verified_chatgpt_payload
+                nonlocal verified_chatgpt_payload, requested_auth_required
                 if verified_chatgpt_request:
                     try:
                         verified_chatgpt_payload = await chatgpt_source.read_conversation(page, url)
                         return True
-                    except chatgpt_source.SourceError:
+                    except chatgpt_source.SourceError as error:
+                        requested_auth_required = bool(re.search(r'HTTP (?:401|403)\b', str(error)))
                         return False
                 return (
                     await _page_has_conversation_content(page, url)
@@ -5595,11 +5688,18 @@ async def fetch_chat_pipeline(
                     logger(f"正在加载 {host} 分享页...")
                 await goto_with_retry_gui(page, url, logger=logger)
 
+                if explicit_login:
+                    # Readable public content does not skip an explicit fresh login.
+                    if not await authorize_single(page, url, requested_content_ready, force=True):
+                        raise RuntimeError("尚未完成重新登录或目标会话不可访问，已停止抓取。")
+
                 if need_login or requires_content_probe:
                     await page.wait_for_timeout(1800)
                     await _drain_response_tasks(response_tasks)
                     content_ready = await requested_content_ready()
                     if not content_ready and shared_page is not None and authorize_login is not None:
+                        if not requested_auth_required and not await _page_requires_login(page, url):
+                            raise RuntimeError("未能读取公开会话，未发现需要登录的证据；请检查链接或网络后重试。")
                         content_ready = await authorize_shared(url, requested_content_ready)
                     if (
                         content_ready
@@ -5645,14 +5745,7 @@ async def fetch_chat_pipeline(
                                     # 浏览器移到屏幕外，否则窗口恢复失败时用户无法操作。
                                     start_minimized=False,
                                     logger=logger,
-                                    profile_root=(
-                                        Path(
-                                            browser_profile_root
-                                            or BROWSER_USER_DATA_DIR
-                                        ) / "public"
-                                        if doubao_public_thread
-                                        else browser_profile_root
-                                    ),
+                                    profile_root=browser_profile_root,
                                 )
                             )
                             page = await capture_page(context)
@@ -5691,6 +5784,8 @@ async def fetch_chat_pipeline(
                                         "无需重复授权。"
                                     )
                             else:
+                                if not requested_auth_required and not await _page_requires_login(page, url):
+                                    raise RuntimeError("公开会话仍未加载，未发现需要登录的证据；请检查链接或网络后重试。")
                                 if not allow_interactive_login:
                                     if (
                                         login_confirmation_callback is None
@@ -5720,23 +5815,26 @@ async def fetch_chat_pipeline(
                                     "当前登录状态无法读取该会话，请在浏览器中登录或切换到"
                                     "有权访问的账号，确认会话内容已显示后继续..."
                                 )
-                            if login_required_callback is not None:
-                                login_required_callback()
-                            if login_ready_event:
-                                login_wait_started = time.perf_counter()
-                                await login_ready_event.wait()
-                                user_wait_seconds += (
-                                    time.perf_counter() - login_wait_started
-                                )
-                            if logger:
-                                logger("登录确认完毕，正在继续抓取对话数据...")
-                            await page.wait_for_timeout(1200)
-
-                            # 登录流程可能跳回平台首页；确认后重新打开原始会话。
-                            await goto_with_retry_gui(page, url, logger=logger)
-                            await page.wait_for_timeout(1800)
+                            if requested_host in GEMINI_HOSTS:
+                                content_ready = await authorize_gemini(page, url)
+                            else:
+                                if login_required_callback is not None:
+                                    login_required_callback()
+                                if login_ready_event:
+                                    login_wait_started = time.perf_counter()
+                                    await login_ready_event.wait()
+                                    user_wait_seconds += (
+                                        time.perf_counter() - login_wait_started
+                                    )
+                                if logger:
+                                    logger("登录确认完毕，正在继续抓取对话数据...")
+                                await page.wait_for_timeout(1200)
+                                # 登录流程可能跳回平台首页；确认后重新打开原始会话。
+                                await goto_with_retry_gui(page, url, logger=logger)
+                                await page.wait_for_timeout(1800)
                             await _drain_response_tasks(response_tasks)
-                            content_ready = await requested_content_ready()
+                            if requested_host not in GEMINI_HOSTS:
+                                content_ready = await requested_content_ready()
                             if (
                                 content_ready
                                 and requested_host in {
@@ -5750,6 +5848,8 @@ async def fetch_chat_pipeline(
                                 )
                             if not content_ready:
                                 raise RuntimeError(
+                                    "Gemini 目标会话仍未就绪，请完成真人验证或切换账号后重试。"
+                                    if requested_host in GEMINI_HOSTS else
                                     "当前账号仍无法访问目标会话。请切换到有权访问该会话的账号，"
                                     "确认会话内容已显示后重试。"
                                 )
@@ -5761,12 +5861,21 @@ async def fetch_chat_pipeline(
                                 )
                             if logger:
                                 logger(
+                                    "已确认 Gemini 目标会话可访问，正在读取完整内容..."
+                                    if requested_host in GEMINI_HOSTS else
                                     "已重新打开原始对话链接，正在读取完整内容..."
                                 )
 
                 await page.wait_for_timeout(1000)
                 if requested_host in GEMINI_HOSTS:
-                    await _page_has_conversation_content(page, url)
+                    gemini_ready = await _page_has_conversation_content(page, url)
+                    if (not gemini_ready and shared_page is not None and authorize_login is not None
+                            and await _page_requires_login(page, url)):
+                        gemini_ready = await authorize_shared(url)
+                    elif not gemini_ready and allow_interactive_login:
+                        gemini_ready = await authorize_gemini(page, url)
+                    if not gemini_ready:
+                        raise RuntimeError("Gemini 目标会话未就绪，可能仍需真人验证或当前账号无访问权限。")
                 await _drain_response_tasks(response_tasks)
                 current_host = urlparse(url).netloc.lower().split(":", 1)[0]
                 if verified_chatgpt_request:
@@ -5913,10 +6022,10 @@ async def fetch_chat_pipeline(
                         kimi_ready = await authorize_shared(kimi_private_url)
                     if (
                         not kimi_ready
-                        and login_confirmation_callback is not None
-                        and login_confirmation_callback()
+                        and shared_page is None
+                        and login_required_callback is not None
+                        and login_ready_event is not None
                     ):
-                        allow_interactive_login = True
                         await close_context(
                             context, fetch_warnings, logger
                         )
@@ -5933,18 +6042,7 @@ async def fetch_chat_pipeline(
                         await set_window_state(page, "maximized")
                         listen(page, capture_response_assets)
                         await goto_with_retry_gui(page, kimi_private_url, logger=logger)
-                        if login_required_callback is not None:
-                            if login_ready_event is not None:
-                                login_ready_event.clear()
-                            login_required_callback()
-                        if login_ready_event is not None:
-                            login_wait_started = time.perf_counter()
-                            await login_ready_event.wait()
-                            user_wait_seconds += time.perf_counter() - login_wait_started
-                        await goto_with_retry_gui(page, kimi_private_url, logger=logger)
-                        kimi_ready = await _page_has_conversation_content(
-                            page, kimi_private_url
-                        )
+                        kimi_ready = await authorize_single(page, kimi_private_url)
                     if kimi_ready:
                         page_snapshot_html = await page.content()
                         html = await collect_virtualized_html(page) or page_snapshot_html
@@ -6101,24 +6199,14 @@ async def fetch_chat_pipeline(
                             image_warnings, image_authentication_required, failure_collector=image_failures))
                         doubao.alias_generated_images(image_map, image_candidates)
                 if (
-                    (
-                        image_authentication_required
-                        or (
-                            chatgpt_anonymous_probe
-                            and need_login
-                            and any(chatgpt_document_groups)
-                        )
-                    )
+                    image_authentication_required
                     and login_required_callback is not None
                     and login_ready_event is not None
-                    and login_confirmation_callback is not None
-                    and (need_login or login_confirmation_callback())
+                    and shared_page is None
                 ):
-                    allow_interactive_login = True
                     if logger:
                         logger(
-                            "已确认登录，正在打开浏览器；登录后请点击"
-                            "【登录完毕】..."
+                            "附件需要访问权限，正在检查已保存的登录状态..."
                         )
                     await close_context(
                         context, fetch_warnings, logger
@@ -6141,12 +6229,8 @@ async def fetch_chat_pipeline(
                         and await _chatgpt_session_is_authenticated(page, url)
                     )
                     if not chatgpt_logged_in:
-                        login_ready_event.clear()
-                        login_required_callback()
-                        login_wait_started = time.perf_counter()
-                        await login_ready_event.wait()
-                        user_wait_seconds += time.perf_counter() - login_wait_started
-                        await goto_with_retry_gui(page, url, logger=logger)
+                        if not await authorize_single(page, url, lambda: _chatgpt_session_is_authenticated(page, url)):
+                            raise RuntimeError("附件需要登录授权，已取消本次抓取。")
                     elif logger:
                         logger("检测到已保存的 ChatGPT 登录状态，自动继续。")
                     await page.wait_for_timeout(1800)
@@ -6233,10 +6317,10 @@ async def fetch_chat_pipeline(
                         gemini_ready = await authorize_shared(gemini_private_url)
                     if (
                         not gemini_ready
-                        and login_confirmation_callback is not None
-                        and login_confirmation_callback()
+                        and shared_page is None
+                        and login_required_callback is not None
+                        and login_ready_event is not None
                     ):
-                        allow_interactive_login = True
                         await close_context(
                             context, fetch_warnings, logger
                         )
@@ -6255,22 +6339,7 @@ async def fetch_chat_pipeline(
                         await goto_with_retry_gui(
                             page, gemini_private_url, logger=logger
                         )
-                        if login_required_callback is not None:
-                            if login_ready_event is not None:
-                                login_ready_event.clear()
-                            login_required_callback()
-                        if login_ready_event is not None:
-                            login_wait_started = time.perf_counter()
-                            await login_ready_event.wait()
-                            user_wait_seconds += (
-                                time.perf_counter() - login_wait_started
-                            )
-                        await goto_with_retry_gui(
-                            page, gemini_private_url, logger=logger
-                        )
-                        gemini_ready = await _page_has_conversation_content(
-                            page, gemini_private_url
-                        )
+                        gemini_ready = await authorize_single(page, gemini_private_url)
                     if gemini_ready:
                         private_html = await collect_virtualized_html(page)
                         if private_html is None:
@@ -6424,10 +6493,9 @@ async def fetch_chat_pipeline(
                         await authorize_shared(url, force=True)
                     if (
                         await page.get_by_role("button", name="登录", exact=True).first.is_visible()
+                        and shared_page is None
                         and login_ready_event is not None
                         and login_required_callback is not None
-                        and login_confirmation_callback is not None
-                        and login_confirmation_callback()
                     ):
                         await close_context(context, fetch_warnings, logger)
                         context, _browser_channel = await open_context(
@@ -6437,12 +6505,8 @@ async def fetch_chat_pipeline(
                         page = await capture_page(context, new=True)
                         await goto_with_retry_gui(page, url, logger=logger)
                         await set_window_state(page, "maximized")
-                        login_ready_event.clear()
-                        login_required_callback()
-                        login_wait_started = time.perf_counter()
-                        await login_ready_event.wait()
-                        user_wait_seconds += time.perf_counter() - login_wait_started
-                        await goto_with_retry_gui(page, url, logger=logger)
+                        if not await authorize_single(page, url, lambda: doubao_access_ready(page, url)):
+                            raise RuntimeError("豆包附件需要登录授权，已取消本次抓取。")
                     doubao_authenticated_documents = True
                     fresh_candidates = _extract_document_candidates(await page.content(), url)
                     document_candidates = list(dict.fromkeys([*document_candidates, *fresh_candidates]))
@@ -6702,10 +6766,9 @@ async def fetch_chat_pipeline(
                             await authorize_shared(document_entry, document_ready, force=True)
                         if (
                             await page.get_by_role("button", name="登录", exact=True).first.is_visible()
+                            and shared_page is None
                             and login_required_callback is not None
                             and login_ready_event is not None
-                            and login_confirmation_callback is not None
-                            and login_confirmation_callback()
                         ):
                             await close_context(
                                 context, fetch_warnings, logger
@@ -6718,12 +6781,8 @@ async def fetch_chat_pipeline(
                             page = await capture_page(context, new=True)
                             await goto_with_retry_gui(page, document_entry, logger=logger)
                             await set_window_state(page, "maximized")
-                            login_ready_event.clear()
-                            login_required_callback()
-                            login_wait_started = time.perf_counter()
-                            await login_ready_event.wait()
-                            user_wait_seconds += time.perf_counter() - login_wait_started
-                            await goto_with_retry_gui(page, document_entry, logger=logger)
+                            if not await authorize_single(page, document_entry, lambda: doubao_access_ready(page, document_entry)):
+                                raise RuntimeError("豆包文档需要登录授权，已取消本次抓取。")
                         listen(page, capture_response_assets)
                     ai_document_map, doubao_ai_document_count = (
                         await _save_doubao_ai_documents(

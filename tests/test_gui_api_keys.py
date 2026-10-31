@@ -154,6 +154,15 @@ class GUIApiKeyRoutingTests(unittest.TestCase):
         self.assertIn("复用登录状态", statuses[0])
         self.assertEqual(updates, [True])
 
+        # Explicit re-login survives typing/pasting a private conversation URL.
+        fake_gui.card_need_login.set_checked(True)
+        fake_gui.card_no_login.set_checked(False)
+        statuses.clear()
+        AIMemoryGUI._on_url_changed(fake_gui)
+        self.assertTrue(fake_gui.card_need_login.checked)
+        self.assertFalse(fake_gui.card_no_login.checked)
+        self.assertIn("重新登录", statuses[0])
+
     def test_generation_ui_copy(self):
         self.assertEqual(GENERATION_SOURCE_LABELS, {
             "url": "当前对话",

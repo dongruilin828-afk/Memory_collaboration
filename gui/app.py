@@ -1376,7 +1376,7 @@ class AIMemoryGUI:
             fg=COLOR_TEXT_PRIMARY, bg=COLOR_CARD, anchor="w",
         ).pack(fill=tk.X)
         tk.Label(
-            auth_copy, text="受限页面可切换为独立浏览器授权",
+            auth_copy, text="复用可用状态；授权登录将退出旧账号后重新登录",
             font=FONT_TINY, fg=COLOR_TEXT_MUTED, bg=COLOR_CARD, anchor="w",
         ).pack(fill=tk.X, pady=(3, 0))
         auth_switch = tk.Frame(auth_panel, bg="#F1F3F7", padx=2, pady=3)
@@ -2012,9 +2012,11 @@ class AIMemoryGUI:
         is_private = requires_authenticated_browser(url)
         self._url_is_private = is_private
         if is_private and hasattr(self, "card_no_login"):
-            self.card_need_login.set_checked(False)
-            self.card_no_login.set_checked(True)
-            self.status_var.set("账号内对话链接，将复用登录状态。")
+            if self.card_need_login.checked:
+                self.status_var.set("账号内对话链接，将退出旧账号并重新登录。")
+            else:
+                self.card_no_login.set_checked(True)
+                self.status_var.set("账号内对话链接，将复用登录状态。")
         if hasattr(self, "card_source_url"):
             self._refresh_generation_sources()
         else:

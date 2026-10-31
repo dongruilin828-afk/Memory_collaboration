@@ -189,8 +189,11 @@ class GeminiMediaAttachmentTests(unittest.TestCase):
 class GeminiContentProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_public_share_waits_for_slow_hydration(self):
         class Locator:
+            def __init__(self, selector):
+                self.selector = selector
+
             async def count(self):
-                return 1
+                return 1 if self.selector == gemini.WAIT_SELECTOR else 0
 
         class Page:
             url = "https://gemini.google.com/share/example"
@@ -202,7 +205,7 @@ class GeminiContentProbeTests(unittest.IsolatedAsyncioTestCase):
                 self.timeout = kwargs["timeout"]
 
             def locator(self, selector):
-                return Locator()
+                return Locator(selector)
 
         page = Page()
         self.assertTrue(await _page_has_conversation_content(page, page.url))

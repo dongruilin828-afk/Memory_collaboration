@@ -50,6 +50,10 @@ class Page:
         self.viewports = []
         self.handlers = {}
         self.bring_to_front = AsyncMock()
+        self.wait_for_timeout = AsyncMock()
+
+    def locator(self, _selector):
+        return SimpleNamespace(count=AsyncMock(return_value=0))
 
     async def set_viewport_size(self, viewport):
         self.viewport_size = dict(viewport)
