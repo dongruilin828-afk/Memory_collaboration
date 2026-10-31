@@ -19,6 +19,7 @@ import tempfile
 import threading
 import time
 import zipfile
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,6 +30,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from scripts.cancellation import check_cancelled, run_cancellable_request, wait_with_cancel
+from scripts.adaptive_concurrency import APIUnavailable
 
 
 DEFAULT_PROVIDER = "gemini"
@@ -786,6 +788,23 @@ def _is_timeout_error(error: BaseException | None) -> bool:
     return False
 
 
+@contextmanager
+def _request_slot(gateway, prompt, media_assets, schema):
+    scheduler = getattr(gateway, "_request_scheduler", None)
+    if scheduler is None:
+        yield {}
+        return
+    with scheduler.request(gateway.config, gateway._api_key, prompt, gateway._cancel_event, media_assets,
+                           tuple(sorted(schema.get("properties", {})))) as ticket:
+        try:
+            yield ticket
+        except Exception as error:
+            import httpx
+            ticket["retry_after"] = _retry_after_seconds(error)
+            ticket["transport_error"] = isinstance(error, httpx.TransportError) or _is_timeout_error(error)
+            raise
+
+
 class GeminiGateway:
     """Google Gen AI SDK 的窄接口，集中处理鉴权、重试和 JSON 输出。"""
 
@@ -795,6 +814,7 @@ class GeminiGateway:
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
         cancel_event: threading.Event | None = None,
+        request_scheduler=None,
     ):
         api_key = str(api_key or (os.getenv("GEMINI_API_KEY") if config.provider != "custom" else "") or "").strip()
         if not api_key:
@@ -816,6 +836,7 @@ class GeminiGateway:
         self._system_instruction = SYSTEM_INSTRUCTION
         self._last_status_code = None
         self._cancel_event = cancel_event
+        self._request_scheduler = request_scheduler
         self._genai = genai
 
         def record_status(response):
@@ -825,6 +846,7 @@ class GeminiGateway:
             api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=config.request_timeout_seconds * 1000,
+                **({"retry_options": types.HttpRetryOptions(attempts=1)} if request_scheduler is not None else {}),
                 client_args={"event_hooks": {"response": [record_status]}},
                 **({"base_url": config.api_base} if config.provider == "custom" else {}),
             )
@@ -899,26 +921,29 @@ class GeminiGateway:
         for attempt in range(1, self.config.retries + 1):
             check_cancelled(self._cancel_event)
             try:
-                if self._cancel_event is not None:
-                    response = run_cancellable_request(
-                        lambda: self._generate_async(contents, generation_options),
-                        self._cancel_event,
-                    )
-                else:
-                    response = self._client.models.generate_content(
-                        model=self.config.model,
-                        contents=contents,
-                        config=self._types.GenerateContentConfig(**generation_options),
-                    )
-                check_cancelled(self._cancel_event)
-                if not response.text:
-                    raise GeminiSummaryError("Gemini 返回了空响应。")
-                parsed = json.loads(response.text)
-                if not isinstance(parsed, dict):
-                    raise GeminiSummaryError(
-                        "Gemini 返回的结构不是 JSON 对象。"
-                    )
-                return parsed
+                with _request_slot(self, prompt, media_assets, schema) as ticket:
+                    if self._cancel_event is not None:
+                        response = run_cancellable_request(
+                            lambda: self._generate_async(contents, generation_options),
+                            self._cancel_event,
+                        )
+                    else:
+                        response = self._client.models.generate_content(
+                            model=self.config.model,
+                            contents=contents,
+                            config=self._types.GenerateContentConfig(**generation_options),
+                        )
+                    check_cancelled(self._cancel_event)
+                    if not response.text:
+                        raise GeminiSummaryError("Gemini 返回了空响应。")
+                    parsed = json.loads(response.text)
+                    if not isinstance(parsed, dict):
+                        raise GeminiSummaryError(
+                            "Gemini 返回的结构不是 JSON 对象。"
+                        )
+                    return parsed
+            except APIUnavailable as error:
+                raise GeminiSummaryError(str(error)) from None
             except Exception as error:
                 check_cancelled(self._cancel_event)
                 last_error = error
@@ -1033,6 +1058,7 @@ class SiliconFlowGateway:
         sleep: Callable[[float], None] = time.sleep,
         api_key: str | None = None,
         cancel_event: threading.Event | None = None,
+        request_scheduler=None,
     ):
         if config.provider == "custom":
             provider_name = config.api_name or "自定义 API"
@@ -1063,6 +1089,7 @@ class SiliconFlowGateway:
         self._doubao_output_limit = 0
         self._doubao_output_events = []
         self._cancel_event = cancel_event
+        self._request_scheduler = request_scheduler
 
     async def _request_async(self, request):
         import httpx
@@ -1194,42 +1221,46 @@ class SiliconFlowGateway:
                 if self.config.provider == "custom":
                     request.remove_header("Authorization")
                     request.add_unredirected_header("Authorization", f"Bearer {self._api_key}")
-                if self._cancel_event is not None:
-                    response_data = run_cancellable_request(
-                        lambda: self._request_async(request), self._cancel_event,
-                    )
-                else:
-                    with urlopen(
-                        request,
-                        timeout=self.config.request_timeout_seconds,
-                    ) as response:
-                        self._last_status_code = getattr(response, "status", None)
-                        response_data = json.loads(response.read().decode("utf-8"))
-                check_cancelled(self._cancel_event)
-                choice = response_data["choices"][0]
-                if self.config.provider == "custom" and choice.get("finish_reason") == "length":
-                    if self.config.max_output_tokens is None:
-                        raise SummaryOutputTruncatedError("自定义 API 输出达到服务端或模型的 token 上限，结果被截断。")
-                    raise SummaryOutputTruncatedError("自定义 API 输出达到 token 上限，结果被截断；请提高输出上限。")
-                if self._doubao_output_limit and choice.get("finish_reason") == "length":
-                    old_limit = payload.get("max_tokens")
-                    if old_limit is None:
-                        raise SummaryOutputTruncatedError("模型输出达到服务端或模型的 token 上限，结果被截断；保留当前进度。")
-                    new_limit = min(self._doubao_output_limit, old_limit * 2)
-                    if attempt < self.config.retries and new_limit > old_limit:
-                        self._doubao_output_events.append({
-                            "finish_reason": "length", "old_limit": old_limit,
-                            "retry_limit": new_limit, "usage": response_data.get("usage"),
-                        })
-                        self._doubao_output_progress(
-                            f"DeepSeek JSON响应被输出上限截断，使用{new_limit} token预算重试一次。")
-                        payload["max_tokens"] = new_limit
-                        continue
-                    raise SummaryOutputTruncatedError(
-                        f"DeepSeek JSON响应达到输出上限{old_limit} token且仍被截断；"
-                        "已停止有界重试，保留当前进度。")
-                content = choice["message"]["content"]
-                return _parse_json_object(content)
+                with _request_slot(self, prompt, media_assets, schema) as ticket:
+                    if self._cancel_event is not None:
+                        response_data = run_cancellable_request(
+                            lambda: self._request_async(request), self._cancel_event,
+                        )
+                    else:
+                        with urlopen(
+                            request,
+                            timeout=self.config.request_timeout_seconds,
+                        ) as response:
+                            self._last_status_code = getattr(response, "status", None)
+                            response_data = json.loads(response.read().decode("utf-8"))
+                    check_cancelled(self._cancel_event)
+                    choice = response_data["choices"][0]
+                    if self.config.provider == "custom" and choice.get("finish_reason") == "length":
+                        if self.config.max_output_tokens is None:
+                            raise SummaryOutputTruncatedError("自定义 API 输出达到服务端或模型的 token 上限，结果被截断。")
+                        raise SummaryOutputTruncatedError("自定义 API 输出达到 token 上限，结果被截断；请提高输出上限。")
+                    if self._doubao_output_limit and choice.get("finish_reason") == "length":
+                        old_limit = payload.get("max_tokens")
+                        if old_limit is None:
+                            raise SummaryOutputTruncatedError("模型输出达到服务端或模型的 token 上限，结果被截断；保留当前进度。")
+                        new_limit = min(self._doubao_output_limit, old_limit * 2)
+                        if attempt < self.config.retries and new_limit > old_limit:
+                            self._doubao_output_events.append({
+                                "finish_reason": "length", "old_limit": old_limit,
+                                "retry_limit": new_limit, "usage": response_data.get("usage"),
+                            })
+                            self._doubao_output_progress(
+                                f"DeepSeek JSON响应被输出上限截断，使用{new_limit} token预算重试一次。")
+                            payload["max_tokens"] = new_limit
+                            ticket["valid"] = False
+                            continue
+                        raise SummaryOutputTruncatedError(
+                            f"DeepSeek JSON响应达到输出上限{old_limit} token且仍被截断；"
+                            "已停止有界重试，保留当前进度。")
+                    content = choice["message"]["content"]
+                    return _parse_json_object(content)
+            except APIUnavailable as error:
+                raise GeminiSummaryError(str(error)) from None
             except SummaryOutputTruncatedError:
                 check_cancelled(self._cancel_event)
                 raise
@@ -1422,6 +1453,7 @@ def create_gateway(
     config: SummaryConfig,
     api_key: str | None = None,
     cancel_event: threading.Event | None = None,
+    request_scheduler=None,
 ) -> SummaryGateway:
     if config.provider == "custom" and config.thinking_level != "auto" and config.reasoning_config:
         snapshot = config.reasoning_config
@@ -1430,8 +1462,8 @@ def create_gateway(
             if snapshot["scope"] != capability_identity(config.api_base, config.api_protocol, config.model, api_key or ""):
                 raise GeminiSummaryError("API KEY 已更改，请重新识别思考档位，或选择自动。")
     if config.provider in {"siliconflow", "deepseek"} or (config.provider == "custom" and config.api_protocol == "openai"):
-        return SiliconFlowGateway(config, api_key=api_key, cancel_event=cancel_event)
-    return GeminiGateway(config, api_key=api_key, cancel_event=cancel_event)
+        return SiliconFlowGateway(config, api_key=api_key, cancel_event=cancel_event, request_scheduler=request_scheduler)
+    return GeminiGateway(config, api_key=api_key, cancel_event=cancel_event, request_scheduler=request_scheduler)
 
 
 def custom_summary_config(values, base_config=None):

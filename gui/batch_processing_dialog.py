@@ -189,7 +189,7 @@ class BatchProcessingDialog(tk.Toplevel):
             relief=tk.SOLID, bd=1, highlightthickness=0)
         self.concurrency_box.pack(side=tk.LEFT)
         self.concurrency.set(initial_concurrency)
-        HoverTooltip(self.concurrency_box, f"链接：1～{MAX_CAPTURE_TABS}并发，默认{DEFAULT_CAPTURE_CONCURRENCY}。文件自动按已选API数量和文件数安排，最多10并发。也可手动输入数量。")
+        HoverTooltip(self.concurrency_box, f"链接：1～{MAX_CAPTURE_TABS}并发，默认{DEFAULT_CAPTURE_CONCURRENCY}。文件自动按接口负载和请求反馈调整，最多10并发；限流时自动降速。也可手动输入数量。")
         self.notice.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
         body.bind("<Configure>", lambda event: self.notice.configure(wraplength=max(1, event.width - 44)))
         self._render()

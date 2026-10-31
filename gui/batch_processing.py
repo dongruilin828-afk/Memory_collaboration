@@ -102,6 +102,8 @@ class _Batch:
     summaries: int = 0
     items: list = field(default_factory=list)
     reported: set = field(default_factory=set, repr=False)
+    scheduler: object = field(default=None, repr=False)
+    assignments: dict = field(default_factory=dict, repr=False)
 
 
 class BatchProcessingQueue:
@@ -133,7 +135,26 @@ class BatchProcessingQueue:
     def _limit(batch):
         if batch.plan.concurrency is not None:
             return batch.plan.concurrency
+        if batch.scheduler is not None:
+            return min(len(batch.items), max(1, batch.scheduler.capacity()))
         return min(len(batch.items), DEFAULT_CAPTURE_CONCURRENCY if batch.plan.kind == "links" else min(10, max(1, len(batch.api_keys))))
+
+    def _configure_auto(self, batch):
+        batch.scheduler = None
+        if batch.plan.kind != "files" or batch.plan.concurrency is not None:
+            return
+        from scripts.adaptive_concurrency import AdaptiveSummaryScheduler
+        from scripts.gemini_summarizer import SummaryConfig
+        from gui.service import gui_summary_attempt_configs
+        def changed():
+            with self.condition:
+                self.condition.notify_all()
+            self._publish(batch, progress=True)
+        batch.scheduler = AdaptiveSummaryScheduler(on_change=changed,
+            has_pending=lambda: any(item["status"] == "queued" for item in batch.items))
+        for config in gui_summary_attempt_configs(SummaryConfig.from_env(), batch.api_keys, batch.custom_api or None):
+            profile = config.api_profile_id or config.provider
+            batch.scheduler.register(profile, config, batch.api_keys[profile])
 
     def _draining(self):
         return {(batch.id, item["index"]) for batch in self.batches for item in batch.items
@@ -178,6 +199,7 @@ class BatchProcessingQueue:
         batch = _Batch(batch_id, plan, output, Path(runtime_dir).resolve(),
                        dict(api_keys or {}), copy.deepcopy(custom_api or {}))
         batch.items = self._items(plan)
+        self._configure_auto(batch)
         with self.condition:
             if self.closed:
                 raise ValueError("程序正在关闭，不能添加批次。")
@@ -208,6 +230,7 @@ class BatchProcessingQueue:
                 raise ValueError("该批次已经开始或已移除，不能更改。")
             batch.plan, batch.items = plan, self._items(plan)
             batch.api_keys, batch.custom_api = dict(api_keys or {}), copy.deepcopy(custom_api or {})
+            self._configure_auto(batch)
             self.condition.notify_all()
         self._publish()
 
@@ -303,6 +326,7 @@ class BatchProcessingQueue:
                 item["status"] in {"capturing", "summarizing"} for item in batch.items):
             status = "paused"
         return dict(id=batch.id, kind=batch.plan.kind, concurrency=self._limit(batch),
+                    summaries=batch.summaries, auto_status=batch.scheduler.snapshot() if batch.scheduler else None,
                     requested_concurrency=batch.plan.concurrency, api_providers=batch.plan.api_providers,
                     pausing=bool(batch.started and status not in TERMINAL and self._ordered
                                  and self._draining() and self._priority() is not batch),
@@ -433,7 +457,11 @@ class BatchProcessingQueue:
         # extra API calls on top of a user's 1/2-worker selection.
         active = next((batch for batch in self.batches if batch.summaries), None)
         for batch in ([active] if active is not None else self.batches):
-            if batch.cancel.is_set() or batch.editing or batch.summaries >= self._limit(batch):
+            busy = batch.summaries
+            if batch.scheduler:
+                busy = batch.scheduler.busy_files([batch.assignments[item["index"]] for item in batch.items
+                    if item["index"] in batch.assignments and not item.get("waiting_topics")])
+            if batch.cancel.is_set() or batch.editing or busy >= self._limit(batch):
                 continue
             for item in batch.items:
                 if item["status"] == "ready" or (batch.plan.kind == "files" and item["status"] == "queued"):
@@ -452,9 +480,18 @@ class BatchProcessingQueue:
                 self.condition.wait_for(lambda: self.closed or self._next_summary() is not None)
                 if self.closed:
                     return
-                batch, item = self._next_summary()
+                candidate = self._next_summary()
+                if candidate is None:
+                    continue
+                batch, item = candidate
                 batch.started = True
                 batch.summaries += 1
+                if batch.scheduler is not None:
+                    try:
+                        weight = max(1, min(8, Path(item["source"]).stat().st_size / 24000))
+                    except OSError:
+                        weight = 1
+                    batch.assignments[item["index"]] = batch.scheduler.reserve(batch.api_keys, weight)
                 item.update(status="summarizing", message="正在总结")
             started = time.perf_counter()
             try:
@@ -476,6 +513,8 @@ class BatchProcessingQueue:
                     self._finished(batch, item)
                 finally:
                     with self.condition:
+                        if batch.scheduler is not None:
+                            batch.scheduler.release(batch.assignments.pop(item["index"]))
                         batch.summaries -= 1
                         self.condition.notify_all()
 
@@ -501,11 +540,15 @@ class BatchProcessingQueue:
         modes = {mode: mode != "raw" and mode in item["modes"] for mode in MODES}
         def select_topics(result):
             started = time.perf_counter()
+            if batch.scheduler:
+                self._update(batch, item, waiting_topics=True)
             try:
                 return self.select_topics(batch.id, item["index"], result, batch.cancel)
             finally:
                 with self.condition:
                     item["topic_wait_seconds"] += time.perf_counter() - started
+                if batch.scheduler:
+                    self._update(batch, item, waiting_topics=False)
         with (target / "summary.log").open("w", encoding="utf-8") as stream:
             def progress(message):
                 self._check_cancel(batch)
@@ -517,7 +560,7 @@ class BatchProcessingQueue:
             keys = batch.api_keys
             if batch.plan.kind == "files" and keys:
                 providers = list(keys)
-                offset = (item["index"] - 1) % len(providers)
+                offset = providers.index(batch.assignments[item["index"]][0]) if batch.scheduler else (item["index"] - 1) % len(providers)
                 keys = {key: keys[key] for key in providers[offset:] + providers[:offset]}
             bundle = generate_output_bundle(
                 messages, modes, batch.output_dir, output_filename=target.name + ".md",
@@ -527,6 +570,7 @@ class BatchProcessingQueue:
                 topic_selector=select_topics
                 if self.select_topics and (modes["normal"] or modes["detailed"]) else None,
                 progress=progress, cancel_event=batch.cancel, cancel_check=lambda: self._check_cancel(batch),
+                **({"request_scheduler": batch.scheduler} if batch.scheduler else {}),
             )
         self._check_cancel(batch)
         processing = (bundle.summary_result or {}).get("processing", {})

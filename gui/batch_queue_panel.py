@@ -132,9 +132,12 @@ class BatchQueuePanel(tk.Frame):
         active = next((item for item in view["items"] if item["status"] in {"capturing", "summarizing"}), None)
         first = view["items"][0]["source"]
         limit = f"自动（{view['concurrency']}）" if "requested_concurrency" in view and view["requested_concurrency"] is None else str(view["concurrency"])
+        if view.get("auto_status"):
+            limit = f"自动（{view['summaries']} 项处理中 · 上限 {view['concurrency']}）"
         card["preview_text"] = f"{limit} 并发 · " + (f"第 {active['index']} 项 · {active['message']}" if active else
                                 Path(first).name if view["kind"] == "files" else first)
-        card["tooltip"]._text = "\n".join([first] + ([active["message"]] if active else []))
+        card["tooltip"]._text = "\n".join([first] + ([active["message"]] if active else [])
+            + ([view["auto_status"]["reason"]] if view.get("auto_status") else []))
         card["progress"].set_progress(view["done"] / max(1, view["total"]))
         detail = f"{view['done']} / {view['total']}"
         if view["failed"]:

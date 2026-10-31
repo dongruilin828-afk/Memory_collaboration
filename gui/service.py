@@ -7131,6 +7131,7 @@ def generate_output_bundle(
     source_dir: Optional[Path] = None,
     cancel_check: Callable[[], None] = lambda: None,
     cancel_event: Any = None,
+    request_scheduler: Any = None,
 ) -> GenerationBundle:
     """按 GUI 模式生成文件，并让普通/详细版复用同一份语义结果。
 
@@ -7152,6 +7153,8 @@ def generate_output_bundle(
         report_progress(message)
 
     gateway_options = {"cancel_event": cancel_event} if cancel_event is not None else {}
+    if request_scheduler is not None:
+        gateway_options["request_scheduler"] = request_scheduler
     if not messages:
         raise ValueError("没有可生成的对话消息。")
     if not any(bool(value) for value in modes.values()):

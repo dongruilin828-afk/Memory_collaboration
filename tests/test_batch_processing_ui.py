@@ -609,6 +609,18 @@ def batch_view(key, status="queued"):
 
 
 class BatchQueueCardTests(_TkTests):
+    def test_auto_card_shows_dynamic_limit_and_adjustment_reason(self):
+        board = BatchQueuePanel(self.root, on_edit=Mock(), on_remove=Mock(), on_move=Mock(), on_open=Mock())
+        board.pack(fill=tk.BOTH, expand=True)
+        view = batch_view("auto", "running")
+        view.update(kind="files", requested_concurrency=None, concurrency=4, summaries=2,
+                    auto_status={"reason":"接口限流，降低容量并按服务端提示冷却"})
+        board.set_batches([view])
+        self.root.update()
+        self.assertIn("2 项处理中", board.cards["auto"]["preview_text"])
+        self.assertIn("上限 4", board.cards["auto"]["preview_text"])
+        self.assertIn("接口限流", board.cards["auto"]["tooltip"]._text)
+
     def test_drag_previews_follow_pointer_and_mark_target_before_committing(self):
         move = Mock()
         board = BatchQueuePanel(self.root, on_edit=Mock(), on_remove=Mock(), on_move=move, on_open=Mock())

@@ -53,7 +53,7 @@ class BatchPlanTests(unittest.TestCase):
 
 
 class BatchQueueTests(unittest.TestCase):
-    def test_file_auto_limit_and_selected_api_rotation(self):
+    def test_file_auto_starts_with_one_slot_per_selected_api_and_uses_load_assignment(self):
         source = self.root / "auto.txt"
         source.write_text("正文", encoding="utf-8")
         value = batch.BatchPlan("files", tuple(batch.ItemPlan(str(source), ("simple",)) for _ in range(6)),
@@ -64,7 +64,8 @@ class BatchQueueTests(unittest.TestCase):
             nonlocal active, peak
             index = int(kwargs["output_filename"].split("_")[0])
             self.assertEqual(set(kwargs["api_keys"]), {"gemini", "deepseek"})
-            self.assertEqual(next(iter(kwargs["api_keys"])), ("gemini", "deepseek")[(index-1) % 2])
+            self.assertIn(next(iter(kwargs["api_keys"])), ("gemini", "deepseek"))
+            self.assertIsNotNone(kwargs["request_scheduler"])
             with lock:
                 active += 1
                 peak = max(peak, active)
