@@ -7425,15 +7425,54 @@ def generate_output_bundle(
         )
         attempts = [(candidate, None) for candidate in candidate_configs]
 
+    adaptive_state = getattr(request_scheduler.context, "budget", {}) if request_scheduler is not None else {}
+    repair_sizes = adaptive_state.setdefault("repairs", {})
+    failed_configs = adaptive_state.setdefault("failed_configs", set())
+    cached_attempt = None
+
+    def failure_key(candidate):
+        return (candidate.api_profile_id or candidate.provider, candidate.model, candidate.chunk_chars, candidate.thinking_level)
+    text_chars = sum(len(message.get("content", "")) for message in messages)
+
+    def repair_candidate(candidate):
+        if candidate.chunk_chars > 4000 and text_chars > 4000 and source_platform not in {"doubao", "豆包"}:
+            return replace(candidate, chunk_chars=min(candidate.chunk_chars//2, max(2000, text_chars//2)))
+        return None
+
+    if request_scheduler is not None and not gateway_was_provided:
+        from scripts.gemini_summarizer import completed_summary_fingerprint, completed_summary_available
+        cache_dir = Path(result_cache_dir) if result_cache_dir is not None else default_summary_result_cache_dir()
+        cache_attempts = attempts + [(smaller, None) for candidate, _ in attempts
+                                    if (smaller := repair_candidate(candidate)) is not None]
+        attempts = [(replace(candidate, chunk_chars=repair_sizes.get(
+            candidate.api_profile_id or candidate.provider, candidate.chunk_chars)), existing_gateway)
+            for candidate, existing_gateway in attempts]
+        media_inputs = {}
+        fingerprints = [completed_summary_fingerprint(messages, candidate, project_dir,
+            source_dir or output_paths["output_dir"], source_platform, media_inputs) for candidate, _ in cache_attempts]
+        cached = next((index for index, fingerprint in enumerate(fingerprints)
+                       if completed_summary_available(cache_dir, fingerprint, source_platform)), None)
+        if cached is not None:
+            cached_attempt = cache_attempts[cached]
+            attempts = [cached_attempt] + [attempt for attempt in attempts if attempt != cached_attempt]
+            progress("已找到所选API的兼容完成缓存，优先复用。")
+        else:
+            request_scheduler.claim(fingerprints)
+
     from scripts.gemini_summarizer import (
         GeminiSummaryError,
         SummaryRequestTimeoutError,
+        SummaryOutputTruncatedError,
         safe_error_message,
     )
+    from scripts.adaptive_concurrency import APIDeferred, SummaryBudgetExceeded
 
     base_result = None
-    last_error: Optional[BaseException] = None
-    timed_out_providers: set[str] = set()
+    last_error: Optional[BaseException] = adaptive_state.get("last_error")
+    timed_out_providers: set[str] = adaptive_state.setdefault("timed_out_providers", set())
+    recovery_round = adaptive_state.get("recovery_round", 0)
+    repair_rounds = adaptive_state.setdefault("repair_rounds", {})
+    repaired_providers: set[str] = {profile for profile, number in repair_rounds.items() if number == recovery_round}
     doubao_media_gateway = None
     if source_platform in {"doubao", "豆包"} and user_api_keys and user_api_keys.get("siliconflow"):
         # 文字切换到 DeepSeek 时，已配置的视觉后端继续承担图片/PDF页面/视频抽帧。
@@ -7447,8 +7486,11 @@ def generate_output_bundle(
         )
 
     def next_usable_config(start_index: int) -> Optional[Any]:
+        if request_scheduler is not None:
+            attempts[start_index:] = request_scheduler.rank(attempts[start_index:])
         for later_config, _later_gateway in attempts[start_index:]:
-            if (getattr(later_config, "api_profile_id", "") or later_config.provider) not in timed_out_providers:
+            if ((getattr(later_config, "api_profile_id", "") or later_config.provider) not in timed_out_providers
+                    and (request_scheduler is None or failure_key(later_config) not in failed_configs)):
                 return later_config
         return None
 
@@ -7466,28 +7508,32 @@ def generate_output_bundle(
         smaller = replace(candidate, chunk_chars=12_000, thinking_level=(
             candidate.thinking_level if candidate.provider == "custom" else "minimal"
         ))
-        cache_path = _summary_cache_path(primary_json)
-        cached = _load_summary_cache(
-            cache_path, _summary_fingerprint(messages, candidate, source_platform),
-        )
-        # 分块边界变化只重做文字记忆；媒体仍绑定同一份抓取输入。
-        cached["fingerprint"] = _summary_fingerprint(messages, smaller, source_platform)
-        cached["chunks"] = {}
-        _save_summary_cache(cache_path, cached)
+        if request_scheduler is None:
+            cache_path = _summary_cache_path(primary_json)
+            cached = _load_summary_cache(
+                cache_path, _summary_fingerprint(messages, candidate, source_platform),
+            )
+            # 默认入口沿用已有媒体复用；自动模式在各配置分支内恢复。
+            cached["fingerprint"] = _summary_fingerprint(messages, smaller, source_platform)
+            cached["chunks"] = {}
+            _save_summary_cache(cache_path, cached)
         attempts[next_index:] = [
             (replace(later, chunk_chars=min(later.chunk_chars, 12_000), thinking_level=(
                 later.thinking_level if later.provider == "custom" else "minimal"
             )), later_gateway)
             for later, later_gateway in attempts[next_index:]
         ]
-        progress("豆包长对话已自动改为 12000 字符分块；复用本次有效媒体分析。")
+        progress("豆包长对话已自动改为 12000 字符分块。" if request_scheduler is not None
+                 else "豆包长对话已自动改为 12000 字符分块；复用本次有效媒体分析。")
         return smaller
 
     for attempt_index, (candidate_config, candidate_gateway) in enumerate(
         attempts, start=1
     ):
         check_cancelled()
-        if (getattr(candidate_config, "api_profile_id", "") or candidate_config.provider) in timed_out_providers:
+        if ((candidate_config, candidate_gateway) != cached_attempt and (
+                (getattr(candidate_config, "api_profile_id", "") or candidate_config.provider) in timed_out_providers
+                or (request_scheduler is not None and failure_key(candidate_config) in failed_configs))):
             continue
         if candidate_gateway is None:
             if user_api_keys is None:
@@ -7531,14 +7577,18 @@ def generate_output_bundle(
                 ),
                 source_platform=source_platform,
                 **({"media_gateway": doubao_media_gateway} if doubao_media_gateway is not None else {}),
+                **({"adaptive_progress": True} if request_scheduler is not None else {}),
             )
             config = candidate_config
             gateway = candidate_gateway
             break
+        except (APIDeferred, SummaryBudgetExceeded):
+            raise
         except SummaryRequestTimeoutError as error:
             # 同一提供商的其他模型通常共享网络入口；超时后跳过该提供商，
             # 但若用户还配置了另一提供商，则立即切换，避免等待后直接失败。
             last_error = error
+            adaptive_state["last_error"] = error
             timed_out_providers.add(getattr(candidate_config, "api_profile_id", "") or candidate_config.provider)
             next_config = next_usable_config(attempt_index)
             if next_config is None:
@@ -7555,6 +7605,21 @@ def generate_output_bundle(
             )
         except GeminiSummaryError as error:
             last_error = error
+            adaptive_state["last_error"] = error
+            if request_scheduler is not None:
+                failed_configs.add(failure_key(candidate_config))
+            profile = getattr(candidate_config, "api_profile_id", "") or candidate_config.provider
+            if (request_scheduler is not None and not gateway_was_provided and profile not in repaired_providers
+                    and not getattr(error, "local_chunk_repair_exhausted", False)
+                    and ("JSONDecodeError" in str(error) or isinstance(error, SummaryOutputTruncatedError))
+                    and repair_candidate(candidate_config) is not None):
+                repaired_providers.add(profile)
+                repair_rounds[profile] = recovery_round
+                smaller = repair_candidate(candidate_config)
+                repair_sizes[profile] = smaller.chunk_chars
+                attempts.insert(attempt_index, (smaller, None))
+                progress(f"结构化输出失败，本接口仅缩小分块修复一次（{smaller.chunk_chars}字符）。")
+                continue
             smaller_config = (
                 smaller_doubao_chunks(candidate_config, attempt_index)
                 if "JSONDecodeError" in str(error) else None

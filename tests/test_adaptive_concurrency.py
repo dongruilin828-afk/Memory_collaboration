@@ -471,7 +471,7 @@ class AdaptiveTests(unittest.TestCase):
             self.assertTrue(self.scheduler.snapshot()["trace_error"])
             self.assertEqual(self.scheduler.snapshot()["active_requests"], 0)
 
-    def test_admission_timeout_does_not_bypass_retry_after(self):
+    def test_admission_defers_without_bypassing_retry_after(self):
         self.failure(429, {"Retry-After":"600"})
         with patch.object(self.scheduler.condition, "wait", side_effect=lambda *_: self.clock.advance(61)):
             with self.assertRaises(APIUnavailable), self.scheduler.request(self.config, "fixture-secret", "test"):

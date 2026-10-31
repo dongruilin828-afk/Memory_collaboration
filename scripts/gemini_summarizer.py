@@ -30,7 +30,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from scripts.cancellation import check_cancelled, run_cancellable_request, wait_with_cancel
-from scripts.adaptive_concurrency import APIUnavailable
+from scripts.adaptive_concurrency import APIUnavailable, APIDeferred, SummaryBudgetExceeded
 
 
 DEFAULT_PROVIDER = "gemini"
@@ -715,6 +715,7 @@ class ConversationChunk:
     chunk_index: int
     text: str
     message_indices: tuple[int, ...]
+    parts: tuple[tuple[int, str], ...] = ()
 
 
 def _positive_env_int(name: str, default: int) -> int:
@@ -796,6 +797,9 @@ def _request_slot(gateway, prompt, media_assets, schema):
         return
     with scheduler.request(gateway.config, gateway._api_key, prompt, gateway._cancel_event, media_assets,
                            tuple(sorted(schema.get("properties", {})))) as ticket:
+        is_chunk = "memory_items" in schema.get("properties", {})
+        if is_chunk:
+            scheduler.context.chunk_response = None
         try:
             yield ticket
         except Exception as error:
@@ -803,11 +807,34 @@ def _request_slot(gateway, prompt, media_assets, schema):
             ticket["retry_after"] = _retry_after_seconds(error)
             ticket["transport_error"] = isinstance(error, httpx.TransportError) or _is_timeout_error(error)
             raise
+        else:
+            if is_chunk and ticket.get("valid", True):
+                scheduler.context.chunk_response = {name: ticket[name] for name in (
+                    "finish_reason", "usage", "output_limit") if name in ticket}
+                scheduler.context.chunk_response["request_config"] = gateway.config
 
 
 def _retry_allowed(gateway, started, delay):
     scheduler = getattr(gateway, "_request_scheduler", None)
     return scheduler is None or scheduler.retry_allowed(gateway.config, gateway._api_key, started, delay)
+
+
+async def _bounded_request(request, ticket):
+    import asyncio
+    return await asyncio.wait_for(request, ticket["timeout"]) if "timeout" in ticket else await request
+
+
+def _response_metrics(ticket, reason, usage, output_limit=None):
+    # Only controlled enums and numeric counters; never persist response text.
+    if isinstance(reason, str):
+        ticket["finish_reason"] = reason.lower() if reason.lower() in {
+            "stop", "length", "max_tokens", "tool_calls", "content_filter", "safety"} else "other"
+    if isinstance(usage, dict):
+        ticket["usage"] = {key: value for key, value in usage.items()
+                           if key in {"prompt_tokens", "completion_tokens", "total_tokens", "reasoning_tokens"}
+                           and type(value) is int and value >= 0}
+    if type(output_limit) is int and output_limit > 0:
+        ticket["output_limit"] = output_limit
 
 
 class GeminiGateway:
@@ -928,10 +955,10 @@ class GeminiGateway:
             check_cancelled(self._cancel_event)
             try:
                 with _request_slot(self, prompt, media_assets, schema) as ticket:
-                    if self._cancel_event is not None:
+                    if self._cancel_event is not None or "timeout" in ticket:
                         response = run_cancellable_request(
-                            lambda: self._generate_async(contents, generation_options),
-                            self._cancel_event,
+                            lambda: _bounded_request(self._generate_async(contents, generation_options), ticket),
+                            self._cancel_event or threading.Event(),
                         )
                     else:
                         response = self._client.models.generate_content(
@@ -940,6 +967,18 @@ class GeminiGateway:
                             config=self._types.GenerateContentConfig(**generation_options),
                         )
                     check_cancelled(self._cancel_event)
+                    if self._request_scheduler is not None:
+                        candidates = getattr(response, "candidates", None)
+                        reason = getattr(candidates[0], "finish_reason", None) if candidates else None
+                        meta = getattr(response, "usage_metadata", None)
+                        _response_metrics(ticket, getattr(reason, "name", reason), dict(
+                            prompt_tokens=getattr(meta, "prompt_token_count", None),
+                            completion_tokens=getattr(meta, "candidates_token_count", None),
+                            total_tokens=getattr(meta, "total_token_count", None),
+                            reasoning_tokens=getattr(meta, "thoughts_token_count", None)),
+                            generation_options.get("max_output_tokens"))
+                        if ticket.get("finish_reason") in {"length", "max_tokens"}:
+                            raise SummaryOutputTruncatedError("Gemini结构化输出达到token上限，结果被截断；保留进度后尝试有界修复。")
                     if not response.text:
                         raise GeminiSummaryError("Gemini 返回了空响应。")
                     parsed = json.loads(response.text)
@@ -948,6 +987,8 @@ class GeminiGateway:
                             "Gemini 返回的结构不是 JSON 对象。"
                         )
                     return parsed
+            except (APIDeferred, SummaryBudgetExceeded, SummaryOutputTruncatedError):
+                raise
             except APIUnavailable as error:
                 raise GeminiSummaryError(str(error)) from None
             except Exception as error:
@@ -1233,17 +1274,21 @@ class SiliconFlowGateway:
                 with _request_slot(self, prompt, media_assets, schema) as ticket:
                     if self._cancel_event is not None:
                         response_data = run_cancellable_request(
-                            lambda: self._request_async(request), self._cancel_event,
+                            lambda: _bounded_request(self._request_async(request), ticket), self._cancel_event,
                         )
                     else:
                         with urlopen(
                             request,
-                            timeout=self.config.request_timeout_seconds,
+                            timeout=ticket.get("timeout", self.config.request_timeout_seconds),
                         ) as response:
                             self._last_status_code = getattr(response, "status", None)
                             response_data = json.loads(response.read().decode("utf-8"))
                     check_cancelled(self._cancel_event)
                     choice = response_data["choices"][0]
+                    if self._request_scheduler is not None:
+                        _response_metrics(ticket, choice.get("finish_reason"), response_data.get("usage"), payload.get("max_tokens"))
+                        if choice.get("finish_reason") == "length" and not self._doubao_output_limit:
+                            raise SummaryOutputTruncatedError("API结构化输出达到token上限，结果被截断；保留进度后尝试有界修复。")
                     if self.config.provider == "custom" and choice.get("finish_reason") == "length":
                         if self.config.max_output_tokens is None:
                             raise SummaryOutputTruncatedError("自定义 API 输出达到服务端或模型的 token 上限，结果被截断。")
@@ -1268,6 +1313,8 @@ class SiliconFlowGateway:
                             "已停止有界重试，保留当前进度。")
                     content = choice["message"]["content"]
                     return _parse_json_object(content)
+            except (APIDeferred, SummaryBudgetExceeded):
+                raise
             except APIUnavailable as error:
                 raise GeminiSummaryError(str(error)) from None
             except SummaryOutputTruncatedError:
@@ -2186,7 +2233,7 @@ def describe_media(
     gateway: SummaryGateway,
     config: SummaryConfig,
     progress: Callable[[str], None],
-    *, retry_failed: bool = False,
+    *, retry_failed: bool = False, fail_fast: bool = False,
 ) -> list[str]:
     """先将可用媒体批量转换成可并入对话的文字说明。"""
     warnings: list[str] = []
@@ -2386,6 +2433,8 @@ def describe_media(
             for asset in batch:
                 asset.status = "analysis_failed"
                 asset.description = _media_analysis_failure_description(asset)
+            if fail_fast and isinstance(error, SummaryRequestTimeoutError):
+                raise
 
     for asset in assets:
         _correct_empty_xlsx_description(asset)
@@ -2424,7 +2473,8 @@ def enrich_messages(
 
 def chunk_messages(
     messages: list[dict[str, str]],
-    max_chars: int
+    max_chars: int,
+    *, include_parts: bool = False,
 ) -> list[ConversationChunk]:
     """按完整消息边界分块；单条超长消息才按段落继续切分。"""
     blocks: list[tuple[int, str, str]] = []
@@ -2461,19 +2511,22 @@ def chunk_messages(
     chunks: list[ConversationChunk] = []
     current_blocks: list[str] = []
     current_indices: list[int] = []
+    current_parts: list[tuple[int, str]] = []
     current_length = 0
 
     def flush() -> None:
-        nonlocal current_blocks, current_indices, current_length
+        nonlocal current_blocks, current_indices, current_parts, current_length
         if not current_blocks:
             return
         chunks.append(ConversationChunk(
             chunk_index=len(chunks) + 1,
             text="\n\n".join(current_blocks),
-            message_indices=tuple(dict.fromkeys(current_indices))
+            message_indices=tuple(dict.fromkeys(current_indices)),
+            parts=tuple(current_parts) if include_parts else (),
         ))
         current_blocks = []
         current_indices = []
+        current_parts = []
         current_length = 0
 
     def append_block(message_index: int, block: str) -> None:
@@ -2487,6 +2540,7 @@ def chunk_messages(
             separator_length = 0
         current_blocks.append(block)
         current_indices.append(message_index)
+        current_parts.append((message_index, block))
         current_length += separator_length + len(block)
 
     for group in turn_groups:
@@ -2503,6 +2557,34 @@ def chunk_messages(
             append_block(message_index, block)
     flush()
     return chunks
+
+
+def _split_failed_chunk(
+    chunk: ConversationChunk, messages: list[dict[str, str]], max_chars: int,
+) -> list[ConversationChunk]:
+    """Rechunk only authoritative parts, then restore original message IDs/roles."""
+    if not chunk.parts:
+        return []
+    local_messages = []
+    original_ids = []
+    for index, block in chunk.parts:
+        role = messages[index - 1].get("role", "Unknown")
+        prefix = f"[消息 {index}｜{'用户' if role == 'User' else 'AI'}]\n"
+        if not block.startswith(prefix):
+            return []
+        local_messages.append({"role": role, "content": block[len(prefix):]})
+        original_ids.append(index)
+    children = []
+    for child in chunk_messages(local_messages, max_chars, include_parts=True):
+        parts = []
+        for local_index, block in child.parts:
+            original_index = original_ids[local_index - 1]
+            role = messages[original_index - 1].get("role", "Unknown")
+            parts.append((original_index,
+                f"[消息 {original_index}｜{'用户' if role == 'User' else 'AI'}]\n" + block.split("\n", 1)[1]))
+        children.append(ConversationChunk(0, "\n\n".join(block for _, block in parts),
+            tuple(dict.fromkeys(index for index, _ in parts)), tuple(parts)))
+    return children if len(children) > 1 and max(len(child.text) for child in children) < len(chunk.text) else []
 
 
 def _split_long_text(text: str, max_chars: int) -> list[str]:
@@ -2561,6 +2643,10 @@ def _summary_cache_path(output_json: Path) -> Path:
     return Path(output_json).with_name(Path(output_json).stem + "_progress.tmp")
 
 
+def _branch_cache_path(output_json, fingerprint):
+    return Path(output_json).with_name(f"{Path(output_json).stem}_progress_{fingerprint[:24]}.tmp")
+
+
 def _summary_fingerprint(
     messages: list[dict[str, str]],
     config: SummaryConfig,
@@ -2606,12 +2692,7 @@ def _hash_media_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _completed_result_fingerprint(
-    messages: list[dict[str, str]],
-    config: SummaryConfig,
-    assets: list[MediaAsset],
-    source_platform: str | None = None,
-) -> str:
+def _completed_media_inputs(assets):
     media_inputs: list[dict[str, Any]] = []
     for asset in assets:
         item: dict[str, Any] = {
@@ -2634,6 +2715,18 @@ def _completed_result_fingerprint(
             # description 则包含确定性失败原因。两者都比哈希未使用字节更准确。
             item["description"] = asset.description
         media_inputs.append(item)
+    return media_inputs
+
+
+def _completed_result_fingerprint(
+    messages: list[dict[str, str]],
+    config: SummaryConfig,
+    assets: list[MediaAsset],
+    source_platform: str | None = None,
+    *, media_inputs=None,
+) -> str:
+    if media_inputs is None:
+        media_inputs = _completed_media_inputs(assets)
 
     payload = json.dumps(
         {
@@ -2653,6 +2746,32 @@ def _completed_result_fingerprint(
 
 def _completed_result_cache_path(cache_dir: Path, fingerprint: str) -> Path:
     return Path(cache_dir) / f"{fingerprint}.json"
+
+
+def effective_summary_config(messages, config, source_platform):
+    if (source_platform == "deepseek" and len(messages) >= 20
+            and sum(len(message.get("content", "")) for message in messages) <= config.chunk_chars):
+        return replace(config, chunk_chars=min(config.chunk_chars, DEEPSEEK_DENSE_CHUNK_CHARS))
+    return config
+
+
+def completed_summary_fingerprint(messages, config, project_dir, source_dir, source_platform, media_cache=None):
+    config = effective_summary_config(messages, config, source_platform)
+    # Reuse local reading only within one input's preflight, across model candidates.
+    media_cache = {} if media_cache is None else media_cache
+    settings = (config.max_media_bytes, config.text_attachment_chars)
+    if settings not in media_cache:
+        assets = discover_media(sanitize_summary_messages(messages, source_platform),
+            project_dir=Path(project_dir).resolve(), source_dir=Path(source_dir).resolve(),
+            config=config, source_platform=source_platform)
+        media_cache[settings] = _completed_media_inputs(assets)
+    return _completed_result_fingerprint(messages, config, [], source_platform, media_inputs=media_cache[settings])
+
+
+def completed_summary_available(cache_dir, fingerprint, source_platform):
+    result = _load_completed_result_cache(cache_dir, fingerprint)
+    return result is not None and (str(source_platform or "").lower() != "chatgpt" or
+        result.get("processing", {}).get("history_verification", {}).get("version") == 1)
 
 
 def _load_completed_result_cache(
@@ -2760,6 +2879,7 @@ def summarize_conversation(
     result_cache_dir: Path | None = None,
     source_platform: str | None = None,
     media_gateway: SummaryGateway | None = None,
+    adaptive_progress: bool = False,
 ) -> dict[str, Any]:
     """执行媒体识别、分块记忆提取、断点综合和结果写出。"""
     pipeline_started = time.perf_counter()
@@ -2772,16 +2892,7 @@ def summarize_conversation(
     config = config or SummaryConfig.from_env()
     message_count = len(messages)
     summary_messages = sanitize_summary_messages(messages, source_platform)
-    if (
-        source_platform == "deepseek"
-        and message_count >= 20
-        and sum(len(message.get("content", "")) for message in messages)
-        <= config.chunk_chars
-    ):
-        config = replace(
-            config,
-            chunk_chars=min(config.chunk_chars, DEEPSEEK_DENSE_CHUNK_CHARS),
-        )
+    config = effective_summary_config(messages, config, source_platform)
 
     default_json, default_markdown = default_summary_paths(
         project_dir, source_name, include_details=include_details
@@ -2790,7 +2901,6 @@ def summarize_conversation(
     output_markdown = output_markdown or default_markdown
     cache_path = _summary_cache_path(output_json)
     fingerprint = _summary_fingerprint(messages, config, source_platform)
-    cache = _load_summary_cache(cache_path, fingerprint)
 
     progress(f"总结后端：{config.provider}；模型：{config.model}")
     stage_started = time.perf_counter()
@@ -2809,6 +2919,10 @@ def summarize_conversation(
         assets,
         source_platform,
     )
+    if adaptive_progress:
+        fingerprint = completed_fingerprint
+        cache_path = _branch_cache_path(output_json, fingerprint)
+    cache = _load_summary_cache(cache_path, fingerprint)
     completed_result = _load_completed_result_cache(
         result_cache_dir,
         completed_fingerprint,
@@ -2893,13 +3007,19 @@ def summarize_conversation(
         if is_doubao:
             from scripts.doubao_media import MediaGateway
             analysis_gateway = MediaGateway(gateway, media_gateway, config, progress=progress)
-        warnings = describe_media(
-            assets,
-            gateway=analysis_gateway,
-            config=config,
-            progress=progress,
-            retry_failed=is_doubao,
-        )
+        try:
+            warnings = describe_media(
+                assets,
+                gateway=analysis_gateway,
+                config=config,
+                progress=progress,
+                retry_failed=is_doubao,
+                **({"fail_fast": True} if getattr(gateway, "_request_scheduler", None) is not None else {}),
+            )
+        except (APIDeferred, SummaryBudgetExceeded, SummaryRequestTimeoutError):
+            cache["media"] = [asset.public_dict() for asset in assets]
+            _save_summary_cache(cache_path, cache)
+            raise
         cache["media"] = [asset.public_dict() for asset in assets]
         if is_doubao:
             if native_chart_ids:
@@ -2921,14 +3041,60 @@ def summarize_conversation(
         history_evidence = build_evidence(summary_messages, assets)
     chunks = chunk_messages(
         enriched_messages,
-        max_chars=config.chunk_chars
+        max_chars=config.chunk_chars,
+        **({"include_parts": True} if adaptive_progress else {}),
     )
+    if adaptive_progress:
+        # 豆包/ChatGPT的媒体证据独立输入，同样必须绑定实际说明及识别状态。
+        chunk_input = hashlib.sha256(json.dumps(
+            dict(messages=enriched_messages, media=_completed_media_inputs(assets)),
+            ensure_ascii=False, sort_keys=True,
+        ).encode("utf-8")).hexdigest()
+        if cache.get("chunk_input") != chunk_input:
+            cache.update(chunk_input=chunk_input, chunks={}, splits={}, next_chunk_index=len(chunks)+1)
+            _save_summary_cache(cache_path, cache)
     timings["chunking"] = time.perf_counter() - stage_started
 
     stage_started = time.perf_counter()
     chunk_summaries: list[dict[str, Any]] = []
-    for chunk in chunks:
+    position = restored_chunks = 0
+    depths = {chunk.chunk_index: 0 for chunk in chunks}
+    chunk_scheduler = getattr(gateway, "_request_scheduler", None) if adaptive_progress else None
+
+    def record_feedback(chunk, epoch, response=None):
+        if chunk_scheduler is not None:
+            chunk_scheduler.record_chunk_success(config, gateway._api_key, source_platform,
+                len(chunk.text), len(chunk.message_indices), epoch, response)
+
+    def save_split(chunk, children, target_chars, *, predicted=False):
+        first = max(cache.get("next_chunk_index", len(chunks)+1), max(depths)+1)
+        indices = list(range(first, first+len(children)))
+        decision = dict(max_chars=target_chars, indices=indices)
+        if predicted:
+            decision["reason"] = "feedback"
+        cache.setdefault("splits", {})[str(chunk.chunk_index)] = decision
+        cache["next_chunk_index"] = first+len(children)
+        _save_summary_cache(cache_path, cache)
+        if chunk_scheduler is not None:
+            chunk_scheduler.record_chunk_split(config, gateway._api_key, source_platform,
+                len(chunk.text), len(chunk.message_indices), target_chars, predicted=predicted)
+
+    while position < len(chunks):
+        chunk = chunks[position]
         cache_key = str(chunk.chunk_index)
+        decision = cache.get("splits", {}).get(cache_key) if adaptive_progress else None
+        if decision is not None:
+            children = _split_failed_chunk(chunk, enriched_messages, decision["max_chars"])
+            indices = decision.get("indices", [])
+            if (not children or len(children)!=len(indices) or len(set(indices))!=len(indices)
+                    or any(type(index) is not int or index<=0 for index in indices)
+                    or depths[chunk.chunk_index]>=3):
+                raise GeminiSummaryError("局部分块进度不完整，无法安全恢复；保留记录供核对。")
+            children = [replace(child, chunk_index=index) for child, index in zip(children, indices)]
+            for child in children:
+                depths[child.chunk_index] = depths[chunk.chunk_index]+1
+            chunks[position:position+1] = children
+            continue
         cached_chunk = cache["chunks"].get(cache_key)
         if is_chatgpt and isinstance(cached_chunk, dict):
             if cached_chunk.get("history_verification", {}).get("version") != 1:
@@ -2939,12 +3105,22 @@ def summarize_conversation(
                 reconcile_bindings(cached_chunk, messages)
             progress(
                 f"已从进度缓存恢复细粒度记忆："
-                f"第 {chunk.chunk_index}/{len(chunks)} 批"
+                f"第 {position+1}/{len(chunks)} 批"
             )
             chunk_summaries.append(cached_chunk)
+            restored_chunks += 1
+            position += 1
             continue
+        if chunk_scheduler is not None and depths[chunk.chunk_index] < 3:
+            target_chars = chunk_scheduler.chunk_target(config, gateway._api_key, source_platform,
+                len(chunk.text), len(chunk.message_indices))
+            children = _split_failed_chunk(chunk, enriched_messages, target_chars) if target_chars else []
+            if children:
+                save_split(chunk, children, target_chars, predicted=True)
+                progress(f"第{position+1}批参考本批同模型截断记录，提前拆为{len(children)}个子块；保留已成功分块。")
+                continue
         progress(
-            f"正在提取细粒度记忆：第 {chunk.chunk_index}/{len(chunks)} 批"
+            f"正在提取细粒度记忆：第 {position+1}/{len(chunks)} 批"
         )
         prompt = (
             "请分析下面这一批已经结束的历史用户—AI连续对话，并严格引用"
@@ -3029,34 +3205,68 @@ def summarize_conversation(
         if scoped_source(source_platform):
             prompt += ROLE_INSTRUCTION
         history_verification = None
-        if is_chatgpt:
-            from scripts.chatgpt_history import generate_chunk, HistoryEvidenceError
-            progress(f"正在核对历史分块附件、轮次及事实：第 {chunk.chunk_index}/{len(chunks)} 批")
-            try:
-                summary, history_verification = generate_chunk(prompt, gateway, history_evidence, set(chunk.message_indices), progress=progress)
-            except HistoryEvidenceError as error:
-                raise GeminiSummaryError(f"ChatGPT历史分块证据校验失败：{error}") from error
-        else:
-            summary = gateway.generate_json(prompt, CHUNK_SCHEMA)
-        normalized_chunk = _attach_message_ranges(
-            _normalize_chunk_summary(
-                summary,
-                chunk=chunk,
-                messages=messages
+        feedback_epoch = None
+        if chunk_scheduler is not None:
+            feedback_epoch = chunk_scheduler.chunk_epoch(config, gateway._api_key, source_platform,
+                len(chunk.text), len(chunk.message_indices))
+            chunk_scheduler.context.chunk_response = None
+        try:
+            if is_chatgpt:
+                from scripts.chatgpt_history import generate_chunk, HistoryEvidenceError
+                progress(f"正在核对历史分块附件、轮次及事实：第 {position+1}/{len(chunks)} 批")
+                try:
+                    summary, history_verification = generate_chunk(prompt, gateway, history_evidence, set(chunk.message_indices), progress=progress)
+                except HistoryEvidenceError as error:
+                    raise GeminiSummaryError(f"ChatGPT历史分块证据校验失败：{error}") from error
+            else:
+                summary = gateway.generate_json(prompt, CHUNK_SCHEMA)
+        except SummaryOutputTruncatedError as error:
+            target_chars = max(1000, len(chunk.text) // 2)
+            children = (_split_failed_chunk(chunk, enriched_messages, target_chars)
+                        if adaptive_progress and depths[chunk.chunk_index] < 3 else [])
+            if children:
+                save_split(chunk, children, target_chars)
+                progress(f"第{position+1}批输出截断，仅将该块拆为{len(children)}个子块；保留已成功分块。")
+                continue
+            if chunk_scheduler is not None:
+                chunk_scheduler.record_chunk_split(config, gateway._api_key, source_platform,
+                    len(chunk.text), len(chunk.message_indices), target_chars)
+            if adaptive_progress:
+                error.local_chunk_repair_exhausted = True
+            raise
+        except (APIDeferred, SummaryBudgetExceeded):
+            raise
+        except BaseException:
+            record_feedback(chunk, feedback_epoch)
+            raise
+        try:
+            normalized_chunk = _attach_message_ranges(
+                _normalize_chunk_summary(
+                    summary,
+                    chunk=chunk,
+                    messages=messages
+                )
             )
-        )
-        if is_doubao:
-            from scripts.doubao_summary import repair_answer_bindings, discard_partial_state, guard_memory_terms
-            discard_partial_state(normalized_chunk, messages)
-            guard_memory_terms(normalized_chunk, messages)
-            repair_answer_bindings(normalized_chunk, messages, gateway, progress)
-        if is_chatgpt:
-            from scripts.chatgpt_history import attach_memory_evidence
-            attach_memory_evidence(normalized_chunk, summary)
-            normalized_chunk["history_verification"] = history_verification
-        chunk_summaries.append(normalized_chunk)
-        cache["chunks"][cache_key] = normalized_chunk
-        _save_summary_cache(cache_path, cache)
+            if is_doubao:
+                from scripts.doubao_summary import repair_answer_bindings, discard_partial_state, guard_memory_terms
+                discard_partial_state(normalized_chunk, messages)
+                guard_memory_terms(normalized_chunk, messages)
+                repair_answer_bindings(normalized_chunk, messages, gateway, progress)
+            if is_chatgpt:
+                from scripts.chatgpt_history import attach_memory_evidence
+                attach_memory_evidence(normalized_chunk, summary)
+                normalized_chunk["history_verification"] = history_verification
+            chunk_summaries.append(normalized_chunk)
+            cache["chunks"][cache_key] = normalized_chunk
+            _save_summary_cache(cache_path, cache)
+        except (APIDeferred, SummaryBudgetExceeded):
+            raise
+        except BaseException:
+            record_feedback(chunk, feedback_epoch)
+            raise
+        if chunk_scheduler is not None:
+            record_feedback(chunk, feedback_epoch, chunk_scheduler.context.chunk_response)
+        position += 1
     timings["chunk_extraction"] = time.perf_counter() - stage_started
     progress(
         f"细粒度记忆提取完成：{len(chunks)} 批"
@@ -3180,6 +3390,12 @@ def summarize_conversation(
             },
         }
     }
+    if adaptive_progress:
+        result["processing"]["local_chunk_recovery"] = dict(
+            splits=len(cache.get("splits", {})), restored_chunks=restored_chunks)
+        predicted = sum(decision.get("reason") == "feedback" for decision in cache.get("splits", {}).values())
+        if predicted:
+            result["processing"]["local_chunk_recovery"]["predictive_splits"] = predicted
 
     _attach_message_ranges(result)
     if is_chatgpt:

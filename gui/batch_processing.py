@@ -17,10 +17,12 @@ import uuid
 from gui.batch_capture import DEFAULT_CAPTURE_CONCURRENCY, MAX_CAPTURE_TABS, capture_links, validate_capture_links, _write_json
 from gui.service import generate_output_bundle
 from gui.theme import DIRECT_SUMMARY_FILE_TYPES, DIRECT_SUMMARY_MAX_BYTES
+from scripts.adaptive_concurrency import APIDeferred, SummaryBudgetExceeded
 
 MODES = ("raw", "normal", "simple", "detailed")
 MODE_LABELS = {"raw": "抓取", "normal": "总结", "simple": "极简", "detailed": "细节"}
 TERMINAL = {"completed", "failed", "cancelled"}
+AUTO_RETRY_DELAYS = (5, 15)
 
 
 def load_input_messages(path):
@@ -105,6 +107,8 @@ class _Batch:
     reported: set = field(default_factory=set, repr=False)
     scheduler: object = field(default=None, repr=False)
     assignments: dict = field(default_factory=dict, repr=False)
+    budgets: dict = field(default_factory=dict, repr=False)
+    selections: dict = field(default_factory=dict, repr=False)
 
 
 class BatchProcessingQueue:
@@ -188,6 +192,7 @@ class BatchProcessingQueue:
                      message="", error=None, warnings=[], saved_files=[], output_dir=None,
                      fetch_seconds=0.0, generation_seconds=0.0, wait_seconds=0.0,
                      capture_wait_seconds=0.0, topic_wait_seconds=0.0,
+                     queue_wait_seconds=0.0,
                      elapsed_seconds=0.0)
                 for i, item in enumerate(plan.items, 1)]
 
@@ -466,6 +471,13 @@ class BatchProcessingQueue:
             if batch.cancel.is_set() or batch.editing or busy >= self._limit(batch):
                 continue
             for item in batch.items:
+                if item["index"] in batch.assignments:
+                    continue
+                if item.get("retry_at", 0) > time.monotonic():
+                    continue
+                if item.get("auto_retries", 0) and any(
+                        batch.items[index-1].get("auto_retries", 0) for index in batch.assignments):
+                    continue
                 if item["status"] == "ready" or (batch.plan.kind == "files" and item["status"] == "queued"):
                     if self._ordered:
                         draining = self._draining()
@@ -476,16 +488,48 @@ class BatchProcessingQueue:
                     return batch, item
         return None
 
+    def _retry_failed(self, batch, item, error, message):
+        from scripts.gemini_summarizer import GeminiSummaryError
+        retries = item.get("auto_retries", 0)
+        if (batch.scheduler is None or batch.cancel.is_set() or self.closed
+                or not isinstance(error, (GeminiSummaryError, SummaryBudgetExceeded))
+                or retries >= len(AUTO_RETRY_DELAYS) or not batch.scheduler.can_retry()):
+            return False
+        delay = AUTO_RETRY_DELAYS[retries]
+        state = batch.budgets[item["index"]]
+        state.update(recovery_round=retries+1, failed_seconds=0, waited=0,
+                     last_failed_profile=batch.assignments[item["index"]][0])
+        for key in ("failed_configs", "timed_out_providers", "last_error"):
+            state.pop(key, None)
+        history = item.get("retry_errors", []) + [message]
+        batch.scheduler.recover_file(item["index"], retries+1, delay)
+        retry_message = f"自动恢复 {retries+1}/{len(AUTO_RETRY_DELAYS)}：{delay}秒后保留进度重试。"
+        try:
+            if item["output_dir"]:
+                with (Path(item["output_dir"])/"summary.log").open("a", encoding="utf-8") as stream:
+                    stream.write(f"本轮未完成：{message}\n{retry_message}\n")
+        except OSError:
+            pass
+        self._update(batch, item, status="queued", message=retry_message, error=None,
+                     auto_retries=retries+1, retry_errors=history,
+                     retry_at=time.monotonic()+delay, deferred_at=time.monotonic())
+        return True
+
     def _summary_worker(self):
         while True:
             with self.condition:
-                self.condition.wait_for(lambda: self.closed or self._next_summary() is not None)
+                self.condition.wait_for(lambda: self.closed or self._next_summary() is not None, timeout=.2)
                 if self.closed:
                     return
                 candidate = self._next_summary()
                 if candidate is None:
                     continue
                 batch, item = candidate
+                if "deferred_at" in item:
+                    queued_seconds = time.monotonic()-item.pop("deferred_at")
+                    item["queue_wait_seconds"] += queued_seconds
+                    batch.budgets[item["index"]]["waited"] += queued_seconds
+                item.pop("retry_at", None)
                 batch.started = True
                 batch.summaries += 1
                 if batch.scheduler is not None:
@@ -493,32 +537,48 @@ class BatchProcessingQueue:
                         weight = max(1, min(8, Path(item["source"]).stat().st_size / 24000))
                     except OSError:
                         weight = 1
-                    batch.assignments[item["index"]] = batch.scheduler.reserve(batch.api_keys, weight)
+                    providers = list(batch.api_keys)
+                    previous = batch.budgets.get(item["index"], {}).get("last_failed_profile")
+                    if previous in providers and len(providers)>1:
+                        providers.remove(previous)
+                        providers.append(previous)
+                    batch.assignments[item["index"]] = batch.scheduler.reserve(providers, weight)
                 item.update(status="summarizing", message="正在总结")
             started = time.perf_counter()
+            previous_topic_wait = item["topic_wait_seconds"]
             try:
                 self._publish()
-                with batch.scheduler.file(item["index"], batch.assignments[item["index"]]) if batch.scheduler else nullcontext():
+                with batch.scheduler.file(item["index"], batch.assignments[item["index"]],
+                        batch.budgets.setdefault(item["index"], {"spent": 0, "waited": 0})) if batch.scheduler else nullcontext():
                     saved = self._generate(batch, item)
                 self._update(batch, item, status="completed", message="已完成", saved_files=item["saved_files"] + saved)
             except asyncio.CancelledError:
                 self._update(batch, item, status="cancelled", message="已停止")
+            except APIDeferred as error:
+                self._update(batch, item, status="queued", message=str(error),
+                             retry_at=time.monotonic()+error.retry_after, deferred_at=time.monotonic())
             except Exception as error:
                 message = self._safe_error(error, batch)
-                self._update(batch, item, status="failed", message=message, error=message)
+                if not self._retry_failed(batch, item, error, message):
+                    if item.get("auto_retries", 0):
+                        message = f"已自动重试{item['auto_retries']}次，仍未完成：{message}"
+                    self._update(batch, item, status="failed", message=message, error=message)
             finally:
                 with self.condition:
                     seconds = time.perf_counter() - started
-                    item["generation_seconds"] = max(0, seconds - item["topic_wait_seconds"])
-                    item["wait_seconds"] = item["capture_wait_seconds"] + item["topic_wait_seconds"]
-                    item["elapsed_seconds"] = item["fetch_seconds"] + seconds
+                    item["generation_seconds"] += max(0, seconds - item["topic_wait_seconds"] + previous_topic_wait)
+                    item["wait_seconds"] = item["capture_wait_seconds"] + item["topic_wait_seconds"] + item["queue_wait_seconds"]
+                    item["elapsed_seconds"] = item["fetch_seconds"] + item["generation_seconds"] + item["topic_wait_seconds"] + item["queue_wait_seconds"]
                     if batch.scheduler is not None:
                         batch.scheduler.release(batch.assignments.pop(item["index"]))
                         if batch.scheduler.trace_error:
                             item["warnings"].append("请求轨迹未能完整保存，请检查结果目录权限。")
                     batch.summaries -= 1
                     self.condition.notify_all()
-                self._finished(batch, item)
+                if item["status"] in TERMINAL:
+                    self._finished(batch, item)
+                else:
+                    self._publish(batch)
 
     def _generate(self, batch, item):
         self._check_cancel(batch)
@@ -541,19 +601,27 @@ class BatchProcessingQueue:
         self._update(batch, item, output_dir=str(target))
         modes = {mode: mode != "raw" and mode in item["modes"] for mode in MODES}
         def select_topics(result):
+            selection_key = (item["index"], json.dumps(dict(topics=result.get("topics"),
+                memories=result.get("memory_items"),
+                source=result.get("conversation", {}).get("source_fingerprint")), ensure_ascii=True, sort_keys=True))
+            if batch.scheduler and selection_key in batch.selections:
+                return batch.selections[selection_key]
             started = time.perf_counter()
             if batch.scheduler:
                 self._update(batch, item, waiting_topics=True)
                 batch.scheduler.topic_wait(True)
             try:
-                return self.select_topics(batch.id, item["index"], result, batch.cancel)
+                selected = self.select_topics(batch.id, item["index"], result, batch.cancel)
+                if batch.scheduler:
+                    batch.selections[selection_key] = selected
+                return selected
             finally:
                 with self.condition:
                     item["topic_wait_seconds"] += time.perf_counter() - started
                 if batch.scheduler:
                     batch.scheduler.topic_wait(False)
                     self._update(batch, item, waiting_topics=False)
-        with (target / "summary.log").open("w", encoding="utf-8") as stream:
+        with (target / "summary.log").open("a" if batch.scheduler else "w", encoding="utf-8") as stream:
             def progress(message):
                 self._check_cancel(batch)
                 from scripts.gemini_summarizer import GeminiSummaryError, safe_error_message
@@ -595,5 +663,7 @@ class BatchProcessingQueue:
         elif isinstance(error, PermissionError):
             error = GeminiSummaryError("无法读取文件或写入结果目录，请检查访问权限。")
         elif isinstance(error, ValueError):
+            error = GeminiSummaryError(str(error))
+        elif isinstance(error, SummaryBudgetExceeded):
             error = GeminiSummaryError(str(error))
         return safe_error_message(error, tuple(batch.api_keys.values()) if batch else ())
