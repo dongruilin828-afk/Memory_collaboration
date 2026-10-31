@@ -591,6 +591,7 @@ async def _drain_response_tasks(tasks: set[asyncio.Task]) -> None:
 
 
 def _gemini_target_is_current(page: Any, target: str) -> bool:
+    target = vars(page).get('_aimemory_gemini_targets', {}).get(target, target)
     current, requested = urlparse(page.url), urlparse(target)
     if current.hostname not in GEMINI_HOSTS or requested.hostname not in GEMINI_HOSTS:
         return False
@@ -602,9 +603,17 @@ def _gemini_target_is_current(page: Any, target: str) -> bool:
 
 
 async def _gemini_verification_pending(page: Any) -> bool:
-    current = urlparse(page.url)
-    if current.hostname == 'accounts.google.com' or current.path.startswith('/sorry'):
+    if urlparse(page.url).hostname == 'accounts.google.com':
         return True
+    return await _page_has_human_verification(page)
+
+
+async def _page_has_human_verification(page: Any) -> bool:
+    current = urlparse(getattr(page, 'url', ''))
+    if current.path.startswith('/sorry'):
+        return True
+    if current.hostname not in {*GEMINI_HOSTS, 'accounts.google.com', 'www.google.com'}:
+        return False
     challenges = page.locator(
         "iframe[src*='/recaptcha/'][src*='/bframe'], "
         "iframe[src*='/recaptcha/'][src*='/anchor']:not([src*='size=invisible']), "
@@ -616,26 +625,74 @@ async def _gemini_verification_pending(page: Any) -> bool:
     return False
 
 
-async def _ensure_gemini_conversation_access(page, target, confirm, *, ready=None, logger=None):
-    """Keep the human-verified document; re-prompt at most three times."""
-    check = ready or (lambda: _page_has_conversation_content(page, target))
-    for attempt in range(3):
-        if attempt and logger:
-            logger(f"Gemini 目标会话仍未就绪，可能仍需真人验证；请在当前窗口完成验证后继续（{attempt + 1}/3）。")
-        if not await confirm():
-            return False
-        await page.wait_for_timeout(1200)
-        if not await _gemini_verification_pending(page):
-            # A successful CAPTCHA often already restored the exact conversation.
-            # Reloading it here can trigger another challenge.
-            if not _gemini_target_is_current(page, target):
-                await goto_with_retry_gui(page, target, logger=logger)
-            if (not await _gemini_verification_pending(page)
-                    and _gemini_target_is_current(page, target) and await check()):
+async def _gemini_shows_login(page):
+    """Positive sign-in evidence; an empty private conversation is insufficient."""
+    if urlparse(page.url).hostname == 'accounts.google.com':
+        return True
+    for role in ('button', 'link'):
+        choices = page.get_by_role(role, name=re.compile(
+            r'^(?:登录|登入|登录\/注册|Log in|Sign in)$', re.I))
+        for index in range(await choices.count()):
+            if await choices.nth(index).is_visible():
                 return True
-    if logger:
-        logger("Gemini 经三次确认仍未显示目标会话，保留未完成验证/无访问权限状态。")
     return False
+
+
+async def _ensure_gemini_conversation_access(page, target, confirm, *, ready=None, logger=None, force=False):
+    """Prompt only for an actual challenge/sign-in; recover missing DOM once."""
+    check = ready or (lambda: _page_has_conversation_content(page, target))
+    prompts, waited, reloaded = 0, False, False
+    while True:
+        verification = await _page_has_human_verification(page)
+        checked = False
+        if not force and not verification and _gemini_target_is_current(page, target):
+            if await check():
+                return True
+            checked = True
+            verification = await _page_has_human_verification(page)
+        login = not verification and await _gemini_shows_login(page)
+        if force or verification or login:
+            page._aimemory_login_reason = 'verification' if verification else 'login'
+            if prompts >= 3:
+                if logger:
+                    logger("Gemini 的验证或登录控件仍可见，已达到三次人工确认上限。")
+                return False
+            prompts += 1
+            force = False
+            if not await confirm():
+                return False
+            await page.wait_for_timeout(1200)
+            continue
+
+        if not _gemini_target_is_current(page, target):
+            await goto_with_retry_gui(page, target, logger=logger)
+            checked = False
+            if await _gemini_verification_pending(page) or await _gemini_shows_login(page):
+                continue
+            if not _gemini_target_is_current(page, target):
+                break
+        if not checked and await check():
+            return True
+        # The page may have changed during the bounded content wait.
+        if await _gemini_verification_pending(page) or await _gemini_shows_login(page):
+            continue
+        if not waited:
+            waited = True
+            if logger:
+                logger("Gemini 未显示验证或登录控件，正在自动等待会话正文，不请求重新登录。")
+            await page.wait_for_timeout(1500)
+            continue
+        if not reloaded:
+            reloaded = True
+            if logger:
+                logger("Gemini 正文仍未挂载，使用现有登录态重载目标一次。")
+            await goto_with_retry_gui(page, target, logger=logger)
+            continue
+        break
+    page._aimemory_login_reason = 'loading'
+    if logger:
+        logger("Gemini 自动等待和有限恢复后仍无正文；未发现需要登录的证据，停止此项并保留登录态。")
+    raise RuntimeError("Gemini 会话正文未就绪；请稍后重试或核对当前账号对目标会话的访问权限。")
 
 
 async def _page_has_conversation_content(page: Any, page_url: str) -> bool:
@@ -788,7 +845,7 @@ async def _page_requires_login(page, target):
     if urlparse(target).hostname in GEMINI_HOSTS and await _gemini_verification_pending(page):
         return True
     for role in ('button', 'link'):
-        choices = page.get_by_role(role, name=re.compile(r'^(?:登录|登入|登录/注册|Log in|Sign in)$', re.I))
+        choices = page.get_by_role(role, name=re.compile(r'^(?:登录|登入|登录\/注册|Log in|Sign in)$', re.I))
         for index in range(await choices.count()):
             if await choices.nth(index).is_visible():
                 return True
@@ -1238,18 +1295,35 @@ def gui_summary_attempt_configs(
 
 async def goto_with_retry_gui(page, url: str, attempts: int = 3, logger: Optional[Callable[[str], None]] = None):
     target_host = urlparse(url).netloc.lower().split(":", 1)[0]
-    if target_host in {"chatgpt.com", "chat.openai.com"}:
-        await page.goto("about:blank", wait_until="commit", timeout=10000)
-    for attempt in range(1, attempts + 1):
-        try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    # Use the existing reentrant batch lease: new Gemini navigations wait while
+    # a human is verifying another tab instead of adding traffic mid-challenge.
+    async with (active_rendering(page) if target_host in GEMINI_HOSTS else nullcontext()):
+        if target_host in {"chatgpt.com", "chat.openai.com"}:
+            await page.goto("about:blank", wait_until="commit", timeout=10000)
+        for attempt in range(1, attempts + 1):
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            except Exception as e:
+                if attempt >= attempts:
+                    raise
+                if logger:
+                    logger(f"页面加载超时，正在进行第 {attempt + 1}/{attempts} 次尝试...")
+                await page.wait_for_timeout(2000 * attempt)
+                continue
+            if target_host in GEMINI_HOSTS:
+                current = urlparse(page.url)
+                if current.hostname in GEMINI_HOSTS and current.path.rstrip('/') == '/unavailable':
+                    if attempt == attempts:
+                        raise RuntimeError("Gemini 暂不可用（休整中），有界重试后仍无法读取；请稍后重试。")
+                    if logger:
+                        logger(f"Gemini 休整中，稍后重试原链接（{attempt + 1}/{attempts}），无需重新登录。")
+                    await page.wait_for_timeout(2000 * attempt)
+                    continue
+                if (target_host == 'share.gemini.google' and current.hostname == 'gemini.google.com'
+                        and current.path.startswith('/share/')):
+                    # Short IDs and canonical share IDs differ; bind only the actual redirect.
+                    vars(page).setdefault('_aimemory_gemini_targets', {})[url] = page.url
             return
-        except Exception as e:
-            if attempt >= attempts:
-                raise
-            if logger:
-                logger(f"页面加载超时，正在进行第 {attempt + 1}/{attempts} 次尝试...")
-            await page.wait_for_timeout(2000 * attempt)
 
 
 async def _rehydrate_chatgpt_conversation(
@@ -5358,6 +5432,8 @@ async def fetch_chat_pipeline(
     *,
     shared_page: Any = None,
     authorize_login: Optional[Callable[..., Any]] = None,
+    verification_required_callback: Optional[Callable[[], None]] = None,
+    verification_confirmation_callback: Optional[Callable[[], bool]] = None,
 ) -> FetchResult:
     """抓取单条链接；批量调用可借用专属页面，浏览器仍由批次拥有。"""
     if shared_page is not None and need_login:
@@ -5396,16 +5472,32 @@ async def fetch_chat_pipeline(
     completed_result: Optional[FetchResult] = None
     user_wait_seconds = 0.0
 
+    async def confirm_interactive(page):
+        verification = await _page_has_human_verification(page)
+        if (urlparse(url).hostname in GEMINI_HOSTS and not verification
+                and not await _gemini_shows_login(page)):
+            # Permit bounded automatic recovery without a login confirmation.
+            return True
+        confirmation = (verification_confirmation_callback if verification and verification_confirmation_callback
+                        else login_confirmation_callback)
+        return confirmation is not None and confirmation()
+
     async def request_user_login(_page, _target):
         nonlocal user_wait_seconds, allow_interactive_login
-        if login_ready_event is None or login_required_callback is None:
+        reason = getattr(_page, '_aimemory_login_reason', '')
+        verification = reason == 'verification' if reason in {'verification', 'login'} else await _page_has_human_verification(_page)
+        callback = (verification_required_callback if verification and verification_required_callback
+                    else login_required_callback)
+        if login_ready_event is None or callback is None:
             return False
         if not allow_interactive_login:
-            if login_confirmation_callback is not None and not login_confirmation_callback():
+            if not await confirm_interactive(_page):
                 return False
             allow_interactive_login = True
         login_ready_event.clear()
-        login_required_callback()
+        if logger:
+            logger(f"[{time.strftime('%H:%M:%S')}] 人工确认开始：{'真人验证' if verification else '账号登录/切换'}。")
+        callback()
         started = time.perf_counter()
         try:
             await login_ready_event.wait()
@@ -5422,7 +5514,7 @@ async def fetch_chat_pipeline(
         from gui.batch_login import BatchLoginCoordinator
         coordinator = BatchLoginCoordinator([page], request_user_login)
         return await coordinator.authorize(
-            page, target, ready or (lambda: _page_has_conversation_content(page, target)), force=force,
+            page, target, ready or (lambda: _page_has_conversation_content(page, target)), force=force, logger=logger,
         )
 
     async def doubao_access_ready(page, target):
@@ -5441,9 +5533,12 @@ async def fetch_chat_pipeline(
         started = time.perf_counter()
         try:
             check = ready or (lambda: _page_has_conversation_content(shared_page, target))
+            if logger:
+                logger(f"[{time.strftime('%H:%M:%S')}] {'当前对话' if target == url else '原始附件会话'}授权检查开始，先复用已保存状态。")
             confirmed = await authorize_login(shared_page, target, check, force=force)
             if not confirmed:
-                raise RuntimeError("登录授权未完成或目标链接不可访问，已停止此项抓取。")
+                reason = '真人验证' if getattr(shared_page, '_aimemory_login_reason', '') == 'verification' else '登录授权'
+                raise RuntimeError(f"{reason}未完成或目标链接不可访问，已停止此项抓取。")
             return True
         finally:
             user_wait_seconds += time.perf_counter() - started
@@ -5788,8 +5883,7 @@ async def fetch_chat_pipeline(
                                     raise RuntimeError("公开会话仍未加载，未发现需要登录的证据；请检查链接或网络后重试。")
                                 if not allow_interactive_login:
                                     if (
-                                        login_confirmation_callback is None
-                                        or not login_confirmation_callback()
+                                        not await confirm_interactive(page)
                                     ):
                                         raise RuntimeError(
                                             "当前页面需要授权登录；已取消打开登录浏览器。"
@@ -5800,8 +5894,7 @@ async def fetch_chat_pipeline(
                         elif not need_login:
                             if not allow_interactive_login:
                                 if (
-                                    login_confirmation_callback is None
-                                    or not login_confirmation_callback()
+                                    not await confirm_interactive(page)
                                 ):
                                     raise RuntimeError(
                                         "当前页面需要授权登录；已取消打开登录浏览器。"
@@ -7405,6 +7498,8 @@ def generate_output_bundle(
                     api_key=user_api_keys[getattr(candidate_config, "api_profile_id", "") or candidate_config.provider],
                     **gateway_options,
                 )
+        if request_scheduler is not None:
+            request_scheduler.use(candidate_config, candidate_gateway._api_key)
         progress(
             f"正在调用 {candidate_config.provider}/{candidate_config.model} "
             "生成结构化分层总结..."

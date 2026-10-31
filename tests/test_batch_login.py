@@ -55,6 +55,9 @@ class Page:
     def locator(self, _selector):
         return SimpleNamespace(count=AsyncMock(return_value=0))
 
+    def get_by_role(self, *_args, **_options):
+        return SimpleNamespace(count=AsyncMock(return_value=0))
+
     async def set_viewport_size(self, viewport):
         self.viewport_size = dict(viewport)
         self.viewports.append(dict(viewport))

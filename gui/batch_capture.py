@@ -265,13 +265,15 @@ async def capture_links(
                                 progress(record["index"], len(links), str(message))
 
                             try:
+                                async def authorize(page, url, ready, *, force=False):
+                                    return await login.authorize(page, url, ready, force=force, logger=report)
                                 result = await fetch_chat_pipeline(
                                     record["url"], shared_page=page, need_login=False,
                                     browser_profile_root=Path(browser_profile_root),
                                     image_output_dir=target / "images", image_reference_base=target,
                                     document_output_dir=target / "documents", document_reference_base=target,
                                     debug_html_file=target / "debug.html", logger=report,
-                                    **({"authorize_login": login.authorize} if authorize_login is not None else {}),
+                                    **({"authorize_login": authorize} if authorize_login is not None else {}),
                                 )
                                 payload = asdict(result)
                                 (target / "snapshot.html").write_text(payload.pop("html") or "", encoding="utf-8", newline="")

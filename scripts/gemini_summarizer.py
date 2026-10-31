@@ -805,6 +805,11 @@ def _request_slot(gateway, prompt, media_assets, schema):
             raise
 
 
+def _retry_allowed(gateway, started, delay):
+    scheduler = getattr(gateway, "_request_scheduler", None)
+    return scheduler is None or scheduler.retry_allowed(gateway.config, gateway._api_key, started, delay)
+
+
 class GeminiGateway:
     """Google Gen AI SDK 的窄接口，集中处理鉴权、重试和 JSON 输出。"""
 
@@ -918,6 +923,7 @@ class GeminiGateway:
                 generation_options["thinking_config"] = self._types.ThinkingConfig(**thinking)
 
         last_error: BaseException | None = None
+        retry_started = time.monotonic()
         for attempt in range(1, self.config.retries + 1):
             check_cancelled(self._cancel_event)
             try:
@@ -959,6 +965,8 @@ class GeminiGateway:
                         )
                     else:
                         wait_seconds = min(2 ** (attempt - 1), 8)
+                    if not _retry_allowed(self, retry_started, wait_seconds):
+                        break
                     wait_with_cancel(wait_seconds, self._cancel_event, self._sleep)
 
         if _is_timeout_error(last_error):
@@ -1206,6 +1214,7 @@ class SiliconFlowGateway:
             payload['enable_thinking'] = False
             payload.pop('thinking_budget', None)
         last_error: BaseException | None = None
+        retry_started = time.monotonic()
         for attempt in range(1, self.config.retries + 1):
             check_cancelled(self._cancel_event)
             try:
@@ -1286,6 +1295,8 @@ class SiliconFlowGateway:
                     and _is_rate_limit_error(last_error)
                     else min(2 ** (attempt - 1), 8)
                 )
+                if not _retry_allowed(self, retry_started, wait_seconds):
+                    break
                 wait_with_cancel(wait_seconds, self._cancel_event, self._sleep)
 
         if _is_timeout_error(last_error):

@@ -614,12 +614,13 @@ class BatchQueueCardTests(_TkTests):
         board.pack(fill=tk.BOTH, expand=True)
         view = batch_view("auto", "running")
         view.update(kind="files", requested_concurrency=None, concurrency=4, summaries=2,
-                    auto_status={"reason":"接口限流，降低容量并按服务端提示冷却"})
+                    auto_status={"reason":"接口正常运行", "last_adjustment":"接口限流，降低容量并按服务端提示冷却"})
         board.set_batches([view])
         self.root.update()
         self.assertIn("2 项处理中", board.cards["auto"]["preview_text"])
         self.assertIn("上限 4", board.cards["auto"]["preview_text"])
-        self.assertIn("接口限流", board.cards["auto"]["tooltip"]._text)
+        self.assertIn("接口正常运行", board.cards["auto"]["tooltip"]._text)
+        self.assertIn("上次调整：接口限流", board.cards["auto"]["tooltip"]._text)
 
     def test_drag_previews_follow_pointer_and_mark_target_before_committing(self):
         move = Mock()

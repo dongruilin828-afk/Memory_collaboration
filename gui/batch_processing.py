@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 import json
@@ -151,7 +152,8 @@ class BatchProcessingQueue:
                 self.condition.notify_all()
             self._publish(batch, progress=True)
         batch.scheduler = AdaptiveSummaryScheduler(on_change=changed,
-            has_pending=lambda: any(item["status"] == "queued" for item in batch.items))
+            has_pending=lambda: any(item["status"] == "queued" for item in batch.items),
+            trace_path=batch.output_dir / "request_trace.jsonl")
         for config in gui_summary_attempt_configs(SummaryConfig.from_env(), batch.api_keys, batch.custom_api or None):
             profile = config.api_profile_id or config.provider
             batch.scheduler.register(profile, config, batch.api_keys[profile])
@@ -496,7 +498,8 @@ class BatchProcessingQueue:
             started = time.perf_counter()
             try:
                 self._publish()
-                saved = self._generate(batch, item)
+                with batch.scheduler.file(item["index"], batch.assignments[item["index"]]) if batch.scheduler else nullcontext():
+                    saved = self._generate(batch, item)
                 self._update(batch, item, status="completed", message="已完成", saved_files=item["saved_files"] + saved)
             except asyncio.CancelledError:
                 self._update(batch, item, status="cancelled", message="已停止")
@@ -509,14 +512,13 @@ class BatchProcessingQueue:
                     item["generation_seconds"] = max(0, seconds - item["topic_wait_seconds"])
                     item["wait_seconds"] = item["capture_wait_seconds"] + item["topic_wait_seconds"]
                     item["elapsed_seconds"] = item["fetch_seconds"] + seconds
-                try:
-                    self._finished(batch, item)
-                finally:
-                    with self.condition:
-                        if batch.scheduler is not None:
-                            batch.scheduler.release(batch.assignments.pop(item["index"]))
-                        batch.summaries -= 1
-                        self.condition.notify_all()
+                    if batch.scheduler is not None:
+                        batch.scheduler.release(batch.assignments.pop(item["index"]))
+                        if batch.scheduler.trace_error:
+                            item["warnings"].append("请求轨迹未能完整保存，请检查结果目录权限。")
+                    batch.summaries -= 1
+                    self.condition.notify_all()
+                self._finished(batch, item)
 
     def _generate(self, batch, item):
         self._check_cancel(batch)
@@ -542,12 +544,14 @@ class BatchProcessingQueue:
             started = time.perf_counter()
             if batch.scheduler:
                 self._update(batch, item, waiting_topics=True)
+                batch.scheduler.topic_wait(True)
             try:
                 return self.select_topics(batch.id, item["index"], result, batch.cancel)
             finally:
                 with self.condition:
                     item["topic_wait_seconds"] += time.perf_counter() - started
                 if batch.scheduler:
+                    batch.scheduler.topic_wait(False)
                     self._update(batch, item, waiting_topics=False)
         with (target / "summary.log").open("w", encoding="utf-8") as stream:
             def progress(message):

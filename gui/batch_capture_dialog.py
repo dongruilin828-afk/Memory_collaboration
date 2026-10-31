@@ -89,8 +89,8 @@ class BatchCaptureDialog(tk.Toplevel):
     def show_progress(self, text):
         self.status.configure(text=text, fg=COLOR_TEXT_MUTED)
 
-    def request_login(self, url, on_done):
-        return request_batch_login(self, url, on_done, self.on_stop)
+    def request_login(self, url, on_done, *, verification=False):
+        return request_batch_login(self, url, on_done, self.on_stop, verification=verification)
 
     def finish(self, text):
         self.running = False
@@ -115,17 +115,19 @@ class BatchCaptureDialog(tk.Toplevel):
             self.on_stop()
 
 
-def request_batch_login(parent, url, on_done, on_stop, *, stop_label="停止全部"):
+def request_batch_login(parent, url, on_done, on_stop, *, stop_label="停止全部", verification=False):
     previous_grab = parent.grab_current()
     login = tk.Toplevel(parent)
-    login.title("批量处理：需要登录授权")
+    login.title("批量处理：需要真人验证" if verification else "批量处理：需要登录授权")
     login.configure(bg=COLOR_BG_APP)
     login.transient(parent)
     bind_visible_modal(login)
     content = tk.Frame(login, bg=COLOR_BG_APP, padx=24, pady=20)
     content.pack(fill=tk.BOTH, expand=True)
     text = tk.Label(content, text=(
-        "浏览器已定位到需要授权的页面。\n请登录或切换账号；如有真人验证，请完成验证，确认目标会话已显示后继续。\n"
+        ("网站要求确认真人访问。\n请在当前浏览器页面完成验证，确认目标会话已显示后继续；无需退出账号重新登录。\n"
+         if verification else
+         "浏览器已定位到需要授权的页面。\n请登录或切换账号，确认目标会话已显示后继续。\n") +
         "请勿关闭共享浏览器；也可以跳过此项或停止此批次。\n\n" + url
     ), font=FONT_BODY, bg=COLOR_BG_APP, fg=COLOR_TEXT_PRIMARY,
        justify="left", anchor="w", wraplength=560)
@@ -139,7 +141,7 @@ def request_batch_login(parent, url, on_done, on_stop, *, stop_label="停止全�
         if previous_grab is not None and previous_grab.winfo_exists() and previous_grab.winfo_viewable():
             previous_grab.grab_set()
 
-    tk.Button(buttons, text="已完成授权，继续", font=FONT_BODY,
+    tk.Button(buttons, text="已完成验证，继续" if verification else "已完成授权，继续", font=FONT_BODY,
               command=lambda: finish(True), padx=12, pady=8).pack(side=tk.RIGHT)
     tk.Button(buttons, text="跳过此项", font=FONT_BODY,
               command=lambda: finish(False), padx=12, pady=8).pack(side=tk.RIGHT, padx=8)

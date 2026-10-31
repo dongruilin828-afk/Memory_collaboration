@@ -2,6 +2,7 @@
 
 import tempfile
 import asyncio
+import gc
 import threading
 import tkinter as tk
 import unittest
@@ -15,6 +16,11 @@ from gui.settings_store import AppSettings
 
 
 class BatchDialogTests(unittest.TestCase):
+    def tearDown(self):
+        # Tk cycles must be reclaimed on the UI thread before a later test
+        # starts queue workers; their garbage collection can otherwise abort Tcl.
+        gc.collect()
+
     def test_login_reply_from_ui_thread_wakes_worker_without_blocking_loop(self):
         app = object.__new__(AIMemoryGUI)
         ui = []
@@ -58,6 +64,24 @@ class BatchDialogTests(unittest.TestCase):
                     else:
                         self.assertEqual(reply.call_args.args, (accepted,))
                 dialog.destroy()
+        finally:
+            root.destroy()
+
+    def test_human_verification_has_own_title_instructions_and_continue_action(self):
+        root = tk.Tk()
+        root.attributes('-alpha', 0.0)
+        try:
+            dialog = BatchCaptureDialog(root, on_start=Mock(), on_stop=Mock())
+            reply = Mock()
+            login = dialog.request_login('https://gemini.google.com/app/test', reply, verification=True)
+            login.update()
+            self.assertIn('真人验证', login.title())
+            content = login.winfo_children()[0]
+            self.assertIn('无需退出账号重新登录', content.winfo_children()[0].cget('text'))
+            buttons = content.winfo_children()[1].winfo_children()
+            next(button for button in buttons if button.cget('text') == '已完成验证，继续').invoke()
+            reply.assert_called_once_with(True)
+            dialog.destroy()
         finally:
             root.destroy()
 

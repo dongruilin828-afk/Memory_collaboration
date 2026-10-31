@@ -109,6 +109,8 @@ class AdaptiveTests(unittest.TestCase):
         self.assertEqual(self.scheduler.capacity(), 4)
         self.failure(503)
         self.clock.advance(3)
+        self.assertEqual(self.scheduler.capacity(), 1)  # One recovery request first.
+        self.success(1)
         self.assertEqual(self.scheduler.capacity(), 2)
 
     def test_large_or_different_model_request_is_not_compared_to_small_request(self):
@@ -117,7 +119,7 @@ class AdaptiveTests(unittest.TestCase):
         with self.scheduler.request(self.config, "fixture-secret", "large" * 5000):
             self.clock.advance(90)
         self.assertEqual(self.scheduler.capacity(), 2)
-        self.assertEqual(self.scheduler.pools[self.key].stable, 1)
+        self.assertEqual(self.scheduler.pools[self.key].stable, 3)
 
     def test_no_growth_when_queue_has_no_pending_files(self):
         self.scheduler.has_pending = lambda: False
@@ -191,7 +193,7 @@ class AdaptiveTests(unittest.TestCase):
             with self.assertRaises(summary.SummaryRequestTimeoutError):
                 gateway.generate_json("test",{})
         self.clock.advance(3)
-        self.assertEqual(self.scheduler.capacity(),2)
+        self.assertEqual(self.scheduler.capacity(),1)
         self.assertEqual(self.scheduler.snapshot()["active_requests"],0)
 
     def test_worker_survives_candidate_disappearing_between_wait_and_claim(self):
@@ -318,8 +320,15 @@ class AdaptiveTests(unittest.TestCase):
             return {"processing":{}}
         with tempfile.TemporaryDirectory() as temporary, patch.object(summary.SummaryConfig,"from_env",return_value=self.config), \
                 patch.object(summary,"urlopen",side_effect=http), patch.object(summary,"summarize_conversation",side_effect=summarize):
-            generate_output_bundle([dict(role="User",content="fixture")], {"normal":True}, Path(temporary),
-                api_keys={"deepseek":"first", "siliconflow":"second"}, request_scheduler=scheduler)
+            scheduler.register("deepseek", self.config, "first")
+            reservation = scheduler.reserve(["deepseek"], 3)
+            with scheduler.file(11, reservation):
+                generate_output_bundle([dict(role="User",content="fixture")], {"normal":True}, Path(temporary),
+                    api_keys={"deepseek":"first", "siliconflow":"second"}, request_scheduler=scheduler)
+            self.assertEqual(reservation[0], "siliconflow")
+            self.assertEqual([p.assigned for p in scheduler.pools.values()], [0, 3])
+            scheduler.release(reservation)
+            self.assertTrue(all(p.assigned == 0 for p in scheduler.pools.values()))
         self.assertEqual(len(calls), 2)
         self.assertEqual(scheduler.snapshot()["disabled"], 1)
         self.assertEqual(scheduler.snapshot()["active_requests"], 0)
@@ -355,6 +364,174 @@ class AdaptiveTests(unittest.TestCase):
                 self.assertEqual(queue.snapshot()[0]["failed"],0)
             finally:
                 release.set()
+                queue.close()
+                self.assertTrue(queue.wait(3))
+
+    def test_two_successes_explore_capacity_but_failures_end_warmup(self):
+        self.success(1)
+        self.assertEqual(self.scheduler.capacity(), 1)
+        self.success(1)
+        self.assertEqual(self.scheduler.capacity(), 2)
+        self.setUp()
+        self.failure(422)
+        self.success(2)
+        self.assertEqual(self.scheduler.capacity(), 1)
+        self.success(2)
+        self.assertEqual(self.scheduler.capacity(), 2)
+
+    def test_progressive_cooldown_then_one_real_recovery_request(self):
+        self.success(12)
+        for code, delay in ((503, 0), (503, 2), (503, 4), (503, 8), (503, 16), (503, 32), (503, 60), (503, 60)):
+            self.failure(code)
+            pool = self.scheduler.pools[self.key]
+            self.assertEqual(max(0, pool.cooldown-self.clock()), delay)
+        self.clock.advance(61)
+        self.assertEqual(self.scheduler.capacity(), 1)
+        self.assertEqual(self.scheduler.snapshot()["recovering"], 1)
+        self.success(1)
+        self.assertEqual(self.scheduler.snapshot()["recovering"], 0)
+        self.assertEqual(self.scheduler.pools[self.key].faults, 0)
+
+    def test_inflight_success_cannot_undo_newer_failures(self):
+        self.success(12)
+        with self.scheduler.request(self.config, "fixture-secret", "old request"):
+            self.failure(503)
+            self.failure(503)
+        pool = self.scheduler.pools[self.key]
+        self.assertTrue(pool.recovering)
+        self.assertEqual(pool.faults, 2)
+        self.assertEqual(pool.stable, 0)
+
+    def test_recovery_only_admits_one_request_and_wait_can_be_cancelled(self):
+        self.failure(503)
+        self.failure(503)
+        self.clock.advance(3)
+        cancel, waiting = threading.Event(), threading.Event()
+        outcomes = []
+        def second():
+            waiting.set()
+            try:
+                with self.scheduler.request(self.config, "fixture-secret", "test", cancel):
+                    outcomes.append("unexpected request")
+            except asyncio.CancelledError:
+                outcomes.append("cancelled")
+        with self.scheduler.request(self.config, "fixture-secret", "recovery"):
+            worker = threading.Thread(target=second)
+            worker.start()
+            self.assertTrue(waiting.wait(1))
+            cancel.set()
+            worker.join(2)
+            self.assertFalse(worker.is_alive())
+        self.assertEqual(outcomes, ["cancelled"])
+        self.assertEqual(self.scheduler.snapshot()["active_requests"], 0)
+
+    def test_fallback_moves_reservation_but_media_request_does_not(self):
+        other = summary.replace(self.config, provider="siliconflow")
+        other_key, _ = self.scheduler.register("siliconflow", other, "second-secret")
+        reservation = self.scheduler.reserve(["deepseek"], 4)
+        with self.scheduler.file(7, reservation):
+            with self.scheduler.request(other, "second-secret", "media", media_assets=[object()]):
+                self.clock.advance()
+            self.assertEqual(self.scheduler.pools[self.key].assigned, 4)
+            self.scheduler.use(other, "second-secret")
+            self.assertEqual(reservation[0], "siliconflow")
+            self.assertEqual(self.scheduler.pools[self.key].assigned, 0)
+            self.assertEqual(self.scheduler.pools[other_key].assigned, 4)
+            self.scheduler.use(other, "second-secret")
+            self.assertEqual(self.scheduler.pools[other_key].assigned, 4)
+        self.scheduler.release(reservation)
+        self.assertEqual(self.scheduler.pools[other_key].assigned, 0)
+        self.assertFalse(hasattr(self.scheduler.context, "file"))
+
+    def test_trace_pairs_requests_with_files_and_hides_sensitive_data(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary)/"request_trace.jsonl"
+            self.scheduler.trace_path = path
+            reservation = self.scheduler.reserve(["deepseek"])
+            with self.scheduler.file(3, reservation):
+                with self.scheduler.request(self.config, "fixture-secret", "private conversation", request_kind=("memory_items",)):
+                    self.clock.advance(.125)
+            self.scheduler.release(reservation)
+            text = path.read_text(encoding="utf-8")
+            for secret in ("fixture-secret", "private conversation", "https://", hashlib.sha256(b"fixture-secret").hexdigest()):
+                self.assertNotIn(secret, text)
+            events = [json.loads(line) for line in text.splitlines()]
+            self.assertEqual([event["event"] for event in events], ["file_start", "request_start", "request_end", "file_end"])
+            self.assertEqual({event["file"] for event in events}, {3})
+            self.assertEqual(events[1]["request"], events[2]["request"])
+            self.assertEqual(events[2]["seconds"], .125)
+            self.assertEqual(events[2]["active_requests"], 0)
+            self.assertEqual(self.scheduler.snapshot()["peak_requests"], 1)
+
+    def test_trace_write_failure_preserves_request_and_exposes_warning(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            self.scheduler.trace_path = Path(temporary)  # Opening a directory as a file fails.
+            self.success(1)
+            self.assertTrue(self.scheduler.snapshot()["trace_error"])
+            self.assertEqual(self.scheduler.snapshot()["active_requests"], 0)
+
+    def test_admission_timeout_does_not_bypass_retry_after(self):
+        self.failure(429, {"Retry-After":"600"})
+        with patch.object(self.scheduler.condition, "wait", side_effect=lambda *_: self.clock.advance(61)):
+            with self.assertRaises(APIUnavailable), self.scheduler.request(self.config, "fixture-secret", "test"):
+                self.fail("request sent during Retry-After")
+        self.assertEqual(self.scheduler.snapshot()["active_requests"], 0)
+        self.assertEqual(self.scheduler.snapshot()["cooling"], 1)
+
+    def test_gateway_stops_after_repeated_transport_failure_only_in_auto_mode(self):
+        for automatic, expected in ((True, 2), (False, 5)):
+            with self.subTest(automatic=automatic):
+                self.setUp()
+                config = summary.replace(self.config, retries=5)
+                gateway = summary.SiliconFlowGateway(config, api_key="fixture-secret", sleep=lambda _: self.clock.advance(100),
+                    request_scheduler=self.scheduler if automatic else None)
+                with patch.object(summary, "urlopen", side_effect=OSError("transport")) as http:
+                    with self.assertRaises(summary.GeminiSummaryError):
+                        gateway.generate_json("test", {})
+                self.assertEqual(http.call_count, expected)
+
+    def test_cumulative_retry_budget_avoids_another_full_timeout(self):
+        gateway = summary.SiliconFlowGateway(self.config, api_key="fixture-secret", sleep=lambda _: None,
+            request_scheduler=self.scheduler)
+        started = time.monotonic()
+        with patch.object(summary, "urlopen", side_effect=TimeoutError("fixture")) as http, \
+                patch("scripts.adaptive_concurrency.time.monotonic", side_effect=[started, started+181]):
+            with self.assertRaises(summary.SummaryRequestTimeoutError):
+                gateway.generate_json("test", {})
+        self.assertEqual(http.call_count, 1)
+
+    def test_google_auto_stops_repeated_service_failures(self):
+        config = summary.replace(self.config, provider="gemini", retries=5)
+        error = RuntimeError("fixture")
+        error.code = 503
+        with patch("google.genai.Client") as client:
+            client.return_value.models.generate_content.side_effect = error
+            gateway = summary.GeminiGateway(config, api_key="google-fixture", request_scheduler=self.scheduler,
+                sleep=lambda _: self.clock.advance(100))
+            with self.assertRaises(summary.GeminiSummaryError):
+                gateway.generate_json("test", {})
+            self.assertEqual(client.return_value.models.generate_content.call_count, 2)
+            self.assertEqual(self.scheduler.snapshot()["active_requests"], 0)
+
+    def test_final_batch_state_records_zero_active_jobs_and_released_load(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root/"input.txt"
+            source.write_text("fixture", encoding="utf-8")
+            finished = threading.Event()
+            queue = BatchProcessingQueue(on_item_done=lambda *_: finished.set())
+            try:
+                with patch("gui.batch_processing.generate_output_bundle", return_value=SimpleNamespace(saved_files=[], summary_result=None)):
+                    queue.add(BatchPlan("files", (ItemPlan(str(source), ("normal",)),)),
+                        output_parent=root, runtime_dir=root, api_keys={"deepseek":"key"})
+                    self.assertTrue(finished.wait(3))
+                    view = queue.snapshot()[0]
+                    saved = json.loads((Path(view["output_dir"])/"batch_state.json").read_text(encoding="utf-8"))
+                self.assertEqual(saved["summaries"], 0)
+                self.assertEqual(saved["auto_status"]["active_requests"], 0)
+                self.assertTrue(all(pool["assigned"] == 0 for pool in saved["auto_status"]["pools"]))
+            finally:
                 queue.close()
                 self.assertTrue(queue.wait(3))
 

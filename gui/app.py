@@ -1062,10 +1062,11 @@ class AIMemoryGUI:
     async def _authorize_batch_login(self, batch_id, _page, url, cancel_event):
         from gui.batch_capture_dialog import request_batch_login
         abort = threading.Event()
+        verification = getattr(_page, '_aimemory_login_reason', '') == 'verification'
         try:
             return await asyncio.to_thread(self._wait_batch_prompt,
                 lambda done: request_batch_login(self.root, url, done,
-                    lambda: self._get_batch_queue().cancel(batch_id), stop_label="停止此批次"),
+                    lambda: self._get_batch_queue().cancel(batch_id), stop_label="停止此批次", verification=verification),
                 cancel_event, abort, False)
         finally:
             abort.set()
@@ -1165,7 +1166,8 @@ class AIMemoryGUI:
                     links, output, browser_profile_root=settings.browser_profile_dir,
                     concurrency=concurrency,
                     cancel_event=cancel_event, progress=progress, on_result=completed,
-                    authorize_login=lambda page, url: self._await_batch_login(dialog, url),
+                    authorize_login=lambda page, url: self._await_batch_login(dialog, url,
+                        verification=getattr(page, '_aimemory_login_reason', '') == 'verification'),
                 ))
                 success = sum(record["status"] == "completed" for record in records)
                 warnings = sum(bool(record["warnings"]) for record in records)
@@ -1182,7 +1184,7 @@ class AIMemoryGUI:
         threading.Thread(target=run, daemon=True).start()
         return True
 
-    async def _await_batch_login(self, batch_dialog, url):
+    async def _await_batch_login(self, batch_dialog, url, *, verification=False):
         loop = asyncio.get_running_loop()
         answered = loop.create_future()
         window = {"dialog": None}
@@ -1201,7 +1203,7 @@ class AIMemoryGUI:
 
         def show():
             if not answered.done() and batch_dialog.winfo_exists():
-                window["dialog"] = batch_dialog.request_login(url, reply)
+                window["dialog"] = batch_dialog.request_login(url, reply, verification=verification)
             elif not answered.done():
                 reply(False)
 
@@ -2348,7 +2350,7 @@ class AIMemoryGUI:
 
     # ---------------- 登录确认弹窗与原站链接补充弹窗 ----------------
 
-    def _confirm_login_required(self) -> bool:
+    def _confirm_login_required(self, *, verification=False) -> bool:
         """在打开浏览器前征求用户同意。"""
         answered = threading.Event()
         result = {"confirmed": False}
@@ -2356,9 +2358,11 @@ class AIMemoryGUI:
         def ask():
             try:
                 result["confirmed"] = messagebox.askyesno(
-                    "需要登录或切换账号",
-                    "当前登录状态无法读取目标会话。可能尚未登录、登录了其他账号，"
-                    "或当前账号无权访问。是否打开浏览器登录或切换账号？",
+                    "需要真人验证" if verification else "需要登录或切换账号",
+                    ("网站要求确认真人访问，是否打开浏览器完成验证？已有账号登录状态会保留。"
+                     if verification else
+                     "当前登录状态无法读取目标会话。可能尚未登录、登录了其他账号，"
+                     "或当前账号无权访问。是否打开浏览器登录或切换账号？"),
                     parent=self.root,
                 )
             finally:
@@ -2470,12 +2474,13 @@ class AIMemoryGUI:
 
     def _show_login_dialog(
         self, loop: asyncio.AbstractEventLoop, login_event: asyncio.Event,
+        *, verification=False,
     ):
         if getattr(self, "_batch_prompt_active", False) or getattr(self.root, "grab_current", lambda: None)() is not None:
-            self._post_generation_ui(lambda: self._show_login_dialog(loop, login_event), visible=True)
+            self._post_generation_ui(lambda: self._show_login_dialog(loop, login_event, verification=verification), visible=True)
             return
         dialog = tk.Toplevel(self.root)
-        dialog.title("授权登录确认")
+        dialog.title("真人验证确认" if verification else "授权登录确认")
         dialog.geometry("480x230")
         dialog.resizable(False, False)
         dialog.configure(bg=COLOR_TOPIC_DIALOG_BG)
@@ -2498,9 +2503,10 @@ class AIMemoryGUI:
         tk.Label(
             content,
             text=(
+                "请在当前浏览器页面完成真人验证，无需退出账号。确认目标会话内容已经显示后，再点击下方按钮继续生成。"
+                if verification else
                 "系统已为您打开浏览器窗口。\n"
-                "请登录或切换到有权访问目标会话的 AI 账号，确认目标会话内容"
-                "已经显示后，再点击下方按钮继续生成。"
+                "请登录或切换到有权访问目标会话的 AI 账号，确认目标会话内容已经显示后，再点击下方按钮继续生成。"
             ),
             font=FONT_BODY, fg=COLOR_TEXT_SECONDARY, bg=COLOR_BG_APP,
             justify=tk.LEFT, anchor="w", wraplength=420,
@@ -2874,6 +2880,12 @@ class AIMemoryGUI:
                         login_confirmation_callback=(
                             self._confirm_login_required
                         ),
+                        verification_required_callback=(
+                            lambda: self._post_generation_ui(
+                                lambda: self._show_login_dialog(loop, login_event, verification=True), visible=True,
+                            )
+                        ),
+                        verification_confirmation_callback=(lambda: self._confirm_login_required(verification=True)),
                         attachment_web_link_callback=(
                             self._request_attachment_web_link
                         ),

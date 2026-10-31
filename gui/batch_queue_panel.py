@@ -137,7 +137,9 @@ class BatchQueuePanel(tk.Frame):
         card["preview_text"] = f"{limit} 并发 · " + (f"第 {active['index']} 项 · {active['message']}" if active else
                                 Path(first).name if view["kind"] == "files" else first)
         card["tooltip"]._text = "\n".join([first] + ([active["message"]] if active else [])
-            + ([view["auto_status"]["reason"]] if view.get("auto_status") else []))
+            + ([view["auto_status"]["reason"]] if view.get("auto_status") else [])
+            + (["上次调整：" + view["auto_status"]["last_adjustment"]]
+               if (view.get("auto_status") or {}).get("last_adjustment") else []))
         card["progress"].set_progress(view["done"] / max(1, view["total"]))
         detail = f"{view['done']} / {view['total']}"
         if view["failed"]:

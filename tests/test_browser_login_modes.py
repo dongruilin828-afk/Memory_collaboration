@@ -96,7 +96,8 @@ class LoginModeTests(unittest.IsolatedAsyncioTestCase):
         coordinator = BatchLoginCoordinator(context.pages, callback)
         async def ready(page):
             return page.readable
-        with patch('gui.batch_login._set_browser_window_state', AsyncMock()):
+        with patch('gui.batch_login._set_browser_window_state', AsyncMock()), \
+             patch('gui.service._gemini_shows_login', AsyncMock(side_effect=lambda _page: not logged_in)):
             self.assertTrue(await coordinator.authorize(first, first.url, lambda: ready(first)))
             self.assertTrue(await coordinator.authorize(second, second.url, lambda: ready(second)))
         callback.assert_awaited_once()

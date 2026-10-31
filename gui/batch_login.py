@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from urllib.parse import urlparse
 
 from gui.browser_login import platform_login_key
@@ -25,7 +26,7 @@ class BatchLoginCoordinator:
         self._epochs = {}
         self._page_epochs = {}
 
-    async def authorize(self, page, url, ready, *, force=False):
+    async def authorize(self, page, url, ready, *, force=False, logger=None):
         """Confirm the exact target after human login, once per queued origin.
 
         OAuth may need an extra native login window: COOP can prevent named
@@ -37,8 +38,16 @@ class BatchLoginCoordinator:
         origin = platform_login_key(url)
         epoch = self._epochs.get(origin, 0)
         gemini = urlparse(url).hostname in GEMINI_HOSTS
+        def report(message):
+            if logger:
+                logger(f"[{time.strftime('%H:%M:%S')}] {message}")
         async with active_rendering(page, self._lock):
             refreshed_login = self._page_epochs.get((page, origin), 0) < self._epochs.get(origin, 0)
+            reuse_allowed = not force or self._epochs.get(origin, 0) != epoch
+            if gemini and reuse_allowed and _gemini_target_is_current(page, url) and await ready():
+                self._page_epochs[page, origin] = self._epochs.get(origin, 0)
+                report('当前目标已可读，直接复用，未刷新页面、未请求人工确认。')
+                return True
             # Tabs loaded before another worker logged in still show stale login
             # UI. Reload those once with the newly shared cookies, even Gemini.
             if not gemini or refreshed_login or (not _gemini_target_is_current(page, url)
@@ -46,6 +55,7 @@ class BatchLoginCoordinator:
                 await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             if (not force or self._epochs.get(origin, 0) != epoch) and await ready():
                 self._page_epochs[page, origin] = self._epochs.get(origin, 0)
+                report('已复用共享授权状态，目标可读，无需人工确认。')
                 return True
             if self.callback is None:
                 return False
@@ -55,6 +65,17 @@ class BatchLoginCoordinator:
             session = None
             script_id = None
             original_viewport = page.viewport_size
+            prompts = 0
+
+            async def prompt():
+                nonlocal prompts
+                prompts += 1
+                verification = gemini and getattr(page, '_aimemory_login_reason', '') == 'verification'
+                page._aimemory_login_reason = 'verification' if verification else 'login'
+                report(f"人工确认开始：{'真人验证' if verification else '账号登录/切换'}；本轮第 {prompts} 次提示。")
+                accepted = await self.callback(page, url)
+                report(f"人工确认返回：{'继续检查页面' if accepted else '跳过此项'}。")
+                return accepted
 
             def new_page(child):
                 opened.add(child)
@@ -75,8 +96,8 @@ class BatchLoginCoordinator:
                 await _set_browser_window_state(page, "maximized")
                 await page.bring_to_front()
                 accepted = (await _ensure_gemini_conversation_access(
-                    page, url, lambda: self.callback(page, url), ready=ready,
-                ) if gemini else await self.callback(page, url))
+                    page, url, prompt, ready=ready, logger=logger, force=force and not reuse_allowed,
+                ) if gemini else await prompt())
             finally:
                 async def cleanup():
                     try:
@@ -115,6 +136,7 @@ class BatchLoginCoordinator:
             if not gemini:
                 await page.goto(url, wait_until="domcontentloaded", timeout=45000)
             confirmed = accepted if gemini else bool(await ready())
+            report(f"授权恢复结束：{'目标已可读' if confirmed else '目标仍不可读'}；人工提示 {prompts} 次。")
             if confirmed:
                 self._epochs[origin] = self._epochs.get(origin, 0) + 1
                 self._page_epochs[page, origin] = self._epochs[origin]
